@@ -1,3 +1,32 @@
+## 2026-02-14 03:09 — P2-T6 | COMPLETE
+
+Phase 2 DoD verification passed: `npm run build`, `npm run typecheck`, `npm run lint`, and `npm test` all succeed.
+Validated live API call on `POST /api/v1/simulate` (server on port 3011) returning 120 monthly rows; Year 1 monthly withdrawal = `333333`, Year 2 monthly withdrawal = `343333`, and first stocks draw occurs only after cash depletion.
+
+## 2026-02-14 03:05 — P2-T5 | COMPLETE
+
+Added required Phase 2 test suite: strategy, drawdown, simulator, helpers, and route integration tests under `packages/server/tests`.
+All required test files now pass with deterministic assertions for Year 1/Year 2 withdrawal behavior and bucket depletion order.
+
+## 2026-02-14 03:03 — P2-T4 | COMPLETE
+
+Implemented `simulateRetirement` month loop and `POST /api/v1/simulate` route with shared Zod validation.
+Invalid request payloads now return 400 with structured field-level errors; valid payloads return `SimulateResponse` monthly rows and summary.
+
+## 2026-02-14 03:01 — P2-T3 | COMPLETE
+
+Implemented Constant Dollar strategy and Bucket drawdown modules in server engine.
+Constant Dollar follows Year 1 portfolio-rate rule and Year 2+ inflation-adjusted prior-clamped withdrawal rule; Bucket drawdown applies sequential asset depletion with shortfall reporting.
+
+## 2026-02-14 03:00 — P2-T2 | COMPLETE
+
+Implemented helper modules for `roundToCents`, `pmt`, inflation utilities, and return generation scaffolding.
+PMT includes zero-rate fallback and positive-rate formula aligned with the strategy appendix.
+
+## 2026-02-14 02:58 — P2-T1 | COMPLETE
+
+Expanded shared domain/contracts with full Phase 2 simulation configuration/result types and `SimulateRequest`/`SimulateResponse` contracts.
+Added `simulateRequestSchema` (Zod) with field constraints for API validation.
 ## 2026-02-14 02:53 — P1-T6 | COMPLETE
 
 Ran Phase 1 verification commands successfully: `npm run build`, `npm run typecheck`, `npm run lint`, and `npm test`.

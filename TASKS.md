@@ -49,3 +49,53 @@ Acceptance Criteria:
 [AC1] `npm run build`, `npm run lint`, `npm run typecheck`, and `npm test` run successfully from root.
 [AC2] `npm run dev` starts both client and server.
 [AC3] Manual check confirms app shell renders and browser console logs health response.
+
+## Phase 2 Plan — Simulation Engine Core
+
+- [x] P2-T1: Expand shared domain/contracts for simulation engine
+Phase: 2 (Simulation Engine Core)
+Dependencies: P1-T6
+Acceptance Criteria:
+[AC1] `SimulationConfig` includes core params, portfolio, assumptions, spending phases, strategy config, and drawdown config.
+[AC2] `SinglePathResult`, `SimulateRequest`, and `SimulateResponse` are defined in shared package exports.
+[AC3] Zod schema validates `SimulateRequest` with field-level errors.
+
+- [x] P2-T2: Implement helper modules (`rounding`, `pmt`, `inflation`, `returns`)
+Phase: 2 (Simulation Engine Core)
+Dependencies: P2-T1
+Acceptance Criteria:
+[AC1] `roundToCents` is centralized in server helpers and used by engine modules.
+[AC2] PMT helper supports zero-rate fallback and positive-rate formula.
+[AC3] Inflation and return helpers provide reusable annual/monthly conversions.
+
+- [x] P2-T3: Implement Constant Dollar strategy and Bucket drawdown
+Phase: 2 (Simulation Engine Core)
+Dependencies: P2-T2
+Acceptance Criteria:
+[AC1] Constant Dollar computes Year 1 as `portfolio × rate` and Year 2+ as prior clamped withdrawal × (1 + inflation).
+[AC2] Bucket drawdown depletes by configured order and reports shortfall on partial funding.
+[AC3] Both modules expose pure functions testable in isolation.
+
+- [x] P2-T4: Implement simulator loop and `/api/v1/simulate` route
+Phase: 2 (Simulation Engine Core)
+Dependencies: P2-T1, P2-T2, P2-T3
+Acceptance Criteria:
+[AC1] Simulator processes month-by-month returns, annual withdrawal calc, and monthly drawdown for full duration.
+[AC2] `POST /api/v1/simulate` validates request via shared Zod schema and returns `SimulateResponse`.
+[AC3] Invalid requests return 400 with structured `fieldErrors`.
+
+- [x] P2-T5: Add required Phase 2 tests
+Phase: 2 (Simulation Engine Core)
+Dependencies: P2-T2, P2-T3, P2-T4
+Acceptance Criteria:
+[AC1] Test files exist and pass: `constantDollar.test.ts`, `bucket.test.ts`, `simulator.test.ts`, `pmt.test.ts`, `rounding.test.ts`, `routes/simulation.test.ts`.
+[AC2] Route integration tests use Fastify `inject()` for valid and invalid simulation requests.
+[AC3] Simulator tests verify Year 1/Year 2 withdrawals and bucket depletion behavior.
+
+- [x] P2-T6: Run Phase 2 DoD verification
+Phase: 2 (Simulation Engine Core)
+Dependencies: P2-T5
+Acceptance Criteria:
+[AC1] `npm run build`, `npm run typecheck`, `npm run lint`, and `npm test` pass from root.
+[AC2] Curl call to `POST /api/v1/simulate` returns monthly rows and expected Year 1/Year 2 withdrawal pattern.
+[AC3] Verification confirms cash depletes before bonds and stocks in bucket ordering.

@@ -2,6 +2,7 @@ import cors from '@fastify/cors';
 import fastify from 'fastify';
 
 import { healthRoutes } from './routes/health';
+import { simulationRoutes } from './routes/simulation';
 
 export const createApp = () => {
   const app = fastify({
@@ -12,6 +13,7 @@ export const createApp = () => {
 
   app.register(cors, { origin: true });
   app.register(healthRoutes, { prefix: '/api/v1' });
+  app.register(simulationRoutes, { prefix: '/api/v1' });
 
   return app;
 };
