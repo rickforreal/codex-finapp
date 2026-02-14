@@ -10,6 +10,7 @@ import {
 
 import { applyBucketDrawdown } from './drawdown/bucket';
 import { inflateAnnualAmount } from './helpers/inflation';
+import { createSeededRandom, generateRandomMonthlyReturn } from './helpers/returns';
 import { roundToCents } from './helpers/rounding';
 import { calculateConstantDollarWithdrawal } from './strategies/constantDollar';
 
@@ -145,13 +146,29 @@ export const defaultMonthlyReturnsForConfig = (config: SimulationConfig): Monthl
   }));
 };
 
-export const generateMonthlyReturnsFromAssumptions = (config: SimulationConfig): MonthlyReturns[] => {
+export const generateMonthlyReturnsFromAssumptions = (
+  config: SimulationConfig,
+  seed?: number,
+): MonthlyReturns[] => {
   const durationMonths = config.coreParams.retirementDuration * 12;
+  const random = seed === undefined ? Math.random : createSeededRandom(seed);
 
   return Array.from({ length: durationMonths }, () => ({
-    stocks: config.returnAssumptions.stocks.expectedReturn / 12,
-    bonds: config.returnAssumptions.bonds.expectedReturn / 12,
-    cash: config.returnAssumptions.cash.expectedReturn / 12,
+    stocks: generateRandomMonthlyReturn(
+      config.returnAssumptions.stocks.expectedReturn,
+      config.returnAssumptions.stocks.stdDev,
+      random,
+    ),
+    bonds: generateRandomMonthlyReturn(
+      config.returnAssumptions.bonds.expectedReturn,
+      config.returnAssumptions.bonds.stdDev,
+      random,
+    ),
+    cash: generateRandomMonthlyReturn(
+      config.returnAssumptions.cash.expectedReturn,
+      config.returnAssumptions.cash.stdDev,
+      random,
+    ),
   }));
 };
 

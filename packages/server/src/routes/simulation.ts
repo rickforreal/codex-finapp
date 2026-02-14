@@ -18,7 +18,7 @@ export const simulationRoutes: FastifyPluginAsync = async (app) => {
     async (request, reply) => {
       try {
         const body = simulateRequestSchema.parse(request.body);
-        const returns = body.monthlyReturns ?? generateMonthlyReturnsFromAssumptions(body.config);
+        const returns = body.monthlyReturns ?? generateMonthlyReturnsFromAssumptions(body.config, body.seed);
         const result = simulateRetirement(body.config, returns);
 
         return { result };

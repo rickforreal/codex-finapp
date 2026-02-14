@@ -1,3 +1,37 @@
+## 2026-02-14 04:01 — P4-T6 | IN PROGRESS
+
+Phase 4 automated verification passes: `npm run build`, `npm run typecheck`, `npm run lint`, and `npm test` all succeed with server Phase 2 suite still green (22/22).
+Manual visual DoD pass for chart/stats interactions remains pending user confirmation.
+
+## 2026-02-14 04:00 — P4-T5 | COMPLETE
+
+Integrated `SummaryStatsBar` and `PortfolioChart` into `AppShell` output area with idle-state rendering and cached-result display behavior.
+Input edits now leave prior run outputs unchanged until Run Simulation executes again, preserving Phase 4 rerun semantics.
+
+## 2026-02-14 03:59 — P4-T4 | COMPLETE
+
+Added chart hover crosshair/tooltip (period, portfolio value, withdrawal), zoom range sliders, and Reset Zoom control in `PortfolioChart`.
+Zoom state is persisted in store (`ui.chartZoom`) and applies only to rendered run results.
+
+## 2026-02-14 03:57 — P4-T3 | COMPLETE
+
+Implemented output chart rendering for manual single-path runs with total line view and asset-class stacked area toggle.
+Added Real/Nominal display mode switching that recalculates y-axis scale and plotted series from inflation-adjusted values.
+
+## 2026-02-14 03:55 — P4-T2 | COMPLETE
+
+Implemented `SummaryStatsBar` + `StatCard` components for affordances #33–#40 with idle placeholders, computed values, and terminal-value success/failure styling.
+Probability of Success card (#41) remains intentionally hidden until Monte Carlo support in Phase 8.
+
+## 2026-02-14 03:53 — P4-T1 | COMPLETE
+
+Added Phase 4 output helpers: active result selector, formatting utilities, and summary statistics computations (nominal + real withdrawal metrics).
+Statistics derive directly from cached `MonthlySimulationRow[]` to keep output updates tied to simulation runs only.
+
+## 2026-02-14 03:50 — SESSION START | Resuming from Phase 4, Task P4-T1. Last completed: P3-T6 (Phase 3 complete and pushed).
+
+Read startup context (`PROGRESS.txt`, `TASKS.md`) and pulled Phase 4 requirements from `docs/ENGINEERING.md`, `docs/SPECS.md`, `docs/ARCHITECTURE.md`, `docs/DATA_MODEL.md`, `docs/API.md`, `docs/PRD.md`, and `docs/SCENARIOS.md` before implementation.
+
 ## 2026-02-14 03:42 — P3-T6 | COMPLETE
 
 Manual Phase 3 verification accepted by user review; Phase 3 marked complete.

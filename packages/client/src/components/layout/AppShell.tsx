@@ -1,4 +1,6 @@
 import { useAppStore } from '../../store/useAppStore';
+import { PortfolioChart } from '../output/PortfolioChart';
+import { SummaryStatsBar } from '../output/SummaryStatsBar';
 import { Sidebar } from './Sidebar';
 import { CommandBar } from './CommandBar';
 
@@ -14,12 +16,10 @@ export const AppShell = () => {
         </aside>
 
         <section className="flex-1 p-6">
-          <div className="h-full min-h-[400px] rounded-xl border border-brand-border bg-white p-8 shadow-panel">
-            <p className="mb-2 font-medium text-brand-navy">Output area placeholder</p>
-            <p className="text-sm text-slate-500">
-              Phase 3 keeps output rendering deferred. Run Simulation stores results in cache only.
-            </p>
-            <div className="mt-4 rounded border border-brand-border bg-brand-surface p-3 text-xs text-slate-600">
+          <div className="space-y-4">
+            <SummaryStatsBar />
+            <PortfolioChart />
+            <div className="rounded-md border border-brand-border bg-white px-3 py-2 text-xs text-slate-600">
               <p>Status: {results.status}</p>
               <p>Manual cache: {results.manual ? `${results.manual.result.rows.length} rows` : 'empty'}</p>
               <p>Monte Carlo cache: {results.monteCarlo ? 'present' : 'empty'}</p>

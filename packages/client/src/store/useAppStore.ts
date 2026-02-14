@@ -129,6 +129,9 @@ type AppStore = {
   updateExpenseEvent: (id: string, patch: Partial<ExpenseEventForm>) => void;
   setSimulationStatus: (status: RunStatus, errorMessage?: string | null) => void;
   setSimulationResult: (mode: SimulationMode, result: SimulateResponse) => void;
+  setChartDisplayMode: (mode: ChartDisplayMode) => void;
+  setChartBreakdownEnabled: (enabled: boolean) => void;
+  setChartZoom: (zoom: { start: number; end: number } | null) => void;
   toggleSection: (id: string) => void;
 };
 
@@ -361,6 +364,18 @@ export const useAppStore = create<AppStore>((set) => ({
         errorMessage: null,
       },
     })),
+  setChartDisplayMode: (chartDisplayMode) =>
+    set((state) => ({
+      ui: { ...state.ui, chartDisplayMode },
+    })),
+  setChartBreakdownEnabled: (chartBreakdownEnabled) =>
+    set((state) => ({
+      ui: { ...state.ui, chartBreakdownEnabled },
+    })),
+  setChartZoom: (chartZoom) =>
+    set((state) => ({
+      ui: { ...state.ui, chartZoom },
+    })),
   toggleSection: (id) =>
     set((state) => ({
       ui: {
@@ -399,6 +414,11 @@ export const useRunSimulation = () =>
     setSimulationStatus: state.setSimulationStatus,
     setSimulationResult: state.setSimulationResult,
   }));
+
+export const useActiveSimulationResult = () =>
+  useAppStore((state) =>
+    state.simulationMode === SimulationMode.Manual ? state.simulationResults.manual : state.simulationResults.monteCarlo,
+  );
 
 export const getCurrentConfig = () => {
   const state = useAppStore.getState();

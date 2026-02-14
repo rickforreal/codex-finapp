@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import { simulateRetirement } from '../../src/engine/simulator';
+import { generateMonthlyReturnsFromAssumptions, simulateRetirement } from '../../src/engine/simulator';
 import { createBaseConfig, createZeroReturns } from '../fixtures';
 
 describe('simulateRetirement', () => {
@@ -41,5 +41,17 @@ describe('simulateRetirement', () => {
     const cashBeforeStockDraw = result.rows[firstStockDrawMonth!.monthIndex - 2];
     expect(cashBeforeStockDraw.endBalances.cash).toBe(0);
     expect(cashBeforeStockDraw.endBalances.bonds).toBeGreaterThanOrEqual(0);
+  });
+
+  it('should generate stochastic returns and honor seed reproducibility', () => {
+    const config = createBaseConfig();
+
+    const seededA = generateMonthlyReturnsFromAssumptions(config, 77);
+    const seededB = generateMonthlyReturnsFromAssumptions(config, 77);
+    const unseededA = generateMonthlyReturnsFromAssumptions(config);
+    const unseededB = generateMonthlyReturnsFromAssumptions(config);
+
+    expect(seededA).toEqual(seededB);
+    expect(unseededA).not.toEqual(unseededB);
   });
 });

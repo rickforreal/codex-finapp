@@ -150,3 +150,54 @@ Acceptance Criteria:
 [AC1] Manual UI pass confirms all sidebar sections render and round-trip correctly.
 [AC2] Manual UI pass confirms donut reacts to portfolio changes and collapsible behavior works.
 [AC3] Manual UI pass confirms Run Simulation writes response cache while output display remains deferred.
+
+## Phase 4 Plan — Output: Chart & Stats
+
+- [x] P4-T1: Build output data selectors and statistics helpers
+Phase: 4 (Output: Chart & Stats)
+Dependencies: P3-T6
+Acceptance Criteria:
+[AC1] Active simulation result selector resolves current mode result cache for rendering.
+[AC2] Summary metrics helper computes cards #33–#40 from monthly rows with inflation-adjusted real values.
+[AC3] Formatting helpers support compact dollars, full currency, percentages, and period labels.
+
+- [x] P4-T2: Implement Summary Statistics Bar with stat cards
+Phase: 4 (Output: Chart & Stats)
+Dependencies: P4-T1
+Acceptance Criteria:
+[AC1] Eight visible stat cards render: #33–#40; #41 remains hidden in Phase 4.
+[AC2] Terminal Value card uses green styling for positive terminal value and red styling for depletion.
+[AC3] Idle state (no run) shows placeholder values and updates after simulation completes.
+
+- [x] P4-T3: Implement Portfolio Chart rendering (line + asset breakdown)
+Phase: 4 (Output: Chart & Stats)
+Dependencies: P4-T1
+Acceptance Criteria:
+[AC1] Manual-mode result renders a total-portfolio line over time after a run.
+[AC2] Asset Class Breakdown toggle switches to stacked area (stocks/bonds/cash) and back.
+[AC3] Real/Nominal toggle switches y-axis and plotted values using inflation-adjusted series.
+
+- [x] P4-T4: Add chart tooltip and zoom/range controls
+Phase: 4 (Output: Chart & Stats)
+Dependencies: P4-T3
+Acceptance Criteria:
+[AC1] Hover tooltip shows period, portfolio value, and withdrawal for nearest month.
+[AC2] Range selector can constrain visible start/end range for zoom.
+[AC3] Reset Zoom restores full range.
+
+- [x] P4-T5: Integrate output components into app shell and stale-result behavior
+Phase: 4 (Output: Chart & Stats)
+Dependencies: P4-T2, P4-T4
+Acceptance Criteria:
+[AC1] Output area renders empty state before run and chart + stats after run.
+[AC2] Changing inputs without rerunning keeps last results visible; rerun updates both chart and stats.
+[AC3] Chart display updates only from cached run results, not direct input edits.
+
+- [ ] P4-T6: Run Phase 4 verification and complete DoD
+Phase: 4 (Output: Chart & Stats)
+Dependencies: P4-T5
+Acceptance Criteria:
+[AC1] `npm run typecheck` passes.
+[AC2] `npm run lint` passes.
+[AC3] Phase 2 server tests remain passing via `npm test`.
+[AC4] Manual visual check confirms DoD items for chart/stats/toggles/tooltip/zoom/rerun behavior.
