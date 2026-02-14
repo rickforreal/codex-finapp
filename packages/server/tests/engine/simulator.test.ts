@@ -107,4 +107,21 @@ describe('simulateRetirement', () => {
 
     expect(new Set(monthlyWithdrawals).size).toBeGreaterThanOrEqual(5);
   });
+
+  it('should keep withdrawals at 0 before withdrawalsStartAt age and begin at configured year gap', () => {
+    const config = createBaseConfig();
+    config.coreParams.startingAge = 55;
+    config.coreParams.withdrawalsStartAt = 60;
+    const returns = createZeroReturns(config.coreParams.retirementDuration * 12);
+
+    const result = simulateRetirement(config, returns);
+
+    const year4FirstMonth = result.rows[36];
+    const year5FirstMonth = result.rows[48];
+
+    expect(year4FirstMonth?.year).toBe(4);
+    expect(year4FirstMonth?.withdrawals.requested).toBe(0);
+    expect(year5FirstMonth?.year).toBe(5);
+    expect(year5FirstMonth?.withdrawals.requested).toBeGreaterThan(0);
+  });
 });

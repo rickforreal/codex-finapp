@@ -5,11 +5,20 @@ import type { SpendingPhaseForm } from '../../../store/useAppStore';
 type Props = {
   phase: SpendingPhaseForm;
   canRemove: boolean;
+  lockStartYear: boolean;
+  lockEndYear: boolean;
   onUpdate: (patch: Partial<SpendingPhaseForm>) => void;
   onRemove: () => void;
 };
 
-export const PhaseCard = ({ phase, canRemove, onUpdate, onRemove }: Props) => {
+export const PhaseCard = ({
+  phase,
+  canRemove,
+  lockStartYear,
+  lockEndYear,
+  onUpdate,
+  onRemove,
+}: Props) => {
   return (
     <div className="space-y-2 rounded-md border border-brand-border bg-brand-surface p-2">
       <div className="flex items-center gap-2">
@@ -31,11 +40,23 @@ export const PhaseCard = ({ phase, canRemove, onUpdate, onRemove }: Props) => {
       <div className="grid grid-cols-2 gap-2">
         <div>
           <p className="mb-1 text-xs text-slate-600">Start Year</p>
-          <NumericInput value={phase.startYear} onChange={(value) => onUpdate({ startYear: value })} min={1} max={100} />
+          <NumericInput
+            value={phase.startYear}
+            onChange={(value) => onUpdate({ startYear: value })}
+            min={1}
+            max={100}
+            disabled={lockStartYear}
+          />
         </div>
         <div>
           <p className="mb-1 text-xs text-slate-600">End Year</p>
-          <NumericInput value={phase.endYear} onChange={(value) => onUpdate({ endYear: value })} min={1} max={100} />
+          <NumericInput
+            value={phase.endYear}
+            onChange={(value) => onUpdate({ endYear: value })}
+            min={1}
+            max={100}
+            disabled={lockEndYear}
+          />
         </div>
       </div>
 

@@ -7,9 +7,18 @@ type Props = {
   max?: number;
   step?: number;
   className?: string;
+  disabled?: boolean;
 };
 
-export const NumericInput = ({ value, onChange, min, max, step = 1, className = '' }: Props) => {
+export const NumericInput = ({
+  value,
+  onChange,
+  min,
+  max,
+  step = 1,
+  className = '',
+  disabled = false,
+}: Props) => {
   const handleChange = (event: ChangeEvent<HTMLInputElement>) => {
     const next = Number(event.target.value);
     if (Number.isNaN(next)) {
@@ -26,7 +35,8 @@ export const NumericInput = ({ value, onChange, min, max, step = 1, className = 
       max={max}
       step={step}
       onChange={handleChange}
-      className={`h-8 w-full rounded border border-brand-border bg-white px-2 text-sm ${className}`}
+      disabled={disabled}
+      className={`h-8 w-full rounded border border-brand-border bg-white px-2 text-sm disabled:cursor-not-allowed disabled:bg-slate-100 disabled:text-slate-500 ${className}`}
     />
   );
 };

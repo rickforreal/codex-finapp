@@ -14,6 +14,8 @@ export const SpendingPhases = () => {
           key={phase.id}
           phase={phase}
           canRemove={phases.length > 1}
+          lockStartYear={phase.id === phases[0]?.id}
+          lockEndYear={phase.id === phases[phases.length - 1]?.id}
           onUpdate={(patch) => updateSpendingPhase(phase.id, patch)}
           onRemove={() => removeSpendingPhase(phase.id)}
         />

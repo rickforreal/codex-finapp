@@ -13,7 +13,12 @@ export const CoreParameters = () => {
       <NumericInput value={coreParams.startingAge} min={1} max={120} onChange={(value) => setCoreParam('startingAge', value)} />
 
       <label className="block text-xs font-medium text-slate-600">Withdrawals Start At</label>
-      <NumericInput value={coreParams.withdrawalsStartAt} min={1} max={120} onChange={(value) => setCoreParam('withdrawalsStartAt', value)} />
+      <NumericInput
+        value={coreParams.withdrawalsStartAt}
+        min={coreParams.startingAge}
+        max={120}
+        onChange={(value) => setCoreParam('withdrawalsStartAt', value)}
+      />
 
       <label className="block text-xs font-medium text-slate-600">Retirement Start Date (MM/YYYY)</label>
       <MonthYearPicker value={coreParams.retirementStartDate} onChange={(value) => setCoreParam('retirementStartDate', value)} />

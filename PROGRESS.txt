@@ -207,3 +207,50 @@ Applied post-review UI refinements and defaults tuning before Phase 7:
 Verification:
 - `npm run typecheck -w @finapp/client` passes.
 - `npm run lint -w @finapp/client` passes.
+
+## 2026-02-14 13:26 — Defect fix: withdrawalsStartAt ignored | COMPLETE
+
+Fixed a withdrawal-start timing bug where engine withdrawals were being computed/clamped from Year 1 regardless of `coreParams.withdrawalsStartAt`.
+
+Changes:
+- Server simulator now computes `withdrawalStartYear = max(1, withdrawalsStartAt - startingAge)` and suppresses both strategy calculation and spending-phase clamping before that year.
+- Added simulator regression test for delayed start case (`startingAge=55`, `withdrawalsStartAt=60`) validating Year 1-4 withdrawals are zero and Year 5 starts withdrawals.
+- Client spending phase boundary recalculation now respects the same start-year delta so Phase 1 no longer always hard-pins to Year 1 after core param edits.
+
+Verification:
+- `npm run test -w @finapp/server` passes (including new regression test).
+- `npm run typecheck -w @finapp/client` passes.
+- `npm run lint -w @finapp/client` passes.
+
+## 2026-02-14 13:31 — Defect fix: spending phase boundary pinning | COMPLETE
+
+Fixed Spending Phase boundary behavior for timeline constraints:
+
+- First phase `startYear` is now pinned to the withdrawals-start delta year (`withdrawalsStartAt - startingAge`, clamped to timeline).
+- Last phase `endYear` is now pinned to `retirementDuration` so it always updates when retirement duration changes.
+- UI now locks boundary inputs accordingly:
+  - first phase `Start Year` is non-editable
+  - last phase `End Year` is non-editable
+  - with a single phase, both boundary fields are non-editable
+- Store-side patch sanitization now ignores user attempts to mutate locked boundaries directly.
+
+Verification:
+- `npm run typecheck -w @finapp/client` passes.
+- `npm run lint -w @finapp/client` passes.
+
+## 2026-02-14 13:47 — Defect fix: phase add boundary inversion + age clamp | COMPLETE
+
+Fixed two related client-side validation/state issues:
+
+- Resolved Spending Phase add-path bug that could create `Start Year > End Year` (e.g., Phase 2 start 36 / end 35 after changing retirement duration and adding a phase).
+  - Root cause: boundary recalculation used prior *raw* phase values instead of prior recalculated boundaries.
+  - Fix: switched to sequential recalculation using accumulated prior end-year, with timeline-cap aware bounds per remaining phases.
+- Enforced `Withdrawals Start At >= Starting Age`:
+  - UI input minimum now tracks current `startingAge`.
+  - Store mutation clamps `withdrawalsStartAt` upward if user sets it lower.
+  - Updating `startingAge` now also raises `withdrawalsStartAt` if needed.
+- Added add-phase capacity guard based on available timeline years so impossible boundary packing is prevented.
+
+Verification:
+- `npm run typecheck -w @finapp/client` passes.
+- `npm run lint -w @finapp/client` passes.

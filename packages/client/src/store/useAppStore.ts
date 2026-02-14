@@ -195,6 +195,9 @@ const defaultExpenseEvent = (): ExpenseEventForm => ({
   inflationAdjusted: true,
 });
 
+const resolveFirstPhaseStartYear = (startingAge: number, withdrawalsStartAt: number): number =>
+  Math.max(1, withdrawalsStartAt - startingAge);
+
 const defaultWithdrawalStrategyParams = (): WithdrawalStrategyParamsForm => ({
   initialWithdrawalRate: 0.04,
   annualWithdrawalRate: 0.04,
@@ -306,16 +309,29 @@ const resolveWithdrawalStrategyConfig = (
   }
 };
 
-const recalculatePhaseBoundaries = (phases: SpendingPhaseForm[], retirementYears: number): SpendingPhaseForm[] => {
+const recalculatePhaseBoundaries = (
+  phases: SpendingPhaseForm[],
+  retirementYears: number,
+  firstPhaseStartYear: number,
+): SpendingPhaseForm[] => {
   const sorted = [...phases].sort((a, b) => a.startYear - b.startYear);
-  return sorted.map((phase, index) => {
-    const prev = sorted[index - 1];
-    const next = sorted[index + 1];
-    const startYear = index === 0 ? 1 : (prev?.endYear ?? 1) + 1;
-    const maxEnd = next ? Math.max(startYear, next.endYear - 1) : retirementYears;
-    const endYear = Math.min(Math.max(phase.endYear, startYear), maxEnd);
-    return { ...phase, startYear, endYear };
+  const clampedFirstStartYear = Math.min(Math.max(1, firstPhaseStartYear), retirementYears);
+  const recalculated: SpendingPhaseForm[] = [];
+
+  sorted.forEach((phase, index) => {
+    const isLast = index === sorted.length - 1;
+    const previousEndYear = recalculated[index - 1]?.endYear;
+    const startYear = index === 0 ? clampedFirstStartYear : (previousEndYear ?? clampedFirstStartYear) + 1;
+    const remainingPhases = sorted.length - index - 1;
+    const latestEndForCurrent = Math.max(startYear, retirementYears - remainingPhases);
+    const endYear = isLast
+      ? retirementYears
+      : Math.min(Math.max(phase.endYear, startYear), latestEndForCurrent);
+
+    recalculated.push({ ...phase, startYear, endYear });
   });
+
+  return recalculated;
 };
 
 export const useAppStore = create<AppStore>((set) => ({
@@ -380,10 +396,29 @@ export const useAppStore = create<AppStore>((set) => ({
   setCoreParam: (key, value) =>
     set((state) => {
       const nextCore = { ...state.coreParams, [key]: value };
+      if (key === 'startingAge') {
+        const startingAge = Number(value);
+        nextCore.startingAge = startingAge;
+        nextCore.withdrawalsStartAt = Math.max(nextCore.withdrawalsStartAt, startingAge);
+      }
+      if (key === 'withdrawalsStartAt') {
+        nextCore.withdrawalsStartAt = Math.max(Number(value), nextCore.startingAge);
+      }
       if (key === 'retirementDuration') {
+        nextCore.retirementDuration = Number(value);
+      }
+      if (key === 'retirementDuration' || key === 'startingAge' || key === 'withdrawalsStartAt') {
+        const firstPhaseStartYear = resolveFirstPhaseStartYear(
+          Number(nextCore.startingAge),
+          Number(nextCore.withdrawalsStartAt),
+        );
         return {
           coreParams: nextCore,
-          spendingPhases: recalculatePhaseBoundaries(state.spendingPhases, Number(value)),
+          spendingPhases: recalculatePhaseBoundaries(
+            state.spendingPhases,
+            Number(nextCore.retirementDuration),
+            firstPhaseStartYear,
+          ),
         };
       }
       return { coreParams: nextCore };
@@ -405,13 +440,21 @@ export const useAppStore = create<AppStore>((set) => ({
         return state;
       }
       const retirementYears = state.coreParams.retirementDuration;
+      const firstPhaseStartYear = resolveFirstPhaseStartYear(
+        state.coreParams.startingAge,
+        state.coreParams.withdrawalsStartAt,
+      );
+      const availableYears = Math.max(1, retirementYears - firstPhaseStartYear + 1);
+      if (state.spendingPhases.length >= availableYears) {
+        return state;
+      }
       const next = [...state.spendingPhases, {
         ...defaultPhase(),
         name: `Phase ${state.spendingPhases.length + 1}`,
         startYear: retirementYears,
         endYear: retirementYears,
       }];
-      return { spendingPhases: recalculatePhaseBoundaries(next, retirementYears) };
+      return { spendingPhases: recalculatePhaseBoundaries(next, retirementYears, firstPhaseStartYear) };
     }),
   removeSpendingPhase: (id) =>
     set((state) => {
@@ -419,15 +462,35 @@ export const useAppStore = create<AppStore>((set) => ({
         return state;
       }
       const next = state.spendingPhases.filter((phase) => phase.id !== id);
+      const firstPhaseStartYear = resolveFirstPhaseStartYear(
+        state.coreParams.startingAge,
+        state.coreParams.withdrawalsStartAt,
+      );
       return {
-        spendingPhases: recalculatePhaseBoundaries(next, state.coreParams.retirementDuration),
+        spendingPhases: recalculatePhaseBoundaries(next, state.coreParams.retirementDuration, firstPhaseStartYear),
       };
     }),
   updateSpendingPhase: (id, patch) =>
     set((state) => {
-      const next = state.spendingPhases.map((phase) => (phase.id === id ? { ...phase, ...patch } : phase));
+      const ordered = [...state.spendingPhases].sort((a, b) => a.startYear - b.startYear);
+      const firstPhaseId = ordered[0]?.id;
+      const lastPhaseId = ordered[ordered.length - 1]?.id;
+      const sanitizedPatch = { ...patch };
+      if (id === firstPhaseId) {
+        delete sanitizedPatch.startYear;
+      }
+      if (id === lastPhaseId) {
+        delete sanitizedPatch.endYear;
+      }
+      const next = state.spendingPhases.map((phase) =>
+        phase.id === id ? { ...phase, ...sanitizedPatch } : phase,
+      );
+      const firstPhaseStartYear = resolveFirstPhaseStartYear(
+        state.coreParams.startingAge,
+        state.coreParams.withdrawalsStartAt,
+      );
       return {
-        spendingPhases: recalculatePhaseBoundaries(next, state.coreParams.retirementDuration),
+        spendingPhases: recalculatePhaseBoundaries(next, state.coreParams.retirementDuration, firstPhaseStartYear),
       };
     }),
   setWithdrawalStrategyType: (type) =>

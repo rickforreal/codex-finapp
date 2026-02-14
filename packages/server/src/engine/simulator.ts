@@ -46,6 +46,10 @@ export const simulateRetirement = (
   monthlyReturnsSeries: MonthlyReturns[],
 ): SinglePathResult => {
   const durationMonths = config.coreParams.retirementDuration * 12;
+  const withdrawalStartYear = Math.max(
+    1,
+    config.coreParams.withdrawalsStartAt - config.coreParams.startingAge,
+  );
   const initialBalances: AssetBalances = {
     stocks: config.portfolio.stocks,
     bonds: config.portfolio.bonds,
@@ -85,33 +89,38 @@ export const simulateRetirement = (
     balances = afterMarket;
 
     if (monthInYear === 1) {
-      const annualWithdrawal = calculateAnnualWithdrawal(
-        {
-          year,
-          retirementYears: config.coreParams.retirementDuration,
-          portfolioValue: totalPortfolio(balances),
-          initialPortfolioValue: totalPortfolio(initialBalances),
-          previousWithdrawal: previousAnnualWithdrawal,
-          previousYearReturn,
-          previousYearStartPortfolio,
-          remainingYears: config.coreParams.retirementDuration - year + 1,
-          inflationRate: config.coreParams.inflationRate,
-        },
-        config.withdrawalStrategy,
-      );
+      if (year < withdrawalStartYear) {
+        previousAnnualWithdrawal = 0;
+        currentMonthlyWithdrawal = 0;
+      } else {
+        const annualWithdrawal = calculateAnnualWithdrawal(
+          {
+            year,
+            retirementYears: config.coreParams.retirementDuration,
+            portfolioValue: totalPortfolio(balances),
+            initialPortfolioValue: totalPortfolio(initialBalances),
+            previousWithdrawal: previousAnnualWithdrawal,
+            previousYearReturn,
+            previousYearStartPortfolio,
+            remainingYears: config.coreParams.retirementDuration - year + 1,
+            inflationRate: config.coreParams.inflationRate,
+          },
+          config.withdrawalStrategy,
+        );
 
-      const phase = findSpendingPhaseForYear(config, year);
-      const annualMin = roundToCents(
-        inflateAnnualAmount(phase.minMonthlySpend * 12, config.coreParams.inflationRate, year - 1),
-      );
-      const annualMax = roundToCents(
-        inflateAnnualAmount(phase.maxMonthlySpend * 12, config.coreParams.inflationRate, year - 1),
-      );
+        const phase = findSpendingPhaseForYear(config, year);
+        const annualMin = roundToCents(
+          inflateAnnualAmount(phase.minMonthlySpend * 12, config.coreParams.inflationRate, year - 1),
+        );
+        const annualMax = roundToCents(
+          inflateAnnualAmount(phase.maxMonthlySpend * 12, config.coreParams.inflationRate, year - 1),
+        );
 
-      const clampedAnnual = Math.max(annualMin, Math.min(annualWithdrawal, annualMax));
+        const clampedAnnual = Math.max(annualMin, Math.min(annualWithdrawal, annualMax));
 
-      previousAnnualWithdrawal = clampedAnnual;
-      currentMonthlyWithdrawal = roundToCents(clampedAnnual / 12);
+        previousAnnualWithdrawal = clampedAnnual;
+        currentMonthlyWithdrawal = roundToCents(clampedAnnual / 12);
+      }
     }
 
     const drawdown = applyBucketDrawdown(
