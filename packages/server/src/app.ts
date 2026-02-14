@@ -1,0 +1,17 @@
+import cors from '@fastify/cors';
+import fastify from 'fastify';
+
+import { healthRoutes } from './routes/health';
+
+export const createApp = () => {
+  const app = fastify({
+    logger: {
+      level: process.env.LOG_LEVEL ?? 'info',
+    },
+  });
+
+  app.register(cors, { origin: true });
+  app.register(healthRoutes, { prefix: '/api/v1' });
+
+  return app;
+};

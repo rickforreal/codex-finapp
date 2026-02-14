@@ -1,0 +1,33 @@
+## 2026-02-14 02:53 — P1-T6 | COMPLETE
+
+Ran Phase 1 verification commands successfully: `npm run build`, `npm run typecheck`, `npm run lint`, and `npm test`.
+Validated `npm run dev` startup outside sandbox (client + server started), and verified health endpoint response with `curl http://localhost:3001/api/v1/health` -> `{"status":"ok"}`.
+[DECISION] Browser rendering + console log behavior is implemented and ready for user manual verification during review.
+
+## 2026-02-14 02:50 — P1-T5 | COMPLETE
+
+Created Zustand store scaffold matching the architecture tree in `packages/client/src/store/useAppStore.ts` with slice stubs in `packages/client/src/store/slices/*`.
+Store includes mode, simulation mode, core params, portfolio, strategy slices, events, simulation results, and UI state placeholders.
+
+## 2026-02-14 02:47 — P1-T4 | COMPLETE
+
+Scaffolded Vite + React + Tailwind client with a command bar placeholder, sidebar/output `AppShell`, and themed color tokens aligned to SPECS palette (`#1A365D`, `#4A90D9`, `#2EAD8E`, amber cash color).
+Added typed API health client and app-mount health call logging in `packages/client/src/App.tsx`.
+
+## 2026-02-14 02:43 — P1-T3 | COMPLETE
+
+Implemented Fastify app with CORS and structured logger config, plus `GET /api/v1/health` route returning `{ status: "ok" }`.
+Added server entrypoint with configurable `PORT` and startup logging.
+
+## 2026-02-14 02:41 — P1-T2 | COMPLETE
+
+Created shared package structure under `packages/shared/src/{domain,contracts,ui,constants}` with placeholder `SimulationConfig` and `SimulationResult` stubs and required enums (`AssetClass`, `WithdrawalStrategyType`, `SimulationMode`).
+Configured ESLint import-boundary rule preventing `domain`/`contracts` imports from `ui`; verified by temporary probe import that fails lint.
+
+## 2026-02-14 02:39 — P1-T1 | COMPLETE
+
+Initialized the monorepo baseline for Phase 1 with root workspace/tooling files and package scaffolding for `client`, `server`, and `shared`. Added root scripts for `dev`, `build`, `test`, `typecheck`, and `lint`.
+
+## 2026-02-14 02:39 — SESSION START | Resuming from P1-T1. Last completed: none. Next: P1-T1 (Initialize monorepo workspace scaffolding).
+
+Read startup context files and required architecture/spec docs for Phase 1 before editing. `PROGRESS.txt` was empty and `TASKS.md` did not exist, so Phase 1 planning started from a clean state.

@@ -1,0 +1,35 @@
+{
+  "name": "finapp",
+  "version": "0.1.0",
+  "private": true,
+  "workspaces": [
+    "packages/*"
+  ],
+  "scripts": {
+    "dev": "npm run build -w @finapp/shared && concurrently -n server,client -c cyan,magenta \"npm run dev -w @finapp/server\" \"npm run dev -w @finapp/client\"",
+    "build": "npm run build -w @finapp/shared && npm run build -w @finapp/server && npm run build -w @finapp/client",
+    "test": "npm run test -w @finapp/shared && npm run test -w @finapp/server && npm run test -w @finapp/client",
+    "typecheck": "npm run typecheck -w @finapp/shared && npm run typecheck -w @finapp/server && npm run typecheck -w @finapp/client",
+    "lint": "npm run lint -w @finapp/shared && npm run lint -w @finapp/server && npm run lint -w @finapp/client",
+    "lint:fix": "npm run lint:fix -w @finapp/shared && npm run lint:fix -w @finapp/server && npm run lint:fix -w @finapp/client",
+    "format": "prettier --write .",
+    "format:check": "prettier --check ."
+  },
+  "engines": {
+    "node": ">=20",
+    "npm": ">=10"
+  },
+  "devDependencies": {
+    "@types/node": "^24.4.0",
+    "@typescript-eslint/eslint-plugin": "^8.41.0",
+    "@typescript-eslint/parser": "^8.41.0",
+    "concurrently": "^9.2.1",
+    "eslint": "^8.57.1",
+    "eslint-import-resolver-typescript": "^4.4.4",
+    "eslint-plugin-import": "^2.32.0",
+    "prettier": "^3.6.2",
+    "tsx": "^4.20.5",
+    "typescript": "^5.9.2",
+    "vitest": "^3.2.4"
+  }
+}
