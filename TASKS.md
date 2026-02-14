@@ -99,3 +99,54 @@ Acceptance Criteria:
 [AC1] `npm run build`, `npm run typecheck`, `npm run lint`, and `npm test` pass from root.
 [AC2] Curl call to `POST /api/v1/simulate` returns monthly rows and expected Year 1/Year 2 withdrawal pattern.
 [AC3] Verification confirms cash depletes before bonds and stocks in bucket ordering.
+
+## Phase 3 Plan — Input Panel
+
+- [x] P3-T1: Expand client store actions for input round-trip wiring
+Phase: 3 (Input Panel)
+Dependencies: P2-T6
+Acceptance Criteria:
+[AC1] Every Phase 3 input field has a corresponding store update action.
+[AC2] Spending phase cascade logic updates adjacent boundaries when end year changes.
+[AC3] Add/remove limits are enforced (max 4 phases, cannot remove last phase).
+
+- [x] P3-T2: Build shared form/display components used by sidebar sections
+Phase: 3 (Input Panel)
+Dependencies: P3-T1
+Acceptance Criteria:
+[AC1] Shared components exist: `NumericInput`, `CurrencyInput`, `PercentInput`, `SegmentedToggle`, `Dropdown`, `MonthYearPicker`, `ToggleSwitch`, `DonutChart`, `CollapsibleSection`.
+[AC2] Components are reusable and typed for store-driven controlled inputs.
+[AC3] Collapsible section includes chevron state transition.
+
+- [x] P3-T3: Implement all sidebar sections and wire to store
+Phase: 3 (Input Panel)
+Dependencies: P3-T1, P3-T2
+Acceptance Criteria:
+[AC1] Core Parameters, Starting Portfolio, Return Assumptions, Spending Phases, Withdrawal Strategy, Drawdown Strategy, Income Events, Expense Events render in sidebar.
+[AC2] Every control updates store and re-renders current value.
+[AC3] Return Assumptions visibility toggles with Manual/Monte Carlo simulation mode.
+
+- [x] P3-T4: Wire command bar controls and run-simulation integration
+Phase: 3 (Input Panel)
+Dependencies: P3-T1, P3-T3
+Acceptance Criteria:
+[AC1] Mode toggle and simulation mode selector update store.
+[AC2] Run Simulation posts a valid request to `/api/v1/simulate` and writes response into simulation cache.
+[AC3] Strategy selector lists all 12 strategies; non-Constant params show “coming in Phase 6”.
+[ASSUMPTION: Until Phase 6 (strategies) and Phase 7 (rebalancing), run requests coerce unsupported strategy/drawdown selections to Constant Dollar + Bucket so the API call remains valid.]
+
+- [x] P3-T5: Regression and static checks for Phase 3 changes
+Phase: 3 (Input Panel)
+Dependencies: P3-T4
+Acceptance Criteria:
+[AC1] `npm run build` passes.
+[AC2] `npm run typecheck` and `npm run lint` pass.
+[AC3] Phase 2 server tests continue to pass.
+
+- [x] P3-T6: Visual/manual DoD verification pass
+Phase: 3 (Input Panel)
+Dependencies: P3-T5
+Acceptance Criteria:
+[AC1] Manual UI pass confirms all sidebar sections render and round-trip correctly.
+[AC2] Manual UI pass confirms donut reacts to portfolio changes and collapsible behavior works.
+[AC3] Manual UI pass confirms Run Simulation writes response cache while output display remains deferred.

@@ -32,7 +32,7 @@ export interface ConstantDollarParams {
 
 export interface WithdrawalStrategyConfig {
   type: WithdrawalStrategyType;
-  params: ConstantDollarParams;
+  params: ConstantDollarParams & Record<string, number | string | boolean>;
 }
 
 export interface DrawdownStrategyConfig {

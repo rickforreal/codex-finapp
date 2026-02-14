@@ -1,3 +1,33 @@
+## 2026-02-14 03:42 — P3-T6 | COMPLETE
+
+Manual Phase 3 verification accepted by user review; Phase 3 marked complete.
+Confirmed sidebar input round-trip behavior, collapsible interactions, and run-simulation cache write path are ready for Phase 4 handoff.
+
+## 2026-02-14 03:34 — P3-T5 | COMPLETE
+
+Phase 3 regression and static checks passed: `npm run build`, `npm run typecheck`, `npm run lint`, and `npm test` all succeed after client input-panel wiring.
+Phase 2 engine/route tests remain green (22/22 passing).
+
+## 2026-02-14 03:32 — P3-T4 | COMPLETE
+
+Wired command bar mode toggles to Zustand store and integrated Run Simulation API call to `/api/v1/simulate`, caching results in store without rendering output views.
+Implemented strategy selector with all 12 names; only Constant Dollar parameters are active and others show "coming in Phase 6".
+[ASSUMPTION] To keep requests valid before Phase 6/7 implementation, run payload generation coerces unsupported strategy/drawdown selections to Constant Dollar + Bucket.
+
+## 2026-02-14 03:30 — P3-T3 | COMPLETE
+
+Implemented sidebar input sections for Core Parameters, Starting Portfolio, Return Assumptions, Spending Phases, Withdrawal Strategy, Drawdown Strategy, Income Events, and Expense Events.
+All controls are wired as controlled inputs to Zustand state and re-render from store values; Return Assumptions visibility toggles by simulation mode.
+
+## 2026-02-14 03:28 — P3-T2 | COMPLETE
+
+Added shared input/display primitives required by Phase 3: NumericInput, CurrencyInput, PercentInput, SegmentedToggle, Dropdown, MonthYearPicker, ToggleSwitch, DonutChart, and CollapsibleSection.
+Sidebar sections now use these shared controls consistently.
+
+## 2026-02-14 03:26 — P3-T1 | COMPLETE
+
+Expanded client store model/actions for full input wiring, including spending phase cascade logic, bucket ordering controls, income/expense event CRUD, section collapse state, and simulation cache status.
+Added guardrails for phase add/remove constraints (max 4 phases; prevent deleting last phase).
 ## 2026-02-14 03:09 — P2-T6 | COMPLETE
 
 Phase 2 DoD verification passed: `npm run build`, `npm run typecheck`, `npm run lint`, and `npm test` all succeed.

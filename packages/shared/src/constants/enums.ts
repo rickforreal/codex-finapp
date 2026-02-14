@@ -6,6 +6,17 @@ export enum AssetClass {
 
 export enum WithdrawalStrategyType {
   ConstantDollar = 'constantDollar',
+  PercentOfPortfolio = 'percentOfPortfolio',
+  OneOverN = 'oneOverN',
+  Vpw = 'vpw',
+  DynamicSwr = 'dynamicSwr',
+  SensibleWithdrawals = 'sensibleWithdrawals',
+  NinetyFivePercent = 'ninetyFivePercent',
+  GuytonKlinger = 'guytonKlinger',
+  VanguardDynamic = 'vanguardDynamic',
+  Endowment = 'endowment',
+  HebelerAutopilot = 'hebelerAutopilot',
+  CapeBased = 'capeBased',
 }
 
 export enum DrawdownStrategyType {
