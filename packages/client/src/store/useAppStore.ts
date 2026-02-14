@@ -132,6 +132,9 @@ type AppStore = {
   setChartDisplayMode: (mode: ChartDisplayMode) => void;
   setChartBreakdownEnabled: (enabled: boolean) => void;
   setChartZoom: (zoom: { start: number; end: number } | null) => void;
+  setTableGranularity: (granularity: TableGranularity) => void;
+  setTableAssetColumnsEnabled: (enabled: boolean) => void;
+  setTableSort: (sort: { column: string; direction: 'asc' | 'desc' } | null) => void;
   toggleSection: (id: string) => void;
 };
 
@@ -375,6 +378,18 @@ export const useAppStore = create<AppStore>((set) => ({
   setChartZoom: (chartZoom) =>
     set((state) => ({
       ui: { ...state.ui, chartZoom },
+    })),
+  setTableGranularity: (tableGranularity) =>
+    set((state) => ({
+      ui: { ...state.ui, tableGranularity },
+    })),
+  setTableAssetColumnsEnabled: (tableAssetColumnsEnabled) =>
+    set((state) => ({
+      ui: { ...state.ui, tableAssetColumnsEnabled },
+    })),
+  setTableSort: (tableSort) =>
+    set((state) => ({
+      ui: { ...state.ui, tableSort },
     })),
   toggleSection: (id) =>
     set((state) => ({

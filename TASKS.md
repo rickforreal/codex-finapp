@@ -193,7 +193,7 @@ Acceptance Criteria:
 [AC2] Changing inputs without rerunning keeps last results visible; rerun updates both chart and stats.
 [AC3] Chart display updates only from cached run results, not direct input edits.
 
-- [ ] P4-T6: Run Phase 4 verification and complete DoD
+- [x] P4-T6: Run Phase 4 verification and complete DoD
 Phase: 4 (Output: Chart & Stats)
 Dependencies: P4-T5
 Acceptance Criteria:
@@ -201,3 +201,53 @@ Acceptance Criteria:
 [AC2] `npm run lint` passes.
 [AC3] Phase 2 server tests remain passing via `npm test`.
 [AC4] Manual visual check confirms DoD items for chart/stats/toggles/tooltip/zoom/rerun behavior.
+
+## Phase 5 Plan — Output: Detail Table
+
+- [x] P5-T1: Add table view state/actions and row transformation helpers
+Phase: 5 (Output: Detail Table)
+Dependencies: P4-T6
+Acceptance Criteria:
+[AC1] Store includes setters for monthly/annual view, asset-columns toggle, and table sort state.
+[AC2] Helpers transform simulation rows into monthly and annual table datasets.
+[AC3] Sorting supports numeric/date columns in ascending/descending order.
+
+- [x] P5-T2: Implement Detail Table controls and base table layout
+Phase: 5 (Output: Detail Table)
+Dependencies: P5-T1
+Acceptance Criteria:
+[AC1] Monthly/Annual toggle (#49) is wired and switches displayed dataset.
+[AC2] Asset class columns toggle (#50) is wired and controls expanded asset columns.
+[AC3] Header row is sticky (#51) and empty-state layout renders before first run.
+
+- [x] P5-T3: Implement sortable columns and formatting
+Phase: 5 (Output: Detail Table)
+Dependencies: P5-T2
+Acceptance Criteria:
+[AC1] Clicking sortable headers toggles ascending/descending sort (#53).
+[AC2] Currency and percentage cells are consistently formatted for readability.
+[AC3] Sorting updates rendered rows for both monthly and annual views.
+
+- [x] P5-T4: Implement row virtualization for monthly view scale
+Phase: 5 (Output: Detail Table)
+Dependencies: P5-T3
+Acceptance Criteria:
+[AC1] Monthly view can handle 480 rows with smooth scrolling in constrained table viewport.
+[AC2] Virtualized rendering only mounts visible row window plus small overscan.
+[AC3] Sticky header remains aligned during vertical scroll.
+
+- [x] P5-T5: Integrate Detail Table into output flow and verify rerun behavior
+Phase: 5 (Output: Detail Table)
+Dependencies: P5-T4
+Acceptance Criteria:
+[AC1] Table appears below chart and updates only after Run Simulation.
+[AC2] Changing inputs without rerun preserves prior table results.
+[AC3] Rerunning simulation refreshes table dataset and preserves active controls where valid.
+
+- [x] P5-T6: Run Phase 5 verification and complete DoD
+Phase: 5 (Output: Detail Table)
+Dependencies: P5-T5
+Acceptance Criteria:
+[AC1] `npm run build` passes.
+[AC2] `npm run typecheck`, `npm run lint`, and `npm test` pass.
+[AC3] Manual check confirms 480-row monthly browsing, annual toggle, asset columns toggle, sticky header, and sorting.

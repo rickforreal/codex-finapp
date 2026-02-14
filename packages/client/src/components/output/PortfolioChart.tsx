@@ -20,9 +20,9 @@ type ChartPoint = {
   cashReal: number;
 };
 
-const width = 980;
+const width = 1200;
 const height = 360;
-const margin = { top: 20, right: 24, bottom: 44, left: 80 };
+const margin = { top: 20, right: 10, bottom: 44, left: 56 };
 const plotWidth = width - margin.left - margin.right;
 const plotHeight = height - margin.top - margin.bottom;
 
@@ -190,9 +190,10 @@ export const PortfolioChart = () => {
           onMouseLeave={() => setHoverIndex(null)}
           onMouseMove={(event) => {
             const rect = event.currentTarget.getBoundingClientRect();
-            const cursorX = event.clientX - rect.left;
-            const bounded = Math.max(margin.left, Math.min(cursorX, rect.width - margin.right));
-            const ratio = (bounded - margin.left) / Math.max(rect.width - margin.left - margin.right, 1);
+            const scaleX = width / Math.max(rect.width, 1);
+            const cursorX = (event.clientX - rect.left) * scaleX;
+            const bounded = Math.max(margin.left, Math.min(cursorX, width - margin.right));
+            const ratio = (bounded - margin.left) / Math.max(plotWidth, 1);
             const index = Math.round(ratio * localCount);
             setHoverIndex(index);
           }}
@@ -270,7 +271,7 @@ export const PortfolioChart = () => {
           <div
             className="pointer-events-none absolute z-10 w-[220px] rounded-md border border-slate-200 bg-white p-3 text-xs shadow-lg"
             style={{
-              left: `calc(${((hoverX - margin.left) / Math.max(plotWidth, 1)) * 100}% + ${hoverX > width * 0.7 ? -220 : 12}px)`,
+              left: `calc(${((hoverX - margin.left) / Math.max(plotWidth, 1)) * 100}% + ${hoverX > width * 0.72 ? -220 : 12}px)`,
               top: 16,
             }}
           >

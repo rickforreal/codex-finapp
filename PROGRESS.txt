@@ -1,3 +1,47 @@
+## 2026-02-14 04:49 — P5-T6 | COMPLETE
+
+Manual Phase 5 verification accepted by user review; Phase 5 marked complete.
+Confirmed monthly/annual toggle, asset column toggle with contained horizontal scroll, sticky headers, sortable columns, virtualization behavior, and rerun update flow.
+
+## 2026-02-14 04:37 — P5-T6 | IN PROGRESS
+
+Phase 5 automated verification passed with no regressions: `npm run build`, `npm run typecheck`, `npm run lint`, and `npm test` all succeed (server tests 25/25).
+Manual visual DoD pass for table interactions remains pending user confirmation.
+
+## 2026-02-14 04:35 — P5-T5 | COMPLETE
+
+Integrated `DetailTable` into the output stack below chart and summary components; table updates from cached simulation results only.
+Input edits without rerun preserve existing table data, while reruns refresh rows for the current mode dataset.
+
+## 2026-02-14 04:34 — P5-T4 | COMPLETE
+
+Implemented monthly-view row virtualization with overscan and spacer rows for scalable rendering up to full 480-month horizons.
+Sticky control/header behavior is preserved while scrolling within the table container.
+
+## 2026-02-14 04:32 — P5-T3 | COMPLETE
+
+Added sortable headers across table columns with asc/desc/off cycle and consistent number formatting for currency and percentage cells.
+Sorting is applied to both monthly and annual datasets via shared table helpers.
+
+## 2026-02-14 04:31 — P5-T2 | COMPLETE
+
+Implemented Detail Table UI with Monthly/Annual toggle (#49), Asset Class Columns toggle (#50), sticky controls/header (#51), and empty state before first run.
+Added output table layout and control wiring in the output panel.
+
+## 2026-02-14 04:30 — P5-T1 | COMPLETE
+
+Extended store with table view actions (`setTableGranularity`, `setTableAssetColumnsEnabled`, `setTableSort`) and added row transformation/sorting helpers for monthly + annual data.
+Implemented annual aggregation and table-ready row projection from simulation output rows.
+
+## 2026-02-14 04:28 — SESSION START | Resuming from Phase 5, Task P5-T1. Last completed: P4-T6 (Phase 4 complete).
+
+Read startup state and Phase 5 requirements from `docs/ENGINEERING.md` and `docs/SPECS.md` before implementation.
+
+## 2026-02-14 04:14 — P4-T6 | COMPLETE
+
+Manual Phase 4 visual verification accepted by user review; Phase 4 marked complete.
+Output chart/stats affordances (#33-#40, #42-#44, #47-#48) validated with rerun behavior and stochastic manual-run flow.
+
 ## 2026-02-14 04:01 — P4-T6 | IN PROGRESS
 
 Phase 4 automated verification passes: `npm run build`, `npm run typecheck`, `npm run lint`, and `npm test` all succeed with server Phase 2 suite still green (22/22).
