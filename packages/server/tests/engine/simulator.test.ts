@@ -1,3 +1,4 @@
+import { WithdrawalStrategyType } from '@finapp/shared';
 import { describe, expect, it } from 'vitest';
 
 import { generateMonthlyReturnsFromAssumptions, simulateRetirement } from '../../src/engine/simulator';
@@ -53,5 +54,57 @@ describe('simulateRetirement', () => {
 
     expect(seededA).toEqual(seededB);
     expect(unseededA).not.toEqual(unseededB);
+  });
+
+  it('should run successfully across all 12 withdrawal strategies with distinct withdrawal patterns', () => {
+    const base = createBaseConfig();
+    const returns = createZeroReturns(base.coreParams.retirementDuration * 12);
+    const strategies = [
+      { type: WithdrawalStrategyType.ConstantDollar, params: { initialWithdrawalRate: 0.04 } },
+      { type: WithdrawalStrategyType.PercentOfPortfolio, params: { annualWithdrawalRate: 0.04 } },
+      { type: WithdrawalStrategyType.OneOverN, params: {} },
+      { type: WithdrawalStrategyType.Vpw, params: { expectedRealReturn: 0.03, drawdownTarget: 1 } },
+      { type: WithdrawalStrategyType.DynamicSwr, params: { expectedRateOfReturn: 0.06 } },
+      {
+        type: WithdrawalStrategyType.SensibleWithdrawals,
+        params: { baseWithdrawalRate: 0.03, extrasWithdrawalRate: 0.1 },
+      },
+      {
+        type: WithdrawalStrategyType.NinetyFivePercent,
+        params: { annualWithdrawalRate: 0.04, minimumFloor: 0.95 },
+      },
+      {
+        type: WithdrawalStrategyType.GuytonKlinger,
+        params: {
+          initialWithdrawalRate: 0.052,
+          capitalPreservationTrigger: 0.2,
+          capitalPreservationCut: 0.1,
+          prosperityTrigger: 0.2,
+          prosperityRaise: 0.1,
+          guardrailsSunset: 15,
+        },
+      },
+      {
+        type: WithdrawalStrategyType.VanguardDynamic,
+        params: { annualWithdrawalRate: 0.04, ceiling: 0.05, floor: 0.025 },
+      },
+      { type: WithdrawalStrategyType.Endowment, params: { spendingRate: 0.05, smoothingWeight: 0.7 } },
+      {
+        type: WithdrawalStrategyType.HebelerAutopilot,
+        params: { initialWithdrawalRate: 0.04, pmtExpectedReturn: 0.03, priorYearWeight: 0.6 },
+      },
+      {
+        type: WithdrawalStrategyType.CapeBased,
+        params: { baseWithdrawalRate: 0.015, capeWeight: 0.5, startingCape: 20 },
+      },
+    ] as const;
+
+    const monthlyWithdrawals = strategies.map((withdrawalStrategy) => {
+      const result = simulateRetirement({ ...base, withdrawalStrategy }, returns);
+      expect(result.rows).toHaveLength(120);
+      return result.rows[0]?.withdrawals.requested ?? 0;
+    });
+
+    expect(new Set(monthlyWithdrawals).size).toBeGreaterThanOrEqual(5);
   });
 });

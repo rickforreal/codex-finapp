@@ -5,14 +5,13 @@ import {
   type SpendingPhase,
   type SimulationConfig,
   type SinglePathResult,
-  WithdrawalStrategyType,
 } from '@finapp/shared';
 
 import { applyBucketDrawdown } from './drawdown/bucket';
 import { inflateAnnualAmount } from './helpers/inflation';
 import { createSeededRandom, generateRandomMonthlyReturn } from './helpers/returns';
 import { roundToCents } from './helpers/rounding';
-import { calculateConstantDollarWithdrawal } from './strategies/constantDollar';
+import { calculateAnnualWithdrawal } from './strategies';
 
 const assetOrder: AssetClass[] = [AssetClass.Stocks, AssetClass.Bonds, AssetClass.Cash];
 
@@ -55,6 +54,10 @@ export const simulateRetirement = (
 
   let balances = { ...initialBalances };
   let previousAnnualWithdrawal = 0;
+  let previousYearReturn = 0;
+  let previousYearStartPortfolio = totalPortfolio(initialBalances);
+  let currentYearStartPortfolio = totalPortfolio(initialBalances);
+  let currentYearReturnFactor = 1;
   let currentMonthlyWithdrawal = 0;
   let totalWithdrawn = 0;
   let totalShortfall = 0;
@@ -65,24 +68,37 @@ export const simulateRetirement = (
     const year = Math.floor(monthIndex / 12) + 1;
     const monthInYear = (monthIndex % 12) + 1;
     const startBalances = { ...balances };
+    const startPortfolioValue = totalPortfolio(startBalances);
+
+    if (monthInYear === 1) {
+      currentYearStartPortfolio = startPortfolioValue;
+      currentYearReturnFactor = 1;
+    }
 
     const returns = monthlyReturnsSeries[monthIndex] ?? { stocks: 0, bonds: 0, cash: 0 };
     const afterMarket = applyMarketReturns(startBalances, returns);
     const marketChange = diffBalances(afterMarket, startBalances);
+    const afterMarketValue = totalPortfolio(afterMarket);
+    if (startPortfolioValue > 0) {
+      currentYearReturnFactor *= afterMarketValue / startPortfolioValue;
+    }
     balances = afterMarket;
 
     if (monthInYear === 1) {
-      let annualWithdrawal = 0;
-
-      if (config.withdrawalStrategy.type === WithdrawalStrategyType.ConstantDollar) {
-        annualWithdrawal = calculateConstantDollarWithdrawal({
+      const annualWithdrawal = calculateAnnualWithdrawal(
+        {
           year,
+          retirementYears: config.coreParams.retirementDuration,
+          portfolioValue: totalPortfolio(balances),
           initialPortfolioValue: totalPortfolio(initialBalances),
           previousWithdrawal: previousAnnualWithdrawal,
+          previousYearReturn,
+          previousYearStartPortfolio,
+          remainingYears: config.coreParams.retirementDuration - year + 1,
           inflationRate: config.coreParams.inflationRate,
-          params: config.withdrawalStrategy.params,
-        });
-      }
+        },
+        config.withdrawalStrategy,
+      );
 
       const phase = findSpendingPhaseForYear(config, year);
       const annualMin = roundToCents(
@@ -107,6 +123,11 @@ export const simulateRetirement = (
     balances = drawdown.balances;
     totalWithdrawn = roundToCents(totalWithdrawn + drawdown.totalWithdrawn);
     totalShortfall = roundToCents(totalShortfall + drawdown.shortfall);
+
+    if (monthInYear === 12) {
+      previousYearReturn = currentYearReturnFactor - 1;
+      previousYearStartPortfolio = currentYearStartPortfolio;
+    }
 
     rows.push({
       monthIndex: monthIndex + 1,

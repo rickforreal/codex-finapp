@@ -30,10 +30,76 @@ export interface ConstantDollarParams {
   initialWithdrawalRate: number;
 }
 
-export interface WithdrawalStrategyConfig {
-  type: WithdrawalStrategyType;
-  params: ConstantDollarParams & Record<string, number | string | boolean>;
+export interface PercentOfPortfolioParams {
+  annualWithdrawalRate: number;
 }
+
+export type OneOverNParams = Record<never, never>;
+
+export interface VpwParams {
+  expectedRealReturn: number;
+  drawdownTarget: number;
+}
+
+export interface DynamicSwrParams {
+  expectedRateOfReturn: number;
+}
+
+export interface SensibleWithdrawalsParams {
+  baseWithdrawalRate: number;
+  extrasWithdrawalRate: number;
+}
+
+export interface NinetyFivePercentParams {
+  annualWithdrawalRate: number;
+  minimumFloor: number;
+}
+
+export interface GuytonKlingerParams {
+  initialWithdrawalRate: number;
+  capitalPreservationTrigger: number;
+  capitalPreservationCut: number;
+  prosperityTrigger: number;
+  prosperityRaise: number;
+  guardrailsSunset: number;
+}
+
+export interface VanguardDynamicParams {
+  annualWithdrawalRate: number;
+  ceiling: number;
+  floor: number;
+}
+
+export interface EndowmentParams {
+  spendingRate: number;
+  smoothingWeight: number;
+}
+
+export interface HebelerAutopilotParams {
+  initialWithdrawalRate: number;
+  pmtExpectedReturn: number;
+  priorYearWeight: number;
+}
+
+export interface CapeBasedParams {
+  baseWithdrawalRate: number;
+  capeWeight: number;
+  startingCape: number;
+}
+
+export type WithdrawalStrategyConfig =
+  | { type: WithdrawalStrategyType.ConstantDollar; params: ConstantDollarParams }
+  | { type: WithdrawalStrategyType.PercentOfPortfolio; params: PercentOfPortfolioParams }
+  | { type: WithdrawalStrategyType.OneOverN; params: OneOverNParams }
+  | { type: WithdrawalStrategyType.Vpw; params: VpwParams }
+  | { type: WithdrawalStrategyType.DynamicSwr; params: DynamicSwrParams }
+  | { type: WithdrawalStrategyType.SensibleWithdrawals; params: SensibleWithdrawalsParams }
+  | { type: WithdrawalStrategyType.NinetyFivePercent; params: NinetyFivePercentParams }
+  | { type: WithdrawalStrategyType.GuytonKlinger; params: GuytonKlingerParams }
+  | { type: WithdrawalStrategyType.VanguardDynamic; params: VanguardDynamicParams }
+  | { type: WithdrawalStrategyType.Endowment; params: EndowmentParams }
+  | { type: WithdrawalStrategyType.HebelerAutopilot; params: HebelerAutopilotParams }
+  | { type: WithdrawalStrategyType.CapeBased; params: CapeBasedParams };
 
 export interface DrawdownStrategyConfig {
   type: DrawdownStrategyType;

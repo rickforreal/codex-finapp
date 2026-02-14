@@ -251,3 +251,45 @@ Acceptance Criteria:
 [AC1] `npm run build` passes.
 [AC2] `npm run typecheck`, `npm run lint`, and `npm test` pass.
 [AC3] Manual check confirms 480-row monthly browsing, annual toggle, asset columns toggle, sticky header, and sorting.
+
+## Phase 6 Plan — All Withdrawal Strategies
+
+- [x] P6-T1: Expand shared strategy types and request validation for all 12 strategies
+Phase: 6 (All Withdrawal Strategies)
+Dependencies: P5-T6
+Acceptance Criteria:
+[AC1] `WithdrawalStrategyConfig` supports all 12 strategy discriminators with strategy-specific params.
+[AC2] `simulateRequestSchema` validates each strategy payload via discriminated union.
+[AC3] Shared package exports compile and are consumable by server/client.
+
+- [x] P6-T2: Implement server strategy registry and 11 additional strategy calculators
+Phase: 6 (All Withdrawal Strategies)
+Dependencies: P6-T1
+Acceptance Criteria:
+[AC1] `engine/strategies/` contains implementations for all remaining strategies.
+[AC2] Registry routes all `WithdrawalStrategyType` values to calculators.
+[AC3] Simulator computes annual withdrawals via registry using prior-year context (return, previous withdrawal, remaining years).
+
+- [x] P6-T3: Add one server test file per strategy with required coverage
+Phase: 6 (All Withdrawal Strategies)
+Dependencies: P6-T2
+Acceptance Criteria:
+[AC1] 12 strategy test files exist (including existing Constant Dollar).
+[AC2] Each strategy file covers Year 1, multi-year behavior, and at least one edge case.
+[AC3] Guyton-Klinger tests cover freeze/cut/raise/sunset rules and the worked example sequence.
+
+- [x] P6-T4: Wire client strategy parameters and tooltips for all 12 strategies
+Phase: 6 (All Withdrawal Strategies)
+Dependencies: P6-T1
+Acceptance Criteria:
+[AC1] `StrategyParams` renders strategy-specific fields for all 12 strategies with ranges/default behavior.
+[AC2] Store supports strategy-specific parameter updates without coercing to Constant Dollar.
+[AC3] `StrategyTooltip` updates per selected strategy.
+
+- [x] P6-T5: Run Phase 6 verification and complete DoD
+Phase: 6 (All Withdrawal Strategies)
+Dependencies: P6-T3, P6-T4
+Acceptance Criteria:
+[AC1] `npm run build` passes.
+[AC2] `npm run typecheck`, `npm run lint`, and `npm test` pass.
+[AC3] Manual selector/parameter wiring is present and simulations execute across strategy types.

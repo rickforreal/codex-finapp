@@ -168,3 +168,42 @@ Initialized the monorepo baseline for Phase 1 with root workspace/tooling files 
 ## 2026-02-14 02:39 — SESSION START | Resuming from P1-T1. Last completed: none. Next: P1-T1 (Initialize monorepo workspace scaffolding).
 
 Read startup context files and required architecture/spec docs for Phase 1 before editing. `PROGRESS.txt` was empty and `TASKS.md` did not exist, so Phase 1 planning started from a clean state.
+
+## 2026-02-14 10:30 — P6-T1..P6-T5 | COMPLETE
+
+Implemented Phase 6 end-to-end across shared/server/client.
+
+- Expanded shared withdrawal strategy domain model to a full discriminated union with 12 strategy-specific param shapes.
+- Expanded `simulateRequestSchema` to validate all strategy variants via a discriminated union.
+- Added server strategy registry (`engine/strategies/index.ts`) and 11 new strategy modules: Percent of Portfolio, 1/N, VPW, Dynamic SWR, Sensible Withdrawals, 95% Rule, Guyton-Klinger, Vanguard Dynamic Spending, Endowment, Hebeler Autopilot II, CAPE-Based.
+- Updated simulator annual strategy calculation to use registry context (year, retirement horizon, previous clamped withdrawal, prior-year return, remaining years, and prior-year start portfolio).
+- Added strategy test coverage: one test file per strategy (12 total including existing Constant Dollar) with Year 1, multi-year, and edge checks. Guyton-Klinger includes rule-specific and worked-example sequence coverage.
+- Implemented client Phase 6 strategy parameter panels and per-strategy tooltip content; removed prior Constant-Dollar coercion in `getCurrentConfig` so selected strategy is sent to server.
+- Added `setWithdrawalParam` store action and full strategy default parameter state.
+- Updated `TASKS.md` with Phase 6 granular tasks and marked complete.
+
+Verification run (all passing):
+- `npm run build`
+- `npm run typecheck`
+- `npm run lint`
+- `npm test`
+
+## 2026-02-14 13:15 — Post-Phase 6 polish | COMPLETE
+
+Applied post-review UI refinements and defaults tuning before Phase 7:
+
+- Added Detail Table `Spreadsheet Mode` toggle in output controls.
+  - When enabled, table container internal scrollbars are removed.
+  - Monthly virtualization is disabled so all rows render continuously (spreadsheet-style expansion).
+  - Horizontal/vertical scrolling is delegated to the page/layout instead of the inner table viewport.
+- Corrected default client portfolio values to dollar-scale inputs:
+  - Stocks: $2,000,000
+  - Bonds: $250,000
+  - Cash: $50,000
+- Adjusted default spending phase bounds to:
+  - Min monthly: $6,000
+  - Max monthly: $12,000
+
+Verification:
+- `npm run typecheck -w @finapp/client` passes.
+- `npm run lint -w @finapp/client` passes.

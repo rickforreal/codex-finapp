@@ -78,16 +78,139 @@ const simulationConfigSchema = z
       })
       .strict(),
     spendingPhases: z.array(spendingPhaseSchema).min(1),
-    withdrawalStrategy: z
-      .object({
-        type: z.literal(WithdrawalStrategyType.ConstantDollar),
-        params: z
-          .object({
-            initialWithdrawalRate: z.number().positive().max(1),
-          })
-          .strict(),
-      })
-      .strict(),
+    withdrawalStrategy: z.discriminatedUnion('type', [
+      z
+        .object({
+          type: z.literal(WithdrawalStrategyType.ConstantDollar),
+          params: z
+            .object({
+              initialWithdrawalRate: z.number().min(0).max(1),
+            })
+            .strict(),
+        })
+        .strict(),
+      z
+        .object({
+          type: z.literal(WithdrawalStrategyType.PercentOfPortfolio),
+          params: z
+            .object({
+              annualWithdrawalRate: z.number().min(0).max(1),
+            })
+            .strict(),
+        })
+        .strict(),
+      z
+        .object({
+          type: z.literal(WithdrawalStrategyType.OneOverN),
+          params: z.object({}).strict(),
+        })
+        .strict(),
+      z
+        .object({
+          type: z.literal(WithdrawalStrategyType.Vpw),
+          params: z
+            .object({
+              expectedRealReturn: z.number().min(-1).max(1),
+              drawdownTarget: z.number().min(0).max(1),
+            })
+            .strict(),
+        })
+        .strict(),
+      z
+        .object({
+          type: z.literal(WithdrawalStrategyType.DynamicSwr),
+          params: z
+            .object({
+              expectedRateOfReturn: z.number().min(-1).max(1),
+            })
+            .strict(),
+        })
+        .strict(),
+      z
+        .object({
+          type: z.literal(WithdrawalStrategyType.SensibleWithdrawals),
+          params: z
+            .object({
+              baseWithdrawalRate: z.number().min(0).max(1),
+              extrasWithdrawalRate: z.number().min(0).max(1),
+            })
+            .strict(),
+        })
+        .strict(),
+      z
+        .object({
+          type: z.literal(WithdrawalStrategyType.NinetyFivePercent),
+          params: z
+            .object({
+              annualWithdrawalRate: z.number().min(0).max(1),
+              minimumFloor: z.number().min(0).max(1),
+            })
+            .strict(),
+        })
+        .strict(),
+      z
+        .object({
+          type: z.literal(WithdrawalStrategyType.GuytonKlinger),
+          params: z
+            .object({
+              initialWithdrawalRate: z.number().min(0).max(1),
+              capitalPreservationTrigger: z.number().min(0).max(2),
+              capitalPreservationCut: z.number().min(0).max(1),
+              prosperityTrigger: z.number().min(0).max(2),
+              prosperityRaise: z.number().min(0).max(1),
+              guardrailsSunset: z.number().int().min(0).max(120),
+            })
+            .strict(),
+        })
+        .strict(),
+      z
+        .object({
+          type: z.literal(WithdrawalStrategyType.VanguardDynamic),
+          params: z
+            .object({
+              annualWithdrawalRate: z.number().min(0).max(1),
+              ceiling: z.number().min(0).max(1),
+              floor: z.number().min(0).max(1),
+            })
+            .strict(),
+        })
+        .strict(),
+      z
+        .object({
+          type: z.literal(WithdrawalStrategyType.Endowment),
+          params: z
+            .object({
+              spendingRate: z.number().min(0).max(1),
+              smoothingWeight: z.number().min(0).max(1),
+            })
+            .strict(),
+        })
+        .strict(),
+      z
+        .object({
+          type: z.literal(WithdrawalStrategyType.HebelerAutopilot),
+          params: z
+            .object({
+              initialWithdrawalRate: z.number().min(0).max(1),
+              pmtExpectedReturn: z.number().min(-1).max(1),
+              priorYearWeight: z.number().min(0).max(1),
+            })
+            .strict(),
+        })
+        .strict(),
+      z
+        .object({
+          type: z.literal(WithdrawalStrategyType.CapeBased),
+          params: z
+            .object({
+              baseWithdrawalRate: z.number().min(0).max(1),
+              capeWeight: z.number().min(0).max(5),
+              startingCape: z.number().positive().max(200),
+            })
+            .strict(),
+        })
+        .strict(),
+    ]),
     drawdownStrategy: z
       .object({
         type: z.literal(DrawdownStrategyType.Bucket),

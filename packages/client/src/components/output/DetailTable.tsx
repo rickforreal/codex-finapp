@@ -82,9 +82,11 @@ export const DetailTable = () => {
   const inflationRate = useAppStore((state) => state.coreParams.inflationRate);
   const tableGranularity = useAppStore((state) => state.ui.tableGranularity);
   const tableAssetColumnsEnabled = useAppStore((state) => state.ui.tableAssetColumnsEnabled);
+  const tableSpreadsheetMode = useAppStore((state) => state.ui.tableSpreadsheetMode);
   const tableSort = useAppStore((state) => state.ui.tableSort);
   const setTableGranularity = useAppStore((state) => state.setTableGranularity);
   const setTableAssetColumnsEnabled = useAppStore((state) => state.setTableAssetColumnsEnabled);
+  const setTableSpreadsheetMode = useAppStore((state) => state.setTableSpreadsheetMode);
   const setTableSort = useAppStore((state) => state.setTableSort);
   const [scrollTop, setScrollTop] = useState(0);
 
@@ -100,7 +102,7 @@ export const DetailTable = () => {
   const columns = tableAssetColumnsEnabled ? [...baseColumns, ...assetColumns] : baseColumns;
   const tableMinWidthClass = tableAssetColumnsEnabled ? 'min-w-[2300px]' : 'min-w-[1200px]';
 
-  const isVirtualized = tableGranularity === 'monthly';
+  const isVirtualized = tableGranularity === 'monthly' && !tableSpreadsheetMode;
   const totalHeight = rows.length * rowHeight;
   const visibleCount = Math.ceil(viewportHeight / rowHeight);
   const startIndex = isVirtualized ? Math.max(0, Math.floor(scrollTop / rowHeight) - overscan) : 0;
@@ -124,10 +126,14 @@ export const DetailTable = () => {
   };
 
   return (
-    <section className="overflow-hidden rounded-xl border border-brand-border bg-white shadow-panel">
+    <section
+      className={`rounded-xl border border-brand-border bg-white shadow-panel ${
+        tableSpreadsheetMode ? 'overflow-visible' : 'overflow-hidden'
+      }`}
+    >
       <div
-        className="max-h-[520px] overflow-auto"
-        onScroll={(event) => setScrollTop(event.currentTarget.scrollTop)}
+        className={tableSpreadsheetMode ? 'overflow-visible' : 'max-h-[520px] overflow-auto'}
+        onScroll={tableSpreadsheetMode ? undefined : (event) => setScrollTop(event.currentTarget.scrollTop)}
       >
         <div className={tableMinWidthClass}>
           <div className="sticky top-0 z-30 border-b border-brand-border bg-white px-4 py-3">
@@ -144,6 +150,11 @@ export const DetailTable = () => {
                 checked={tableAssetColumnsEnabled}
                 onChange={setTableAssetColumnsEnabled}
                 label="Show Asset Columns"
+              />
+              <ToggleSwitch
+                checked={tableSpreadsheetMode}
+                onChange={setTableSpreadsheetMode}
+                label="Spreadsheet Mode"
               />
             </div>
           </div>

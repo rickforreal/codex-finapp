@@ -7,6 +7,7 @@ import {
   SimulationMode,
   WithdrawalStrategyType,
   type SimulateResponse,
+  type WithdrawalStrategyConfig,
 } from '@finapp/shared';
 
 import { createId } from '../lib/id';
@@ -47,6 +48,31 @@ type TableGranularity = 'monthly' | 'annual';
 type RunStatus = 'idle' | 'running' | 'complete' | 'error';
 type ReforecastStatus = 'idle' | 'pending' | 'complete';
 
+type WithdrawalParamKey =
+  | 'initialWithdrawalRate'
+  | 'annualWithdrawalRate'
+  | 'expectedRealReturn'
+  | 'drawdownTarget'
+  | 'expectedRateOfReturn'
+  | 'baseWithdrawalRate'
+  | 'extrasWithdrawalRate'
+  | 'minimumFloor'
+  | 'capitalPreservationTrigger'
+  | 'capitalPreservationCut'
+  | 'prosperityTrigger'
+  | 'prosperityRaise'
+  | 'guardrailsSunset'
+  | 'ceiling'
+  | 'floor'
+  | 'spendingRate'
+  | 'smoothingWeight'
+  | 'pmtExpectedReturn'
+  | 'priorYearWeight'
+  | 'capeWeight'
+  | 'startingCape';
+
+type WithdrawalStrategyParamsForm = Record<WithdrawalParamKey, number>;
+
 type AppStore = {
   mode: AppMode;
   simulationMode: SimulationMode;
@@ -71,9 +97,7 @@ type AppStore = {
   spendingPhases: SpendingPhaseForm[];
   withdrawalStrategy: {
     type: WithdrawalStrategyType;
-    params: {
-      initialWithdrawalRate: number;
-    };
+    params: WithdrawalStrategyParamsForm;
   };
   drawdownStrategy: {
     type: DrawdownStrategyType;
@@ -99,6 +123,7 @@ type AppStore = {
     chartBreakdownEnabled: boolean;
     tableGranularity: TableGranularity;
     tableAssetColumnsEnabled: boolean;
+    tableSpreadsheetMode: boolean;
     tableSort: { column: string; direction: 'asc' | 'desc' } | null;
     chartZoom: { start: number; end: number } | null;
     reforecastStatus: ReforecastStatus;
@@ -118,7 +143,7 @@ type AppStore = {
   removeSpendingPhase: (id: string) => void;
   updateSpendingPhase: (id: string, patch: Partial<SpendingPhaseForm>) => void;
   setWithdrawalStrategyType: (type: WithdrawalStrategyType) => void;
-  setInitialWithdrawalRate: (rate: number) => void;
+  setWithdrawalParam: (key: WithdrawalParamKey, value: number) => void;
   setDrawdownType: (type: DrawdownStrategyType) => void;
   moveBucketAsset: (asset: AssetClass, direction: 'up' | 'down') => void;
   addIncomeEvent: () => void;
@@ -134,6 +159,7 @@ type AppStore = {
   setChartZoom: (zoom: { start: number; end: number } | null) => void;
   setTableGranularity: (granularity: TableGranularity) => void;
   setTableAssetColumnsEnabled: (enabled: boolean) => void;
+  setTableSpreadsheetMode: (enabled: boolean) => void;
   setTableSort: (sort: { column: string; direction: 'asc' | 'desc' } | null) => void;
   toggleSection: (id: string) => void;
 };
@@ -143,8 +169,8 @@ const defaultPhase = (): SpendingPhaseForm => ({
   name: 'Phase 1',
   startYear: 1,
   endYear: 30,
-  minMonthlySpend: 400_000,
-  maxMonthlySpend: 800_000,
+  minMonthlySpend: 6_000,
+  maxMonthlySpend: 12_000,
 });
 
 const defaultIncomeEvent = (): IncomeEventForm => ({
@@ -168,6 +194,117 @@ const defaultExpenseEvent = (): ExpenseEventForm => ({
   frequency: 'oneTime',
   inflationAdjusted: true,
 });
+
+const defaultWithdrawalStrategyParams = (): WithdrawalStrategyParamsForm => ({
+  initialWithdrawalRate: 0.04,
+  annualWithdrawalRate: 0.04,
+  expectedRealReturn: 0.03,
+  drawdownTarget: 1,
+  expectedRateOfReturn: 0.06,
+  baseWithdrawalRate: 0.03,
+  extrasWithdrawalRate: 0.1,
+  minimumFloor: 0.95,
+  capitalPreservationTrigger: 0.2,
+  capitalPreservationCut: 0.1,
+  prosperityTrigger: 0.2,
+  prosperityRaise: 0.1,
+  guardrailsSunset: 15,
+  ceiling: 0.05,
+  floor: 0.025,
+  spendingRate: 0.05,
+  smoothingWeight: 0.7,
+  pmtExpectedReturn: 0.03,
+  priorYearWeight: 0.6,
+  capeWeight: 0.5,
+  startingCape: 20,
+});
+
+const resolveWithdrawalStrategyConfig = (
+  type: WithdrawalStrategyType,
+  params: WithdrawalStrategyParamsForm,
+): WithdrawalStrategyConfig => {
+  switch (type) {
+    case WithdrawalStrategyType.ConstantDollar:
+      return { type, params: { initialWithdrawalRate: params.initialWithdrawalRate } };
+    case WithdrawalStrategyType.PercentOfPortfolio:
+      return { type, params: { annualWithdrawalRate: params.annualWithdrawalRate } };
+    case WithdrawalStrategyType.OneOverN:
+      return { type, params: {} };
+    case WithdrawalStrategyType.Vpw:
+      return {
+        type,
+        params: {
+          expectedRealReturn: params.expectedRealReturn,
+          drawdownTarget: params.drawdownTarget,
+        },
+      };
+    case WithdrawalStrategyType.DynamicSwr:
+      return { type, params: { expectedRateOfReturn: params.expectedRateOfReturn } };
+    case WithdrawalStrategyType.SensibleWithdrawals:
+      return {
+        type,
+        params: {
+          baseWithdrawalRate: params.baseWithdrawalRate,
+          extrasWithdrawalRate: params.extrasWithdrawalRate,
+        },
+      };
+    case WithdrawalStrategyType.NinetyFivePercent:
+      return {
+        type,
+        params: {
+          annualWithdrawalRate: params.annualWithdrawalRate,
+          minimumFloor: params.minimumFloor,
+        },
+      };
+    case WithdrawalStrategyType.GuytonKlinger:
+      return {
+        type,
+        params: {
+          initialWithdrawalRate: params.initialWithdrawalRate,
+          capitalPreservationTrigger: params.capitalPreservationTrigger,
+          capitalPreservationCut: params.capitalPreservationCut,
+          prosperityTrigger: params.prosperityTrigger,
+          prosperityRaise: params.prosperityRaise,
+          guardrailsSunset: Math.round(params.guardrailsSunset),
+        },
+      };
+    case WithdrawalStrategyType.VanguardDynamic:
+      return {
+        type,
+        params: {
+          annualWithdrawalRate: params.annualWithdrawalRate,
+          ceiling: params.ceiling,
+          floor: params.floor,
+        },
+      };
+    case WithdrawalStrategyType.Endowment:
+      return {
+        type,
+        params: {
+          spendingRate: params.spendingRate,
+          smoothingWeight: params.smoothingWeight,
+        },
+      };
+    case WithdrawalStrategyType.HebelerAutopilot:
+      return {
+        type,
+        params: {
+          initialWithdrawalRate: params.initialWithdrawalRate,
+          pmtExpectedReturn: params.pmtExpectedReturn,
+          priorYearWeight: params.priorYearWeight,
+        },
+      };
+    case WithdrawalStrategyType.CapeBased:
+      return {
+        type,
+        params: {
+          baseWithdrawalRate: params.baseWithdrawalRate,
+          capeWeight: params.capeWeight,
+          startingCape: params.startingCape,
+        },
+      };
+  }
+};
 
 const recalculatePhaseBoundaries = (phases: SpendingPhaseForm[], retirementYears: number): SpendingPhaseForm[] => {
   const sorted = [...phases].sort((a, b) => a.startYear - b.startYear);
@@ -193,9 +330,9 @@ export const useAppStore = create<AppStore>((set) => ({
     inflationRate: 0.03,
   },
   portfolio: {
-    stocks: 60_000_000,
-    bonds: 30_000_000,
-    cash: 10_000_000,
+    stocks: 2_000_000,
+    bonds: 250_000,
+    cash: 50_000,
   },
   returnAssumptions: {
     stocks: { expectedReturn: 0.08, stdDev: 0.15 },
@@ -205,7 +342,7 @@ export const useAppStore = create<AppStore>((set) => ({
   spendingPhases: [defaultPhase()],
   withdrawalStrategy: {
     type: WithdrawalStrategyType.ConstantDollar,
-    params: { initialWithdrawalRate: 0.04 },
+    params: defaultWithdrawalStrategyParams(),
   },
   drawdownStrategy: {
     type: DrawdownStrategyType.Bucket,
@@ -231,6 +368,7 @@ export const useAppStore = create<AppStore>((set) => ({
     chartBreakdownEnabled: false,
     tableGranularity: 'annual',
     tableAssetColumnsEnabled: false,
+    tableSpreadsheetMode: false,
     tableSort: null,
     chartZoom: null,
     reforecastStatus: 'idle',
@@ -296,11 +434,14 @@ export const useAppStore = create<AppStore>((set) => ({
     set((state) => ({
       withdrawalStrategy: { ...state.withdrawalStrategy, type },
     })),
-  setInitialWithdrawalRate: (rate) =>
+  setWithdrawalParam: (key, value) =>
     set((state) => ({
       withdrawalStrategy: {
         ...state.withdrawalStrategy,
-        params: { initialWithdrawalRate: rate },
+        params: {
+          ...state.withdrawalStrategy.params,
+          [key]: value,
+        },
       },
     })),
   setDrawdownType: (type) =>
@@ -387,6 +528,10 @@ export const useAppStore = create<AppStore>((set) => ({
     set((state) => ({
       ui: { ...state.ui, tableAssetColumnsEnabled },
     })),
+  setTableSpreadsheetMode: (tableSpreadsheetMode) =>
+    set((state) => ({
+      ui: { ...state.ui, tableSpreadsheetMode },
+    })),
   setTableSort: (tableSort) =>
     set((state) => ({
       ui: { ...state.ui, tableSort },
@@ -437,13 +582,10 @@ export const useActiveSimulationResult = () =>
 
 export const getCurrentConfig = () => {
   const state = useAppStore.getState();
-  const effectiveWithdrawalStrategy =
-    state.withdrawalStrategy.type === WithdrawalStrategyType.ConstantDollar
-      ? state.withdrawalStrategy
-      : {
-          type: WithdrawalStrategyType.ConstantDollar,
-          params: { initialWithdrawalRate: state.withdrawalStrategy.params.initialWithdrawalRate ?? 0.04 },
-        };
+  const effectiveWithdrawalStrategy = resolveWithdrawalStrategyConfig(
+    state.withdrawalStrategy.type,
+    state.withdrawalStrategy.params,
+  );
 
   const effectiveDrawdownStrategy =
     state.drawdownStrategy.type === DrawdownStrategyType.Bucket
