@@ -6,6 +6,8 @@ import {
   DrawdownStrategyType,
   SimulationMode,
   WithdrawalStrategyType,
+  type DrawdownStrategy,
+  type SimulationConfig,
   type SimulateResponse,
   type WithdrawalStrategyConfig,
 } from '@finapp/shared';
@@ -16,10 +18,10 @@ export type IncomeEventForm = {
   id: string;
   name: string;
   amount: number;
-  depositTo: AssetClass | 'follow-drawdown';
+  depositTo: AssetClass;
   start: { month: number; year: number };
   end: { month: number; year: number } | 'endOfRetirement';
-  frequency: 'monthly' | 'annual' | 'oneTime';
+  frequency: 'monthly' | 'quarterly' | 'annual' | 'oneTime';
   inflationAdjusted: boolean;
 };
 
@@ -146,10 +148,18 @@ type AppStore = {
   setWithdrawalParam: (key: WithdrawalParamKey, value: number) => void;
   setDrawdownType: (type: DrawdownStrategyType) => void;
   moveBucketAsset: (asset: AssetClass, direction: 'up' | 'down') => void;
-  addIncomeEvent: () => void;
+  setRebalancingTargetAllocation: (asset: AssetClass, value: number) => void;
+  setGlidePathEnabled: (enabled: boolean) => void;
+  addGlidePathWaypoint: () => void;
+  removeGlidePathWaypoint: (year: number) => void;
+  updateGlidePathWaypoint: (
+    year: number,
+    patch: Partial<{ year: number; allocation: { stocks: number; bonds: number; cash: number } }>,
+  ) => void;
+  addIncomeEvent: (preset?: 'socialSecurity' | 'pension' | 'rentalIncome') => void;
   removeIncomeEvent: (id: string) => void;
   updateIncomeEvent: (id: string, patch: Partial<IncomeEventForm>) => void;
-  addExpenseEvent: () => void;
+  addExpenseEvent: (preset?: 'newRoof' | 'longTermCare' | 'gift') => void;
   removeExpenseEvent: (id: string) => void;
   updateExpenseEvent: (id: string, patch: Partial<ExpenseEventForm>) => void;
   setSimulationStatus: (status: RunStatus, errorMessage?: string | null) => void;
@@ -176,7 +186,7 @@ const defaultPhase = (): SpendingPhaseForm => ({
 const defaultIncomeEvent = (): IncomeEventForm => ({
   id: createId('income'),
   name: 'Income',
-  amount: 250_000,
+  amount: 2_500,
   depositTo: AssetClass.Cash,
   start: { month: 1, year: 2030 },
   end: 'endOfRetirement',
@@ -187,13 +197,101 @@ const defaultIncomeEvent = (): IncomeEventForm => ({
 const defaultExpenseEvent = (): ExpenseEventForm => ({
   id: createId('expense'),
   name: 'Expense',
-  amount: 100_000,
+  amount: 25_000,
   sourceFrom: 'follow-drawdown',
   start: { month: 1, year: 2030 },
   end: 'endOfRetirement',
   frequency: 'oneTime',
-  inflationAdjusted: true,
+  inflationAdjusted: false,
 });
+
+const incomeEventPreset = (
+  preset: 'socialSecurity' | 'pension' | 'rentalIncome',
+): Pick<IncomeEventForm, 'name' | 'amount' | 'depositTo' | 'frequency' | 'inflationAdjusted'> => {
+  switch (preset) {
+    case 'socialSecurity':
+      return {
+        name: 'Social Security',
+        amount: 2_500,
+        depositTo: AssetClass.Cash,
+        frequency: 'monthly',
+        inflationAdjusted: true,
+      };
+    case 'pension':
+      return {
+        name: 'Pension',
+        amount: 1_800,
+        depositTo: AssetClass.Cash,
+        frequency: 'monthly',
+        inflationAdjusted: false,
+      };
+    case 'rentalIncome':
+      return {
+        name: 'Rental Income',
+        amount: 1_500,
+        depositTo: AssetClass.Cash,
+        frequency: 'monthly',
+        inflationAdjusted: true,
+      };
+  }
+};
+
+const expenseEventPreset = (
+  preset: 'newRoof' | 'longTermCare' | 'gift',
+): Pick<ExpenseEventForm, 'name' | 'amount' | 'sourceFrom' | 'frequency' | 'inflationAdjusted'> => {
+  switch (preset) {
+    case 'newRoof':
+      return {
+        name: 'New Roof',
+        amount: 35_000,
+        sourceFrom: 'follow-drawdown',
+        frequency: 'oneTime',
+        inflationAdjusted: false,
+      };
+    case 'longTermCare':
+      return {
+        name: 'Long-Term Care',
+        amount: 4_000,
+        sourceFrom: 'follow-drawdown',
+        frequency: 'monthly',
+        inflationAdjusted: true,
+      };
+    case 'gift':
+      return {
+        name: 'Family Gift',
+        amount: 50_000,
+        sourceFrom: AssetClass.Bonds,
+        frequency: 'oneTime',
+        inflationAdjusted: false,
+      };
+  }
+};
+
+const normalizeAllocation = (allocation: { stocks: number; bonds: number; cash: number }) => {
+  const total = allocation.stocks + allocation.bonds + allocation.cash;
+  if (total <= 0) {
+    return { stocks: 0, bonds: 0, cash: 0 };
+  }
+  return {
+    stocks: allocation.stocks / total,
+    bonds: allocation.bonds / total,
+    cash: allocation.cash / total,
+  };
+};
+
+const createDefaultGlidePath = (
+  retirementDuration: number,
+  target: { stocks: number; bonds: number; cash: number },
+) => {
+  const endingStocks = Math.max(0, target.stocks - 0.2);
+  const endingBonds = target.bonds + 0.1;
+  const endingCash = target.cash + 0.1;
+  const ending = normalizeAllocation({ stocks: endingStocks, bonds: endingBonds, cash: endingCash });
+  return [
+    { year: 1, allocation: normalizeAllocation(target) },
+    { year: retirementDuration, allocation: ending },
+  ];
+};
 
 const resolveFirstPhaseStartYear = (startingAge: number, withdrawalsStartAt: number): number =>
   Math.max(1, withdrawalsStartAt - startingAge);
@@ -412,13 +510,33 @@ export const useAppStore = create<AppStore>((set) => ({
           Number(nextCore.startingAge),
           Number(nextCore.withdrawalsStartAt),
         );
+        const nextRetirementDuration = Number(nextCore.retirementDuration);
+        const nextGlidePath = state.drawdownStrategy.rebalancing.glidePath.map((waypoint, index, all) => {
+          if (index === 0) {
+            return { ...waypoint, year: 1 };
+          }
+          if (index === all.length - 1) {
+            return { ...waypoint, year: nextRetirementDuration };
+          }
+          return {
+            ...waypoint,
+            year: Math.max(2, Math.min(nextRetirementDuration - 1, waypoint.year)),
+          };
+        });
         return {
           coreParams: nextCore,
           spendingPhases: recalculatePhaseBoundaries(
             state.spendingPhases,
-            Number(nextCore.retirementDuration),
+            nextRetirementDuration,
             firstPhaseStartYear,
           ),
+          drawdownStrategy: {
+            ...state.drawdownStrategy,
+            rebalancing: {
+              ...state.drawdownStrategy.rebalancing,
+              glidePath: nextGlidePath.sort((a, b) => a.year - b.year),
+            },
+          },
         };
       }
       return { coreParams: nextCore };
@@ -533,9 +651,117 @@ export const useAppStore = create<AppStore>((set) => ({
         drawdownStrategy: { ...state.drawdownStrategy, bucketOrder: order },
       };
     }),
-  addIncomeEvent: () =>
+  setRebalancingTargetAllocation: (asset, value) =>
     set((state) => ({
-      incomeEvents: [...state.incomeEvents, defaultIncomeEvent()],
+      drawdownStrategy: {
+        ...state.drawdownStrategy,
+        rebalancing: {
+          ...state.drawdownStrategy.rebalancing,
+          targetAllocation: {
+            ...state.drawdownStrategy.rebalancing.targetAllocation,
+            [asset]: Math.max(0, Math.min(1, value)),
+          },
+        },
+      },
+    })),
+  setGlidePathEnabled: (enabled) =>
+    set((state) => ({
+      drawdownStrategy: {
+        ...state.drawdownStrategy,
+        rebalancing: {
+          ...state.drawdownStrategy.rebalancing,
+          glidePathEnabled: enabled,
+          glidePath:
+            enabled && state.drawdownStrategy.rebalancing.glidePath.length < 2
+              ? createDefaultGlidePath(
+                  state.coreParams.retirementDuration,
+                  state.drawdownStrategy.rebalancing.targetAllocation,
+                )
+              : state.drawdownStrategy.rebalancing.glidePath,
+        },
+      },
+    })),
+  addGlidePathWaypoint: () =>
+    set((state) => {
+      const existing = [...state.drawdownStrategy.rebalancing.glidePath].sort((a, b) => a.year - b.year);
+      if (existing.length < 2) {
+        return {
+          drawdownStrategy: {
+            ...state.drawdownStrategy,
+            rebalancing: {
+              ...state.drawdownStrategy.rebalancing,
+              glidePath: createDefaultGlidePath(
+                state.coreParams.retirementDuration,
+                state.drawdownStrategy.rebalancing.targetAllocation,
+              ),
+            },
+          },
+        };
+      }
+      const last = existing[existing.length - 1];
+      const prev = existing[existing.length - 2];
+      if (!last || !prev) {
+        return state;
+      }
+      const nextYear = Math.round((prev.year + last.year) / 2);
+      if (existing.some((waypoint) => waypoint.year === nextYear)) {
+        return state;
+      }
+      return {
+        drawdownStrategy: {
+          ...state.drawdownStrategy,
+          rebalancing: {
+            ...state.drawdownStrategy.rebalancing,
+            glidePath: [...existing, { year: nextYear, allocation: normalizeAllocation(last.allocation) }].sort(
+              (a, b) => a.year - b.year,
+            ),
+          },
+        },
+      };
+    }),
+  removeGlidePathWaypoint: (year) =>
+    set((state) => {
+      const next = state.drawdownStrategy.rebalancing.glidePath.filter((waypoint) => waypoint.year !== year);
+      if (next.length < 2) {
+        return state;
+      }
+      return {
+        drawdownStrategy: {
+          ...state.drawdownStrategy,
+          rebalancing: { ...state.drawdownStrategy.rebalancing, glidePath: next },
+        },
+      };
+    }),
+  updateGlidePathWaypoint: (year, patch) =>
+    set((state) => {
+      const waypoints = state.drawdownStrategy.rebalancing.glidePath.map((waypoint) => {
+        if (waypoint.year !== year) {
+          return waypoint;
+        }
+        return {
+          year: patch.year ?? waypoint.year,
+          allocation: patch.allocation
+            ? normalizeAllocation(patch.allocation)
+            : waypoint.allocation,
+        };
+      });
+
+      return {
+        drawdownStrategy: {
+          ...state.drawdownStrategy,
+          rebalancing: {
+            ...state.drawdownStrategy.rebalancing,
+            glidePath: waypoints.sort((a, b) => a.year - b.year),
+          },
+        },
+      };
+    }),
+  addIncomeEvent: (preset) =>
+    set((state) => ({
+      incomeEvents: [
+        ...state.incomeEvents,
+        preset ? { ...defaultIncomeEvent(), ...incomeEventPreset(preset), id: createId('income') } : defaultIncomeEvent(),
+      ],
     })),
   removeIncomeEvent: (id) =>
     set((state) => ({
@@ -545,9 +771,14 @@ export const useAppStore = create<AppStore>((set) => ({
     set((state) => ({
       incomeEvents: state.incomeEvents.map((event) => (event.id === id ? { ...event, ...patch } : event)),
     })),
-  addExpenseEvent: () =>
+  addExpenseEvent: (preset) =>
     set((state) => ({
-      expenseEvents: [...state.expenseEvents, defaultExpenseEvent()],
+      expenseEvents: [
+        ...state.expenseEvents,
+        preset
+          ? { ...defaultExpenseEvent(), ...expenseEventPreset(preset), id: createId('expense') }
+          : defaultExpenseEvent(),
+      ],
     })),
   removeExpenseEvent: (id) =>
     set((state) => ({
@@ -643,19 +874,29 @@ export const useActiveSimulationResult = () =>
     state.simulationMode === SimulationMode.Manual ? state.simulationResults.manual : state.simulationResults.monteCarlo,
   );
 
-export const getCurrentConfig = () => {
+export const getCurrentConfig = (): SimulationConfig => {
   const state = useAppStore.getState();
   const effectiveWithdrawalStrategy = resolveWithdrawalStrategyConfig(
     state.withdrawalStrategy.type,
     state.withdrawalStrategy.params,
   );
 
-  const effectiveDrawdownStrategy =
+  const effectiveDrawdownStrategy: DrawdownStrategy =
     state.drawdownStrategy.type === DrawdownStrategyType.Bucket
-      ? state.drawdownStrategy
-      : {
-          ...state.drawdownStrategy,
+      ? {
           type: DrawdownStrategyType.Bucket,
+          bucketOrder: state.drawdownStrategy.bucketOrder,
+        }
+      : {
+          type: DrawdownStrategyType.Rebalancing,
+          rebalancing: {
+            targetAllocation: normalizeAllocation(state.drawdownStrategy.rebalancing.targetAllocation),
+            glidePathEnabled: state.drawdownStrategy.rebalancing.glidePathEnabled,
+            glidePath: state.drawdownStrategy.rebalancing.glidePath.map((waypoint) => ({
+              year: waypoint.year,
+              allocation: normalizeAllocation(waypoint.allocation),
+            })),
+          },
         };
 
   return {
@@ -668,7 +909,17 @@ export const getCurrentConfig = () => {
     spendingPhases: state.spendingPhases,
     withdrawalStrategy: effectiveWithdrawalStrategy,
     drawdownStrategy: effectiveDrawdownStrategy,
-    incomeEvents: state.incomeEvents.map((event) => ({ id: event.id, name: event.name, amount: event.amount })),
-    expenseEvents: state.expenseEvents.map((event) => ({ id: event.id, name: event.name, amount: event.amount })),
+    incomeEvents: state.incomeEvents,
+    expenseEvents: state.expenseEvents,
   };
+};
+
+export const isRebalancingAllocationValid = () => {
+  const state = useAppStore.getState();
+  if (state.drawdownStrategy.type !== DrawdownStrategyType.Rebalancing) {
+    return true;
+  }
+  const allocation = state.drawdownStrategy.rebalancing.targetAllocation;
+  const sum = allocation.stocks + allocation.bonds + allocation.cash;
+  return Math.abs(sum - 1) < 0.000001;
 };

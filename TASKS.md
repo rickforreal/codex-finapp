@@ -293,3 +293,61 @@ Acceptance Criteria:
 [AC1] `npm run build` passes.
 [AC2] `npm run typecheck`, `npm run lint`, and `npm test` pass.
 [AC3] Manual selector/parameter wiring is present and simulations execute across strategy types.
+
+## Phase 7 Plan — Drawdown & Events
+
+- [x] P7-T1: Expand shared domain/contracts and validation for Phase 7 drawdown + events
+Phase: 7 (Drawdown & Events)
+Dependencies: P6-T5
+Acceptance Criteria:
+[AC1] `DrawdownStrategyConfig` supports both Bucket and Rebalancing payloads with strategy-specific constraints.
+[AC2] `IncomeEvent` and `ExpenseEvent` include timing, frequency, inflation toggle, and asset routing/source fields.
+[AC3] `simulateRequestSchema` validates rebalancing allocation totals and event date/frequency invariants.
+
+- [x] P7-T2: Implement rebalancing drawdown engine with optional glide path
+Phase: 7 (Drawdown & Events)
+Dependencies: P7-T1
+Acceptance Criteria:
+[AC1] New drawdown module applies withdrawals from overweight assets first, then proportionally across remaining assets.
+[AC2] Glide path interpolation resolves annual target allocation when enabled.
+[AC3] Partial fulfillment and per-asset withdrawal reporting match existing drawdown contract shape.
+
+- [x] P7-T3: Implement income/expense event processing in simulator loop
+Phase: 7 (Drawdown & Events)
+Dependencies: P7-T1, P7-T2
+Acceptance Criteria:
+[AC1] Income events are applied at correct month/frequency and deposited to selected destination.
+[AC2] Expense events are applied at correct month/frequency and sourced from chosen asset or drawdown strategy.
+[AC3] Inflation-adjusted recurring events grow annually and shortfalls are tracked when expenses exceed portfolio capacity.
+
+- [x] P7-T4: Build Rebalancing UI and glide path editor controls
+Phase: 7 (Drawdown & Events)
+Dependencies: P7-T1
+Acceptance Criteria:
+[AC1] Selecting Rebalancing renders target allocation inputs and 100% validation status.
+[AC2] Glide path toggle enables waypoint add/remove/edit controls and preserves prior values on mode switches.
+[AC3] Command bar blocks Run Simulation while rebalancing allocations are invalid.
+
+- [x] P7-T5: Upgrade Income/Expense event cards with full Phase 7 controls and presets
+Phase: 7 (Drawdown & Events)
+Dependencies: P7-T1
+Acceptance Criteria:
+[AC1] Income and expense cards expose name, amount, deposit/source, start/end date, frequency, and inflation toggle controls.
+[AC2] Add buttons support blank defaults plus common presets.
+[AC3] End date behavior supports “End of Retirement” and enforces `end >= start` for recurring events.
+
+- [x] P7-T6: Add Phase 7 engine tests (rebalancing, events, simulator integration)
+Phase: 7 (Drawdown & Events)
+Dependencies: P7-T2, P7-T3
+Acceptance Criteria:
+[AC1] `rebalancing.test.ts` covers overweight sourcing, proportional fallback, glide path interpolation, and depletion behavior.
+[AC2] `events.test.ts` covers timing/frequency, inflation adjustments, and partial expense fulfillment.
+[AC3] Simulator integration test validates combined rebalancing + income + expense trajectory.
+
+- [x] P7-T7: Run Phase 7 verification and complete DoD
+Phase: 7 (Drawdown & Events)
+Dependencies: P7-T4, P7-T5, P7-T6
+Acceptance Criteria:
+[AC1] `npm run build` passes.
+[AC2] `npm run typecheck`, `npm run lint`, and `npm test` pass.
+[AC3] Manual pass confirms Rebalancing config/glide path and income/expense events affect chart + detail table outputs.

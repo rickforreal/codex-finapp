@@ -254,3 +254,62 @@ Fixed two related client-side validation/state issues:
 Verification:
 - `npm run typecheck -w @finapp/client` passes.
 - `npm run lint -w @finapp/client` passes.
+
+## 2026-02-14 15:28 — Phase 7: Drawdown & Events | COMPLETE
+
+Implemented full Phase 7 across shared contracts, server engine, client input UI, and verification.
+
+Changes:
+- Shared model/contracts (`@finapp/shared`):
+  - Upgraded drawdown config to support both `bucket` and `rebalancing` strategies via discriminated union.
+  - Added full event domain fields for income/expense timing and behavior:
+    - `depositTo` / `sourceFrom`
+    - `start`, `end` (including `"endOfRetirement"`)
+    - `frequency`
+    - `inflationAdjusted`
+  - Expanded `simulateRequestSchema` validation:
+    - Rebalancing target allocation must sum to 1 (100%).
+    - Glide path allocation entries must sum to 1.
+    - Glide path requires >= 2 waypoints when enabled.
+    - Recurring events require `end >= start`.
+- Server drawdown engine:
+  - Added `engine/drawdown/rebalancing.ts` with:
+    - Overweight-first withdrawal sourcing.
+    - Proportional fallback drawdown across remaining assets.
+    - Glide path interpolation helper by retirement year.
+    - Partial-fulfillment + shortfall reporting.
+  - Added drawdown registry (`engine/drawdown/index.ts`) used by simulator.
+- Server simulator:
+  - Replaced bucket-only sourcing with strategy-aware drawdown dispatch.
+  - Added monthly income processing (timing/frequency/inflation/deposit asset).
+  - Added monthly expense processing (timing/frequency/inflation/source asset/follow-drawdown).
+  - Expense shortfall now contributes to `summary.totalShortfall`.
+  - Row-level `incomeTotal` and `expenseTotal` are now populated.
+- Client store + request wiring:
+  - `getCurrentConfig()` now emits full Phase 7 drawdown/event payloads (no rebalancing coercion).
+  - Added rebalancing actions: target allocation update, glide-path enable, waypoint add/remove/update.
+  - Added income/expense preset creation paths.
+  - Added retirement-duration glide-path boundary clamping for first/last waypoint years.
+- Client UI:
+  - Replaced Phase-7 placeholder with `RebalancingConfig` panel:
+    - Target allocation % inputs with total validation display.
+    - Glide-path toggle + waypoint editor + lightweight preview.
+  - Upgraded income/expense cards with:
+    - start + end date controls
+    - frequency controls
+    - inflation toggle
+    - add-preset quick buttons
+  - `Run Simulation` is blocked in UI when Rebalancing target allocation total != 100%.
+- Tests:
+  - Added `packages/server/tests/engine/drawdown/rebalancing.test.ts`.
+  - Added `packages/server/tests/engine/events.test.ts`.
+  - Added simulator integration coverage for rebalancing + income + expenses in `simulator.test.ts`.
+
+Tooling adjustment:
+- Updated root scripts so `npm run typecheck` and `npm test` build shared first, preventing stale shared runtime/type artifacts during cross-package checks.
+
+Verification run (all passing):
+- `npm run build`
+- `npm run typecheck`
+- `npm run lint`
+- `npm test`

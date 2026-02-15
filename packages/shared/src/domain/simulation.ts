@@ -102,28 +102,52 @@ export type WithdrawalStrategyConfig =
   | { type: WithdrawalStrategyType.CapeBased; params: CapeBasedParams };
 
 export interface DrawdownStrategyConfig {
-  type: DrawdownStrategyType;
+  type: DrawdownStrategyType.Bucket;
   bucketOrder: AssetClass[];
+}
+
+export interface GlidePathWaypoint {
+  year: number;
+  allocation: Record<AssetClass, number>;
+}
+
+export interface RebalancingDrawdownStrategyConfig {
+  type: DrawdownStrategyType.Rebalancing;
   rebalancing: {
     targetAllocation: Record<AssetClass, number>;
     glidePathEnabled: boolean;
-    glidePath: Array<{
-      year: number;
-      allocation: Record<AssetClass, number>;
-    }>;
+    glidePath: GlidePathWaypoint[];
   };
 }
+
+export type DrawdownStrategy =
+  | DrawdownStrategyConfig
+  | RebalancingDrawdownStrategyConfig;
+
+export type EventFrequency = 'monthly' | 'quarterly' | 'annual' | 'oneTime';
+export type EventDate = { month: number; year: number };
+export type EventEndDate = EventDate | 'endOfRetirement';
 
 export interface IncomeEvent {
   id: string;
   name: string;
   amount: MoneyCents;
+  depositTo: AssetClass;
+  start: EventDate;
+  end: EventEndDate;
+  frequency: EventFrequency;
+  inflationAdjusted: boolean;
 }
 
 export interface ExpenseEvent {
   id: string;
   name: string;
   amount: MoneyCents;
+  sourceFrom: AssetClass | 'follow-drawdown';
+  start: EventDate;
+  end: EventEndDate;
+  frequency: EventFrequency;
+  inflationAdjusted: boolean;
 }
 
 export interface SimulationConfig {
@@ -141,7 +165,7 @@ export interface SimulationConfig {
   returnAssumptions: ReturnAssumptions;
   spendingPhases: SpendingPhase[];
   withdrawalStrategy: WithdrawalStrategyConfig;
-  drawdownStrategy: DrawdownStrategyConfig;
+  drawdownStrategy: DrawdownStrategy;
   incomeEvents: IncomeEvent[];
   expenseEvents: ExpenseEvent[];
 }

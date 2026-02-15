@@ -50,6 +50,74 @@ const simpleCashflowEventSchema = z
   })
   .strict();
 
+const eventDateSchema = z
+  .object({
+    month: z.number().int().min(1).max(12),
+    year: z.number().int().min(1900).max(3000),
+  })
+  .strict();
+
+const eventFrequencySchema = z.enum(['monthly', 'quarterly', 'annual', 'oneTime']);
+
+const allocationSchema = z
+  .object({
+    stocks: z.number().min(0).max(1),
+    bonds: z.number().min(0).max(1),
+    cash: z.number().min(0).max(1),
+  })
+  .strict();
+
+const allocationSumsToOne = (allocation: { stocks: number; bonds: number; cash: number }): boolean =>
+  Math.abs(allocation.stocks + allocation.bonds + allocation.cash - 1) < 0.000001;
+
+const incomeEventSchema = z
+  .object({
+    ...simpleCashflowEventSchema.shape,
+    depositTo: z.nativeEnum(AssetClass),
+    start: eventDateSchema,
+    end: z.union([eventDateSchema, z.literal('endOfRetirement')]),
+    frequency: eventFrequencySchema,
+    inflationAdjusted: z.boolean(),
+  })
+  .strict()
+  .refine(
+    (event) =>
+      event.frequency === 'oneTime'
+        ? true
+        : event.end === 'endOfRetirement'
+          ? true
+          : (event.end.year > event.start.year ||
+              (event.end.year === event.start.year && event.end.month >= event.start.month)),
+    {
+      message: 'end must be greater than or equal to start for recurring events',
+      path: ['end'],
+    },
+  );
+
+const expenseEventSchema = z
+  .object({
+    ...simpleCashflowEventSchema.shape,
+    sourceFrom: z.union([z.nativeEnum(AssetClass), z.literal('follow-drawdown')]),
+    start: eventDateSchema,
+    end: z.union([eventDateSchema, z.literal('endOfRetirement')]),
+    frequency: z.enum(['monthly', 'annual', 'oneTime']),
+    inflationAdjusted: z.boolean(),
+  })
+  .strict()
+  .refine(
+    (event) =>
+      event.frequency === 'oneTime'
+        ? true
+        : event.end === 'endOfRetirement'
+          ? true
+          : (event.end.year > event.start.year ||
+              (event.end.year === event.start.year && event.end.month >= event.start.month)),
+    {
+      message: 'end must be greater than or equal to start for recurring events',
+      path: ['end'],
+    },
+  );
+
 const simulationConfigSchema = z
   .object({
     mode: z.nativeEnum(AppMode),
@@ -211,40 +279,43 @@ const simulationConfigSchema = z
         })
         .strict(),
     ]),
-    drawdownStrategy: z
-      .object({
-        type: z.literal(DrawdownStrategyType.Bucket),
-        bucketOrder: z.array(z.nativeEnum(AssetClass)).length(3),
-        rebalancing: z
-          .object({
-            targetAllocation: z
-              .object({
-                stocks: z.number().min(0).max(1),
-                bonds: z.number().min(0).max(1),
-                cash: z.number().min(0).max(1),
-              })
-              .strict(),
-            glidePathEnabled: z.boolean(),
-            glidePath: z.array(
-              z
-                .object({
-                  year: z.number().int().positive(),
-                  allocation: z
-                    .object({
-                      stocks: z.number().min(0).max(1),
-                      bonds: z.number().min(0).max(1),
-                      cash: z.number().min(0).max(1),
-                    })
-                    .strict(),
-                })
-                .strict(),
+    drawdownStrategy: z.discriminatedUnion('type', [
+      z
+        .object({
+          type: z.literal(DrawdownStrategyType.Bucket),
+          bucketOrder: z.array(z.nativeEnum(AssetClass)).length(3),
+        })
+        .strict(),
+      z
+        .object({
+          type: z.literal(DrawdownStrategyType.Rebalancing),
+          rebalancing: z
+            .object({
+              targetAllocation: allocationSchema.refine(allocationSumsToOne, {
+                message: 'target allocation must sum to 1',
+              }),
+              glidePathEnabled: z.boolean(),
+              glidePath: z.array(
+                z
+                  .object({
+                    year: z.number().int().positive(),
+                    allocation: allocationSchema.refine(allocationSumsToOne, {
+                      message: 'glide path allocation must sum to 1',
+                    }),
+                  })
+                  .strict(),
+              ),
+            })
+            .strict()
+            .refine(
+              (value) => (value.glidePathEnabled ? value.glidePath.length >= 2 : true),
+              { message: 'at least two glide path waypoints are required when enabled', path: ['glidePath'] },
             ),
-          })
-          .strict(),
-      })
-      .strict(),
-    incomeEvents: z.array(simpleCashflowEventSchema),
-    expenseEvents: z.array(simpleCashflowEventSchema),
+        })
+        .strict(),
+    ]),
+    incomeEvents: z.array(incomeEventSchema),
+    expenseEvents: z.array(expenseEventSchema),
   })
   .strict();
 

@@ -1,4 +1,4 @@
-import { AppMode, SimulationMode } from '@finapp/shared';
+import { AppMode, DrawdownStrategyType, SimulationMode } from '@finapp/shared';
 
 import { runSimulation } from '../../api/simulationApi';
 import { getCurrentConfig, useAppStore } from '../../store/useAppStore';
@@ -12,8 +12,17 @@ export const CommandBar = () => {
   const setSimulationMode = useAppStore((state) => state.setSimulationMode);
   const setSimulationStatus = useAppStore((state) => state.setSimulationStatus);
   const setSimulationResult = useAppStore((state) => state.setSimulationResult);
+  const drawdownType = useAppStore((state) => state.drawdownStrategy.type);
+  const targetAllocation = useAppStore((state) => state.drawdownStrategy.rebalancing.targetAllocation);
+  const canRun =
+    drawdownType !== DrawdownStrategyType.Rebalancing ||
+    Math.abs(targetAllocation.stocks + targetAllocation.bonds + targetAllocation.cash - 1) < 0.000001;
 
   const handleRunSimulation = async () => {
+    if (!canRun) {
+      setSimulationStatus('error', 'Rebalancing target allocation must sum to 100%.');
+      return;
+    }
     try {
       setSimulationStatus('running');
       const config = getCurrentConfig();
@@ -49,7 +58,8 @@ export const CommandBar = () => {
         <button
           type="button"
           onClick={() => void handleRunSimulation()}
-          className="rounded-md bg-brand-navy px-4 py-2 text-sm font-semibold text-white"
+          disabled={!canRun}
+          className="rounded-md bg-brand-navy px-4 py-2 text-sm font-semibold text-white disabled:cursor-not-allowed disabled:bg-slate-400"
         >
           {status === 'running' ? 'Running...' : 'Run Simulation'}
         </button>

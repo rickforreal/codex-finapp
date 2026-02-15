@@ -3,6 +3,7 @@ import { DrawdownStrategyType } from '@finapp/shared';
 import { SegmentedToggle } from '../../shared/SegmentedToggle';
 import { useAppStore } from '../../../store/useAppStore';
 import { BucketConfig } from './BucketConfig';
+import { RebalancingConfig } from './RebalancingConfig';
 
 export const DrawdownStrategySection = () => {
   const drawdownStrategy = useAppStore((state) => state.drawdownStrategy);
@@ -22,7 +23,7 @@ export const DrawdownStrategySection = () => {
       {drawdownStrategy.type === DrawdownStrategyType.Bucket ? (
         <BucketConfig />
       ) : (
-        <p className="text-xs text-slate-500">Rebalancing controls are deferred to Phase 7.</p>
+        <RebalancingConfig />
       )}
     </div>
   );

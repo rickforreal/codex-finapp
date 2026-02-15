@@ -8,8 +8,8 @@
   "scripts": {
     "dev": "npm run build -w @finapp/shared && concurrently -n server,client -c cyan,magenta \"npm run dev -w @finapp/server\" \"npm run dev -w @finapp/client\"",
     "build": "npm run build -w @finapp/shared && npm run build -w @finapp/server && npm run build -w @finapp/client",
-    "test": "npm run test -w @finapp/shared && npm run test -w @finapp/server && npm run test -w @finapp/client",
-    "typecheck": "npm run typecheck -w @finapp/shared && npm run typecheck -w @finapp/server && npm run typecheck -w @finapp/client",
+    "test": "npm run build -w @finapp/shared && npm run test -w @finapp/shared && npm run test -w @finapp/server && npm run test -w @finapp/client",
+    "typecheck": "npm run build -w @finapp/shared && npm run typecheck -w @finapp/shared && npm run typecheck -w @finapp/server && npm run typecheck -w @finapp/client",
     "lint": "npm run lint -w @finapp/shared && npm run lint -w @finapp/server && npm run lint -w @finapp/client",
     "lint:fix": "npm run lint:fix -w @finapp/shared && npm run lint:fix -w @finapp/server && npm run lint:fix -w @finapp/client",
     "format": "prettier --write .",

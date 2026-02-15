@@ -49,15 +49,6 @@ export const createBaseConfig = (): SimulationConfig => ({
   drawdownStrategy: {
     type: DrawdownStrategyType.Bucket,
     bucketOrder: [AssetClass.Cash, AssetClass.Bonds, AssetClass.Stocks],
-    rebalancing: {
-      targetAllocation: {
-        [AssetClass.Stocks]: 0.6,
-        [AssetClass.Bonds]: 0.3,
-        [AssetClass.Cash]: 0.1,
-      },
-      glidePathEnabled: false,
-      glidePath: [],
-    },
   },
   incomeEvents: [],
   expenseEvents: [],

@@ -1,4 +1,4 @@
-import { WithdrawalStrategyType } from '@finapp/shared';
+import { AssetClass, DrawdownStrategyType, WithdrawalStrategyType } from '@finapp/shared';
 import { describe, expect, it } from 'vitest';
 
 import { generateMonthlyReturnsFromAssumptions, simulateRetirement } from '../../src/engine/simulator';
@@ -123,5 +123,52 @@ describe('simulateRetirement', () => {
     expect(year4FirstMonth?.withdrawals.requested).toBe(0);
     expect(year5FirstMonth?.year).toBe(5);
     expect(year5FirstMonth?.withdrawals.requested).toBeGreaterThan(0);
+  });
+
+  it('should integrate rebalancing drawdown with income and expense events', () => {
+    const config = createBaseConfig();
+    config.coreParams.retirementDuration = 2;
+    config.drawdownStrategy = {
+      type: DrawdownStrategyType.Rebalancing,
+      rebalancing: {
+        targetAllocation: { stocks: 0.6, bonds: 0.3, cash: 0.1 },
+        glidePathEnabled: true,
+        glidePath: [
+          { year: 1, allocation: { [AssetClass.Stocks]: 0.6, [AssetClass.Bonds]: 0.3, [AssetClass.Cash]: 0.1 } },
+          { year: 2, allocation: { [AssetClass.Stocks]: 0.5, [AssetClass.Bonds]: 0.35, [AssetClass.Cash]: 0.15 } },
+        ],
+      },
+    };
+    config.incomeEvents = [
+      {
+        id: 'social',
+        name: 'Social Security',
+        amount: 2_000,
+        depositTo: AssetClass.Cash,
+        start: { month: 1, year: 2030 },
+        end: 'endOfRetirement',
+        frequency: 'monthly',
+        inflationAdjusted: false,
+      },
+    ];
+    config.expenseEvents = [
+      {
+        id: 'roof',
+        name: 'Roof',
+        amount: 15_000,
+        sourceFrom: 'follow-drawdown',
+        start: { month: 6, year: 2030 },
+        end: 'endOfRetirement',
+        frequency: 'oneTime',
+        inflationAdjusted: false,
+      },
+    ];
+
+    const result = simulateRetirement(config, createZeroReturns(config.coreParams.retirementDuration * 12));
+
+    expect(result.rows[0]?.incomeTotal).toBe(2_000);
+    expect(result.rows[5]?.expenseTotal).toBe(15_000);
+    expect(result.rows[5]?.withdrawals.actual).toBeGreaterThan(0);
+    expect(result.summary.terminalPortfolioValue).toBeLessThan(100_000_000);
   });
 });
