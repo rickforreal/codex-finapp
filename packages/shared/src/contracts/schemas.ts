@@ -4,6 +4,7 @@ import {
   AppMode,
   AssetClass,
   DrawdownStrategyType,
+  HistoricalEra,
   SimulationMode,
   WithdrawalStrategyType,
 } from '../constants/enums';
@@ -122,7 +123,7 @@ const simulationConfigSchema = z
   .object({
     mode: z.nativeEnum(AppMode),
     simulationMode: z.nativeEnum(SimulationMode),
-    selectedHistoricalEra: z.string().min(1),
+    selectedHistoricalEra: z.nativeEnum(HistoricalEra),
     coreParams: z
       .object({
         startingAge: z.number().int().min(1).max(120),

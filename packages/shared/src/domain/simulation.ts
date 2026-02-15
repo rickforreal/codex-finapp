@@ -2,6 +2,7 @@ import {
   AppMode,
   AssetClass,
   DrawdownStrategyType,
+  HistoricalEra,
   SimulationMode,
   WithdrawalStrategyType,
 } from '../constants/enums';
@@ -153,7 +154,7 @@ export interface ExpenseEvent {
 export interface SimulationConfig {
   mode: AppMode;
   simulationMode: SimulationMode;
-  selectedHistoricalEra: string;
+  selectedHistoricalEra: HistoricalEra;
   coreParams: {
     startingAge: number;
     withdrawalsStartAt: number;
@@ -200,6 +201,49 @@ export interface SinglePathResult {
     totalShortfall: MoneyCents;
     terminalPortfolioValue: MoneyCents;
   };
+}
+
+export interface HistoricalEraOption {
+  key: HistoricalEra;
+  label: string;
+  startYear: number;
+  endYear: number;
+}
+
+export interface HistoricalAssetSummary {
+  meanReturn: number;
+  stdDev: number;
+  sampleSizeMonths: number;
+}
+
+export interface HistoricalDataSummary {
+  selectedEra: HistoricalEraOption;
+  eras: HistoricalEraOption[];
+  byAsset: Record<AssetClass, HistoricalAssetSummary>;
+}
+
+export interface MonteCarloPercentileCurves {
+  p05: number[];
+  p10: number[];
+  p25: number[];
+  p50: number[];
+  p75: number[];
+  p90: number[];
+  p95: number[];
+}
+
+export interface MonteCarloResult {
+  simulationCount: number;
+  successCount: number;
+  probabilityOfSuccess: number;
+  terminalValues: number[];
+  percentileCurves: {
+    total: MonteCarloPercentileCurves;
+    stocks: MonteCarloPercentileCurves;
+    bonds: MonteCarloPercentileCurves;
+    cash: MonteCarloPercentileCurves;
+  };
+  historicalSummary: HistoricalDataSummary;
 }
 
 export interface SimulationResult {

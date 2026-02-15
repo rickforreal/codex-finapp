@@ -4,9 +4,11 @@ import {
   AppMode,
   AssetClass,
   DrawdownStrategyType,
+  HistoricalEra,
   SimulationMode,
   WithdrawalStrategyType,
   type DrawdownStrategy,
+  type HistoricalDataSummary,
   type SimulationConfig,
   type SimulateResponse,
   type WithdrawalStrategyConfig,
@@ -78,7 +80,7 @@ type WithdrawalStrategyParamsForm = Record<WithdrawalParamKey, number>;
 type AppStore = {
   mode: AppMode;
   simulationMode: SimulationMode;
-  selectedHistoricalEra: string;
+  selectedHistoricalEra: HistoricalEra;
   coreParams: {
     startingAge: number;
     withdrawalsStartAt: number;
@@ -110,6 +112,11 @@ type AppStore = {
       glidePath: Array<{ year: number; allocation: { stocks: number; bonds: number; cash: number } }>;
     };
   };
+  historicalData: {
+    summary: HistoricalDataSummary | null;
+    status: 'idle' | 'loading' | 'ready' | 'error';
+    errorMessage: string | null;
+  };
   incomeEvents: IncomeEventForm[];
   expenseEvents: ExpenseEventForm[];
   simulationResults: {
@@ -133,7 +140,9 @@ type AppStore = {
   };
   setMode: (mode: AppMode) => void;
   setSimulationMode: (mode: SimulationMode) => void;
-  setSelectedHistoricalEra: (era: string) => void;
+  setSelectedHistoricalEra: (era: HistoricalEra) => void;
+  setHistoricalSummaryStatus: (status: 'idle' | 'loading' | 'ready' | 'error', errorMessage?: string | null) => void;
+  setHistoricalSummary: (summary: HistoricalDataSummary) => void;
   setCoreParam: (key: keyof AppStore['coreParams'], value: number | { month: number; year: number }) => void;
   setPortfolioValue: (asset: AssetClass, value: number) => void;
   setReturnAssumption: (
@@ -435,7 +444,7 @@ const recalculatePhaseBoundaries = (
 export const useAppStore = create<AppStore>((set) => ({
   mode: AppMode.Planning,
   simulationMode: SimulationMode.Manual,
-  selectedHistoricalEra: 'all',
+  selectedHistoricalEra: HistoricalEra.FullHistory,
   coreParams: {
     startingAge: 60,
     withdrawalsStartAt: 60,
@@ -467,6 +476,11 @@ export const useAppStore = create<AppStore>((set) => ({
       glidePath: [],
     },
   },
+  historicalData: {
+    summary: null,
+    status: 'idle',
+    errorMessage: null,
+  },
   incomeEvents: [],
   expenseEvents: [],
   simulationResults: {
@@ -491,6 +505,14 @@ export const useAppStore = create<AppStore>((set) => ({
   setMode: (mode) => set({ mode }),
   setSimulationMode: (simulationMode) => set({ simulationMode }),
   setSelectedHistoricalEra: (selectedHistoricalEra) => set({ selectedHistoricalEra }),
+  setHistoricalSummaryStatus: (status, errorMessage = null) =>
+    set((state) => ({
+      historicalData: { ...state.historicalData, status, errorMessage },
+    })),
+  setHistoricalSummary: (summary) =>
+    set({
+      historicalData: { summary, status: 'ready', errorMessage: null },
+    }),
   setCoreParam: (key, value) =>
     set((state) => {
       const nextCore = { ...state.coreParams, [key]: value };

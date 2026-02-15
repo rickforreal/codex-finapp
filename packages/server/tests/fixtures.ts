@@ -2,6 +2,7 @@ import {
   AppMode,
   AssetClass,
   DrawdownStrategyType,
+  HistoricalEra,
   SimulationMode,
   WithdrawalStrategyType,
   type MonthlyReturns,
@@ -12,7 +13,7 @@ import {
 export const createBaseConfig = (): SimulationConfig => ({
   mode: AppMode.Planning,
   simulationMode: SimulationMode.Manual,
-  selectedHistoricalEra: 'all',
+  selectedHistoricalEra: HistoricalEra.FullHistory,
   coreParams: {
     startingAge: 60,
     withdrawalsStartAt: 60,

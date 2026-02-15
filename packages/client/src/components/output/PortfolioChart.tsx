@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react';
 
-import { AssetClass } from '@finapp/shared';
+import { AssetClass, SimulationMode } from '@finapp/shared';
 
 import { formatCompactCurrency, formatCurrency, formatPeriodLabel } from '../../lib/format';
 import { useActiveSimulationResult, useAppStore } from '../../store/useAppStore';
@@ -18,6 +18,14 @@ type ChartPoint = {
   stocksReal: number;
   bondsReal: number;
   cashReal: number;
+};
+
+type MonteCarloBands = {
+  p10: number[];
+  p25: number[];
+  p50: number[];
+  p75: number[];
+  p90: number[];
 };
 
 const width = 1200;
@@ -58,6 +66,7 @@ export const PortfolioChart = () => {
   const result = useActiveSimulationResult();
   const chartDisplayMode = useAppStore((state) => state.ui.chartDisplayMode);
   const chartBreakdownEnabled = useAppStore((state) => state.ui.chartBreakdownEnabled);
+  const simulationMode = useAppStore((state) => state.simulationMode);
   const chartZoom = useAppStore((state) => state.ui.chartZoom);
   const setChartDisplayMode = useAppStore((state) => state.setChartDisplayMode);
   const setChartBreakdownEnabled = useAppStore((state) => state.setChartBreakdownEnabled);
@@ -88,6 +97,23 @@ export const PortfolioChart = () => {
       };
     });
   }, [inflationRate, result]);
+
+  const monteCarloBands = useMemo<MonteCarloBands | null>(() => {
+    if (simulationMode !== SimulationMode.MonteCarlo || !result?.monteCarlo) {
+      return null;
+    }
+
+    const toDisplayValue = (value: number, monthIndexOneBased: number) =>
+      chartDisplayMode === 'real' ? value / inflationFactor(inflationRate, monthIndexOneBased) : value;
+
+    return {
+      p10: result.monteCarlo.percentileCurves.total.p10.map((value, index) => toDisplayValue(value, index + 1)),
+      p25: result.monteCarlo.percentileCurves.total.p25.map((value, index) => toDisplayValue(value, index + 1)),
+      p50: result.monteCarlo.percentileCurves.total.p50.map((value, index) => toDisplayValue(value, index + 1)),
+      p75: result.monteCarlo.percentileCurves.total.p75.map((value, index) => toDisplayValue(value, index + 1)),
+      p90: result.monteCarlo.percentileCurves.total.p90.map((value, index) => toDisplayValue(value, index + 1)),
+    };
+  }, [chartDisplayMode, inflationRate, result, simulationMode]);
 
   if (points.length === 0) {
     return (
@@ -136,7 +162,20 @@ export const PortfolioChart = () => {
     };
   };
 
-  const maxY = Math.max(...visible.map((point) => getSeries(point).total), 1);
+  const visibleBands =
+    monteCarloBands === null
+      ? null
+      : {
+          p10: monteCarloBands.p10.slice(start, end + 1),
+          p25: monteCarloBands.p25.slice(start, end + 1),
+          p50: monteCarloBands.p50.slice(start, end + 1),
+          p75: monteCarloBands.p75.slice(start, end + 1),
+          p90: monteCarloBands.p90.slice(start, end + 1),
+        };
+
+  const maxFromPoints = Math.max(...visible.map((point) => getSeries(point).total), 1);
+  const maxFromBands = visibleBands ? Math.max(...visibleBands.p90, 1) : 1;
+  const maxY = Math.max(maxFromPoints, maxFromBands, 1);
   const yAt = (value: number): number => margin.top + plotHeight - (value / maxY) * plotHeight;
 
   const xValues = visible.map((_, index) => xAt(index));
@@ -151,15 +190,32 @@ export const PortfolioChart = () => {
   const cashUpper = stocks.map((stock, index) => yAt(stock + (bonds[index] ?? 0) + (cash[index] ?? 0)));
   const cashLower = stocks.map((stock, index) => yAt(stock + (bonds[index] ?? 0)));
 
-  const totalLine = linePath(visible.map((point, index) => ({ x: xAt(index), y: yAt(getSeries(point).total) })));
+  const manualLine = linePath(visible.map((point, index) => ({ x: xAt(index), y: yAt(getSeries(point).total) })));
+  const mcMedianLine = linePath(
+    (visibleBands?.p50 ?? []).map((value, index) => ({ x: xAt(index), y: yAt(value) })),
+  );
 
   const yTicks = 6;
   const xTicks = Math.min(8, visible.length);
   const activeHoverIndex = hoverIndex === null ? null : Math.max(0, Math.min(hoverIndex, visible.length - 1));
   const hoverPoint = activeHoverIndex === null ? null : visible[activeHoverIndex];
   const hoverSeries = hoverPoint ? getSeries(hoverPoint) : null;
+  const hoverBands = activeHoverIndex === null || !visibleBands
+    ? null
+    : {
+        p10: visibleBands.p10[activeHoverIndex] ?? 0,
+        p25: visibleBands.p25[activeHoverIndex] ?? 0,
+        p50: visibleBands.p50[activeHoverIndex] ?? 0,
+        p75: visibleBands.p75[activeHoverIndex] ?? 0,
+        p90: visibleBands.p90[activeHoverIndex] ?? 0,
+      };
   const hoverX = activeHoverIndex === null ? null : xAt(activeHoverIndex);
-  const hoverY = hoverSeries ? yAt(hoverSeries.total) : null;
+  const hoverY =
+    hoverBands && !chartBreakdownEnabled
+      ? yAt(hoverBands.p50)
+      : hoverSeries
+        ? yAt(hoverSeries.total)
+        : null;
 
   const zoomTo = (nextStart: number, nextEnd: number) => {
     if (nextStart <= 0 && nextEnd >= totalMonths - 1) {
@@ -244,13 +300,28 @@ export const PortfolioChart = () => {
               <path d={areaPath(xValues, bondsUpper, bondsLower)} fill="#2EAD8EAA" />
               <path d={areaPath(xValues, stocksUpper, stocksLower)} fill="#4A90D9AA" />
             </>
+          ) : visibleBands ? (
+            <>
+              <path d={areaPath(xValues, visibleBands.p10.map(yAt), visibleBands.p90.map(yAt))} fill="#93C5FD55" />
+              <path d={areaPath(xValues, visibleBands.p25.map(yAt), visibleBands.p75.map(yAt))} fill="#60A5FA66" />
+              <path d={mcMedianLine} fill="none" stroke="#1A365D" strokeWidth="2.5" />
+              <g transform={`translate(${margin.left + plotWidth - 120}, ${margin.top + 8})`}>
+                <rect x={0} y={0} width={116} height={52} rx={6} fill="#FFFFFFE6" stroke="#D9DFEA" />
+                <text x={10} y={16} fontSize="10" fill="#475569">10-90%</text>
+                <rect x={70} y={9} width={30} height={8} fill="#93C5FD55" />
+                <text x={10} y={31} fontSize="10" fill="#475569">25-75%</text>
+                <rect x={70} y={24} width={30} height={8} fill="#60A5FA66" />
+                <text x={10} y={46} fontSize="10" fill="#475569">Median</text>
+                <line x1={70} y1={42} x2={100} y2={42} stroke="#1A365D" strokeWidth="2" />
+              </g>
+            </>
           ) : (
             <>
               <path
-                d={`${totalLine} L ${xAt(visible.length - 1)} ${yAt(0)} L ${xAt(0)} ${yAt(0)} Z`}
+                d={`${manualLine} L ${xAt(visible.length - 1)} ${yAt(0)} L ${xAt(0)} ${yAt(0)} Z`}
                 fill="url(#portfolioFill)"
               />
-              <path d={totalLine} fill="none" stroke="#1A365D" strokeWidth="2.5" />
+              <path d={manualLine} fill="none" stroke="#1A365D" strokeWidth="2.5" />
             </>
           )}
 
@@ -285,6 +356,33 @@ export const PortfolioChart = () => {
                 <span>Withdrawal</span>
                 <span className="font-mono text-slate-800">{formatCurrency(Math.round(hoverSeries.withdrawal))}</span>
               </p>
+              {hoverBands && !chartBreakdownEnabled ? (
+                <>
+                  <p className="mt-2 border-t border-slate-200 pt-2 text-[11px] font-semibold uppercase tracking-wide text-slate-500">
+                    Percentiles
+                  </p>
+                  <p className="flex items-center justify-between gap-2">
+                    <span>P10</span>
+                    <span className="font-mono text-slate-800">{formatCurrency(Math.round(hoverBands.p10))}</span>
+                  </p>
+                  <p className="flex items-center justify-between gap-2">
+                    <span>P25</span>
+                    <span className="font-mono text-slate-800">{formatCurrency(Math.round(hoverBands.p25))}</span>
+                  </p>
+                  <p className="flex items-center justify-between gap-2">
+                    <span>P50</span>
+                    <span className="font-mono text-slate-800">{formatCurrency(Math.round(hoverBands.p50))}</span>
+                  </p>
+                  <p className="flex items-center justify-between gap-2">
+                    <span>P75</span>
+                    <span className="font-mono text-slate-800">{formatCurrency(Math.round(hoverBands.p75))}</span>
+                  </p>
+                  <p className="flex items-center justify-between gap-2">
+                    <span>P90</span>
+                    <span className="font-mono text-slate-800">{formatCurrency(Math.round(hoverBands.p90))}</span>
+                  </p>
+                </>
+              ) : null}
             </div>
           </div>
         ) : null}

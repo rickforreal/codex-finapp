@@ -313,3 +313,31 @@ Verification run (all passing):
 - `npm run typecheck`
 - `npm run lint`
 - `npm test`
+
+2026-02-15 — Phase 8 (Monte Carlo) complete
+
+Completed:
+- Shared contracts/types:
+  - Added `HistoricalEra` enum and `constants/eras.ts` definitions.
+  - Added Monte Carlo domain types (`MonteCarloResult`, percentile curves, historical summaries) and extended `SimulateResponse` with mode/seed/mc payload.
+  - Updated request validation so `selectedHistoricalEra` must be a known era key.
+- Server engine/routes:
+  - Added `engine/historicalData.ts` for CSV loading, era filtering, and per-asset summary stats.
+  - Added `engine/monteCarlo.ts` for N-run historical sampling with replacement, seeded determinism, per-asset percentile aggregation, terminal values, PoS, and representative median-like path.
+  - Extended `POST /api/v1/simulate` to execute manual or Monte Carlo based on `config.simulationMode`.
+  - Added `GET /api/v1/historical/summary` and registered route in `app.ts`.
+- Client UI/state:
+  - Added Monte Carlo era selector in `CommandBar` (#11a) and wired summary fetch on era changes.
+  - Replaced Return Assumptions content with `HistoricalDataSummary` in Monte Carlo mode.
+  - Added confidence bands + median line rendering in `PortfolioChart` with MC percentile tooltip values.
+  - Added Probability of Success stat card (#41) with color thresholds (green >=90%, amber 75-89%, red <75%).
+- Tests:
+  - Added `historicalData.test.ts` (CSV parsing + era bounds + summary sanity).
+  - Added `monteCarlo.test.ts` (determinism, 100%/0% PoS extremes, per-asset percentile aggregation, 1000-run performance).
+  - Added `routes/historical.test.ts` and extended `routes/simulation.test.ts` with Monte Carlo response/plausibility coverage.
+
+Verification run (all passing):
+- `npm run build`
+- `npm run typecheck`
+- `npm run lint`
+- `npm test`

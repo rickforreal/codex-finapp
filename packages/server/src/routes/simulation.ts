@@ -2,8 +2,9 @@ import type { FastifyPluginAsync } from 'fastify';
 import { ZodError } from 'zod';
 
 import type { ApiErrorResponse, SimulateRequest, SimulateResponse } from '@finapp/shared';
-import { simulateRequestSchema } from '@finapp/shared';
+import { SimulationMode, simulateRequestSchema } from '@finapp/shared';
 
+import { runMonteCarlo } from '../engine/monteCarlo';
 import { generateMonthlyReturnsFromAssumptions, simulateRetirement } from '../engine/simulator';
 
 const mapZodIssues = (error: ZodError): NonNullable<ApiErrorResponse['fieldErrors']> =>
@@ -18,10 +19,20 @@ export const simulationRoutes: FastifyPluginAsync = async (app) => {
     async (request, reply) => {
       try {
         const body = simulateRequestSchema.parse(request.body);
+        if (body.config.simulationMode === SimulationMode.MonteCarlo) {
+          const mc = await runMonteCarlo(body.config, { seed: body.seed, runs: 1000 });
+          return {
+            simulationMode: SimulationMode.MonteCarlo,
+            seedUsed: mc.seedUsed,
+            result: mc.representativePath,
+            monteCarlo: mc.monteCarlo,
+          };
+        }
+
         const returns = body.monthlyReturns ?? generateMonthlyReturnsFromAssumptions(body.config, body.seed);
         const result = simulateRetirement(body.config, returns);
 
-        return { result };
+        return { simulationMode: SimulationMode.Manual, seedUsed: body.seed, result };
       } catch (error) {
         if (error instanceof ZodError) {
           return reply.code(400).send({

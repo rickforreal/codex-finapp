@@ -1,5 +1,7 @@
 import { describe, expect, it } from 'vitest';
 
+import { HistoricalEra, SimulationMode } from '@finapp/shared';
+
 import { createApp } from '../../src/app';
 import { createSimulateRequest } from '../fixtures';
 
@@ -16,6 +18,7 @@ describe('POST /api/v1/simulate', () => {
     expect(response.statusCode).toBe(200);
 
     const body = response.json();
+    expect(body.simulationMode).toBe(SimulationMode.Manual);
     expect(body.result.rows.length).toBe(120);
     expect(body.result.summary.terminalPortfolioValue).toBeGreaterThanOrEqual(0);
 
@@ -41,6 +44,39 @@ describe('POST /api/v1/simulate', () => {
     expect(body.code).toBe('VALIDATION_ERROR');
     expect(Array.isArray(body.fieldErrors)).toBe(true);
     expect(body.fieldErrors.length).toBeGreaterThan(0);
+
+    await app.close();
+  });
+
+  it('returns monte carlo response with plausible probability range', async () => {
+    const app = createApp();
+    const request = createSimulateRequest();
+    request.seed = 42;
+    request.config.simulationMode = SimulationMode.MonteCarlo;
+    request.config.selectedHistoricalEra = HistoricalEra.FullHistory;
+    request.config.coreParams.retirementDuration = 30;
+    request.config.spendingPhases = [
+      {
+        ...request.config.spendingPhases[0]!,
+        endYear: 30,
+        minMonthlySpend: 0,
+        maxMonthlySpend: 1_000_000_000,
+      },
+    ];
+
+    const response = await app.inject({
+      method: 'POST',
+      url: '/api/v1/simulate',
+      payload: request,
+    });
+
+    expect(response.statusCode).toBe(200);
+    const body = response.json();
+    expect(body.simulationMode).toBe(SimulationMode.MonteCarlo);
+    expect(body.monteCarlo).toBeDefined();
+    expect(body.monteCarlo.percentileCurves.total.p50.length).toBe(360);
+    expect(body.monteCarlo.probabilityOfSuccess).toBeGreaterThanOrEqual(0.9);
+    expect(body.monteCarlo.probabilityOfSuccess).toBeLessThanOrEqual(0.99);
 
     await app.close();
   });

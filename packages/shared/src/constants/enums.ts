@@ -29,6 +29,17 @@ export enum SimulationMode {
   MonteCarlo = 'monteCarlo',
 }
 
+export enum HistoricalEra {
+  FullHistory = 'fullHistory',
+  DepressionEra = 'depressionEra',
+  PostWarBoom = 'postWarBoom',
+  StagflationEra = 'stagflationEra',
+  OilCrisis = 'oilCrisis',
+  Post1980BullRun = 'post1980BullRun',
+  LostDecade = 'lostDecade',
+  PostGfcRecovery = 'postGfcRecovery',
+}
+
 export enum AppMode {
   Planning = 'planning',
   Tracking = 'tracking',

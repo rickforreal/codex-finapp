@@ -351,3 +351,69 @@ Acceptance Criteria:
 [AC1] `npm run build` passes.
 [AC2] `npm run typecheck`, `npm run lint`, and `npm test` pass.
 [AC3] Manual pass confirms Rebalancing config/glide path and income/expense events affect chart + detail table outputs.
+
+## Phase 8 Plan — Monte Carlo
+
+- [x] P8-T1: Expand shared contracts/types for historical eras and Monte Carlo responses
+Phase: 8 (Monte Carlo)
+Dependencies: P7-T7
+Acceptance Criteria:
+[AC1] Shared `HistoricalEra` enum and era definitions are added and exported.
+[AC2] `MonteCarloResult` type includes percentile curves, terminal values, and probability of success metadata.
+[AC3] `simulateRequestSchema` validates `selectedHistoricalEra` against known era keys.
+
+- [x] P8-T2: Implement historical data loader and era summary services
+Phase: 8 (Monte Carlo)
+Dependencies: P8-T1
+Acceptance Criteria:
+[AC1] Historical CSV is parsed into in-memory monthly return rows.
+[AC2] Era filtering returns rows constrained to selected date ranges.
+[AC3] Historical summary computes mean, std dev, and sample size for each asset class.
+
+- [x] P8-T3: Implement Monte Carlo runner with deterministic seed support
+Phase: 8 (Monte Carlo)
+Dependencies: P8-T2
+Acceptance Criteria:
+[AC1] Runner executes N simulations by sampling historical months with replacement.
+[AC2] Percentile curves (5/10/25/50/75/90/95) are aggregated per month for total and each asset class.
+[AC3] Optional seed yields reproducible Monte Carlo outputs.
+
+- [x] P8-T4: Extend server routes for Monte Carlo execution and historical summary retrieval
+Phase: 8 (Monte Carlo)
+Dependencies: P8-T2, P8-T3
+Acceptance Criteria:
+[AC1] `POST /api/v1/simulate` branches by simulation mode and returns MC payload in Monte Carlo mode.
+[AC2] `GET /api/v1/historical/summary` returns selected-era summary and resolved era options.
+[AC3] Existing manual simulation route behavior remains intact.
+
+- [x] P8-T5: Add Monte Carlo command bar + sidebar UI wiring
+Phase: 8 (Monte Carlo)
+Dependencies: P8-T1, P8-T4
+Acceptance Criteria:
+[AC1] Historical Era Selector appears only in Monte Carlo mode and updates store state.
+[AC2] Historical Data Summary replaces Return Assumptions in Monte Carlo mode.
+[AC3] Changing era updates summary immediately and does not auto-run simulation.
+
+- [x] P8-T6: Render confidence bands and Probability of Success in output components
+Phase: 8 (Monte Carlo)
+Dependencies: P8-T3, P8-T5
+Acceptance Criteria:
+[AC1] Portfolio chart renders 10-90 and 25-75 confidence bands with median line in Monte Carlo mode.
+[AC2] Chart tooltip includes percentile values in Monte Carlo mode.
+[AC3] Probability of Success card appears only in Monte Carlo mode with threshold color coding.
+
+- [x] P8-T7: Add Monte Carlo and historical data test coverage
+Phase: 8 (Monte Carlo)
+Dependencies: P8-T2, P8-T3, P8-T4
+Acceptance Criteria:
+[AC1] `historicalData.test.ts` covers CSV parsing and era filtering bounds.
+[AC2] `monteCarlo.test.ts` covers determinism, extreme PoS cases, per-asset percentile aggregation, and performance target.
+[AC3] Route tests cover historical summary endpoint and Monte Carlo simulation response shape/plausibility.
+
+- [x] P8-T8: Run Phase 8 verification and complete DoD
+Phase: 8 (Monte Carlo)
+Dependencies: P8-T6, P8-T7
+Acceptance Criteria:
+[AC1] `npm run build`, `npm run typecheck`, `npm run lint`, and `npm test` pass.
+[AC2] Monte Carlo run (1,000 paths) completes under 3 seconds in automated performance test.
+[AC3] Manual mode behaviors from prior phases remain functional.

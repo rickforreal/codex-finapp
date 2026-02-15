@@ -3,6 +3,7 @@ import { SimulationMode } from '@finapp/shared';
 import { CoreParameters } from '../inputs/CoreParameters';
 import { StartingPortfolio } from '../inputs/StartingPortfolio';
 import { ReturnAssumptions } from '../inputs/ReturnAssumptions';
+import { HistoricalDataSummary } from '../inputs/HistoricalDataSummary';
 import { SpendingPhases } from '../inputs/SpendingPhases/SpendingPhases';
 import { WithdrawalStrategySection } from '../inputs/WithdrawalStrategy/WithdrawalStrategy';
 import { DrawdownStrategySection } from '../inputs/DrawdownStrategy/DrawdownStrategy';
@@ -49,14 +50,14 @@ export const Sidebar = () => {
 
       <CollapsibleSection
         id={sectionIds.returns}
-        title="Return Assumptions"
+        title={simulationMode === SimulationMode.Manual ? 'Return Assumptions' : 'Historical Data'}
         collapsed={Boolean(collapsed[sectionIds.returns])}
         onToggle={toggleSection}
       >
         {simulationMode === SimulationMode.Manual ? (
           <ReturnAssumptions />
         ) : (
-          <p className="text-xs text-slate-500">Hidden in Monte Carlo mode.</p>
+          <HistoricalDataSummary />
         )}
       </CollapsibleSection>
 

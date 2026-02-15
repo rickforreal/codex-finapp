@@ -1,4 +1,11 @@
-import type { MonthlyReturns, SimulationConfig, SinglePathResult } from '../domain/simulation';
+import type {
+  HistoricalDataSummary,
+  MonthlyReturns,
+  MonteCarloResult,
+  SimulationConfig,
+  SinglePathResult,
+} from '../domain/simulation';
+import type { SimulationMode } from '../constants/enums';
 
 export interface HealthResponse {
   status: 'ok';
@@ -11,7 +18,14 @@ export interface SimulateRequest {
 }
 
 export interface SimulateResponse {
+  simulationMode: SimulationMode;
+  seedUsed?: number;
   result: SinglePathResult;
+  monteCarlo?: MonteCarloResult;
+}
+
+export interface HistoricalSummaryResponse {
+  summary: HistoricalDataSummary;
 }
 
 export interface ApiFieldError {
