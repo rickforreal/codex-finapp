@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 
 import { AppMode, AssetClass, SimulationMode } from '@finapp/shared';
 
@@ -28,10 +28,8 @@ type MonteCarloBands = {
   p90: number[];
 };
 
-const width = 1200;
 const height = 360;
 const margin = { top: 20, right: 10, bottom: 44, left: 56 };
-const plotWidth = width - margin.left - margin.right;
 const plotHeight = height - margin.top - margin.bottom;
 
 const inflationFactor = (inflationRate: number, monthIndex: number): number => (1 + inflationRate) ** (monthIndex / 12);
@@ -63,6 +61,8 @@ const areaPath = (xValues: number[], upper: number[], lower: number[]): string =
 };
 
 export const PortfolioChart = () => {
+  const containerRef = useRef<HTMLDivElement | null>(null);
+  const [chartWidth, setChartWidth] = useState(1200);
   const result = useActiveSimulationResult();
   const chartDisplayMode = useAppStore((state) => state.ui.chartDisplayMode);
   const chartBreakdownEnabled = useAppStore((state) => state.ui.chartBreakdownEnabled);
@@ -78,6 +78,25 @@ export const PortfolioChart = () => {
   const startingAge = useAppStore((state) => state.coreParams.startingAge);
 
   const [hoverIndex, setHoverIndex] = useState<number | null>(null);
+
+  useEffect(() => {
+    const node = containerRef.current;
+    if (!node) {
+      return;
+    }
+
+    const observer = new ResizeObserver((entries) => {
+      const entry = entries[0];
+      if (!entry) {
+        return;
+      }
+      const nextWidth = Math.max(1200, Math.round(entry.contentRect.width));
+      setChartWidth(nextWidth);
+    });
+
+    observer.observe(node);
+    return () => observer.disconnect();
+  }, []);
 
   const points = useMemo<ChartPoint[]>(() => {
     const rows =
@@ -143,6 +162,8 @@ export const PortfolioChart = () => {
   }
 
   const totalMonths = points.length;
+  const width = chartWidth;
+  const plotWidth = width - margin.left - margin.right;
   const start = Math.max(0, Math.min(chartZoom?.start ?? 0, totalMonths - 1));
   const end = Math.max(start + 1, Math.min(chartZoom?.end ?? totalMonths - 1, totalMonths - 1));
   const visible = points.slice(start, end + 1);
@@ -266,7 +287,7 @@ export const PortfolioChart = () => {
         />
       </div>
 
-      <div className="relative overflow-hidden rounded-lg border border-brand-border">
+      <div ref={containerRef} className="relative overflow-hidden rounded-lg border border-brand-border">
         <svg
           viewBox={`0 0 ${width} ${height}`}
           className="h-[360px] w-full bg-white"

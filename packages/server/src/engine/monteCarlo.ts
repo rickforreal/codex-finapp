@@ -1,4 +1,10 @@
-import { AssetClass, type MonteCarloPercentileCurves, type MonteCarloResult, type SimulationConfig } from '@finapp/shared';
+import {
+  AssetClass,
+  type ActualOverridesByMonth,
+  type MonteCarloPercentileCurves,
+  type MonteCarloResult,
+  type SimulationConfig,
+} from '@finapp/shared';
 
 import { getHistoricalDataSummaryForEra, getHistoricalMonthsForEra, type HistoricalMonth } from './historicalData';
 import { createSeededRandom } from './helpers/returns';
@@ -7,6 +13,7 @@ import { simulateRetirement } from './simulator';
 type MonteCarloOptions = {
   runs?: number;
   seed?: number;
+  actualOverridesByMonth?: ActualOverridesByMonth;
 };
 
 const quantile = (sortedValues: number[], percentile: number): number => {
@@ -80,7 +87,7 @@ export const runMonteCarlo = async (
         ? Math.random
         : createSeededRandom(options.seed + runIndex * 9_973);
     const returns = sampleHistoricalReturns(historicalMonths, durationMonths, random);
-    const path = simulateRetirement(config, returns);
+    const path = simulateRetirement(config, returns, options.actualOverridesByMonth ?? {});
     runResults.push(path);
 
     path.rows.forEach((row, monthIndex) => {

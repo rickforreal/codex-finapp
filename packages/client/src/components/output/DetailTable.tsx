@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from 'react';
 
 import { AppMode, SimulationMode, type ActualMonthOverride } from '@finapp/shared';
 
-import { runReforecast } from '../../api/reforecastApi';
+import { runSimulation } from '../../api/simulationApi';
 import { formatCurrency, formatPercent } from '../../lib/format';
 import { buildAnnualDetailRows, buildMonthlyDetailRows, sortDetailRows, type DetailRow } from '../../lib/detailTable';
 import { getCurrentConfig, useActiveSimulationResult, useAppStore } from '../../store/useAppStore';
@@ -89,6 +89,34 @@ const valueToneClass = (row: DetailRow, column: Column): string => {
   return 'text-slate-700';
 };
 
+const deriveMonthlyReturnsFromRows = (
+  rows: Array<{
+    startBalances: { stocks: number; bonds: number; cash: number };
+    marketChange: { stocks: number; bonds: number; cash: number };
+  }>,
+) =>
+  rows.map((row) => ({
+    stocks: row.startBalances.stocks === 0 ? 0 : row.marketChange.stocks / row.startBalances.stocks,
+    bonds: row.startBalances.bonds === 0 ? 0 : row.marketChange.bonds / row.startBalances.bonds,
+    cash: row.startBalances.cash === 0 ? 0 : row.marketChange.cash / row.startBalances.cash,
+  }));
+
+const computeStartBalanceDeltas = (
+  row: DetailRow,
+  override: ActualMonthOverride | undefined,
+): { stocks: number; bonds: number; cash: number; total: number } => {
+  if (!override?.startBalances) {
+    return { stocks: 0, bonds: 0, cash: 0, total: 0 };
+  }
+  const stocks =
+    override.startBalances.stocks !== undefined ? override.startBalances.stocks - row.startStocks : 0;
+  const bonds =
+    override.startBalances.bonds !== undefined ? override.startBalances.bonds - row.startBonds : 0;
+  const cash =
+    override.startBalances.cash !== undefined ? override.startBalances.cash - row.startCash : 0;
+  return { stocks, bonds, cash, total: stocks + bonds + cash };
+};
+
 export const DetailTable = () => {
   const result = useActiveSimulationResult();
   const startingAge = useAppStore((state) => state.coreParams.startingAge);
@@ -100,7 +128,7 @@ export const DetailTable = () => {
   const lastEditedMonthIndex = useAppStore((state) => state.lastEditedMonthIndex);
   const upsertActualOverride = useAppStore((state) => state.upsertActualOverride);
   const clearActualRowOverrides = useAppStore((state) => state.clearActualRowOverrides);
-  const setReforecastResult = useAppStore((state) => state.setReforecastResult);
+  const setSimulationResult = useAppStore((state) => state.setSimulationResult);
   const setSimulationStatus = useAppStore((state) => state.setSimulationStatus);
   const tableGranularity = useAppStore((state) => state.ui.tableGranularity);
   const tableAssetColumnsEnabled = useAppStore((state) => state.ui.tableAssetColumnsEnabled);
@@ -153,6 +181,9 @@ export const DetailTable = () => {
     if (mode !== AppMode.Tracking || simulationMode !== SimulationMode.Manual) {
       return;
     }
+    if (lastEditedMonthIndex === null) {
+      return;
+    }
     if (rows.length === 0) {
       return;
     }
@@ -160,14 +191,41 @@ export const DetailTable = () => {
     const controller = new AbortController();
     const timeout = setTimeout(() => {
       setSimulationStatus('running');
-      void runReforecast({
+      const baselineRows = useAppStore.getState().simulationResults.manual?.result.rows ?? [];
+      const monthlyReturns = deriveMonthlyReturnsFromRows(baselineRows);
+      void runSimulation({
         config: getCurrentConfig(),
+        monthlyReturns,
         actualOverridesByMonth,
       })
         .then((response) => {
-          setReforecastResult({
-            simulationMode: SimulationMode.Manual,
-            result: response.result,
+          const state = useAppStore.getState();
+          const visibleRows =
+            (state.simulationResults.reforecast ?? state.simulationResults.manual)?.result.rows ?? [];
+          const boundary = state.lastEditedMonthIndex ?? 0;
+          const mergedRows = [...response.result.rows];
+
+          if (boundary > 0 && visibleRows.length === mergedRows.length) {
+            for (let index = 0; index < boundary; index += 1) {
+              mergedRows[index] = visibleRows[index] ?? mergedRows[index]!;
+            }
+          }
+
+          const terminal = mergedRows[mergedRows.length - 1]?.endBalances;
+          const terminalPortfolioValue = terminal
+            ? terminal.stocks + terminal.bonds + terminal.cash
+            : response.result.summary.terminalPortfolioValue;
+
+          setSimulationResult(SimulationMode.Manual, {
+            ...response,
+            result: {
+              ...response.result,
+              rows: mergedRows,
+              summary: {
+                ...response.result.summary,
+                terminalPortfolioValue,
+              },
+            },
           });
         })
         .catch((error) => {
@@ -185,9 +243,10 @@ export const DetailTable = () => {
     };
   }, [
     actualOverridesByMonth,
+    lastEditedMonthIndex,
     mode,
     rows.length,
-    setReforecastResult,
+    setSimulationResult,
     setSimulationStatus,
     simulationMode,
   ]);
@@ -227,22 +286,58 @@ export const DetailTable = () => {
 
   const displayCellValue = (row: DetailRow, column: Column): string | number => {
     const override = actualOverridesByMonth[row.monthIndex];
+    const deltas = computeStartBalanceDeltas(row, override);
     if (!override) {
       return row[column.key] as string | number;
     }
+    const startStocks = override.startBalances?.stocks ?? row.startStocks;
+    const startBonds = override.startBalances?.bonds ?? row.startBonds;
+    const startCash = override.startBalances?.cash ?? row.startCash;
+    const moveStocks = row.moveStocks + deltas.stocks;
+    const moveBonds = row.moveBonds + deltas.bonds;
+    const moveCash = row.moveCash + deltas.cash;
+    const wdStocks = override.withdrawalsByAsset?.stocks ?? row.withdrawalStocks;
+    const wdBonds = override.withdrawalsByAsset?.bonds ?? row.withdrawalBonds;
+    const wdCash = override.withdrawalsByAsset?.cash ?? row.withdrawalCash;
+    const endStocks = startStocks + moveStocks - wdStocks;
+    const endBonds = startBonds + moveBonds - wdBonds;
+    const endCash = startCash + moveCash - wdCash;
     switch (column.key) {
+      case 'startTotal':
+        return row.startTotal + deltas.total;
+      case 'marketMovement':
+        return row.marketMovement + deltas.total;
+      case 'returnPct': {
+        const adjustedStart = row.startTotal + deltas.total;
+        const adjustedMove = row.marketMovement + deltas.total;
+        return adjustedStart === 0 ? 0 : adjustedMove / adjustedStart;
+      }
       case 'startStocks':
         return override.startBalances?.stocks ?? row.startStocks;
       case 'startBonds':
         return override.startBalances?.bonds ?? row.startBonds;
       case 'startCash':
         return override.startBalances?.cash ?? row.startCash;
+      case 'moveStocks':
+        return row.moveStocks + deltas.stocks;
+      case 'moveBonds':
+        return row.moveBonds + deltas.bonds;
+      case 'moveCash':
+        return row.moveCash + deltas.cash;
       case 'withdrawalStocks':
         return override.withdrawalsByAsset?.stocks ?? row.withdrawalStocks;
       case 'withdrawalBonds':
         return override.withdrawalsByAsset?.bonds ?? row.withdrawalBonds;
       case 'withdrawalCash':
         return override.withdrawalsByAsset?.cash ?? row.withdrawalCash;
+      case 'endStocks':
+        return endStocks;
+      case 'endBonds':
+        return endBonds;
+      case 'endCash':
+        return endCash;
+      case 'endTotal':
+        return endStocks + endBonds + endCash;
       case 'income':
         return override.incomeTotal ?? row.income;
       case 'expenses':
@@ -375,7 +470,7 @@ export const DetailTable = () => {
                       tableGranularity === 'monthly' &&
                       lastEditedMonthIndex !== null &&
                       row.monthIndex <= lastEditedMonthIndex
-                        ? 'bg-sky-50/40'
+                        ? 'bg-sky-100/80'
                         : ''
                     }`}
                   >
@@ -390,7 +485,7 @@ export const DetailTable = () => {
                             return;
                           }
                           setEditingCell({ rowId: row.id, column: column.key });
-                          setDraftValue(String(Math.round(Number(row[column.key]))));
+                          setDraftValue(String(Math.round(Number(displayCellValue(row, column)))));
                         }}
                       >
                         {editingCell?.rowId === row.id && editingCell.column === column.key ? (

@@ -40,10 +40,19 @@ export const SummaryStatsBar = () => {
     terminalMedianNominal === null
       ? null
       : terminalMedianNominal / inflationFactor(inflationRate, retirementDuration * 12);
+  const manualTerminalNominal = result?.result.rows[result.result.rows.length - 1]
+    ? result.result.rows[result.result.rows.length - 1]!.endBalances.stocks +
+      result.result.rows[result.result.rows.length - 1]!.endBalances.bonds +
+      result.result.rows[result.result.rows.length - 1]!.endBalances.cash
+    : 0;
+  const manualTerminalReal =
+    retirementDuration <= 0
+      ? manualTerminalNominal
+      : manualTerminalNominal / inflationFactor(inflationRate, retirementDuration * 12);
   const terminalDisplayValue =
     simulationMode === SimulationMode.MonteCarlo
       ? (terminalMedianReal ?? 0)
-      : stats.terminalValue;
+      : manualTerminalReal;
   const terminalDepleted = hasResult && terminalDisplayValue <= 0;
   const terminalPctOfStarting = startingPortfolio > 0 ? terminalDisplayValue / startingPortfolio : 0;
   const terminalAnnotation = !hasResult
@@ -106,7 +115,7 @@ export const SummaryStatsBar = () => {
           annotation={hasResult ? `${formatPercent(p75PctOfMedian)} of median` : undefined}
         />
         <StatCard
-          label={simulationMode === SimulationMode.MonteCarlo ? 'Portfolio End (Real)' : 'Terminal Value'}
+          label="Portfolio End (Real)"
           value={hasResult ? formatCompactCurrency(Math.round(terminalDisplayValue)) : '—'}
           annotation={terminalAnnotation}
           valueClassName={terminalDepleted ? 'text-rose-700' : 'text-emerald-700'}

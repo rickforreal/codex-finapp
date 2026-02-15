@@ -80,4 +80,54 @@ describe('POST /api/v1/simulate', () => {
 
     await app.close();
   });
+
+  it('applies manual overrides in manual mode simulation', async () => {
+    const app = createApp();
+    const request = createSimulateRequest();
+    request.actualOverridesByMonth = {
+      1: {
+        startBalances: { stocks: 1_000_000 },
+        withdrawalsByAsset: { stocks: 100_000 },
+      },
+    };
+
+    const response = await app.inject({
+      method: 'POST',
+      url: '/api/v1/simulate',
+      payload: request,
+    });
+
+    expect(response.statusCode).toBe(200);
+    const body = response.json();
+    expect(body.result.rows[0]?.startBalances.stocks).toBe(1_000_000);
+    expect(body.result.rows[0]?.withdrawals.byAsset.stocks).toBe(100_000);
+    expect(body.result.rows[0]?.endBalances.stocks).toBeLessThan(1_000_000);
+
+    await app.close();
+  });
+
+  it('applies manual overrides in monte carlo representative path', async () => {
+    const app = createApp();
+    const request = createSimulateRequest();
+    request.seed = 42;
+    request.config.simulationMode = SimulationMode.MonteCarlo;
+    request.actualOverridesByMonth = {
+      1: {
+        startBalances: { stocks: 1_000_000 },
+      },
+    };
+
+    const response = await app.inject({
+      method: 'POST',
+      url: '/api/v1/simulate',
+      payload: request,
+    });
+
+    expect(response.statusCode).toBe(200);
+    const body = response.json();
+    expect(body.simulationMode).toBe(SimulationMode.MonteCarlo);
+    expect(body.result.rows[0]?.startBalances.stocks).toBe(1_000_000);
+
+    await app.close();
+  });
 });

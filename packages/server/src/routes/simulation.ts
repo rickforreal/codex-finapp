@@ -20,7 +20,11 @@ export const simulationRoutes: FastifyPluginAsync = async (app) => {
       try {
         const body = simulateRequestSchema.parse(request.body);
         if (body.config.simulationMode === SimulationMode.MonteCarlo) {
-          const mc = await runMonteCarlo(body.config, { seed: body.seed, runs: 1000 });
+          const mc = await runMonteCarlo(body.config, {
+            seed: body.seed,
+            runs: 1000,
+            actualOverridesByMonth: body.actualOverridesByMonth ?? {},
+          });
           return {
             simulationMode: SimulationMode.MonteCarlo,
             seedUsed: mc.seedUsed,
@@ -30,7 +34,7 @@ export const simulationRoutes: FastifyPluginAsync = async (app) => {
         }
 
         const returns = body.monthlyReturns ?? generateMonthlyReturnsFromAssumptions(body.config, body.seed);
-        const result = simulateRetirement(body.config, returns);
+        const result = simulateRetirement(body.config, returns, body.actualOverridesByMonth ?? {});
 
         return { simulationMode: SimulationMode.Manual, seedUsed: body.seed, result };
       } catch (error) {

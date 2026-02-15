@@ -1,5 +1,7 @@
 import {
   AssetClass,
+  type ActualMonthOverride,
+  type ActualOverridesByMonth,
   type AssetBalances,
   type EventDate,
   type EventFrequency,
@@ -133,6 +135,48 @@ const applyExpenseFromSingleAsset = (
   return { actual: roundToCents(actual), shortfall: roundToCents(amount - actual) };
 };
 
+const normalizeOverrides = (overrides: ActualOverridesByMonth): Record<number, ActualMonthOverride> =>
+  Object.entries(overrides).reduce<Record<number, ActualMonthOverride>>((acc, [month, value]) => {
+    const key = Number(month);
+    if (Number.isInteger(key) && key > 0) {
+      acc[key] = value;
+    }
+    return acc;
+  }, {});
+
+const applyEditedWithdrawals = (
+  balances: AssetBalances,
+  override: ActualMonthOverride,
+): { byAsset: AssetBalances; requested: number; actual: number; shortfall: number } | null => {
+  if (!override.withdrawalsByAsset) {
+    return null;
+  }
+
+  const requestedByAsset: AssetBalances = {
+    stocks: roundToCents(override.withdrawalsByAsset.stocks ?? 0),
+    bonds: roundToCents(override.withdrawalsByAsset.bonds ?? 0),
+    cash: roundToCents(override.withdrawalsByAsset.cash ?? 0),
+  };
+  const actualByAsset: AssetBalances = { stocks: 0, bonds: 0, cash: 0 };
+
+  for (const asset of [AssetClass.Stocks, AssetClass.Bonds, AssetClass.Cash]) {
+    const requested = requestedByAsset[asset];
+    const actual = Math.min(requested, balances[asset]);
+    balances[asset] = roundToCents(balances[asset] - actual);
+    actualByAsset[asset] = roundToCents(actual);
+  }
+
+  const requestedTotal = requestedByAsset.stocks + requestedByAsset.bonds + requestedByAsset.cash;
+  const actualTotal = actualByAsset.stocks + actualByAsset.bonds + actualByAsset.cash;
+
+  return {
+    byAsset: actualByAsset,
+    requested: roundToCents(requestedTotal),
+    actual: roundToCents(actualTotal),
+    shortfall: roundToCents(requestedTotal - actualTotal),
+  };
+};
+
 const sumEventExpenses = (
   balances: AssetBalances,
   expenseEvents: ExpenseEvent[],
@@ -185,7 +229,9 @@ const sumEventExpenses = (
 export const simulateRetirement = (
   config: SimulationConfig,
   monthlyReturnsSeries: MonthlyReturns[],
+  actualOverridesByMonth: ActualOverridesByMonth = {},
 ): SinglePathResult => {
+  const normalizedOverrides = normalizeOverrides(actualOverridesByMonth);
   const durationMonths = config.coreParams.retirementDuration * 12;
   const withdrawalStartYear = Math.max(
     1,
@@ -210,9 +256,19 @@ export const simulateRetirement = (
   const rows: SinglePathResult['rows'] = [];
 
   for (let monthIndex = 0; monthIndex < durationMonths; monthIndex += 1) {
+    const oneBasedMonth = monthIndex + 1;
     const year = Math.floor(monthIndex / 12) + 1;
     const monthInYear = (monthIndex % 12) + 1;
-    const startBalances = { ...balances };
+    const override = normalizedOverrides[oneBasedMonth];
+    let startBalances = { ...balances };
+    if (override?.startBalances) {
+      startBalances = {
+        stocks: roundToCents(override.startBalances.stocks ?? startBalances.stocks),
+        bonds: roundToCents(override.startBalances.bonds ?? startBalances.bonds),
+        cash: roundToCents(override.startBalances.cash ?? startBalances.cash),
+      };
+      balances = { ...startBalances };
+    }
     const startPortfolioValue = totalPortfolio(startBalances);
 
     if (monthInYear === 1) {
@@ -229,7 +285,10 @@ export const simulateRetirement = (
     }
     balances = afterMarket;
 
-    const incomeTotal = sumEventIncome(balances, config.incomeEvents, config, monthIndex + 1);
+    let incomeTotal = 0;
+    if (override?.incomeTotal === undefined) {
+      incomeTotal = sumEventIncome(balances, config.incomeEvents, config, oneBasedMonth);
+    }
 
     if (monthInYear === 1) {
       if (year < withdrawalStartYear) {
@@ -266,18 +325,39 @@ export const simulateRetirement = (
       }
     }
 
-    const drawdown = applyConfiguredDrawdown(
-      balances,
-      currentMonthlyWithdrawal,
-      config.drawdownStrategy,
-      year,
-    );
+    const editedWithdrawals = override ? applyEditedWithdrawals(balances, override) : null;
+    const drawdown = editedWithdrawals
+      ? {
+          balances: { ...balances },
+          withdrawnByAsset: editedWithdrawals.byAsset,
+          totalWithdrawn: editedWithdrawals.actual,
+          shortfall: editedWithdrawals.shortfall,
+        }
+      : applyConfiguredDrawdown(
+          balances,
+          currentMonthlyWithdrawal,
+          config.drawdownStrategy,
+          year,
+        );
 
     balances = drawdown.balances;
     totalWithdrawn = roundToCents(totalWithdrawn + drawdown.totalWithdrawn);
     totalShortfall = roundToCents(totalShortfall + drawdown.shortfall);
 
-    const expenseResult = sumEventExpenses(balances, config.expenseEvents, config, monthIndex + 1, year);
+    if (override?.incomeTotal !== undefined) {
+      incomeTotal = roundToCents(Math.max(0, override.incomeTotal));
+      balances.cash = roundToCents(balances.cash + incomeTotal);
+    }
+
+    let expenseResult: { actualTotal: number; shortfallTotal: number };
+    if (override?.expenseTotal !== undefined) {
+      const amount = roundToCents(Math.max(0, override.expenseTotal));
+      const expenseDrawdown = applyConfiguredDrawdown(balances, amount, config.drawdownStrategy, year);
+      balances = expenseDrawdown.balances;
+      expenseResult = { actualTotal: expenseDrawdown.totalWithdrawn, shortfallTotal: expenseDrawdown.shortfall };
+    } else {
+      expenseResult = sumEventExpenses(balances, config.expenseEvents, config, oneBasedMonth, year);
+    }
     totalShortfall = roundToCents(totalShortfall + expenseResult.shortfallTotal);
 
     if (monthInYear === 12) {
@@ -286,14 +366,14 @@ export const simulateRetirement = (
     }
 
     rows.push({
-      monthIndex: monthIndex + 1,
+      monthIndex: oneBasedMonth,
       year,
       monthInYear,
       startBalances,
       marketChange,
       withdrawals: {
         byAsset: drawdown.withdrawnByAsset,
-        requested: currentMonthlyWithdrawal,
+        requested: editedWithdrawals?.requested ?? currentMonthlyWithdrawal,
         actual: drawdown.totalWithdrawn,
         shortfall: drawdown.shortfall,
       },

@@ -1212,7 +1212,10 @@ export const useRunSimulation = () =>
 export const useActiveSimulationResult = () =>
   useAppStore((state) => {
     if (state.mode === AppMode.Tracking && state.simulationMode === SimulationMode.Manual) {
-      return state.simulationResults.reforecast ?? state.simulationResults.manual;
+      if (state.lastEditedMonthIndex !== null) {
+        return state.simulationResults.reforecast ?? state.simulationResults.manual;
+      }
+      return state.simulationResults.manual;
     }
     return state.simulationMode === SimulationMode.Manual
       ? state.simulationResults.manual

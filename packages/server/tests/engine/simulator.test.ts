@@ -171,4 +171,25 @@ describe('simulateRetirement', () => {
     expect(result.rows[5]?.withdrawals.actual).toBeGreaterThan(0);
     expect(result.summary.terminalPortfolioValue).toBeLessThan(100_000_000);
   });
+
+  it('applies actual overrides for start balances and by-asset withdrawals', () => {
+    const config = createBaseConfig();
+    config.coreParams.retirementDuration = 1;
+
+    const result = simulateRetirement(
+      config,
+      createZeroReturns(config.coreParams.retirementDuration * 12),
+      {
+        1: {
+          startBalances: { stocks: 1_000_000 },
+          withdrawalsByAsset: { stocks: 100_000 },
+        },
+      },
+    );
+
+    const firstMonth = result.rows[0];
+    expect(firstMonth?.startBalances.stocks).toBe(1_000_000);
+    expect(firstMonth?.withdrawals.byAsset.stocks).toBe(100_000);
+    expect(firstMonth?.endBalances.stocks).toBe(900_000);
+  });
 });

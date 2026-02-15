@@ -8,6 +8,29 @@ import { getCurrentConfig, useAppStore } from '../../store/useAppStore';
 import { Dropdown } from '../shared/Dropdown';
 import { SegmentedToggle } from '../shared/SegmentedToggle';
 
+const mergeRowsWithPreservedBoundary = <
+  T extends {
+    endBalances: { stocks: number; bonds: number; cash: number };
+  },
+>(
+  nextRows: T[],
+  preservedRows: T[],
+  boundaryMonthIndex: number,
+): { rows: T[]; terminalPortfolioValue: number | null } => {
+  const mergedRows = [...nextRows];
+  if (boundaryMonthIndex > 0 && preservedRows.length === mergedRows.length) {
+    for (let index = 0; index < boundaryMonthIndex; index += 1) {
+      mergedRows[index] = preservedRows[index] ?? mergedRows[index]!;
+    }
+  }
+
+  const terminal = mergedRows[mergedRows.length - 1]?.endBalances;
+  return {
+    rows: mergedRows,
+    terminalPortfolioValue: terminal ? terminal.stocks + terminal.bonds + terminal.cash : null,
+  };
+};
+
 export const CommandBar = () => {
   const mode = useAppStore((state) => state.mode);
   const simulationMode = useAppStore((state) => state.simulationMode);
@@ -70,6 +93,40 @@ export const CommandBar = () => {
     try {
       setSimulationStatus('running');
       const config = getCurrentConfig();
+      if (
+        mode === AppMode.Tracking &&
+        (simulationMode === SimulationMode.Manual || simulationMode === SimulationMode.MonteCarlo) &&
+        lastEditedMonthIndex !== null
+      ) {
+        const state = useAppStore.getState();
+        const visibleRows =
+          (
+            state.simulationResults.reforecast ??
+            state.simulationResults.manual ??
+            state.simulationResults.monteCarlo
+          )?.result.rows ?? [];
+        const result = await runSimulation({ config, actualOverridesByMonth });
+        const merged = mergeRowsWithPreservedBoundary(
+          result.result.rows,
+          visibleRows,
+          lastEditedMonthIndex,
+        );
+
+        setSimulationResult(simulationMode, {
+          ...result,
+          result: {
+            ...result.result,
+            rows: merged.rows,
+            summary: {
+              ...result.result.summary,
+              terminalPortfolioValue:
+                merged.terminalPortfolioValue ?? result.result.summary.terminalPortfolioValue,
+            },
+          },
+        });
+        return;
+      }
+
       const result = await runSimulation({ config, actualOverridesByMonth });
       setSimulationResult(simulationMode, result);
     } catch (error) {

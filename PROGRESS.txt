@@ -387,3 +387,77 @@ Verification run (all passing):
 - `npm run lint`
 - `npm test`
 - Follow-up UX fix: Tracking table now renders edited override values directly in cells (not just markers), including frozen MC stale state.
+- Phase 9 post-review defect fixes:
+  - Fixed Tracking + Manual first-run behavior: deterministic reforecast is now gated behind actual edits (`lastEditedMonthIndex !== null`), so initial Tracking manual runs remain stochastic.
+  - Fixed active-result selection in Tracking + Manual: reforecast is only preferred when actual edits exist; otherwise manual simulation result is shown.
+  - Fixed Tracking + Monte Carlo override propagation: `/api/v1/simulate` now passes `actualOverridesByMonth` into both manual and Monte Carlo engines.
+  - Extended `simulateRetirement` to honor month-level overrides for start balances, by-asset withdrawals, income, and expenses.
+  - Extended Monte Carlo runner to apply the same actual overrides on each path before percentile aggregation.
+- Added regression tests:
+  - `packages/server/tests/engine/simulator.test.ts`: verifies overrides affect start balances, withdrawals, and end balances.
+  - `packages/server/tests/routes/simulation.test.ts`: verifies overrides are applied for both Manual and Monte Carlo `/simulate` responses.
+
+Verification run (all passing):
+- `npm run typecheck`
+- `npm run lint`
+- `npm test`
+- `npm run build`
+- Phase 9 tracking behavior fix (manual edit recalculation semantics):
+  - Replaced Tracking+Manual edit recalculation path in `DetailTable` from `/reforecast` deterministic run to `/simulate` with explicit `monthlyReturns` derived from the current manual result rows.
+  - Effect: editing in Tracking+Manual now preserves existing stochastic month returns and recomputes congruently from edited context, instead of visually turning the whole path deterministic.
+  - Because row-level values are now recomputed through the main simulator, same-month derived fields stay congruent after start-balance edits (e.g., `Start Total`, `Market Move`, `Return %`, per-asset move columns).
+- Files updated:
+  - `packages/client/src/components/output/DetailTable.tsx`
+
+Verification run (all passing):
+- `npm run typecheck`
+- `npm run lint`
+- `npm test`
+- `npm run build`
+- Phase 9 tracking follow-up fix (manual boundary preservation + row congruence display):
+  - Updated `packages/client/src/components/output/DetailTable.tsx` recalculation merge behavior so Tracking+Manual keeps rows through `lastEditedMonthIndex` from the visible result and only takes recomputed rows after that boundary.
+  - Added start-balance delta propagation in detail-table display for edited rows:
+    - `Start Total`, `Market Move`, `Return %`
+    - `Move Stocks`, `Move Bonds`, `Move Cash`
+  - Updated edit-entry prefill to use displayed (override-aware) values.
+
+Verification run (all passing):
+- `npm run typecheck`
+- `npm run lint`
+- `npm test`
+- `npm run build`
+- Phase 9 tracking defect follow-up:
+  - Fixed Tracking+Manual `Run Simulation` behavior to preserve rows through `lastEditedMonthIndex` (inclusive) and recompute only future rows in the displayed result.
+  - Fixed same-row congruence for start-balance edits to include end columns:
+    - `End Stocks`, `End Bonds`, `End Cash`, and `End Total` now derive from override-adjusted start/move/withdrawal values.
+- Files updated:
+  - `packages/client/src/components/layout/CommandBar.tsx`
+  - `packages/client/src/components/output/DetailTable.tsx`
+
+Verification run (all passing):
+- `npm run typecheck`
+- `npm run lint`
+- `npm test`
+- `npm run build`
+- Tracking+Manual run fix after table edit:
+  - Updated `packages/client/src/components/layout/CommandBar.tsx` so `Run Simulation` in Tracking+Manual with edits no longer reuses the exact prior monthly returns path.
+  - Run now performs a fresh stochastic simulation with overrides, then preserves rows through the edit boundary in the displayed result.
+  - This restores visible run behavior after edits while keeping historical/edited rows fixed.
+
+Verification run (all passing):
+- `npm run typecheck`
+- `npm run lint`
+- `npm test`
+- Tracking+MonteCarlo preservation fix:
+  - Updated `packages/client/src/components/layout/CommandBar.tsx` to apply edit-boundary row preservation for Tracking+MonteCarlo runs, matching Tracking+Manual behavior.
+  - On Run in Tracking mode with `lastEditedMonthIndex` set (Manual or MonteCarlo), simulation result rows now preserve months through the edited boundary and only replace future months.
+- UX polish updates:
+  - Summary stats terminal card now consistently shows `Portfolio End (Real)` in both Manual and Monte Carlo modes.
+  - Portfolio chart SVG now uses `preserveAspectRatio="none"` so the plotted area fills the container width on large screens.
+  - Detail-table preserved-row tint increased from very light blue to a darker shade for clearer distinction.
+
+Verification run (all passing):
+- `npm run typecheck`
+- `npm run lint`
+- `npm test`
+- `npm run build`
