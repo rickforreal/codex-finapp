@@ -1,4 +1,5 @@
 import type {
+  ActualOverridesByMonth,
   HistoricalDataSummary,
   MonthlyReturns,
   MonteCarloResult,
@@ -14,6 +15,7 @@ export interface HealthResponse {
 export interface SimulateRequest {
   config: SimulationConfig;
   monthlyReturns?: MonthlyReturns[];
+  actualOverridesByMonth?: ActualOverridesByMonth;
   seed?: number;
 }
 
@@ -26,6 +28,16 @@ export interface SimulateResponse {
 
 export interface HistoricalSummaryResponse {
   summary: HistoricalDataSummary;
+}
+
+export interface ReforecastRequest {
+  config: SimulationConfig;
+  actualOverridesByMonth: ActualOverridesByMonth;
+}
+
+export interface ReforecastResponse {
+  result: SinglePathResult;
+  lastEditedMonthIndex: number | null;
 }
 
 export interface ApiFieldError {

@@ -417,3 +417,70 @@ Acceptance Criteria:
 [AC1] `npm run build`, `npm run typecheck`, `npm run lint`, and `npm test` pass.
 [AC2] Monte Carlo run (1,000 paths) completes under 3 seconds in automated performance test.
 [AC3] Manual mode behaviors from prior phases remain functional.
+
+## Phase 9 Plan — Tracking Mode
+
+- [x] P9-T1: Add Tracking actual override domain/contracts and request schemas
+Phase: 9 (Tracking Mode)
+Dependencies: P8-T8
+Acceptance Criteria:
+[AC1] Shared types include per-month actual overrides for starts, by-asset withdrawals, income, and expenses.
+[AC2] `SimulateRequest` supports optional actual override payload.
+[AC3] `ReforecastRequest`/`ReforecastResponse` contracts and schema validation are added.
+
+- [x] P9-T2: Implement deterministic reforecast engine and `/api/v1/reforecast` route
+Phase: 9 (Tracking Mode)
+Dependencies: P9-T1
+Acceptance Criteria:
+[AC1] Deterministic engine uses fixed monthly rates from expected annual returns.
+[AC2] Route validates payload and returns deterministic `SinglePathResult` with last edited month metadata.
+[AC3] Engine honors month overrides for start balances, by-asset withdrawals, income, and expenses.
+
+- [x] P9-T3: Add client reforecast API and tracking state/actions
+Phase: 9 (Tracking Mode)
+Dependencies: P9-T2
+Acceptance Criteria:
+[AC1] Client includes typed reforecast API wrapper.
+[AC2] Store tracks per-month actual overrides and latest edited month index.
+[AC3] Store supports row-level and full clear actions for actual overrides.
+
+- [x] P9-T4: Implement mode-isolated workspace switching behavior
+Phase: 9 (Tracking Mode)
+Dependencies: P9-T3
+Acceptance Criteria:
+[AC1] First switch to Tracking clones Planning state once and clears Tracking result caches.
+[AC2] Planning and Tracking retain independent inputs/results between mode switches.
+[AC3] Active simulation result selector uses Tracking reforecast result in Manual mode when available.
+
+- [x] P9-T5: Implement Tracking table editing UX and stale indicators
+Phase: 9 (Tracking Mode)
+Dependencies: P9-T3, P9-T4
+Acceptance Criteria:
+[AC1] Monthly table supports editable Tracking cells for starts, by-asset withdrawals, income, and expenses.
+[AC2] Edited cells show bold+tint+dot markers, and rows up to latest edit are region-tinted.
+[AC3] Table shows stale pill in Tracking+MonteCarlo when MC cache is outdated.
+[AC4] Row reset action exists in monthly view and clears that row's overrides.
+
+- [x] P9-T6: Implement Tracking chart overlays and stale treatment
+Phase: 9 (Tracking Mode)
+Dependencies: P9-T3, P9-T5
+Acceptance Criteria:
+[AC1] Chart renders boundary marker for latest edited month (`Actuals -> Simulated`).
+[AC2] Tracking+MC shows realized left segment with MC bands on simulated right segment.
+[AC3] MC stale state dims chart layers and shows stale banner text.
+
+- [x] P9-T7: Add Phase 9 engine/route tests
+Phase: 9 (Tracking Mode)
+Dependencies: P9-T2
+Acceptance Criteria:
+[AC1] `deterministic.test.ts` covers determinism and override application.
+[AC2] `reforecast.test.ts` covers success and validation failure responses.
+[AC3] Existing Monte Carlo/manual tests remain passing.
+
+- [x] P9-T8: Run verification and regression checks
+Phase: 9 (Tracking Mode)
+Dependencies: P9-T4, P9-T5, P9-T6, P9-T7
+Acceptance Criteria:
+[AC1] `npm run build`, `npm run typecheck`, `npm run lint`, and `npm test` pass.
+[AC2] Tracking command bar shows actual watermark and clear action.
+[AC3] Phases 2–8 continue functioning with no regressions.

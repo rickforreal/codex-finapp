@@ -24,6 +24,10 @@ export const CommandBar = () => {
   const setSimulationResult = useAppStore((state) => state.setSimulationResult);
   const drawdownType = useAppStore((state) => state.drawdownStrategy.type);
   const targetAllocation = useAppStore((state) => state.drawdownStrategy.rebalancing.targetAllocation);
+  const actualOverridesByMonth = useAppStore((state) => state.actualOverridesByMonth);
+  const lastEditedMonthIndex = useAppStore((state) => state.lastEditedMonthIndex);
+  const startDate = useAppStore((state) => state.coreParams.retirementStartDate);
+  const clearAllActualOverrides = useAppStore((state) => state.clearAllActualOverrides);
   const canRun =
     drawdownType !== DrawdownStrategyType.Rebalancing ||
     Math.abs(targetAllocation.stocks + targetAllocation.bonds + targetAllocation.cash - 1) < 0.000001;
@@ -66,7 +70,7 @@ export const CommandBar = () => {
     try {
       setSimulationStatus('running');
       const config = getCurrentConfig();
-      const result = await runSimulation({ config });
+      const result = await runSimulation({ config, actualOverridesByMonth });
       setSimulationResult(simulationMode, result);
     } catch (error) {
       const message = error instanceof Error ? error.message : 'Unknown simulation error';
@@ -117,6 +121,30 @@ export const CommandBar = () => {
         >
           {status === 'running' ? 'Running...' : 'Run Simulation'}
         </button>
+
+        {mode === AppMode.Tracking ? (
+          <>
+            {lastEditedMonthIndex !== null ? (
+              <button
+                type="button"
+                onClick={clearAllActualOverrides}
+                className="rounded border border-brand-border bg-white px-3 py-1.5 text-xs font-medium text-slate-700"
+              >
+                Clear Actuals
+              </button>
+            ) : null}
+            <p className="text-xs text-slate-500">
+              {lastEditedMonthIndex === null
+                ? 'No actuals entered'
+                : `Actuals through: ${
+                    new Date(startDate.year, startDate.month - 1 + (lastEditedMonthIndex - 1), 1).toLocaleDateString(undefined, {
+                      month: 'short',
+                      year: 'numeric',
+                    })
+                  }`}
+            </p>
+          </>
+        ) : null}
       </div>
     </header>
   );

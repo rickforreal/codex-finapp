@@ -341,3 +341,49 @@ Verification run (all passing):
 - `npm run typecheck`
 - `npm run lint`
 - `npm test`
+
+2026-02-15 — Phase 9 (Tracking Mode) implementation pass
+
+Completed:
+- Shared contracts/domain:
+  - Added `ActualMonthOverride` + `ActualOverridesByMonth` in shared domain.
+  - Extended `SimulateRequest` with optional `actualOverridesByMonth`.
+  - Added `ReforecastRequest` / `ReforecastResponse` contracts.
+  - Added `reforecastRequestSchema` and actual-override schema validation.
+- Server:
+  - Added deterministic engine: `packages/server/src/engine/deterministic.ts`.
+  - Added `POST /api/v1/reforecast` route: `packages/server/src/routes/reforecast.ts`.
+  - Registered reforecast route in server app bootstrap.
+- Client state and APIs:
+  - Added `runReforecast` API wrapper.
+  - Added Tracking actual override state/actions:
+    - `actualOverridesByMonth`, `lastEditedMonthIndex`
+    - `upsertActualOverride`, `clearActualRowOverrides`, `clearAllActualOverrides`
+  - Added mode-isolated workspace switching behavior via clone/snapshot swap on mode toggle:
+    - first switch to Tracking clones Planning once and clears Tracking caches.
+    - subsequent mode switches restore per-mode inputs/results.
+  - Active result selector now prefers `reforecast` in Tracking + Manual mode.
+- Detail table Tracking UX:
+  - Monthly editable cells for start balances, by-asset withdrawals, income, expenses.
+  - Edited value visuals: tint + bold + dot marker.
+  - Row-region tint through latest edited month.
+  - Row reset action in monthly view.
+  - Stale pill in Tracking + Monte Carlo when MC is stale.
+  - Tracking-first empty-state prompt now requires initial run to bootstrap editable rows.
+- Chart Tracking UX:
+  - Added boundary marker and label: `Actuals -> Simulated`.
+  - Added stale dim + warning banner for Tracking + Monte Carlo stale state.
+  - Added split rendering path for Tracking + Monte Carlo (realized left / simulated bands right).
+- Command bar Tracking UX:
+  - Added Actuals watermark text (`No actuals entered` / `Actuals through: MMM YYYY`).
+  - Added `Clear Actuals` action in Tracking mode.
+- Tests:
+  - Added `packages/server/tests/engine/deterministic.test.ts`.
+  - Added `packages/server/tests/routes/reforecast.test.ts`.
+
+Verification run (all passing):
+- `npm run build`
+- `npm run typecheck`
+- `npm run lint`
+- `npm test`
+- Follow-up UX fix: Tracking table now renders edited override values directly in cells (not just markers), including frozen MC stale state.

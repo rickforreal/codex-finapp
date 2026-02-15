@@ -8,6 +8,8 @@ import {
   SimulationMode,
   WithdrawalStrategyType,
   type DrawdownStrategy,
+  type ActualMonthOverride,
+  type ActualOverridesByMonth,
   type HistoricalDataSummary,
   type SimulationConfig,
   type SimulateResponse,
@@ -77,8 +79,7 @@ type WithdrawalParamKey =
 
 type WithdrawalStrategyParamsForm = Record<WithdrawalParamKey, number>;
 
-type AppStore = {
-  mode: AppMode;
+type WorkspaceSnapshot = {
   simulationMode: SimulationMode;
   selectedHistoricalEra: HistoricalEra;
   coreParams: {
@@ -119,6 +120,65 @@ type AppStore = {
   };
   incomeEvents: IncomeEventForm[];
   expenseEvents: ExpenseEventForm[];
+  actualOverridesByMonth: ActualOverridesByMonth;
+  lastEditedMonthIndex: number | null;
+  simulationResults: {
+    manual: SimulateResponse | null;
+    monteCarlo: SimulateResponse | null;
+    status: RunStatus;
+    mcStale: boolean;
+    reforecast: SimulateResponse | null;
+    errorMessage: string | null;
+  };
+};
+
+type AppStore = {
+  mode: AppMode;
+  trackingInitialized: boolean;
+  planningWorkspace: WorkspaceSnapshot | null;
+  trackingWorkspace: WorkspaceSnapshot | null;
+  simulationMode: SimulationMode;
+  selectedHistoricalEra: HistoricalEra;
+  coreParams: {
+    startingAge: number;
+    withdrawalsStartAt: number;
+    retirementStartDate: { month: number; year: number };
+    retirementDuration: number;
+    inflationRate: number;
+  };
+  portfolio: {
+    stocks: number;
+    bonds: number;
+    cash: number;
+  };
+  returnAssumptions: {
+    stocks: { expectedReturn: number; stdDev: number };
+    bonds: { expectedReturn: number; stdDev: number };
+    cash: { expectedReturn: number; stdDev: number };
+  };
+  spendingPhases: SpendingPhaseForm[];
+  withdrawalStrategy: {
+    type: WithdrawalStrategyType;
+    params: WithdrawalStrategyParamsForm;
+  };
+  drawdownStrategy: {
+    type: DrawdownStrategyType;
+    bucketOrder: AssetClass[];
+    rebalancing: {
+      targetAllocation: { stocks: number; bonds: number; cash: number };
+      glidePathEnabled: boolean;
+      glidePath: Array<{ year: number; allocation: { stocks: number; bonds: number; cash: number } }>;
+    };
+  };
+  historicalData: {
+    summary: HistoricalDataSummary | null;
+    status: 'idle' | 'loading' | 'ready' | 'error';
+    errorMessage: string | null;
+  };
+  incomeEvents: IncomeEventForm[];
+  expenseEvents: ExpenseEventForm[];
+  actualOverridesByMonth: ActualOverridesByMonth;
+  lastEditedMonthIndex: number | null;
   simulationResults: {
     manual: SimulateResponse | null;
     monteCarlo: SimulateResponse | null;
@@ -139,6 +199,9 @@ type AppStore = {
     collapsedSections: Record<string, boolean>;
   };
   setMode: (mode: AppMode) => void;
+  upsertActualOverride: (monthIndex: number, patch: Partial<ActualMonthOverride>) => void;
+  clearActualRowOverrides: (monthIndex: number) => void;
+  clearAllActualOverrides: () => void;
   setSimulationMode: (mode: SimulationMode) => void;
   setSelectedHistoricalEra: (era: HistoricalEra) => void;
   setHistoricalSummaryStatus: (status: 'idle' | 'loading' | 'ready' | 'error', errorMessage?: string | null) => void;
@@ -173,6 +236,7 @@ type AppStore = {
   updateExpenseEvent: (id: string, patch: Partial<ExpenseEventForm>) => void;
   setSimulationStatus: (status: RunStatus, errorMessage?: string | null) => void;
   setSimulationResult: (mode: SimulationMode, result: SimulateResponse) => void;
+  setReforecastResult: (result: SimulateResponse) => void;
   setChartDisplayMode: (mode: ChartDisplayMode) => void;
   setChartBreakdownEnabled: (enabled: boolean) => void;
   setChartZoom: (zoom: { start: number; end: number } | null) => void;
@@ -441,8 +505,110 @@ const recalculatePhaseBoundaries = (
   return recalculated;
 };
 
+const cloneWorkspace = (workspace: WorkspaceSnapshot): WorkspaceSnapshot => ({
+  ...workspace,
+  coreParams: { ...workspace.coreParams, retirementStartDate: { ...workspace.coreParams.retirementStartDate } },
+  portfolio: { ...workspace.portfolio },
+  returnAssumptions: {
+    stocks: { ...workspace.returnAssumptions.stocks },
+    bonds: { ...workspace.returnAssumptions.bonds },
+    cash: { ...workspace.returnAssumptions.cash },
+  },
+  spendingPhases: workspace.spendingPhases.map((phase) => ({ ...phase })),
+  withdrawalStrategy: {
+    ...workspace.withdrawalStrategy,
+    params: { ...workspace.withdrawalStrategy.params },
+  },
+  drawdownStrategy: {
+    ...workspace.drawdownStrategy,
+    bucketOrder: [...workspace.drawdownStrategy.bucketOrder],
+    rebalancing: {
+      ...workspace.drawdownStrategy.rebalancing,
+      targetAllocation: { ...workspace.drawdownStrategy.rebalancing.targetAllocation },
+      glidePath: workspace.drawdownStrategy.rebalancing.glidePath.map((waypoint) => ({
+        year: waypoint.year,
+        allocation: { ...waypoint.allocation },
+      })),
+    },
+  },
+  historicalData: {
+    ...workspace.historicalData,
+    summary: workspace.historicalData.summary
+      ? {
+          ...workspace.historicalData.summary,
+          selectedEra: { ...workspace.historicalData.summary.selectedEra },
+          eras: workspace.historicalData.summary.eras.map((era) => ({ ...era })),
+          byAsset: {
+            stocks: { ...workspace.historicalData.summary.byAsset.stocks },
+            bonds: { ...workspace.historicalData.summary.byAsset.bonds },
+            cash: { ...workspace.historicalData.summary.byAsset.cash },
+          },
+        }
+      : null,
+  },
+  incomeEvents: workspace.incomeEvents.map((event) => ({ ...event, start: { ...event.start }, end: event.end === 'endOfRetirement' ? event.end : { ...event.end } })),
+  expenseEvents: workspace.expenseEvents.map((event) => ({ ...event, start: { ...event.start }, end: event.end === 'endOfRetirement' ? event.end : { ...event.end } })),
+  actualOverridesByMonth: Object.fromEntries(
+    Object.entries(workspace.actualOverridesByMonth).map(([month, value]) => [month, {
+      startBalances: value.startBalances ? { ...value.startBalances } : undefined,
+      withdrawalsByAsset: value.withdrawalsByAsset ? { ...value.withdrawalsByAsset } : undefined,
+      incomeTotal: value.incomeTotal,
+      expenseTotal: value.expenseTotal,
+    }]),
+  ),
+  simulationResults: { ...workspace.simulationResults },
+});
+
+const workspaceFromState = (state: AppStore): WorkspaceSnapshot => ({
+  simulationMode: state.simulationMode,
+  selectedHistoricalEra: state.selectedHistoricalEra,
+  coreParams: { ...state.coreParams, retirementStartDate: { ...state.coreParams.retirementStartDate } },
+  portfolio: { ...state.portfolio },
+  returnAssumptions: {
+    stocks: { ...state.returnAssumptions.stocks },
+    bonds: { ...state.returnAssumptions.bonds },
+    cash: { ...state.returnAssumptions.cash },
+  },
+  spendingPhases: state.spendingPhases.map((phase) => ({ ...phase })),
+  withdrawalStrategy: {
+    ...state.withdrawalStrategy,
+    params: { ...state.withdrawalStrategy.params },
+  },
+  drawdownStrategy: {
+    ...state.drawdownStrategy,
+    bucketOrder: [...state.drawdownStrategy.bucketOrder],
+    rebalancing: {
+      ...state.drawdownStrategy.rebalancing,
+      targetAllocation: { ...state.drawdownStrategy.rebalancing.targetAllocation },
+      glidePath: state.drawdownStrategy.rebalancing.glidePath.map((waypoint) => ({
+        year: waypoint.year,
+        allocation: { ...waypoint.allocation },
+      })),
+    },
+  },
+  historicalData: state.historicalData,
+  incomeEvents: state.incomeEvents.map((event) => ({ ...event, start: { ...event.start }, end: event.end === 'endOfRetirement' ? event.end : { ...event.end } })),
+  expenseEvents: state.expenseEvents.map((event) => ({ ...event, start: { ...event.start }, end: event.end === 'endOfRetirement' ? event.end : { ...event.end } })),
+  actualOverridesByMonth: state.actualOverridesByMonth,
+  lastEditedMonthIndex: state.lastEditedMonthIndex,
+  simulationResults: { ...state.simulationResults },
+});
+
+const trackingSimulationResultsCleared = (results: WorkspaceSnapshot['simulationResults']): WorkspaceSnapshot['simulationResults'] => ({
+  ...results,
+  manual: null,
+  monteCarlo: null,
+  reforecast: null,
+  mcStale: false,
+  status: 'idle',
+  errorMessage: null,
+});
+
 export const useAppStore = create<AppStore>((set) => ({
   mode: AppMode.Planning,
+  trackingInitialized: false,
+  planningWorkspace: null,
+  trackingWorkspace: null,
   simulationMode: SimulationMode.Manual,
   selectedHistoricalEra: HistoricalEra.FullHistory,
   coreParams: {
@@ -483,6 +649,8 @@ export const useAppStore = create<AppStore>((set) => ({
   },
   incomeEvents: [],
   expenseEvents: [],
+  actualOverridesByMonth: {},
+  lastEditedMonthIndex: null,
   simulationResults: {
     manual: null,
     monteCarlo: null,
@@ -502,7 +670,140 @@ export const useAppStore = create<AppStore>((set) => ({
     reforecastStatus: 'idle',
     collapsedSections: {},
   },
-  setMode: (mode) => set({ mode }),
+  setMode: (mode) =>
+    set((state) => {
+      if (mode === state.mode) {
+        return state;
+      }
+
+      const currentWorkspace = cloneWorkspace(workspaceFromState(state));
+      const planningWorkspace =
+        state.mode === AppMode.Planning ? currentWorkspace : state.planningWorkspace ?? currentWorkspace;
+      const trackingWorkspace =
+        state.mode === AppMode.Tracking ? currentWorkspace : state.trackingWorkspace;
+
+      if (mode === AppMode.Tracking) {
+        if (!state.trackingInitialized) {
+          const seededTracking = cloneWorkspace(currentWorkspace);
+          seededTracking.simulationResults = trackingSimulationResultsCleared(seededTracking.simulationResults);
+          seededTracking.actualOverridesByMonth = {};
+          seededTracking.lastEditedMonthIndex = null;
+          return {
+            mode,
+            trackingInitialized: true,
+            planningWorkspace,
+            trackingWorkspace: seededTracking,
+            simulationMode: seededTracking.simulationMode,
+            selectedHistoricalEra: seededTracking.selectedHistoricalEra,
+            coreParams: seededTracking.coreParams,
+            portfolio: seededTracking.portfolio,
+            returnAssumptions: seededTracking.returnAssumptions,
+            spendingPhases: seededTracking.spendingPhases,
+            withdrawalStrategy: seededTracking.withdrawalStrategy,
+            drawdownStrategy: seededTracking.drawdownStrategy,
+            historicalData: seededTracking.historicalData,
+            incomeEvents: seededTracking.incomeEvents,
+            expenseEvents: seededTracking.expenseEvents,
+            actualOverridesByMonth: seededTracking.actualOverridesByMonth,
+            lastEditedMonthIndex: seededTracking.lastEditedMonthIndex,
+            simulationResults: seededTracking.simulationResults,
+          };
+        }
+
+        const nextTracking = state.trackingWorkspace
+          ? cloneWorkspace(state.trackingWorkspace)
+          : cloneWorkspace(currentWorkspace);
+        return {
+          mode,
+          planningWorkspace,
+          trackingWorkspace: nextTracking,
+          simulationMode: nextTracking.simulationMode,
+          selectedHistoricalEra: nextTracking.selectedHistoricalEra,
+          coreParams: nextTracking.coreParams,
+          portfolio: nextTracking.portfolio,
+          returnAssumptions: nextTracking.returnAssumptions,
+          spendingPhases: nextTracking.spendingPhases,
+          withdrawalStrategy: nextTracking.withdrawalStrategy,
+          drawdownStrategy: nextTracking.drawdownStrategy,
+          historicalData: nextTracking.historicalData,
+          incomeEvents: nextTracking.incomeEvents,
+          expenseEvents: nextTracking.expenseEvents,
+          actualOverridesByMonth: nextTracking.actualOverridesByMonth,
+          lastEditedMonthIndex: nextTracking.lastEditedMonthIndex,
+          simulationResults: nextTracking.simulationResults,
+        };
+      }
+
+      const nextPlanning = state.planningWorkspace
+        ? cloneWorkspace(state.planningWorkspace)
+        : cloneWorkspace(currentWorkspace);
+      return {
+        mode,
+        planningWorkspace: nextPlanning,
+        trackingWorkspace,
+        simulationMode: nextPlanning.simulationMode,
+        selectedHistoricalEra: nextPlanning.selectedHistoricalEra,
+        coreParams: nextPlanning.coreParams,
+        portfolio: nextPlanning.portfolio,
+        returnAssumptions: nextPlanning.returnAssumptions,
+        spendingPhases: nextPlanning.spendingPhases,
+        withdrawalStrategy: nextPlanning.withdrawalStrategy,
+        drawdownStrategy: nextPlanning.drawdownStrategy,
+        historicalData: nextPlanning.historicalData,
+        incomeEvents: nextPlanning.incomeEvents,
+        expenseEvents: nextPlanning.expenseEvents,
+        actualOverridesByMonth: nextPlanning.actualOverridesByMonth,
+        lastEditedMonthIndex: nextPlanning.lastEditedMonthIndex,
+        simulationResults: nextPlanning.simulationResults,
+      };
+    }),
+  upsertActualOverride: (monthIndex, patch) =>
+    set((state) => {
+      if (monthIndex <= 0) {
+        return state;
+      }
+      const existing = state.actualOverridesByMonth[monthIndex] ?? {};
+      const next: ActualMonthOverride = {
+        ...existing,
+        ...patch,
+      };
+      return {
+        actualOverridesByMonth: {
+          ...state.actualOverridesByMonth,
+          [monthIndex]: next,
+        },
+        lastEditedMonthIndex: Math.max(state.lastEditedMonthIndex ?? 0, monthIndex),
+        simulationResults:
+          state.mode === AppMode.Tracking && state.simulationMode === SimulationMode.MonteCarlo
+            ? { ...state.simulationResults, mcStale: true }
+            : state.simulationResults,
+      };
+    }),
+  clearActualRowOverrides: (monthIndex) =>
+    set((state) => {
+      const next = { ...state.actualOverridesByMonth };
+      delete next[monthIndex];
+      const editedMonths = Object.keys(next)
+        .map((value) => Number(value))
+        .filter((value) => Number.isInteger(value) && value > 0);
+      return {
+        actualOverridesByMonth: next,
+        lastEditedMonthIndex: editedMonths.length > 0 ? Math.max(...editedMonths) : null,
+        simulationResults:
+          state.mode === AppMode.Tracking && state.simulationMode === SimulationMode.MonteCarlo
+            ? { ...state.simulationResults, mcStale: true }
+            : state.simulationResults,
+      };
+    }),
+  clearAllActualOverrides: () =>
+    set((state) => ({
+      actualOverridesByMonth: {},
+      lastEditedMonthIndex: null,
+      simulationResults:
+        state.mode === AppMode.Tracking && state.simulationMode === SimulationMode.MonteCarlo
+          ? { ...state.simulationResults, mcStale: true }
+          : state.simulationResults,
+    })),
   setSimulationMode: (simulationMode) => set({ simulationMode }),
   setSelectedHistoricalEra: (selectedHistoricalEra) => set({ selectedHistoricalEra }),
   setHistoricalSummaryStatus: (status, errorMessage = null) =>
@@ -820,6 +1121,23 @@ export const useAppStore = create<AppStore>((set) => ({
         ...state.simulationResults,
         manual: mode === SimulationMode.Manual ? result : state.simulationResults.manual,
         monteCarlo: mode === SimulationMode.MonteCarlo ? result : state.simulationResults.monteCarlo,
+        reforecast:
+          state.mode === AppMode.Tracking && mode === SimulationMode.Manual
+            ? result
+            : state.simulationResults.reforecast,
+        status: 'complete',
+        mcStale:
+          state.mode === AppMode.Tracking && mode === SimulationMode.MonteCarlo
+            ? false
+            : state.simulationResults.mcStale,
+        errorMessage: null,
+      },
+    })),
+  setReforecastResult: (result) =>
+    set((state) => ({
+      simulationResults: {
+        ...state.simulationResults,
+        reforecast: result,
         status: 'complete',
         errorMessage: null,
       },
@@ -892,9 +1210,20 @@ export const useRunSimulation = () =>
   }));
 
 export const useActiveSimulationResult = () =>
-  useAppStore((state) =>
-    state.simulationMode === SimulationMode.Manual ? state.simulationResults.manual : state.simulationResults.monteCarlo,
-  );
+  useAppStore((state) => {
+    if (state.mode === AppMode.Tracking && state.simulationMode === SimulationMode.Manual) {
+      return state.simulationResults.reforecast ?? state.simulationResults.manual;
+    }
+    return state.simulationMode === SimulationMode.Manual
+      ? state.simulationResults.manual
+      : state.simulationResults.monteCarlo;
+  });
+
+export const useTrackingActuals = () =>
+  useAppStore((state) => ({
+    actualOverridesByMonth: state.actualOverridesByMonth,
+    lastEditedMonthIndex: state.lastEditedMonthIndex,
+  }));
 
 export const getCurrentConfig = (): SimulationConfig => {
   const state = useAppStore.getState();

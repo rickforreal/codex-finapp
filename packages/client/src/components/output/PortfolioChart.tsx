@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react';
 
-import { AssetClass, SimulationMode } from '@finapp/shared';
+import { AppMode, AssetClass, SimulationMode } from '@finapp/shared';
 
 import { formatCompactCurrency, formatCurrency, formatPeriodLabel } from '../../lib/format';
 import { useActiveSimulationResult, useAppStore } from '../../store/useAppStore';
@@ -66,7 +66,10 @@ export const PortfolioChart = () => {
   const result = useActiveSimulationResult();
   const chartDisplayMode = useAppStore((state) => state.ui.chartDisplayMode);
   const chartBreakdownEnabled = useAppStore((state) => state.ui.chartBreakdownEnabled);
+  const mode = useAppStore((state) => state.mode);
   const simulationMode = useAppStore((state) => state.simulationMode);
+  const mcStale = useAppStore((state) => state.simulationResults.mcStale);
+  const lastEditedMonthIndex = useAppStore((state) => state.lastEditedMonthIndex);
   const chartZoom = useAppStore((state) => state.ui.chartZoom);
   const setChartDisplayMode = useAppStore((state) => state.setChartDisplayMode);
   const setChartBreakdownEnabled = useAppStore((state) => state.setChartBreakdownEnabled);
@@ -77,7 +80,10 @@ export const PortfolioChart = () => {
   const [hoverIndex, setHoverIndex] = useState<number | null>(null);
 
   const points = useMemo<ChartPoint[]>(() => {
-    const rows = result?.result.rows ?? [];
+    const rows =
+      mode === AppMode.Tracking && simulationMode === SimulationMode.MonteCarlo
+        ? (useAppStore.getState().simulationResults.reforecast?.result.rows ?? result?.result.rows ?? [])
+        : (result?.result.rows ?? []);
     return rows.map((row) => {
       const factor = inflationFactor(inflationRate, row.monthIndex);
       const stocksNominal = row.endBalances[AssetClass.Stocks];
@@ -172,6 +178,7 @@ export const PortfolioChart = () => {
           p75: monteCarloBands.p75.slice(start, end + 1),
           p90: monteCarloBands.p90.slice(start, end + 1),
         };
+  const boundaryMonth = mode === AppMode.Tracking ? lastEditedMonthIndex : null;
 
   const maxFromPoints = Math.max(...visible.map((point) => getSeries(point).total), 1);
   const maxFromBands = visibleBands ? Math.max(...visibleBands.p90, 1) : 1;
@@ -193,6 +200,26 @@ export const PortfolioChart = () => {
   const manualLine = linePath(visible.map((point, index) => ({ x: xAt(index), y: yAt(getSeries(point).total) })));
   const mcMedianLine = linePath(
     (visibleBands?.p50 ?? []).map((value, index) => ({ x: xAt(index), y: yAt(value) })),
+  );
+  const boundaryLocalIndex =
+    boundaryMonth === null ? null : Math.max(0, Math.min(boundaryMonth - 1 - start, visible.length - 1));
+  const boundaryX = boundaryLocalIndex === null ? null : xAt(boundaryLocalIndex);
+  const rightBandStartLocal =
+    boundaryMonth === null ? 0 : Math.max(0, Math.min(boundaryMonth - start, visible.length - 1));
+  const rightBandX = xValues.slice(rightBandStartLocal);
+  const rightBandP10 = visibleBands?.p10.slice(rightBandStartLocal) ?? [];
+  const rightBandP25 = visibleBands?.p25.slice(rightBandStartLocal) ?? [];
+  const rightBandP50 = visibleBands?.p50.slice(rightBandStartLocal) ?? [];
+  const rightBandP75 = visibleBands?.p75.slice(rightBandStartLocal) ?? [];
+  const rightBandP90 = visibleBands?.p90.slice(rightBandStartLocal) ?? [];
+  const leftRealizedLine = linePath(
+    visible
+      .filter((point) => (boundaryMonth === null ? true : point.monthIndex <= boundaryMonth))
+      .map((point, index, all) => {
+        const sourceIndex = visible.findIndex((candidate) => candidate.monthIndex === point.monthIndex);
+        const localIndex = sourceIndex >= 0 ? sourceIndex : Math.min(index, all.length - 1);
+        return { x: xAt(localIndex), y: yAt(getSeries(point).total) };
+      }),
   );
 
   const yTicks = 6;
@@ -301,10 +328,30 @@ export const PortfolioChart = () => {
               <path d={areaPath(xValues, stocksUpper, stocksLower)} fill="#4A90D9AA" />
             </>
           ) : visibleBands ? (
-            <>
-              <path d={areaPath(xValues, visibleBands.p10.map(yAt), visibleBands.p90.map(yAt))} fill="#93C5FD55" />
-              <path d={areaPath(xValues, visibleBands.p25.map(yAt), visibleBands.p75.map(yAt))} fill="#60A5FA66" />
-              <path d={mcMedianLine} fill="none" stroke="#1A365D" strokeWidth="2.5" />
+            <g opacity={mode === AppMode.Tracking && simulationMode === SimulationMode.MonteCarlo && mcStale ? 0.4 : 1}>
+              {mode === AppMode.Tracking && simulationMode === SimulationMode.MonteCarlo ? (
+                <>
+                  <path d={leftRealizedLine} fill="none" stroke="#1A365D" strokeWidth="2.5" />
+                  {rightBandX.length > 1 ? (
+                    <>
+                      <path d={areaPath(rightBandX, rightBandP10.map(yAt), rightBandP90.map(yAt))} fill="#93C5FD55" />
+                      <path d={areaPath(rightBandX, rightBandP25.map(yAt), rightBandP75.map(yAt))} fill="#60A5FA66" />
+                      <path
+                        d={linePath(rightBandP50.map((value, index) => ({ x: rightBandX[index] ?? 0, y: yAt(value) })))}
+                        fill="none"
+                        stroke="#1A365D"
+                        strokeWidth="2.5"
+                      />
+                    </>
+                  ) : null}
+                </>
+              ) : (
+                <>
+                  <path d={areaPath(xValues, visibleBands.p10.map(yAt), visibleBands.p90.map(yAt))} fill="#93C5FD55" />
+                  <path d={areaPath(xValues, visibleBands.p25.map(yAt), visibleBands.p75.map(yAt))} fill="#60A5FA66" />
+                  <path d={mcMedianLine} fill="none" stroke="#1A365D" strokeWidth="2.5" />
+                </>
+              )}
               <g transform={`translate(${margin.left + plotWidth - 120}, ${margin.top + 8})`}>
                 <rect x={0} y={0} width={116} height={52} rx={6} fill="#FFFFFFE6" stroke="#D9DFEA" />
                 <text x={10} y={16} fontSize="10" fill="#475569">10-90%</text>
@@ -314,7 +361,7 @@ export const PortfolioChart = () => {
                 <text x={10} y={46} fontSize="10" fill="#475569">Median</text>
                 <line x1={70} y1={42} x2={100} y2={42} stroke="#1A365D" strokeWidth="2" />
               </g>
-            </>
+            </g>
           ) : (
             <>
               <path
@@ -334,6 +381,14 @@ export const PortfolioChart = () => {
 
           {hoverX !== null ? (
             <line x1={hoverX} y1={margin.top} x2={hoverX} y2={margin.top + plotHeight} stroke="#64748B" strokeDasharray="4 4" />
+          ) : null}
+          {boundaryX !== null && mode === AppMode.Tracking ? (
+            <>
+              <line x1={boundaryX} y1={margin.top} x2={boundaryX} y2={margin.top + plotHeight} stroke="#1D4ED8" strokeDasharray="5 4" />
+              <text x={boundaryX + 6} y={margin.top + 16} fontSize="10" fill="#1E3A8A">
+                Actuals {'->'} Simulated
+              </text>
+            </>
           ) : null}
           {hoverX !== null && hoverY !== null ? <circle cx={hoverX} cy={hoverY} r={5} fill="#1A365D" /> : null}
         </svg>
@@ -387,6 +442,11 @@ export const PortfolioChart = () => {
           </div>
         ) : null}
       </div>
+      {mode === AppMode.Tracking && simulationMode === SimulationMode.MonteCarlo && mcStale ? (
+        <p className="mt-2 text-xs text-amber-700">
+          Monte Carlo results are stale after edits. Run Simulation to refresh projections.
+        </p>
+      ) : null}
 
       <div className="mt-3 rounded-lg border border-brand-border bg-brand-surface p-3">
         <div className="mb-2 flex items-center justify-between text-xs text-slate-600">

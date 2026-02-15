@@ -4,6 +4,7 @@ export type DetailTableGranularity = 'monthly' | 'annual';
 
 export type DetailRow = {
   id: string;
+  monthIndex: number;
   period: string;
   age: number;
   startTotal: number;
@@ -53,6 +54,7 @@ const toMonthlyRow = (row: MonthlySimulationRow, startingAge: number, inflationR
 
   return {
     id: `m-${row.monthIndex}`,
+    monthIndex: row.monthIndex,
     period: `Y${row.year}-M${row.monthInYear}`,
     age: startingAge + Math.floor((row.monthIndex - 1) / 12),
     startTotal,
@@ -105,6 +107,7 @@ export const buildAnnualDetailRows = (
     if (!first || !last) {
       return {
         id: `y-${year}`,
+        monthIndex: year * 12,
         period: `Year ${year}`,
         age: startingAge + year - 1,
         startTotal: 0,
@@ -136,6 +139,7 @@ export const buildAnnualDetailRows = (
 
     return {
       id: `y-${year}`,
+      monthIndex: year * 12,
       period: `Year ${year}`,
       age: startingAge + year - 1,
       startTotal,

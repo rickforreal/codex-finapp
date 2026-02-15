@@ -194,6 +194,15 @@ export interface MonthlySimulationRow {
   endBalances: AssetBalances;
 }
 
+export interface ActualMonthOverride {
+  startBalances?: Partial<AssetBalances>;
+  withdrawalsByAsset?: Partial<AssetBalances>;
+  incomeTotal?: MoneyCents;
+  expenseTotal?: MoneyCents;
+}
+
+export type ActualOverridesByMonth = Record<number, ActualMonthOverride>;
+
 export interface SinglePathResult {
   rows: MonthlySimulationRow[];
   summary: {

@@ -328,10 +328,35 @@ const monthlyReturnsSchema = z
   })
   .strict();
 
+const partialAssetBalancesSchema = z
+  .object({
+    stocks: z.number().int().nonnegative().optional(),
+    bonds: z.number().int().nonnegative().optional(),
+    cash: z.number().int().nonnegative().optional(),
+  })
+  .strict();
+
+const actualMonthOverrideSchema = z
+  .object({
+    startBalances: partialAssetBalancesSchema.optional(),
+    withdrawalsByAsset: partialAssetBalancesSchema.optional(),
+    incomeTotal: z.number().int().nonnegative().optional(),
+    expenseTotal: z.number().int().nonnegative().optional(),
+  })
+  .strict();
+
 export const simulateRequestSchema = z
   .object({
     config: simulationConfigSchema,
     monthlyReturns: z.array(monthlyReturnsSchema).optional(),
+    actualOverridesByMonth: z.record(z.string(), actualMonthOverrideSchema).optional(),
     seed: z.number().int().optional(),
+  })
+  .strict();
+
+export const reforecastRequestSchema = z
+  .object({
+    config: simulationConfigSchema,
+    actualOverridesByMonth: z.record(z.string(), actualMonthOverrideSchema),
   })
   .strict();
