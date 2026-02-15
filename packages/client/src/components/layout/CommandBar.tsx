@@ -1,9 +1,10 @@
-import { useEffect } from 'react';
+import { useEffect, useRef, useState, type ChangeEvent } from 'react';
 
 import { AppMode, DrawdownStrategyType, HistoricalEra, SimulationMode } from '@finapp/shared';
 
 import { fetchHistoricalSummary } from '../../api/historicalApi';
 import { runSimulation } from '../../api/simulationApi';
+import { SnapshotLoadError, applySnapshot, serializeSnapshot } from '../../store/snapshot';
 import { getCurrentConfig, useAppStore } from '../../store/useAppStore';
 import { Dropdown } from '../shared/Dropdown';
 import { SegmentedToggle } from '../shared/SegmentedToggle';
@@ -32,6 +33,8 @@ const mergeRowsWithPreservedBoundary = <
 };
 
 export const CommandBar = () => {
+  const fileInputRef = useRef<HTMLInputElement | null>(null);
+  const [snapshotMessage, setSnapshotMessage] = useState<string | null>(null);
   const mode = useAppStore((state) => state.mode);
   const simulationMode = useAppStore((state) => state.simulationMode);
   const status = useAppStore((state) => state.simulationResults.status);
@@ -54,6 +57,59 @@ export const CommandBar = () => {
   const canRun =
     drawdownType !== DrawdownStrategyType.Rebalancing ||
     Math.abs(targetAllocation.stocks + targetAllocation.bonds + targetAllocation.cash - 1) < 0.000001;
+
+  const getDefaultSnapshotName = () => {
+    const now = new Date();
+    const date = now.toLocaleDateString(undefined, { year: 'numeric', month: 'short', day: 'numeric' });
+    const time = now.toLocaleTimeString(undefined, { hour: 'numeric', minute: '2-digit' });
+    return `Snapshot ${date} ${time}`;
+  };
+
+  const handleSaveSnapshot = () => {
+    const requestedName = window.prompt('Snapshot name', getDefaultSnapshotName());
+    const name = requestedName?.trim();
+    if (!name) {
+      return;
+    }
+
+    const { json, filename } = serializeSnapshot(name);
+    const blob = new Blob([json], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const anchor = document.createElement('a');
+    anchor.href = url;
+    anchor.download = filename;
+    anchor.click();
+    URL.revokeObjectURL(url);
+    setSnapshotMessage(`Saved snapshot: ${name}`);
+  };
+
+  const handleLoadClick = () => {
+    fileInputRef.current?.click();
+  };
+
+  const handleLoadSnapshot = async (event: ChangeEvent<HTMLInputElement>) => {
+    const file = event.currentTarget.files?.[0];
+    event.currentTarget.value = '';
+    if (!file) {
+      return;
+    }
+
+    if (!window.confirm('Loading a snapshot will replace your current state. Continue?')) {
+      return;
+    }
+
+    try {
+      const raw = await file.text();
+      const loaded = applySnapshot(raw);
+      setSnapshotMessage(`Loaded snapshot: ${loaded.name}`);
+    } catch (error) {
+      if (error instanceof SnapshotLoadError) {
+        window.alert(error.message);
+        return;
+      }
+      window.alert("This file doesn't appear to be a valid snapshot.");
+    }
+  };
 
   useEffect(() => {
     if (simulationMode !== SimulationMode.MonteCarlo) {
@@ -178,6 +234,32 @@ export const CommandBar = () => {
         >
           {status === 'running' ? 'Running...' : 'Run Simulation'}
         </button>
+
+        <button
+          type="button"
+          onClick={handleSaveSnapshot}
+          className="rounded border border-brand-border bg-white px-3 py-1.5 text-xs font-medium text-slate-700"
+        >
+          Save Snapshot
+        </button>
+
+        <button
+          type="button"
+          onClick={handleLoadClick}
+          className="rounded border border-brand-border bg-white px-3 py-1.5 text-xs font-medium text-slate-700"
+        >
+          Load Snapshot
+        </button>
+
+        <input
+          ref={fileInputRef}
+          type="file"
+          accept="application/json,.json"
+          className="hidden"
+          onChange={(event) => void handleLoadSnapshot(event)}
+        />
+
+        {snapshotMessage ? <p className="text-xs text-slate-500">{snapshotMessage}</p> : null}
 
         {mode === AppMode.Tracking ? (
           <>

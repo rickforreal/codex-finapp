@@ -82,7 +82,7 @@ type WithdrawalParamKey =
 
 type WithdrawalStrategyParamsForm = Record<WithdrawalParamKey, number>;
 
-type WorkspaceSnapshot = {
+export type WorkspaceSnapshot = {
   simulationMode: SimulationMode;
   selectedHistoricalEra: HistoricalEra;
   coreParams: {
@@ -142,7 +142,7 @@ type WorkspaceSnapshot = {
   };
 };
 
-type AppStore = {
+export type SnapshotState = {
   mode: AppMode;
   trackingInitialized: boolean;
   planningWorkspace: WorkspaceSnapshot | null;
@@ -215,6 +215,9 @@ type AppStore = {
     reforecastStatus: ReforecastStatus;
     collapsedSections: Record<string, boolean>;
   };
+};
+
+export type AppStore = SnapshotState & {
   setMode: (mode: AppMode) => void;
   upsertActualOverride: (monthIndex: number, patch: Partial<ActualMonthOverride>) => void;
   clearActualRowOverrides: (monthIndex: number) => void;
@@ -269,6 +272,7 @@ type AppStore = {
   setTableSpreadsheetMode: (enabled: boolean) => void;
   setTableSort: (sort: { column: string; direction: 'asc' | 'desc' } | null) => void;
   toggleSection: (id: string) => void;
+  setStateFromSnapshot: (snapshotState: SnapshotState) => void;
 };
 
 const defaultPhase = (): SpendingPhaseForm => ({
@@ -656,6 +660,193 @@ const trackingSimulationResultsCleared = (results: WorkspaceSnapshot['simulation
   mcStale: false,
   status: 'idle',
   errorMessage: null,
+});
+
+const cloneSnapshotState = (snapshot: SnapshotState): SnapshotState => ({
+  mode: snapshot.mode,
+  trackingInitialized: snapshot.trackingInitialized,
+  planningWorkspace: snapshot.planningWorkspace ? cloneWorkspace(snapshot.planningWorkspace) : null,
+  trackingWorkspace: snapshot.trackingWorkspace ? cloneWorkspace(snapshot.trackingWorkspace) : null,
+  simulationMode: snapshot.simulationMode,
+  selectedHistoricalEra: snapshot.selectedHistoricalEra,
+  coreParams: {
+    ...snapshot.coreParams,
+    retirementStartDate: { ...snapshot.coreParams.retirementStartDate },
+  },
+  portfolio: { ...snapshot.portfolio },
+  returnAssumptions: {
+    stocks: { ...snapshot.returnAssumptions.stocks },
+    bonds: { ...snapshot.returnAssumptions.bonds },
+    cash: { ...snapshot.returnAssumptions.cash },
+  },
+  spendingPhases: snapshot.spendingPhases.map((phase) => ({ ...phase })),
+  withdrawalStrategy: {
+    type: snapshot.withdrawalStrategy.type,
+    params: { ...snapshot.withdrawalStrategy.params },
+  },
+  drawdownStrategy: {
+    type: snapshot.drawdownStrategy.type,
+    bucketOrder: [...snapshot.drawdownStrategy.bucketOrder],
+    rebalancing: {
+      targetAllocation: { ...snapshot.drawdownStrategy.rebalancing.targetAllocation },
+      glidePathEnabled: snapshot.drawdownStrategy.rebalancing.glidePathEnabled,
+      glidePath: snapshot.drawdownStrategy.rebalancing.glidePath.map((waypoint) => ({
+        year: waypoint.year,
+        allocation: { ...waypoint.allocation },
+      })),
+    },
+  },
+  historicalData: {
+    ...snapshot.historicalData,
+    summary: snapshot.historicalData.summary
+      ? {
+          ...snapshot.historicalData.summary,
+          selectedEra: { ...snapshot.historicalData.summary.selectedEra },
+          eras: snapshot.historicalData.summary.eras.map((era) => ({ ...era })),
+          byAsset: {
+            stocks: { ...snapshot.historicalData.summary.byAsset.stocks },
+            bonds: { ...snapshot.historicalData.summary.byAsset.bonds },
+            cash: { ...snapshot.historicalData.summary.byAsset.cash },
+          },
+        }
+      : null,
+  },
+  incomeEvents: snapshot.incomeEvents.map((event) => ({
+    ...event,
+    start: { ...event.start },
+    end: event.end === 'endOfRetirement' ? event.end : { ...event.end },
+  })),
+  expenseEvents: snapshot.expenseEvents.map((event) => ({
+    ...event,
+    start: { ...event.start },
+    end: event.end === 'endOfRetirement' ? event.end : { ...event.end },
+  })),
+  actualOverridesByMonth: Object.fromEntries(
+    Object.entries(snapshot.actualOverridesByMonth).map(([month, value]) => [month, {
+      startBalances: value.startBalances ? { ...value.startBalances } : undefined,
+      withdrawalsByAsset: value.withdrawalsByAsset ? { ...value.withdrawalsByAsset } : undefined,
+      incomeTotal: value.incomeTotal,
+      expenseTotal: value.expenseTotal,
+    }]),
+  ),
+  lastEditedMonthIndex: snapshot.lastEditedMonthIndex,
+  simulationResults: {
+    ...snapshot.simulationResults,
+    manual: snapshot.simulationResults.manual
+      ? {
+          ...snapshot.simulationResults.manual,
+          result: {
+            ...snapshot.simulationResults.manual.result,
+            rows: snapshot.simulationResults.manual.result.rows.map((row) => ({
+              ...row,
+              startBalances: { ...row.startBalances },
+              marketChange: { ...row.marketChange },
+              withdrawals: {
+                ...row.withdrawals,
+                byAsset: { ...row.withdrawals.byAsset },
+              },
+              endBalances: { ...row.endBalances },
+            })),
+            summary: { ...snapshot.simulationResults.manual.result.summary },
+          },
+          monteCarlo: snapshot.simulationResults.manual.monteCarlo
+            ? {
+                ...snapshot.simulationResults.manual.monteCarlo,
+                terminalValues: [...snapshot.simulationResults.manual.monteCarlo.terminalValues],
+                percentileCurves: {
+                  total: { ...snapshot.simulationResults.manual.monteCarlo.percentileCurves.total },
+                  stocks: { ...snapshot.simulationResults.manual.monteCarlo.percentileCurves.stocks },
+                  bonds: { ...snapshot.simulationResults.manual.monteCarlo.percentileCurves.bonds },
+                  cash: { ...snapshot.simulationResults.manual.monteCarlo.percentileCurves.cash },
+                },
+              }
+            : undefined,
+        }
+      : null,
+    monteCarlo: snapshot.simulationResults.monteCarlo
+      ? {
+          ...snapshot.simulationResults.monteCarlo,
+          result: {
+            ...snapshot.simulationResults.monteCarlo.result,
+            rows: snapshot.simulationResults.monteCarlo.result.rows.map((row) => ({
+              ...row,
+              startBalances: { ...row.startBalances },
+              marketChange: { ...row.marketChange },
+              withdrawals: {
+                ...row.withdrawals,
+                byAsset: { ...row.withdrawals.byAsset },
+              },
+              endBalances: { ...row.endBalances },
+            })),
+            summary: { ...snapshot.simulationResults.monteCarlo.result.summary },
+          },
+          monteCarlo: snapshot.simulationResults.monteCarlo.monteCarlo
+            ? {
+                ...snapshot.simulationResults.monteCarlo.monteCarlo,
+                terminalValues: [...snapshot.simulationResults.monteCarlo.monteCarlo.terminalValues],
+                percentileCurves: {
+                  total: { ...snapshot.simulationResults.monteCarlo.monteCarlo.percentileCurves.total },
+                  stocks: { ...snapshot.simulationResults.monteCarlo.monteCarlo.percentileCurves.stocks },
+                  bonds: { ...snapshot.simulationResults.monteCarlo.monteCarlo.percentileCurves.bonds },
+                  cash: { ...snapshot.simulationResults.monteCarlo.monteCarlo.percentileCurves.cash },
+                },
+              }
+            : undefined,
+        }
+      : null,
+    reforecast: snapshot.simulationResults.reforecast
+      ? {
+          ...snapshot.simulationResults.reforecast,
+          result: {
+            ...snapshot.simulationResults.reforecast.result,
+            rows: snapshot.simulationResults.reforecast.result.rows.map((row) => ({
+              ...row,
+              startBalances: { ...row.startBalances },
+              marketChange: { ...row.marketChange },
+              withdrawals: {
+                ...row.withdrawals,
+                byAsset: { ...row.withdrawals.byAsset },
+              },
+              endBalances: { ...row.endBalances },
+            })),
+            summary: { ...snapshot.simulationResults.reforecast.result.summary },
+          },
+          monteCarlo: snapshot.simulationResults.reforecast.monteCarlo
+            ? {
+                ...snapshot.simulationResults.reforecast.monteCarlo,
+                terminalValues: [...snapshot.simulationResults.reforecast.monteCarlo.terminalValues],
+                percentileCurves: {
+                  total: { ...snapshot.simulationResults.reforecast.monteCarlo.percentileCurves.total },
+                  stocks: { ...snapshot.simulationResults.reforecast.monteCarlo.percentileCurves.stocks },
+                  bonds: { ...snapshot.simulationResults.reforecast.monteCarlo.percentileCurves.bonds },
+                  cash: { ...snapshot.simulationResults.reforecast.monteCarlo.percentileCurves.cash },
+                },
+              }
+            : undefined,
+        }
+      : null,
+  },
+  stress: {
+    ...snapshot.stress,
+    scenarios: snapshot.stress.scenarios.map((scenario) => ({ ...scenario })),
+    result: snapshot.stress.result
+      ? {
+          ...snapshot.stress.result,
+          base: { ...snapshot.stress.result.base },
+          scenarios: snapshot.stress.result.scenarios.map((scenario) => ({ ...scenario })),
+          timingSensitivity: snapshot.stress.result.timingSensitivity?.map((series) => ({
+            ...series,
+            points: series.points.map((point) => ({ ...point })),
+          })),
+        }
+      : null,
+  },
+  ui: {
+    ...snapshot.ui,
+    chartZoom: snapshot.ui.chartZoom ? { ...snapshot.ui.chartZoom } : null,
+    tableSort: snapshot.ui.tableSort ? { ...snapshot.ui.tableSort } : null,
+    collapsedSections: { ...snapshot.ui.collapsedSections },
+  },
 });
 
 export const useAppStore = create<AppStore>((set) => ({
@@ -1308,6 +1499,11 @@ export const useAppStore = create<AppStore>((set) => ({
         },
       },
     })),
+  setStateFromSnapshot: (snapshotState) =>
+    set((state) => ({
+      ...state,
+      ...cloneSnapshotState(snapshotState),
+    })),
 }));
 
 export const useSimulationConfig = () =>
@@ -1355,6 +1551,86 @@ export const useTrackingActuals = () =>
     actualOverridesByMonth: state.actualOverridesByMonth,
     lastEditedMonthIndex: state.lastEditedMonthIndex,
   }));
+
+const snapshotStateFromStore = (state: AppStore): SnapshotState => ({
+  mode: state.mode,
+  trackingInitialized: state.trackingInitialized,
+  planningWorkspace: state.planningWorkspace ? cloneWorkspace(state.planningWorkspace) : null,
+  trackingWorkspace: state.trackingWorkspace ? cloneWorkspace(state.trackingWorkspace) : null,
+  simulationMode: state.simulationMode,
+  selectedHistoricalEra: state.selectedHistoricalEra,
+  coreParams: {
+    ...state.coreParams,
+    retirementStartDate: { ...state.coreParams.retirementStartDate },
+  },
+  portfolio: { ...state.portfolio },
+  returnAssumptions: {
+    stocks: { ...state.returnAssumptions.stocks },
+    bonds: { ...state.returnAssumptions.bonds },
+    cash: { ...state.returnAssumptions.cash },
+  },
+  spendingPhases: state.spendingPhases.map((phase) => ({ ...phase })),
+  withdrawalStrategy: {
+    type: state.withdrawalStrategy.type,
+    params: { ...state.withdrawalStrategy.params },
+  },
+  drawdownStrategy: {
+    type: state.drawdownStrategy.type,
+    bucketOrder: [...state.drawdownStrategy.bucketOrder],
+    rebalancing: {
+      targetAllocation: { ...state.drawdownStrategy.rebalancing.targetAllocation },
+      glidePathEnabled: state.drawdownStrategy.rebalancing.glidePathEnabled,
+      glidePath: state.drawdownStrategy.rebalancing.glidePath.map((waypoint) => ({
+        year: waypoint.year,
+        allocation: { ...waypoint.allocation },
+      })),
+    },
+  },
+  historicalData: {
+    ...state.historicalData,
+    summary: state.historicalData.summary
+      ? {
+          ...state.historicalData.summary,
+          selectedEra: { ...state.historicalData.summary.selectedEra },
+          eras: state.historicalData.summary.eras.map((era) => ({ ...era })),
+          byAsset: {
+            stocks: { ...state.historicalData.summary.byAsset.stocks },
+            bonds: { ...state.historicalData.summary.byAsset.bonds },
+            cash: { ...state.historicalData.summary.byAsset.cash },
+          },
+        }
+      : null,
+  },
+  incomeEvents: state.incomeEvents.map((event) => ({
+    ...event,
+    start: { ...event.start },
+    end: event.end === 'endOfRetirement' ? event.end : { ...event.end },
+  })),
+  expenseEvents: state.expenseEvents.map((event) => ({
+    ...event,
+    start: { ...event.start },
+    end: event.end === 'endOfRetirement' ? event.end : { ...event.end },
+  })),
+  actualOverridesByMonth: Object.fromEntries(
+    Object.entries(state.actualOverridesByMonth).map(([month, value]) => [month, {
+      startBalances: value.startBalances ? { ...value.startBalances } : undefined,
+      withdrawalsByAsset: value.withdrawalsByAsset ? { ...value.withdrawalsByAsset } : undefined,
+      incomeTotal: value.incomeTotal,
+      expenseTotal: value.expenseTotal,
+    }]),
+  ),
+  lastEditedMonthIndex: state.lastEditedMonthIndex,
+  simulationResults: cloneWorkspace(workspaceFromState(state)).simulationResults,
+  stress: cloneWorkspace(workspaceFromState(state)).stress,
+  ui: {
+    ...state.ui,
+    chartZoom: state.ui.chartZoom ? { ...state.ui.chartZoom } : null,
+    tableSort: state.ui.tableSort ? { ...state.ui.tableSort } : null,
+    collapsedSections: { ...state.ui.collapsedSections },
+  },
+});
+
+export const getSnapshotState = (): SnapshotState => snapshotStateFromStore(useAppStore.getState());
 
 export const getCurrentConfig = (): SimulationConfig => {
   const state = useAppStore.getState();

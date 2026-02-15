@@ -24,9 +24,9 @@ This document defines the technical architecture for the Retirement Forecasting 
 │                     Client (Browser)                │
 │                                                     │
 │  ┌──────────┐  ┌──────────────┐  ┌───────────────┐  │
-│  │  React   │  │   Zustand    │  │  Undo/Redo    │  │
-│  │   UI     │◄─┤   Store      │◄─┤  Middleware   │  │
-│  │          │  │              │  │  (100 deep)   │  │
+│  │  React   │  │   Zustand    │  │  Snapshot     │  │
+│  │   UI     │◄─┤   Store      │◄─┤  Serializer   │  │
+│  │          │  │              │  │  + Validator  │  │
 │  └────┬─────┘  └──────┬───────┘  └───────────────┘  │
 │       │               │                             │
 │       │        ┌──────┴───────┐                     │
@@ -90,7 +90,7 @@ This document defines the technical architecture for the Retirement Forecasting 
 
 **Shared type system.** Domain types and API contracts are defined once in a shared TypeScript package and imported by both client and server. This eliminates type drift across the boundary.
 
-**Client owns all UX state.** Undo/redo history, snapshot serialization, chart zoom/pan, table view preferences, and simulation result caching are entirely client-side concerns. The server never sees or manages these.
+**Client owns all UX state.** Snapshot serialization, chart zoom/pan, table view preferences, and simulation result caching are entirely client-side concerns. The server never sees or manages these.
 
 ### 2.3 Future Extensibility
 
@@ -119,7 +119,7 @@ TypeScript strict mode is non-negotiable. The simulation engine handles financia
 | Concern | Choice | Rationale |
 |---|---|---|
 | UI framework | React | ≥ 18. Mature ecosystem, hooks-based, wide community support. |
-| State management | Zustand | Lightweight single-store with middleware support. Middleware enables undo/redo and snapshot serialization cleanly. Simpler than Redux for this scale. |
+| State management | Zustand | Lightweight single-store with middleware support. Middleware enables snapshot serialization cleanly. Simpler than Redux for this scale. |
 | Styling | Tailwind CSS | ≥ 3.x. Utility-first, aligns with SPECS.md's precise spacing/sizing values. Custom theme for the app's color palette. |
 | Charting | Recharts | React-native charting library built on D3. Supports line, area, stacked area, and bar charts — all chart types required by SPECS.md. Good animation support. See Section 6.6 for details. |
 | Table virtualization | TanStack Table (React Table v8) + TanStack Virtual | Headless table with sorting, column toggling, and row virtualization for 480+ row monthly views. |
@@ -252,7 +252,7 @@ retirement-forecaster/
 │       │   │   └── reforecastApi.ts  # Debounced, abortable reforecast calls
 │       │   ├── store/
 │       │   │   ├── useAppStore.ts     # Zustand store definition
-│       │   │   ├── undoMiddleware.ts  # Undo/redo middleware
+│       │   │   ├── snapshot.ts        # Snapshot serialize/validate/restore
 │       │   │   ├── slices/            # Logical groupings of store state
 │       │   │   │   ├── coreParams.ts
 │       │   │   │   ├── portfolio.ts
@@ -266,7 +266,6 @@ retirement-forecaster/
 │       │   │   │   ├── actuals.ts
 │       │   │   │   ├── simulation.ts  # Mode, status, cached results
 │       │   │   │   └── ui.ts          # View preferences (chart toggle, table toggle, zoom)
-│       │   │   └── snapshot.ts        # Serialize/deserialize for save/load
 │       │   ├── components/
 │       │   │   ├── layout/
 │       │   │   │   ├── AppShell.tsx
@@ -325,7 +324,6 @@ retirement-forecaster/
 │       │   ├── hooks/
 │       │   │   ├── useSimulation.ts
 │       │   │   ├── useReforecast.ts   # Debounce + abort controller for Tracking edits
-│       │   │   ├── useUndoRedo.ts
 │       │   │   ├── useSnapshot.ts
 │       │   │   └── useKeyboardShortcuts.ts
 │       │   ├── utils/
@@ -435,8 +433,6 @@ App
 │   ├── SimulationModeSelector (#2)
 │   ├── HistoricalEraSelector (#11a) [visible: MC mode]
 │   ├── RunSimulationButton (#3)
-│   ├── UndoButton (#62)
-│   ├── RedoButton (#63)
 │   ├── SaveSnapshotButton (#64)
 │   ├── LoadSnapshotButton (#65)
 │   ├── ClearActualsButton (#61) [visible: Tracking + has actuals]
@@ -594,7 +590,7 @@ AppStore
 │   ├── mcStale: boolean
 │   └── reforecast: ReforecastResult | null   # Tracking mode deterministic result
 │
-└── ui (excluded from undo/redo and snapshots)
+└── ui (included in snapshots)
     ├── chartDisplayMode: "nominal" | "real"
     ├── chartBreakdownEnabled: boolean
     ├── tableGranularity: "monthly" | "annual"
@@ -620,54 +616,28 @@ AppStore
 
 **Derived state.** Computed values (total portfolio, percentage breakdowns, spending phase validation, inflation-adjusted helpers) are derived via selector functions, not stored in the store. This avoids stale data.
 
-### 6.3 Undo/Redo System
-
-Undo/redo is implemented as Zustand middleware that wraps the store.
-
-**Architecture:**
-
-```
-User action → store.setState() → undoMiddleware intercepts → pushes previous state to history stack → applies new state
-```
-
-**History stack:**
-
-- `past`: array of serialized input states (max 100 entries). Oldest entries are discarded when the stack exceeds 100.
-- `future`: array of undone states. Cleared when any new action is performed after an undo.
-
-**Scope — what is tracked:**
-
-Every mutation to the input-related slices: `coreParams`, `portfolio`, `returnAssumptions`, `spendingPhases`, `withdrawalStrategy`, `drawdownStrategy`, `incomeEvents`, `expenseEvents`, `stressScenarios`, `actuals`, `mode`, `simulationMode`, `selectedHistoricalEra`.
-
-**Scope — what is excluded:**
-
-The `simulationResults` slice (results are not undoable — they are re-derived), the `ui` slice (chart zoom, table view toggles are transient display preferences), and the undo/redo stacks themselves (no meta-undo).
-
-**Serialization.** Each history entry is a deep clone of the tracked slices. At 100 entries, this is the primary memory concern. Given the input model size (~2–5 KB serialized), 100 entries ≈ 200–500 KB — negligible.
-
-**Batching.** Rapid-fire changes (e.g., dragging a slider) should be debounced so a single slider drag produces one undo entry, not 60. Use a 300ms debounce window: changes within the window are collapsed into a single undo entry.
-
-### 6.4 Snapshot Serialization
+### 6.3 Snapshot Serialization
 
 **Save:**
 
-1. Extract the tracked slices from the store (same boundary as undo/redo scope).
-2. Wrap in a snapshot envelope: `{ schemaVersion: 1, name: string, savedAt: ISO string, data: { ...slices } }`.
-3. Serialize to pretty-printed JSON.
+1. Extract snapshot state from the store (including both mode workspaces and cached outputs).
+2. Wrap in a snapshot envelope: `{ schemaVersion, name: string, savedAt: ISO string, data: { ...state } }`.
+   - Cached monthly output rows are packed into CSV-like arrays (`columns` + numeric `data`) before serialization.
+3. Serialize to compact JSON.
 4. Trigger browser download via a Blob URL and a programmatically clicked `<a>` element.
 
 **Load:**
 
 1. Read file via the File API.
 2. Parse JSON.
-3. Validate `schemaVersion`. If higher than supported, reject with error toast.
+3. Validate `schemaVersion`. If not equal to supported, reject with error message.
 4. Validate the `data` payload against the Zod schema (imported from shared package).
-5. If valid, replace all tracked slices in the store. Clear undo/redo history. Clear simulation results.
-6. If invalid, show error toast. Do not modify state.
+5. If valid, replace state slices in the store, including cached outputs.
+6. If invalid, show an error message. Do not modify state.
 
-**Schema migration.** The `schemaVersion` field enables forward compatibility. When the data model changes in a future version, the load function can check the version and apply migrations (e.g., adding new fields with defaults). Version 1 establishes the baseline.
+**Schema policy.** Snapshot loading uses strict version matching (`snapshot.schemaVersion === supportedVersion`). Files from different versions are rejected to avoid restoring incompatible cached output payloads.
 
-### 6.5 Simulation Result Caching
+### 6.4 Simulation Result Caching
 
 The store maintains two independent result caches:
 
@@ -676,13 +646,13 @@ The store maintains two independent result caches:
 
 Switching between Manual and Monte Carlo via the Simulation Mode Selector (#2) swaps which cache is displayed — it does not discard the other. This allows instant mode switching without re-running simulations.
 
-Both caches are cleared when a snapshot is loaded (the inputs have changed, so the cached results are meaningless).
+Both caches are persisted in snapshots and restored on snapshot load.
 
 The `mcStale` flag is set to `true` when the user edits an actual in Tracking Mode while MC results exist. It is cleared when Monte Carlo is re-run.
 
 A separate `simulationResults.reforecast` field stores the latest deterministic re-forecast result from the server (Tracking Mode). This is updated independently of the Manual/MC caches.
 
-### 6.6 Charting Strategy
+### 6.5 Charting Strategy
 
 **Library: Recharts.**
 
@@ -934,11 +904,10 @@ The full endpoint definitions, request/response schemas, and error contracts are
 ```
 User edits a field
   → Component calls store action (e.g., setInflationRate(0.03))
-    → Zustand undoMiddleware records previous state in history stack
-      → Store updates
-        → Subscribed components re-render
-          → Derived values recompute (selectors)
-            → Output area unchanged (shows last simulation results, may be stale)
+    → Store updates
+      → Subscribed components re-render
+        → Derived values recompute (selectors)
+          → Output area unchanged (shows last simulation results, may be stale)
 ```
 
 No API call is made. The server is not contacted until the user clicks Run Simulation.
@@ -966,8 +935,7 @@ The deterministic re-forecast runs on the server. The client uses debouncing, re
 ```
 User edits an actual cell (or changes an input in Tracking Mode)
   → Store updates immediately (optimistic: edited cell shows new value)
-    → Undo middleware records the change
-      → If MC results exist: set mcStale = true
+    → If MC results exist: set mcStale = true
         → UI: MC bands dim, PoS dims, Run button gets orange badge
       → Set reforecastStatus = "pending"
         → UI: projected rows show subtle loading skeleton
@@ -999,7 +967,7 @@ User edits an actual cell (or changes an input in Tracking Mode)
 
 ```
 Save:
-  User clicks Save Snapshot → modal → enters name → confirm
+  User clicks Save Snapshot → prompt for name → confirm
     → Extract tracked slices from store
       → Wrap in { schemaVersion, name, savedAt, data }
         → JSON.stringify (pretty-printed)
@@ -1009,11 +977,9 @@ Load:
   User clicks Load Snapshot → file picker → selects .json file
     → FileReader reads file as text
       → JSON.parse
-        → Validate schemaVersion (reject if too new)
+        → Validate schemaVersion (reject if not exactly supported)
           → Validate data against Zod schema
-            → Replace store slices → clear undo history → clear simulation results
-              → If Tracking mode with actuals: trigger reforecast
-              → If Planning mode: output area shows empty state until Run Simulation
+            → Replace store slices, including cached simulation outputs
 ```
 
 ---
@@ -1033,7 +999,7 @@ Load:
 | Detail table scroll (480 rows, virtualized) | 60fps | No visible jank during scroll |
 | Snapshot save | < 100ms | Time from click to download trigger |
 | Snapshot load | < 200ms | Time from file read to store updated |
-| Undo/redo | < 16ms (one frame) | Time from Ctrl+Z to UI update |
+| Snapshot restore | < 200ms | Time from valid file read to UI state restore |
 
 If Monte Carlo stress tests exceed 15 seconds, consider reducing to 500 simulations for stress scenarios (the base MC can remain at 1,000).
 
@@ -1080,8 +1046,8 @@ Monte Carlo tests verify:
 
 ### 11.3 Unit Tests — Client State (Medium Priority)
 
-- **Undo/redo middleware:** verify that state changes are captured, undo restores previous state, redo re-applies, new actions clear the redo stack, and history is capped at 100.
 - **Snapshot serialization:** verify round-trip (serialize → deserialize produces identical state), schema version validation, and rejection of invalid data.
+  - Verify packed-row decoding rejects malformed column headers and malformed tuple widths.
 - **Derived selectors:** verify computed values (total portfolio, percentage breakdowns, phase validation) update correctly when inputs change.
 - **Reforecast debounce logic:** verify that rapid changes collapse into a single API call, and that in-flight requests are aborted.
 
@@ -1126,7 +1092,7 @@ Tests live alongside or mirror the source structure:
 
 - Server engine tests: `packages/server/tests/engine/strategies/constantDollar.test.ts`
 - Server route tests: `packages/server/tests/routes/simulation.test.ts`
-- Client store tests: `packages/client/tests/store/undoMiddleware.test.ts`
+- Client store tests: `packages/client/src/store/snapshot.test.ts`
 - Client component tests: `packages/client/tests/components/inputs/SpendingPhases.test.tsx`
 
 ### 11.9 Test Runner

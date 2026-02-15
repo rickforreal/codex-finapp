@@ -511,3 +511,25 @@ Verification run (all passing):
   - Updated `docs/SCENARIOS.md` narratives for annualized historical summary, Tracking initialization run, MC stale UX, stress chart overlays, and portfolio-end terminology.
   - Replaced `docs/API.md` with current implemented `/api/v1` contract surface (`/health`, `/simulate`, `/historical/summary`, `/reforecast`, `/stress-test`).
   - Updated `docs/ARCHITECTURE.md` and `docs/ENGINEERING.md` with implementation deltas for workspace-isolated state and final stress UI direction.
+- [ASSUMPTION] Phase 11 scope intentionally de-scoped explicit app-level Undo/Redo (#62/#63) in favor of snapshot-only recovery; browser-native field undo remains incidental and non-contractual.
+- Phase 11 implementation completed (snapshot persistence):
+  - Added client snapshot module `packages/client/src/store/snapshot.ts` with JSON envelope serialization, strict schema version matching, Zod validation, sanitized filenames, and full-state restore.
+  - Added Save/Load Snapshot controls to `packages/client/src/components/layout/CommandBar.tsx` (prompt for name, file picker load, replacement confirmation, and user-visible success/error messaging).
+  - Extended store typing/actions in `packages/client/src/store/useAppStore.ts` to expose `SnapshotState`, produce snapshot state, and apply restored snapshot state atomically.
+  - Added client tests `packages/client/src/store/snapshot.test.ts` covering round-trip restore (including cached outputs), strict version mismatch rejection, and invalid snapshot no-mutation behavior.
+  - Updated documentation and planning artifacts for snapshot-only Phase 11: `docs/ENGINEERING.md`, `docs/SPECS.md`, `docs/PRD.md`, `docs/SCENARIOS.md`, `docs/ARCHITECTURE.md`, `docs/DATA_MODEL.md`, and `TASKS.md`.
+
+Verification run (all passing):
+- `npm run typecheck`
+- `npm run lint`
+- `npm test`
+- `npm run build`
+- Phase 11 snapshot size optimization completed:
+  - Snapshot format upgraded to schemaVersion `3` with strict exact-version loading.
+  - Implemented packed cached-output row encoding in `packages/client/src/store/snapshot.ts`:
+    - New `rowsPacked` structure uses fixed `columns` metadata and numeric `data` tuples (CSV-like arrays).
+    - Applied to all cached outputs in snapshots: `manual`, `monteCarlo`, `reforecast`, and stress base/scenario result rows (including workspace snapshots).
+    - Decode-on-load restores canonical in-memory row objects, so chart/stats/table consumers remain unchanged.
+  - Snapshot JSON now serializes in compact form to further reduce payload size.
+  - Expanded snapshot tests in `packages/client/src/store/snapshot.test.ts` for malformed packed column headers and malformed row widths.
+  - Updated `docs/SPECS.md`, `docs/ENGINEERING.md`, `docs/ARCHITECTURE.md`, `docs/DATA_MODEL.md`, `docs/SCENARIOS.md`, and `TASKS.md` to reflect packed snapshot output storage.

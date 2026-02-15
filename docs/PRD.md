@@ -46,7 +46,7 @@ The output area presents results at four levels of detail, each answering the qu
 
 **The detail table** is a month-by-month (or year-by-year) ledger showing every number — starting balance, market movement, withdrawals, income, expenses, ending balance — with the option to expand each row into per-asset-class detail. In Tracking Mode, past months are editable so the user can enter actual values.
 
-**Snapshot and history controls** sit in the application toolbar alongside the mode toggle. An undo/redo pair lets the user step backward and forward through recent changes, encouraging experimentation. A snapshot system lets the user save the complete state of their dashboard — all inputs, actuals, and configuration — to a named JSON file on their local drive, and reload any previously saved snapshot. This gives the app session-to-session continuity without a backend.
+**Snapshot controls** sit in the application toolbar alongside the mode toggle. The user can save the complete state of their dashboard — inputs, actuals, configuration, and cached outputs — to a named JSON file on their local drive, and reload any previously saved snapshot. This gives the app session-to-session continuity without a backend.
 
 **The stress test panel** lets the user apply hypothetical market shocks — a stock crash, a prolonged bear market, an inflation spike — and compare the outcomes against the base case. Stress scenarios are also overlaid directly on the main chart with legend and tooltip support, so base-vs-scenario divergence is visible in context.
 
@@ -60,4 +60,4 @@ The output area presents results at four levels of detail, each answering the qu
 
 **Explore-and-iterate workflow.** In Planning Mode, changing inputs does not automatically re-run the simulation — the user adjusts parameters and clicks "Run Simulation" when ready. This gives them control over when expensive computations happen and lets them make multiple changes before seeing results. In Tracking Mode, editing actual values triggers immediate re-forecasting for responsiveness.
 
-**Nondestructive exploration.** The app supports deep undo/redo history (up to 100 changes) so users can experiment freely without fear of losing a good configuration. Users can also save named snapshots of their entire dashboard state to disk as JSON files and reload them later, enabling side-by-side strategy comparison across sessions and providing durable persistence without requiring a backend or accounts.
+**Nondestructive exploration.** The app supports named snapshot files as the primary recovery and comparison mechanism. Users can save and reload complete dashboard states as JSON files, enabling side-by-side strategy comparison across sessions and durable persistence without requiring a backend or accounts.

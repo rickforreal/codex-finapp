@@ -550,3 +550,53 @@ Acceptance Criteria:
 [AC1] Stress engine tests cover no-shock parity and early-crash degradation.
 [AC2] Stress route tests cover valid and invalid payload behavior.
 [AC3] `npm run build`, `npm run typecheck`, `npm run lint`, and `npm test` pass.
+
+## Phase 11 Plan — Snapshot Persistence
+
+- [x] P11-T1: Re-scope Phase 11 requirements from Undo/Redo to Snapshot-only
+Phase: 11 (Snapshot Persistence)
+Dependencies: P10-T8
+Acceptance Criteria:
+[AC1] `docs/ENGINEERING.md`, `docs/PRD.md`, and `docs/SPECS.md` remove explicit Undo/Redo guarantees.
+[AC2] Affordances #62/#63 are marked reserved and snapshot affordances #64/#65 remain active.
+[AC3] Snapshot behavior is documented as strict version-validated state restore.
+
+- [x] P11-T2: Implement snapshot serializer/parser/restore with strict schema validation
+Phase: 11 (Snapshot Persistence)
+Dependencies: P11-T1
+Acceptance Criteria:
+[AC1] Client snapshot module serializes full state into `{ schemaVersion, name, savedAt, data }`.
+[AC2] Snapshot load validates JSON + schema and rejects version mismatches.
+[AC3] Snapshot load restores full app state, including cached outputs.
+
+- [x] P11-T3: Add CommandBar Save/Load Snapshot controls
+Phase: 11 (Snapshot Persistence)
+Dependencies: P11-T2
+Acceptance Criteria:
+[AC1] Save Snapshot prompts for name and downloads a sanitized `.json` file.
+[AC2] Load Snapshot opens file picker and restores state on valid file.
+[AC3] Invalid/incompatible files show user-visible errors and do not mutate state.
+
+- [x] P11-T4: Add Phase 11 snapshot test coverage
+Phase: 11 (Snapshot Persistence)
+Dependencies: P11-T2
+Acceptance Criteria:
+[AC1] Snapshot round-trip test passes.
+[AC2] Strict version mismatch rejection test passes.
+[AC3] Invalid snapshot rejection preserves prior store state.
+
+- [x] P11-T5: Run verification and update project logs/docs
+Phase: 11 (Snapshot Persistence)
+Dependencies: P11-T3, P11-T4
+Acceptance Criteria:
+[AC1] `npm run typecheck`, `npm run lint`, and `npm test` pass.
+[AC2] `PROGRESS.txt` includes implementation summary and any assumptions.
+[AC3] `docs/SCENARIOS.md`, `docs/ARCHITECTURE.md`, and `docs/DATA_MODEL.md` reflect snapshot-only behavior.
+
+- [x] P11-T6: Optimize snapshot size with packed cached-output rows
+Phase: 11 (Snapshot Persistence)
+Dependencies: P11-T5
+Acceptance Criteria:
+[AC1] Snapshot schema version is bumped and enforces strict exact-match loading.
+[AC2] Cached output rows are serialized as compact packed arrays (`columns` + `data`) across simulation and stress caches.
+[AC3] Snapshot tests cover malformed packed columns/row widths in addition to round-trip/version rejection behavior.

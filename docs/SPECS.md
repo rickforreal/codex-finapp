@@ -175,44 +175,27 @@ These sit at the very top of the page, acting as the global "command bar" for th
 **State:**
 * No unique state — it operates on the actuals data store and triggers a re-render.
 
-### Affordance #62 · Undo Button
+### Affordance #62 · Reserved
 
-| Attribute | Detail |
-|---|---|
-| **Type** | Icon button (↶ arrow) |
-| **Location** | Application toolbar, grouped with Redo button |
-| **Behavior** | Reverts the most recent state change. Each click steps back one change in the history stack (max depth: 100). |
-| **Disabled state** | Disabled when history stack is empty (no changes to undo) or immediately after a fresh load/snapshot restore. |
-| **Scope** | Captures all user-initiated input changes: field edits, dropdown selections, adding/removing phases, income events, expense events, strategy changes, and Tracking Mode actual edits. Does **not** capture simulation runs, chart interactions (zoom/pan), or table view toggles. |
-| **Keyboard shortcut** | `Ctrl+Z` / `Cmd+Z` |
-| **Tooltip** | "Undo last change (Ctrl+Z)" |
-| **Interaction with Run** | Undo reverts inputs only. If a simulation has been run, the output area remains showing the last run's results (which may now be stale relative to the reverted inputs). In Tracking Mode, undo of an actual triggers immediate re-forecast as usual. |
+Affordance index reserved for future use. No explicit app-level undo behavior is specified in v1.
 
-### Affordance #63 · Redo Button
+### Affordance #63 · Reserved
 
-| Attribute | Detail |
-|---|---|
-| **Type** | Icon button (↷ arrow) |
-| **Location** | Application toolbar, immediately right of Undo button |
-| **Behavior** | Re-applies the most recently undone change. Each click steps forward one change. |
-| **Disabled state** | Disabled when there are no undone changes to redo. Any new user-initiated change after an undo clears the redo stack (standard behavior). |
-| **Keyboard shortcut** | `Ctrl+Shift+Z` / `Cmd+Shift+Z` (also `Ctrl+Y` / `Cmd+Y`) |
-| **Tooltip** | "Redo (Ctrl+Shift+Z)" |
-| **Interaction with Run** | Same as Undo — reverts/reapplies inputs; output may become stale. |
+Affordance index reserved for future use. No explicit app-level redo behavior is specified in v1.
 
 ### Affordance #64 · Save Snapshot
 
 | Attribute | Detail |
 |---|---|
 | **Type** | Button with icon (💾 or download icon) labeled "Save Snapshot" |
-| **Location** | Application toolbar, right of Undo/Redo group, visually separated |
-| **Behavior** | Opens a small modal/popover with a text field for the snapshot name (pre-filled with a default: `"Snapshot — {date} {time}"`). On confirm, serializes the complete application state to a JSON file and triggers a browser download. |
-| **State captured** | All input panel values, all spending phases, all income/expense events, withdrawal strategy + parameters, drawdown strategy + parameters, stress test configuration, Tracking Mode actuals (if any), current mode (Planning/Tracking), and simulation mode selection. Does **not** capture output/results, undo history, chart zoom state, or table view preferences. |
-| **File format** | `.json` with a top-level schema version field for forward compatibility (e.g., `"schemaVersion": 1`). Human-readable (pretty-printed). |
+| **Location** | Application toolbar near Run Simulation |
+| **Behavior** | Prompts for a snapshot name, serializes the complete application state to JSON, and triggers a browser download. |
+| **State captured** | Inputs, spending phases, income/expense events, withdrawal + drawdown configuration, stress configuration, Tracking actuals, current app/simulation mode, and cached output payloads used by chart/stats/table/stress displays. |
+| **File format** | `.json` with a top-level schema version field. Cached monthly outputs are stored in compact packed arrays (`columns` + `data`) to reduce file size. |
 | **File name** | Derived from user-provided snapshot name, sanitized for filesystem safety (e.g., `My Retirement Plan.json`). |
-| **Validation** | Snapshot name is required; confirm button disabled if blank. Max name length: 100 characters. |
-| **Keyboard shortcut** | `Ctrl+S` / `Cmd+S` (intercepts browser save) |
-| **Tooltip** | "Save current state to file (Ctrl+S)" |
+| **Validation** | Snapshot name is required. |
+| **Keyboard shortcut** | None |
+| **Tooltip** | "Save current state to file" |
 
 ### Affordance #65 · Load Snapshot
 
@@ -221,11 +204,11 @@ These sit at the very top of the page, acting as the global "command bar" for th
 | **Type** | Button with icon (📂 or upload icon) labeled "Load Snapshot" |
 | **Location** | Application toolbar, immediately right of Save Snapshot button |
 | **Behavior** | Opens the browser's native file picker filtered to `.json` files. On file selection, parses the JSON, validates against the expected schema, and replaces the entire application state with the loaded values. |
-| **Confirmation** | If the current state has unsaved changes (any input modified since last snapshot save or load), shows a confirmation dialog: *"Loading a snapshot will replace all current inputs. This cannot be undone. Continue?"* If no changes have been made, loads immediately. |
-| **Post-load behavior** | Undo/redo history is cleared. The app is placed in whatever mode (Planning/Tracking) the snapshot was saved in. Output area is cleared — the user must click "Run Simulation" to see results (Planning Mode) or the re-forecast runs automatically (Tracking Mode, if actuals are present). |
-| **Error handling** | If the file is not valid JSON or fails schema validation, shows an inline error toast: *"This file doesn't appear to be a valid snapshot."* State is not modified. If `schemaVersion` is higher than the app supports, shows: *"This snapshot was created with a newer version of the app and cannot be loaded."* |
-| **Keyboard shortcut** | `Ctrl+O` / `Cmd+O` (intercepts browser open) |
-| **Tooltip** | "Load state from file (Ctrl+O)" |
+| **Confirmation** | Shows confirmation before replacing current state. |
+| **Post-load behavior** | Restores full app state, including cached outputs and active mode, exactly as saved in the snapshot. |
+| **Error handling** | If the file is invalid JSON or fails schema validation, show: *"This file doesn't appear to be a valid snapshot."* If `schemaVersion` does not exactly match the supported version, show: *"This snapshot version is not supported by this app."* |
+| **Keyboard shortcut** | None |
+| **Tooltip** | "Load state from file" |
 
 ## Input Panel — Section: Core Parameters
 This is the first section within the input panel (sidebar). It's expanded by default on app load.

@@ -93,7 +93,7 @@ The application is built in **12 phases**, ordered so that each phase produces a
 | 8 | Monte Carlo | MC runner, historical data loading | Confidence bands, PoS stat, era selector | MC mode fully functional |
 | 9 | Tracking Mode | Deterministic reforecast endpoint | Mode toggle, editable actuals, stale indicators | Actuals drive re-forecast |
 | 10 | Stress Testing | Stress engine | Scenario cards, comparison charts | Stress scenarios runnable and comparable |
-| 11 | Undo/Redo & Snapshots | — | Undo middleware, snapshot save/load | State management features complete |
+| 11 | Snapshot Persistence | — | Snapshot save/load with strict version validation | Session portability complete |
 | 12 | Polish & Hardening | Error responses, logging | Animations, error boundaries, CSV export, responsive fixes | Production-ready |
 
 ---
@@ -452,36 +452,28 @@ The application is built in **12 phases**, ordered so that each phase produces a
 
 ---
 
-### Phase 11: Undo/Redo & Snapshots
+### Phase 11: Snapshot Persistence
 
-**Goal:** Undo/redo and snapshot save/load work as specified.
+**Goal:** Snapshot save/load works as specified, with strict schema validation and full-state restoration.
 
 **Client:**
-- `undoMiddleware.ts`: Zustand middleware that captures state changes, maintains past/future stacks (max 100), supports batching/debouncing for rapid changes.
-- Ctrl+Z / Ctrl+Shift+Z (Cmd on Mac) keyboard shortcuts wired via `useUndoRedo` hook.
-- Undo/Redo buttons in CommandBar — disabled state when stack is empty.
-- `useSnapshot` hook: save (serialize → JSON → download) and load (file picker → parse → validate → restore).
-- Save Snapshot button (#64): opens name modal → downloads `.json` file.
-- Load Snapshot button (#65): file picker → Zod validation → state replacement → clear undo history → clear simulation results.
-- Schema version check on load (reject if higher than current).
-- Error toast on invalid snapshot file.
+- `snapshot.ts`: serialize current app state into a JSON envelope and restore state from validated JSON.
+- CommandBar snapshot controls: Save Snapshot (#64) and Load Snapshot (#65).
+- Save Snapshot: prompt for name, serialize full state (including cached outputs), download `.json`.
+  - Cached monthly rows are stored in packed array form (`columns` + `data`) to reduce file size.
+- Load Snapshot: file picker → parse → Zod validation → strict schema version match → full state replacement.
+- Error messaging on invalid snapshot file or unsupported schema version.
 
 **Tests:**
-- `undoMiddleware.test.ts`: state capture, undo restores previous, redo re-applies, new action clears redo stack, history capped at 100, batching collapses rapid changes.
-- `snapshot.test.ts`: round-trip (serialize → deserialize = identical state), schema version rejection, invalid data rejection.
+- `snapshot.test.ts`: round-trip (serialize → deserialize = identical state), cached output restoration, strict schema version rejection, invalid data rejection.
+  - Includes malformed packed row validation (column/header mismatch, row-width mismatch).
 
 **Definition of Done:**
-- [ ] Changing any input, then pressing Ctrl+Z, restores the previous value.
-- [ ] Ctrl+Shift+Z re-applies the undone change.
-- [ ] Making a new change after an undo clears the redo stack.
-- [ ] Rapid slider drags produce a single undo entry (not one per pixel).
-- [ ] Undo/Redo buttons show disabled state when respective stacks are empty.
 - [ ] Save Snapshot downloads a `.json` file with the correct envelope structure.
-- [ ] Load Snapshot restores the full input state from a saved file.
-- [ ] Loading a snapshot clears undo history and simulation results.
-- [ ] Loading an invalid file shows an error toast and does not modify state.
-- [ ] Loading a file with a future schema version shows a version error.
-- [ ] All undo/redo and snapshot tests pass.
+- [ ] Load Snapshot restores the full app state from a saved file, including cached outputs.
+- [ ] Loading an invalid file shows an error message and does not modify state.
+- [ ] Loading a file with a non-matching schema version shows a version error.
+- [ ] Snapshot tests pass.
 - [ ] `npm run typecheck` passes.
 - [ ] Phases 2–10 still function correctly.
 
@@ -507,7 +499,7 @@ The application is built in **12 phases**, ordered so that each phase produces a
 - Monte Carlo (1,000 runs) completes in <3 seconds.
 - Chart zoom/pan is 60fps (test by dragging the range selector).
 - Table scroll is 60fps (test by scrolling 480-row monthly view).
-- Undo/redo is instantaneous (<16ms).
+- Snapshot save/load feels instantaneous for typical payload sizes.
 
 **Definition of Done:**
 - [ ] Section expand/collapse animates smoothly.
@@ -671,7 +663,7 @@ Within every file, organize imports in this order (with a blank line between gro
 | Phase 8 (Monte Carlo) | Tests first for MC runner and historical data loading. |
 | Phase 9 (Tracking Mode) | Tests first for deterministic engine. Client debounce logic tested. |
 | Phase 10 (Stress Testing) | Tests for stress engine. |
-| Phase 11 (Undo/Snapshots) | Tests for undo middleware and snapshot serialization. |
+| Phase 11 (Snapshots) | Tests for snapshot serialization, validation, and restore behavior. |
 | Phase 12 (Polish) | No new tests. Run full suite for regression. |
 
 ### 8.2 Test Naming Convention
@@ -720,7 +712,7 @@ npx vitest watch packages/server/tests/engine/strategies/guytonKlinger.test.ts
 | Engine helpers (PMT, rounding) | High | Utility functions used everywhere. |
 | Engine simulator loop | Medium | Integration-level; individual components are tested. |
 | Engine Monte Carlo | Medium | Statistical properties, determinism, performance. |
-| Zustand middleware (undo) | High | Complex state logic that's hard to verify by inspection. |
+| Snapshot restore + validation | High | Bad payload handling can corrupt state; strict validation is required. |
 | Snapshot serialization | Medium | Round-trip and validation. |
 | React components | Low/None | Verified visually. Test only complex interactive logic. |
 

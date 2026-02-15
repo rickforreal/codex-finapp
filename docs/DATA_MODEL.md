@@ -375,7 +375,110 @@ Key constraints include:
 - Tracking overrides and balances are non-negative integers.
 - Stress scenarios: 1..4 scenarios, start year/duration cannot exceed horizon, per-type parameter ranges enforced.
 
-## 9. Notes
+## 9. Snapshot Persistence Model
+
+Snapshot files are client-side JSON envelopes used for session portability.
+
+```ts
+SnapshotEnvelope {
+  schemaVersion: number;   // strict exact match required on load (current: 3)
+  name: string;
+  savedAt: string;         // ISO timestamp
+  data: SnapshotState;
+}
+
+SnapshotState {
+  mode: AppMode;
+  trackingInitialized: boolean;
+  planningWorkspace: WorkspaceSnapshot | null;
+  trackingWorkspace: WorkspaceSnapshot | null;
+  simulationMode: SimulationMode;
+  selectedHistoricalEra: HistoricalEra;
+
+  // Active workspace state
+  coreParams: SimulationConfig["coreParams"];
+  portfolio: SimulationConfig["portfolio"];
+  returnAssumptions: SimulationConfig["returnAssumptions"];
+  spendingPhases: SpendingPhase[];
+  withdrawalStrategy: { type: WithdrawalStrategyType; params: Record<string, number> };
+  drawdownStrategy: {
+    type: DrawdownStrategyType;
+    bucketOrder: AssetClass[];
+    rebalancing: {
+      targetAllocation: { stocks: number; bonds: number; cash: number };
+      glidePathEnabled: boolean;
+      glidePath: Array<{ year: number; allocation: { stocks: number; bonds: number; cash: number } }>;
+    };
+  };
+  historicalData: {
+    summary: HistoricalDataSummary | null;
+    status: "idle" | "loading" | "ready" | "error";
+    errorMessage: string | null;
+  };
+  incomeEvents: IncomeEvent[];
+  expenseEvents: ExpenseEvent[];
+  actualOverridesByMonth: ActualOverridesByMonth;
+  lastEditedMonthIndex: number | null;
+
+  // Cached outputs are persisted and restored
+  simulationResults: {
+    manual: SimulateResponse | null;
+    monteCarlo: SimulateResponse | null;
+    reforecast: SimulateResponse | null;
+    status: "idle" | "running" | "complete" | "error";
+    mcStale: boolean;
+    errorMessage: string | null;
+  };
+  stress: {
+    isExpanded: boolean;
+    scenarios: StressScenario[];
+    result: StressTestResult | null;
+    status: "idle" | "running" | "complete" | "error";
+    errorMessage: string | null;
+  };
+  ui: {
+    chartDisplayMode: "nominal" | "real";
+    chartBreakdownEnabled: boolean;
+    tableGranularity: "monthly" | "annual";
+    tableAssetColumnsEnabled: boolean;
+    tableSpreadsheetMode: boolean;
+    tableSort: { column: string; direction: "asc" | "desc" } | null;
+    chartZoom: { start: number; end: number } | null;
+    reforecastStatus: "idle" | "pending" | "complete";
+    collapsedSections: Record<string, boolean>;
+  };
+}
+```
+
+Notes:
+- Snapshot load validates envelope + payload using Zod.
+- `schemaVersion` must exactly match the app-supported version.
+- Invalid or incompatible files must not mutate app state.
+- Cached output rows are stored in packed CSV-like form:
+
+```ts
+PackedRows {
+  columns: [
+    "monthIndex","year","monthInYear",
+    "startStocks","startBonds","startCash",
+    "moveStocks","moveBonds","moveCash",
+    "wdStocks","wdBonds","wdCash",
+    "wdRequested","wdActual","wdShortfall",
+    "incomeTotal","expenseTotal",
+    "endStocks","endBonds","endCash"
+  ];
+  data: number[][]; // one numeric tuple per month
+}
+```
+
+- Packing is applied to all cached output payloads in snapshots:
+  - `simulationResults.manual.result.rows`
+  - `simulationResults.monteCarlo.result.rows`
+  - `simulationResults.reforecast.result.rows`
+  - `stress.result.base.result.rows`
+  - `stress.result.scenarios[*].result.rows`
+
+## 10. Notes
 
 - `SimulationResult { status, message }` exists in shared domain for compatibility but is not the primary response model for `/api/v1` routes.
 - For implementation details, always prefer the shared package source files listed at the top of this document.
