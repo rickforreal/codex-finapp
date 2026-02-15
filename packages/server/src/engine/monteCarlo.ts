@@ -1,6 +1,7 @@
 import {
   AssetClass,
   type ActualOverridesByMonth,
+  type MonthlyReturns,
   type MonteCarloPercentileCurves,
   type MonteCarloResult,
   type SimulationConfig,
@@ -14,6 +15,8 @@ type MonteCarloOptions = {
   runs?: number;
   seed?: number;
   actualOverridesByMonth?: ActualOverridesByMonth;
+  transformReturns?: (returns: MonthlyReturns[], runIndex: number) => MonthlyReturns[];
+  inflationOverridesByYear?: Partial<Record<number, number>>;
 };
 
 const quantile = (sortedValues: number[], percentile: number): number => {
@@ -87,7 +90,13 @@ export const runMonteCarlo = async (
         ? Math.random
         : createSeededRandom(options.seed + runIndex * 9_973);
     const returns = sampleHistoricalReturns(historicalMonths, durationMonths, random);
-    const path = simulateRetirement(config, returns, options.actualOverridesByMonth ?? {});
+    const transformedReturns = options.transformReturns ? options.transformReturns(returns, runIndex) : returns;
+    const path = simulateRetirement(
+      config,
+      transformedReturns,
+      options.actualOverridesByMonth ?? {},
+      options.inflationOverridesByYear ?? {},
+    );
     runResults.push(path);
 
     path.rows.forEach((row, monthIndex) => {

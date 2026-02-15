@@ -28,9 +28,18 @@ type MonteCarloBands = {
   p90: number[];
 };
 
+type StressTooltipPoint = {
+  scenarioId: string;
+  scenarioLabel: string;
+  color: string;
+  portfolio: number;
+  withdrawal: number;
+};
+
 const height = 360;
 const margin = { top: 20, right: 10, bottom: 44, left: 56 };
 const plotHeight = height - margin.top - margin.bottom;
+const stressScenarioColors = ['#E67E22', '#8E44AD', '#16A085', '#2C3E80'];
 
 const inflationFactor = (inflationRate: number, monthIndex: number): number => (1 + inflationRate) ** (monthIndex / 12);
 
@@ -76,6 +85,7 @@ export const PortfolioChart = () => {
   const setChartZoom = useAppStore((state) => state.setChartZoom);
   const inflationRate = useAppStore((state) => state.coreParams.inflationRate);
   const startingAge = useAppStore((state) => state.coreParams.startingAge);
+  const stressResult = useAppStore((state) => state.stress.result);
 
   const [hoverIndex, setHoverIndex] = useState<number | null>(null);
 
@@ -203,7 +213,21 @@ export const PortfolioChart = () => {
 
   const maxFromPoints = Math.max(...visible.map((point) => getSeries(point).total), 1);
   const maxFromBands = visibleBands ? Math.max(...visibleBands.p90, 1) : 1;
-  const maxY = Math.max(maxFromPoints, maxFromBands, 1);
+  const stressScenarioCurves = (stressResult?.scenarios ?? []).map((scenario) =>
+    scenario.result.rows.map((row) => {
+      const nominal = row.endBalances.stocks + row.endBalances.bonds + row.endBalances.cash;
+      if (chartDisplayMode === 'real') {
+        return nominal / inflationFactor(inflationRate, row.monthIndex);
+      }
+      return nominal;
+    }),
+  );
+  const visibleStressCurves = stressScenarioCurves.map((curve) => curve.slice(start, end + 1));
+  const maxFromStress = Math.max(
+    1,
+    ...visibleStressCurves.flatMap((curve) => curve),
+  );
+  const maxY = Math.max(maxFromPoints, maxFromBands, maxFromStress, 1);
   const yAt = (value: number): number => margin.top + plotHeight - (value / maxY) * plotHeight;
 
   const xValues = visible.map((_, index) => xAt(index));
@@ -221,6 +245,9 @@ export const PortfolioChart = () => {
   const manualLine = linePath(visible.map((point, index) => ({ x: xAt(index), y: yAt(getSeries(point).total) })));
   const mcMedianLine = linePath(
     (visibleBands?.p50 ?? []).map((value, index) => ({ x: xAt(index), y: yAt(value) })),
+  );
+  const stressPaths = visibleStressCurves.map((curve) =>
+    linePath(curve.map((value, index) => ({ x: xAt(index), y: yAt(value) }))),
   );
   const boundaryLocalIndex =
     boundaryMonth === null ? null : Math.max(0, Math.min(boundaryMonth - 1 - start, visible.length - 1));
@@ -257,6 +284,28 @@ export const PortfolioChart = () => {
         p75: visibleBands.p75[activeHoverIndex] ?? 0,
         p90: visibleBands.p90[activeHoverIndex] ?? 0,
       };
+  const hoverMonthIndex = hoverPoint?.monthIndex ?? null;
+  const stressTooltipPoints: StressTooltipPoint[] =
+    hoverMonthIndex === null
+      ? []
+      : (stressResult?.scenarios ?? [])
+          .map((scenario, index) => {
+            const row = scenario.result.rows[hoverMonthIndex - 1];
+            if (!row) {
+              return null;
+            }
+            const nominalPortfolio = row.endBalances.stocks + row.endBalances.bonds + row.endBalances.cash;
+            const factor = inflationFactor(inflationRate, row.monthIndex);
+            return {
+              scenarioId: scenario.scenarioId,
+              scenarioLabel: scenario.scenarioLabel,
+              color: stressScenarioColors[index] ?? '#64748B',
+              portfolio: chartDisplayMode === 'real' ? nominalPortfolio / factor : nominalPortfolio,
+              withdrawal:
+                chartDisplayMode === 'real' ? row.withdrawals.actual / factor : row.withdrawals.actual,
+            };
+          })
+          .filter((entry): entry is StressTooltipPoint => entry !== null);
   const hoverX = activeHoverIndex === null ? null : xAt(activeHoverIndex);
   const hoverY =
     hoverBands && !chartBreakdownEnabled
@@ -287,21 +336,22 @@ export const PortfolioChart = () => {
         />
       </div>
 
-      <div ref={containerRef} className="relative overflow-hidden rounded-lg border border-brand-border">
-        <svg
-          viewBox={`0 0 ${width} ${height}`}
-          className="h-[360px] w-full bg-white"
-          onMouseLeave={() => setHoverIndex(null)}
-          onMouseMove={(event) => {
-            const rect = event.currentTarget.getBoundingClientRect();
-            const scaleX = width / Math.max(rect.width, 1);
-            const cursorX = (event.clientX - rect.left) * scaleX;
-            const bounded = Math.max(margin.left, Math.min(cursorX, width - margin.right));
-            const ratio = (bounded - margin.left) / Math.max(plotWidth, 1);
-            const index = Math.round(ratio * localCount);
-            setHoverIndex(index);
-          }}
-        >
+      <div ref={containerRef} className="relative overflow-visible rounded-lg border border-brand-border">
+        <div className="overflow-hidden rounded-lg">
+          <svg
+            viewBox={`0 0 ${width} ${height}`}
+            className="h-[360px] w-full bg-white"
+            onMouseLeave={() => setHoverIndex(null)}
+            onMouseMove={(event) => {
+              const rect = event.currentTarget.getBoundingClientRect();
+              const scaleX = width / Math.max(rect.width, 1);
+              const cursorX = (event.clientX - rect.left) * scaleX;
+              const bounded = Math.max(margin.left, Math.min(cursorX, width - margin.right));
+              const ratio = (bounded - margin.left) / Math.max(plotWidth, 1);
+              const index = Math.round(ratio * localCount);
+              setHoverIndex(index);
+            }}
+          >
           {Array.from({ length: yTicks + 1 }, (_, index) => {
             const value = (maxY / yTicks) * (yTicks - index);
             const y = yAt(value);
@@ -393,6 +443,20 @@ export const PortfolioChart = () => {
             </>
           )}
 
+          {!chartBreakdownEnabled
+            ? stressPaths.map((path, index) => (
+                <path
+                  key={`stress-scenario-${index}`}
+                  d={path}
+                  fill="none"
+                  stroke={stressScenarioColors[index] ?? '#64748B'}
+                  strokeWidth="2"
+                  strokeDasharray="6 4"
+                  opacity={0.95}
+                />
+              ))
+            : null}
+
           <defs>
             <linearGradient id="portfolioFill" x1="0" x2="0" y1="0" y2="1">
               <stop offset="0%" stopColor="#1A365D33" />
@@ -411,15 +475,36 @@ export const PortfolioChart = () => {
               </text>
             </>
           ) : null}
-          {hoverX !== null && hoverY !== null ? <circle cx={hoverX} cy={hoverY} r={5} fill="#1A365D" /> : null}
-        </svg>
+            {hoverX !== null && hoverY !== null ? <circle cx={hoverX} cy={hoverY} r={5} fill="#1A365D" /> : null}
+          </svg>
+        </div>
+
+        {!chartBreakdownEnabled && stressPaths.length > 0 ? (
+          <div className="absolute right-3 top-3 rounded-md border border-slate-200 bg-white/90 px-3 py-2 text-[11px] text-slate-700 shadow-sm">
+            <div className="mb-1 flex items-center gap-2">
+              <span className="inline-block h-[2px] w-5 bg-[#1A365D]" />
+              <span>Base</span>
+            </div>
+            {stressResult?.scenarios.map((scenario, index) => (
+              <div key={scenario.scenarioId} className="flex items-center gap-2">
+                <span
+                  className="inline-block w-5 border-t-2 border-dashed"
+                  style={{
+                    borderTopColor: stressScenarioColors[index] ?? '#64748B',
+                  }}
+                />
+                <span className="max-w-[160px] truncate">{scenario.scenarioLabel}</span>
+              </div>
+            ))}
+          </div>
+        ) : null}
 
         {hoverPoint && hoverSeries && hoverX !== null ? (
           <div
-            className="pointer-events-none absolute z-10 w-[220px] rounded-md border border-slate-200 bg-white p-3 text-xs shadow-lg"
+            className="pointer-events-none absolute z-30 w-[280px] rounded-md border border-slate-200 bg-white p-3 text-xs shadow-lg"
             style={{
-              left: `calc(${((hoverX - margin.left) / Math.max(plotWidth, 1)) * 100}% + ${hoverX > width * 0.72 ? -220 : 12}px)`,
-              top: 16,
+              left: `calc(${((hoverX - margin.left) / Math.max(plotWidth, 1)) * 100}% + ${hoverX > width * 0.72 ? -290 : 14}px)`,
+              top: 10,
             }}
           >
             <p className="font-semibold text-slate-800">{formatPeriodLabel(hoverPoint.monthIndex, startingAge)}</p>
@@ -432,6 +517,32 @@ export const PortfolioChart = () => {
                 <span>Withdrawal</span>
                 <span className="font-mono text-slate-800">{formatCurrency(Math.round(hoverSeries.withdrawal))}</span>
               </p>
+              {stressTooltipPoints.length > 0 ? (
+                <>
+                  <p className="mt-2 border-t border-slate-200 pt-2 text-[11px] font-semibold uppercase tracking-wide text-slate-500">
+                    Stress Scenarios
+                  </p>
+                  {stressTooltipPoints.map((entry) => (
+                    <div key={entry.scenarioId} className="rounded border border-slate-100 bg-slate-50 px-2 py-1">
+                      <p className="mb-1 flex items-center gap-1.5 font-medium text-slate-700">
+                        <span
+                          className="inline-block h-2 w-2 rounded-full"
+                          style={{ backgroundColor: entry.color }}
+                        />
+                        <span>{entry.scenarioLabel}</span>
+                      </p>
+                      <p className="flex items-center justify-between gap-2">
+                        <span>Portfolio</span>
+                        <span className="font-mono text-slate-800">{formatCurrency(Math.round(entry.portfolio))}</span>
+                      </p>
+                      <p className="flex items-center justify-between gap-2">
+                        <span>Withdrawal</span>
+                        <span className="font-mono text-slate-800">{formatCurrency(Math.round(entry.withdrawal))}</span>
+                      </p>
+                    </div>
+                  ))}
+                </>
+              ) : null}
               {hoverBands && !chartBreakdownEnabled ? (
                 <>
                   <p className="mt-2 border-t border-slate-200 pt-2 text-[11px] font-semibold uppercase tracking-wide text-slate-500">

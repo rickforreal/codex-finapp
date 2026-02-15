@@ -5,6 +5,7 @@ import { healthRoutes } from './routes/health';
 import { historicalRoutes } from './routes/historical';
 import { reforecastRoutes } from './routes/reforecast';
 import { simulationRoutes } from './routes/simulation';
+import { stressTestRoutes } from './routes/stress';
 
 export const createApp = () => {
   const app = fastify({
@@ -18,6 +19,7 @@ export const createApp = () => {
   app.register(historicalRoutes, { prefix: '/api/v1' });
   app.register(reforecastRoutes, { prefix: '/api/v1' });
   app.register(simulationRoutes, { prefix: '/api/v1' });
+  app.register(stressTestRoutes, { prefix: '/api/v1' });
 
   return app;
 };

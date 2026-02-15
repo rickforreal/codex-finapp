@@ -3,6 +3,8 @@ import type {
   HistoricalDataSummary,
   MonthlyReturns,
   MonteCarloResult,
+  StressScenario,
+  StressTestResult,
   SimulationConfig,
   SinglePathResult,
 } from '../domain/simulation';
@@ -38,6 +40,22 @@ export interface ReforecastRequest {
 export interface ReforecastResponse {
   result: SinglePathResult;
   lastEditedMonthIndex: number | null;
+}
+
+export interface StressTestRequest {
+  config: SimulationConfig;
+  scenarios: StressScenario[];
+  monthlyReturns?: MonthlyReturns[];
+  base?: {
+    result: SinglePathResult;
+    monteCarlo?: MonteCarloResult;
+  };
+  actualOverridesByMonth?: ActualOverridesByMonth;
+  seed?: number;
+}
+
+export interface StressTestResponse {
+  result: StressTestResult;
 }
 
 export interface ApiFieldError {

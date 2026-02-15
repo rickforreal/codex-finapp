@@ -461,3 +461,47 @@ Verification run (all passing):
 - `npm run lint`
 - `npm test`
 - `npm run build`
+- Phase 10 implemented: Stress Testing vertical slice.
+  - Added shared stress domain/contracts/schemas:
+    - `StressScenario` discriminated union (stock/bond/broad crash, prolonged bear, inflation spike, custom)
+    - `StressTestRequest` / `StressTestResponse`
+    - `StressTestResult` + scenario comparison/timing shapes.
+  - Server:
+    - Added `engine/stress.ts` for scenario overlays, base comparison metrics, and manual timing sensitivity sweeps.
+    - Extended `simulateRetirement` with optional inflation-by-year overrides for inflation stress scenarios.
+    - Extended `runMonteCarlo` with optional return-transform and inflation-override hooks for stress overlays.
+    - Added `POST /api/v1/stress-test` route and registered route plugin.
+  - Client:
+    - Added stress API wrapper `packages/client/src/api/stressApi.ts`.
+    - Added workspace-isolated stress state/actions in `useAppStore`.
+    - Added `StressTestPanel` with collapsible UI, scenario cards, add/remove (max 4), auto recompute, comparison bars/table, and manual-only timing chart.
+    - Integrated panel in output flow below detail table.
+  - Tests added:
+    - `packages/server/tests/engine/stress.test.ts`
+    - `packages/server/tests/routes/stress.test.ts`
+
+Verification run (all passing):
+- `npm run typecheck`
+- `npm run lint`
+- `npm test`
+- `npm run build`
+- Phase 10 UX and correctness refinements:
+  - Main portfolio chart now overlays stress scenario paths with per-scenario legend.
+  - Fixed Manual stress comparison path consistency:
+    - Added `monthlyReturns` to stress request contract/schema.
+    - Client now sends inferred base monthly returns for manual stress runs.
+    - Server stress engine now uses provided monthly returns so base vs scenario shares identical underlying path.
+  - Main chart tooltip now includes stress scenario point-in-time values (portfolio + withdrawal).
+  - Tooltip clipping fix:
+    - Chart keeps SVG clipped while tooltip renders in overflow-visible layer above container.
+  - Stress panel display refresh:
+    - Replaced large horizontal bars with compact vertical charts.
+    - Added Median and Mean Monthly Withdrawal comparison charts.
+    - Removed Timing Sensitivity chart from Stress panel UI.
+    - Compacted metrics table spacing and typography.
+
+Verification run (all passing):
+- `npm run typecheck`
+- `npm run lint`
+- `npm test`
+- `npm run build`

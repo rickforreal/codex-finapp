@@ -1,6 +1,7 @@
 import { useAppStore } from '../../store/useAppStore';
 import { DetailTable } from '../output/DetailTable';
 import { PortfolioChart } from '../output/PortfolioChart';
+import { StressTestPanel } from '../output/StressTestPanel';
 import { SummaryStatsBar } from '../output/SummaryStatsBar';
 import { Sidebar } from './Sidebar';
 import { CommandBar } from './CommandBar';
@@ -21,6 +22,7 @@ export const AppShell = () => {
             <SummaryStatsBar />
             <PortfolioChart />
             <DetailTable />
+            <StressTestPanel />
             <div className="rounded-md border border-brand-border bg-white px-3 py-2 text-xs text-slate-600">
               <p>Status: {results.status}</p>
               <p>Manual cache: {results.manual ? `${results.manual.result.rows.length} rows` : 'empty'}</p>

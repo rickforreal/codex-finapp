@@ -360,3 +360,144 @@ export const reforecastRequestSchema = z
     actualOverridesByMonth: z.record(z.string(), actualMonthOverrideSchema),
   })
   .strict();
+
+const stressScenarioBaseSchema = z
+  .object({
+    id: z.string().min(1),
+    label: z.string().min(1).max(24),
+    startYear: z.number().int().positive(),
+  })
+  .strict();
+
+const stressScenarioSchema = z.discriminatedUnion('type', [
+  z
+    .object({
+      ...stressScenarioBaseSchema.shape,
+      type: z.literal('stockCrash'),
+      params: z
+        .object({
+          dropPct: z.number().min(-0.8).max(0),
+        })
+        .strict(),
+    })
+    .strict(),
+  z
+    .object({
+      ...stressScenarioBaseSchema.shape,
+      type: z.literal('bondCrash'),
+      params: z
+        .object({
+          dropPct: z.number().min(-0.4).max(0),
+        })
+        .strict(),
+    })
+    .strict(),
+  z
+    .object({
+      ...stressScenarioBaseSchema.shape,
+      type: z.literal('broadMarketCrash'),
+      params: z
+        .object({
+          stockDropPct: z.number().min(-0.8).max(0),
+          bondDropPct: z.number().min(-0.4).max(0),
+        })
+        .strict(),
+    })
+    .strict(),
+  z
+    .object({
+      ...stressScenarioBaseSchema.shape,
+      type: z.literal('prolongedBear'),
+      params: z
+        .object({
+          durationYears: z.number().int().min(1).max(10),
+          stockAnnualReturn: z.number().min(-0.2).max(0.05),
+          bondAnnualReturn: z.number().min(-0.1).max(0.03),
+        })
+        .strict(),
+    })
+    .strict(),
+  z
+    .object({
+      ...stressScenarioBaseSchema.shape,
+      type: z.literal('highInflationSpike'),
+      params: z
+        .object({
+          durationYears: z.number().int().min(1).max(10),
+          inflationRate: z.number().min(0.03).max(0.2),
+        })
+        .strict(),
+    })
+    .strict(),
+  z
+    .object({
+      ...stressScenarioBaseSchema.shape,
+      type: z.literal('custom'),
+      params: z
+        .object({
+          years: z
+            .array(
+              z
+                .object({
+                  yearOffset: z.number().int().positive(),
+                  stocksAnnualReturn: z.number().min(-1).max(1),
+                  bondsAnnualReturn: z.number().min(-1).max(1),
+                  cashAnnualReturn: z.number().min(-1).max(1),
+                })
+                .strict(),
+            )
+            .min(0)
+            .max(5),
+        })
+        .strict(),
+    })
+    .strict(),
+]);
+
+export const stressTestRequestSchema = z
+  .object({
+    config: simulationConfigSchema,
+    scenarios: z.array(stressScenarioSchema).min(1).max(4),
+    monthlyReturns: z.array(monthlyReturnsSchema).optional(),
+    base: z
+      .object({
+        result: z.any(),
+        monteCarlo: z.any().optional(),
+      })
+      .optional(),
+    actualOverridesByMonth: z.record(z.string(), actualMonthOverrideSchema).optional(),
+    seed: z.number().int().optional(),
+  })
+  .strict()
+  .superRefine((value, ctx) => {
+    const retirementDuration = value.config.coreParams.retirementDuration;
+    value.scenarios.forEach((scenario, scenarioIndex) => {
+      if (scenario.startYear > retirementDuration) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          path: ['scenarios', scenarioIndex, 'startYear'],
+          message: 'startYear must be within retirement duration',
+        });
+      }
+      if (
+        (scenario.type === 'prolongedBear' || scenario.type === 'highInflationSpike') &&
+        scenario.startYear + scenario.params.durationYears - 1 > retirementDuration
+      ) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          path: ['scenarios', scenarioIndex, 'params', 'durationYears'],
+          message: 'scenario duration exceeds retirement horizon',
+        });
+      }
+      if (
+        scenario.type === 'custom' &&
+        scenario.params.years.some((entry) => scenario.startYear + entry.yearOffset - 1 > retirementDuration)
+      ) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          path: ['scenarios', scenarioIndex, 'params', 'years'],
+          message: 'custom scenario year offsets exceed retirement horizon',
+        });
+      }
+    });
+  });

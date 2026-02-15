@@ -11,6 +11,8 @@ import {
   type ActualMonthOverride,
   type ActualOverridesByMonth,
   type HistoricalDataSummary,
+  type StressScenario,
+  type StressTestResult,
   type SimulationConfig,
   type SimulateResponse,
   type WithdrawalStrategyConfig,
@@ -53,6 +55,7 @@ type ChartDisplayMode = 'nominal' | 'real';
 type TableGranularity = 'monthly' | 'annual';
 type RunStatus = 'idle' | 'running' | 'complete' | 'error';
 type ReforecastStatus = 'idle' | 'pending' | 'complete';
+type StressRunStatus = 'idle' | 'running' | 'complete' | 'error';
 
 type WithdrawalParamKey =
   | 'initialWithdrawalRate'
@@ -130,6 +133,13 @@ type WorkspaceSnapshot = {
     reforecast: SimulateResponse | null;
     errorMessage: string | null;
   };
+  stress: {
+    isExpanded: boolean;
+    scenarios: StressScenario[];
+    result: StressTestResult | null;
+    status: StressRunStatus;
+    errorMessage: string | null;
+  };
 };
 
 type AppStore = {
@@ -187,6 +197,13 @@ type AppStore = {
     reforecast: SimulateResponse | null;
     errorMessage: string | null;
   };
+  stress: {
+    isExpanded: boolean;
+    scenarios: StressScenario[];
+    result: StressTestResult | null;
+    status: StressRunStatus;
+    errorMessage: string | null;
+  };
   ui: {
     chartDisplayMode: ChartDisplayMode;
     chartBreakdownEnabled: boolean;
@@ -237,6 +254,13 @@ type AppStore = {
   setSimulationStatus: (status: RunStatus, errorMessage?: string | null) => void;
   setSimulationResult: (mode: SimulationMode, result: SimulateResponse) => void;
   setReforecastResult: (result: SimulateResponse) => void;
+  toggleStressPanel: () => void;
+  addStressScenario: () => void;
+  removeStressScenario: (id: string) => void;
+  updateStressScenario: (id: string, scenario: StressScenario) => void;
+  setStressStatus: (status: StressRunStatus, errorMessage?: string | null) => void;
+  setStressResult: (result: StressTestResult) => void;
+  clearStressResult: () => void;
   setChartDisplayMode: (mode: ChartDisplayMode) => void;
   setChartBreakdownEnabled: (enabled: boolean) => void;
   setChartZoom: (zoom: { start: number; end: number } | null) => void;
@@ -276,6 +300,16 @@ const defaultExpenseEvent = (): ExpenseEventForm => ({
   end: 'endOfRetirement',
   frequency: 'oneTime',
   inflationAdjusted: false,
+});
+
+const scenarioColorOrder = ['A', 'B', 'C', 'D'] as const;
+
+const defaultStressScenario = (index = 0): StressScenario => ({
+  id: createId('stress'),
+  label: `Scenario ${scenarioColorOrder[index] ?? String.fromCharCode(65 + index)}`,
+  type: 'stockCrash',
+  startYear: 1,
+  params: { dropPct: -0.3 },
 });
 
 const incomeEventPreset = (
@@ -557,6 +591,21 @@ const cloneWorkspace = (workspace: WorkspaceSnapshot): WorkspaceSnapshot => ({
     }]),
   ),
   simulationResults: { ...workspace.simulationResults },
+  stress: {
+    ...workspace.stress,
+    scenarios: workspace.stress.scenarios.map((scenario) => ({ ...scenario })) as StressScenario[],
+    result: workspace.stress.result
+      ? {
+          ...workspace.stress.result,
+          base: { ...workspace.stress.result.base },
+          scenarios: workspace.stress.result.scenarios.map((scenario) => ({ ...scenario })),
+          timingSensitivity: workspace.stress.result.timingSensitivity?.map((series) => ({
+            ...series,
+            points: series.points.map((point) => ({ ...point })),
+          })),
+        }
+      : null,
+  },
 });
 
 const workspaceFromState = (state: AppStore): WorkspaceSnapshot => ({
@@ -592,6 +641,11 @@ const workspaceFromState = (state: AppStore): WorkspaceSnapshot => ({
   actualOverridesByMonth: state.actualOverridesByMonth,
   lastEditedMonthIndex: state.lastEditedMonthIndex,
   simulationResults: { ...state.simulationResults },
+  stress: {
+    ...state.stress,
+    scenarios: state.stress.scenarios.map((scenario) => ({ ...scenario })) as StressScenario[],
+    result: state.stress.result,
+  },
 });
 
 const trackingSimulationResultsCleared = (results: WorkspaceSnapshot['simulationResults']): WorkspaceSnapshot['simulationResults'] => ({
@@ -659,6 +713,13 @@ export const useAppStore = create<AppStore>((set) => ({
     reforecast: null,
     errorMessage: null,
   },
+  stress: {
+    isExpanded: false,
+    scenarios: [],
+    result: null,
+    status: 'idle',
+    errorMessage: null,
+  },
   ui: {
     chartDisplayMode: 'nominal',
     chartBreakdownEnabled: false,
@@ -686,6 +747,12 @@ export const useAppStore = create<AppStore>((set) => ({
         if (!state.trackingInitialized) {
           const seededTracking = cloneWorkspace(currentWorkspace);
           seededTracking.simulationResults = trackingSimulationResultsCleared(seededTracking.simulationResults);
+          seededTracking.stress = {
+            ...seededTracking.stress,
+            result: null,
+            status: 'idle',
+            errorMessage: null,
+          };
           seededTracking.actualOverridesByMonth = {};
           seededTracking.lastEditedMonthIndex = null;
           return {
@@ -707,6 +774,7 @@ export const useAppStore = create<AppStore>((set) => ({
             actualOverridesByMonth: seededTracking.actualOverridesByMonth,
             lastEditedMonthIndex: seededTracking.lastEditedMonthIndex,
             simulationResults: seededTracking.simulationResults,
+            stress: seededTracking.stress,
           };
         }
 
@@ -731,6 +799,7 @@ export const useAppStore = create<AppStore>((set) => ({
           actualOverridesByMonth: nextTracking.actualOverridesByMonth,
           lastEditedMonthIndex: nextTracking.lastEditedMonthIndex,
           simulationResults: nextTracking.simulationResults,
+          stress: nextTracking.stress,
         };
       }
 
@@ -755,6 +824,7 @@ export const useAppStore = create<AppStore>((set) => ({
         actualOverridesByMonth: nextPlanning.actualOverridesByMonth,
         lastEditedMonthIndex: nextPlanning.lastEditedMonthIndex,
         simulationResults: nextPlanning.simulationResults,
+        stress: nextPlanning.stress,
       };
     }),
   upsertActualOverride: (monthIndex, patch) =>
@@ -1139,6 +1209,64 @@ export const useAppStore = create<AppStore>((set) => ({
         ...state.simulationResults,
         reforecast: result,
         status: 'complete',
+        errorMessage: null,
+      },
+    })),
+  toggleStressPanel: () =>
+    set((state) => ({
+      stress: { ...state.stress, isExpanded: !state.stress.isExpanded },
+    })),
+  addStressScenario: () =>
+    set((state) => {
+      if (state.stress.scenarios.length >= 4) {
+        return state;
+      }
+      return {
+        stress: {
+          ...state.stress,
+          scenarios: [...state.stress.scenarios, defaultStressScenario(state.stress.scenarios.length)],
+        },
+      };
+    }),
+  removeStressScenario: (id) =>
+    set((state) => ({
+      stress: {
+        ...state.stress,
+        scenarios: state.stress.scenarios.filter((scenario) => scenario.id !== id),
+      },
+    })),
+  updateStressScenario: (id, scenario) =>
+    set((state) => ({
+      stress: {
+        ...state.stress,
+        scenarios: state.stress.scenarios.map((entry) =>
+          entry.id === id ? scenario : entry,
+        ),
+      },
+    })),
+  setStressStatus: (status, errorMessage = null) =>
+    set((state) => ({
+      stress: {
+        ...state.stress,
+        status,
+        errorMessage,
+      },
+    })),
+  setStressResult: (result) =>
+    set((state) => ({
+      stress: {
+        ...state.stress,
+        result,
+        status: 'complete',
+        errorMessage: null,
+      },
+    })),
+  clearStressResult: () =>
+    set((state) => ({
+      stress: {
+        ...state.stress,
+        result: null,
+        status: 'idle',
         errorMessage: null,
       },
     })),

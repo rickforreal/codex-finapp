@@ -484,3 +484,69 @@ Acceptance Criteria:
 [AC1] `npm run build`, `npm run typecheck`, `npm run lint`, and `npm test` pass.
 [AC2] Tracking command bar shows actual watermark and clear action.
 [AC3] Phases 2–8 continue functioning with no regressions.
+
+## Phase 10 Plan — Stress Testing
+
+- [x] P10-T1: Add shared stress scenario/result contracts and request validation
+Phase: 10 (Stress Testing)
+Dependencies: P9-T8
+Acceptance Criteria:
+[AC1] Shared domain includes stress scenario discriminated union and stress result shapes.
+[AC2] Shared contracts include `StressTestRequest` and `StressTestResponse`.
+[AC3] Zod schema validates stress scenarios (count, timing bounds, per-type params).
+
+- [x] P10-T2: Implement server stress engine for scenario overlays
+Phase: 10 (Stress Testing)
+Dependencies: P10-T1
+Acceptance Criteria:
+[AC1] Stress engine clones base config/result context and applies scenario overlays by type.
+[AC2] Manual stress runs use same seed/path baseline with scenario-only deltas.
+[AC3] Monte Carlo stress runs apply scenario overlays per sampled path and aggregate outputs.
+
+- [x] P10-T3: Add `POST /api/v1/stress-test` route and app registration
+Phase: 10 (Stress Testing)
+Dependencies: P10-T1, P10-T2
+Acceptance Criteria:
+[AC1] Route validates payload with shared schema and returns stress response.
+[AC2] Invalid payloads return 400 with structured field errors.
+[AC3] Route is registered under `/api/v1`.
+
+- [x] P10-T4: Add client stress API and workspace-isolated store state/actions
+Phase: 10 (Stress Testing)
+Dependencies: P10-T1, P10-T3
+Acceptance Criteria:
+[AC1] Client includes typed stress API wrapper for `/api/v1/stress-test`.
+[AC2] Store supports expand/collapse, add/remove/update scenarios, and stress result status.
+[AC3] Stress state persists independently in Planning and Tracking workspaces.
+
+- [x] P10-T5: Build Stress Test panel and scenario cards (#57/#58)
+Phase: 10 (Stress Testing)
+Dependencies: P10-T4
+Acceptance Criteria:
+[AC1] Collapsible stress panel renders below detail table and defaults to collapsed.
+[AC2] Up to 4 scenario cards are configurable with add/remove controls.
+[AC3] Empty prerequisite state is shown when no base simulation exists.
+
+- [x] P10-T6: Build stress comparison display (#59)
+Phase: 10 (Stress Testing)
+Dependencies: P10-T5
+Acceptance Criteria:
+[AC1] Comparison bar display renders base + scenario values for key metrics.
+[AC2] Comparison metrics table renders base and scenario deltas.
+[AC3] Monte Carlo-specific PoS metrics appear only in Monte Carlo mode.
+
+- [x] P10-T7: Build timing sensitivity chart (Manual only)
+Phase: 10 (Stress Testing)
+Dependencies: P10-T6
+Acceptance Criteria:
+[AC1] Timing sensitivity chart renders in Manual mode using scenario timing sweep.
+[AC2] Timing chart is hidden in Monte Carlo mode with explanatory note.
+[AC3] Tracking mode note clarifies Year 1 anchors to projected segment.
+
+- [x] P10-T8: Add stress tests and run Phase 10 verification
+Phase: 10 (Stress Testing)
+Dependencies: P10-T3, P10-T7
+Acceptance Criteria:
+[AC1] Stress engine tests cover no-shock parity and early-crash degradation.
+[AC2] Stress route tests cover valid and invalid payload behavior.
+[AC3] `npm run build`, `npm run typecheck`, `npm run lint`, and `npm test` pass.

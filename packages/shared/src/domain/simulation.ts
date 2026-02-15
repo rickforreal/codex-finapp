@@ -255,6 +255,123 @@ export interface MonteCarloResult {
   historicalSummary: HistoricalDataSummary;
 }
 
+export type StressScenarioType =
+  | 'stockCrash'
+  | 'bondCrash'
+  | 'broadMarketCrash'
+  | 'prolongedBear'
+  | 'highInflationSpike'
+  | 'custom';
+
+interface StressScenarioBase {
+  id: string;
+  label: string;
+  startYear: number;
+}
+
+export interface StockCrashStressScenario extends StressScenarioBase {
+  type: 'stockCrash';
+  params: {
+    dropPct: number;
+  };
+}
+
+export interface BondCrashStressScenario extends StressScenarioBase {
+  type: 'bondCrash';
+  params: {
+    dropPct: number;
+  };
+}
+
+export interface BroadMarketCrashStressScenario extends StressScenarioBase {
+  type: 'broadMarketCrash';
+  params: {
+    stockDropPct: number;
+    bondDropPct: number;
+  };
+}
+
+export interface ProlongedBearStressScenario extends StressScenarioBase {
+  type: 'prolongedBear';
+  params: {
+    durationYears: number;
+    stockAnnualReturn: number;
+    bondAnnualReturn: number;
+  };
+}
+
+export interface HighInflationSpikeStressScenario extends StressScenarioBase {
+  type: 'highInflationSpike';
+  params: {
+    durationYears: number;
+    inflationRate: number;
+  };
+}
+
+export interface CustomStressScenarioYear {
+  yearOffset: number;
+  stocksAnnualReturn: number;
+  bondsAnnualReturn: number;
+  cashAnnualReturn: number;
+}
+
+export interface CustomStressScenario extends StressScenarioBase {
+  type: 'custom';
+  params: {
+    years: CustomStressScenarioYear[];
+  };
+}
+
+export type StressScenario =
+  | StockCrashStressScenario
+  | BondCrashStressScenario
+  | BroadMarketCrashStressScenario
+  | ProlongedBearStressScenario
+  | HighInflationSpikeStressScenario
+  | CustomStressScenario;
+
+export interface StressTimingPoint {
+  startYear: number;
+  terminalPortfolioValue: number;
+}
+
+export interface StressTimingSensitivitySeries {
+  scenarioId: string;
+  scenarioLabel: string;
+  points: StressTimingPoint[];
+}
+
+export interface StressComparisonMetrics {
+  terminalValue: number;
+  terminalDeltaVsBase: number;
+  totalDrawdownReal: number;
+  drawdownDeltaVsBase: number;
+  depletionMonth: number | null;
+  firstYearReducedWithdrawal: number | null;
+  probabilityOfSuccess?: number;
+  successDeltaPpVsBase?: number;
+}
+
+export interface StressScenarioResult {
+  scenarioId: string;
+  scenarioLabel: string;
+  simulationMode: SimulationMode;
+  result: SinglePathResult;
+  monteCarlo?: MonteCarloResult;
+  metrics: StressComparisonMetrics;
+}
+
+export interface StressTestResult {
+  simulationMode: SimulationMode;
+  base: {
+    result: SinglePathResult;
+    monteCarlo?: MonteCarloResult;
+    metrics: StressComparisonMetrics;
+  };
+  scenarios: StressScenarioResult[];
+  timingSensitivity?: StressTimingSensitivitySeries[];
+}
+
 export interface SimulationResult {
   status: 'ok';
   message: string;

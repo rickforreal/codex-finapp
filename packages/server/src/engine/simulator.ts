@@ -80,14 +80,18 @@ const eventMatchesFrequency = (offsetFromStart: number, frequency: EventFrequenc
 const eventAmountForMonth = (
   baseAmount: number,
   inflationAdjusted: boolean,
-  inflationRate: number,
+  inflationRateForYear: (year: number) => number,
   monthIndex: number,
 ): number => {
   if (!inflationAdjusted) {
     return baseAmount;
   }
   const yearOffset = Math.floor((monthIndex - 1) / 12);
-  return roundToCents(inflateAnnualAmount(baseAmount, inflationRate, yearOffset));
+  let inflated = baseAmount;
+  for (let year = 1; year <= yearOffset; year += 1) {
+    inflated = inflateAnnualAmount(inflated, inflationRateForYear(year), 1);
+  }
+  return roundToCents(inflated);
 };
 
 const sumEventIncome = (
@@ -95,6 +99,7 @@ const sumEventIncome = (
   incomeEvents: IncomeEvent[],
   config: SimulationConfig,
   monthIndex: number,
+  inflationRateForYear: (year: number) => number,
 ): number => {
   let incomeTotal = 0;
   for (const event of incomeEvents) {
@@ -115,7 +120,7 @@ const sumEventIncome = (
     const amount = eventAmountForMonth(
       event.amount,
       event.inflationAdjusted,
-      config.coreParams.inflationRate,
+      inflationRateForYear,
       monthIndex,
     );
     balances[event.depositTo] = roundToCents(balances[event.depositTo] + amount);
@@ -183,6 +188,7 @@ const sumEventExpenses = (
   config: SimulationConfig,
   monthIndex: number,
   year: number,
+  inflationRateForYear: (year: number) => number,
 ): { actualTotal: number; shortfallTotal: number } => {
   let actualTotal = 0;
   let shortfallTotal = 0;
@@ -205,7 +211,7 @@ const sumEventExpenses = (
     const amount = eventAmountForMonth(
       event.amount,
       event.inflationAdjusted,
-      config.coreParams.inflationRate,
+      inflationRateForYear,
       monthIndex,
     );
 
@@ -230,6 +236,7 @@ export const simulateRetirement = (
   config: SimulationConfig,
   monthlyReturnsSeries: MonthlyReturns[],
   actualOverridesByMonth: ActualOverridesByMonth = {},
+  inflationOverridesByYear: Partial<Record<number, number>> = {},
 ): SinglePathResult => {
   const normalizedOverrides = normalizeOverrides(actualOverridesByMonth);
   const durationMonths = config.coreParams.retirementDuration * 12;
@@ -241,6 +248,16 @@ export const simulateRetirement = (
     stocks: config.portfolio.stocks,
     bonds: config.portfolio.bonds,
     cash: config.portfolio.cash,
+  };
+  const inflationRateForYear = (year: number): number =>
+    inflationOverridesByYear[year] ?? config.coreParams.inflationRate;
+
+  const inflateBySchedule = (baseAmount: number, yearOffset: number): number => {
+    let inflated = baseAmount;
+    for (let offset = 1; offset <= yearOffset; offset += 1) {
+      inflated = inflateAnnualAmount(inflated, inflationRateForYear(offset), 1);
+    }
+    return roundToCents(inflated);
   };
 
   let balances = { ...initialBalances };
@@ -287,7 +304,13 @@ export const simulateRetirement = (
 
     let incomeTotal = 0;
     if (override?.incomeTotal === undefined) {
-      incomeTotal = sumEventIncome(balances, config.incomeEvents, config, oneBasedMonth);
+      incomeTotal = sumEventIncome(
+        balances,
+        config.incomeEvents,
+        config,
+        oneBasedMonth,
+        inflationRateForYear,
+      );
     }
 
     if (monthInYear === 1) {
@@ -312,10 +335,10 @@ export const simulateRetirement = (
 
         const phase = findSpendingPhaseForYear(config, year);
         const annualMin = roundToCents(
-          inflateAnnualAmount(phase.minMonthlySpend * 12, config.coreParams.inflationRate, year - 1),
+          inflateBySchedule(phase.minMonthlySpend * 12, year - 1),
         );
         const annualMax = roundToCents(
-          inflateAnnualAmount(phase.maxMonthlySpend * 12, config.coreParams.inflationRate, year - 1),
+          inflateBySchedule(phase.maxMonthlySpend * 12, year - 1),
         );
 
         const clampedAnnual = Math.max(annualMin, Math.min(annualWithdrawal, annualMax));
@@ -356,7 +379,14 @@ export const simulateRetirement = (
       balances = expenseDrawdown.balances;
       expenseResult = { actualTotal: expenseDrawdown.totalWithdrawn, shortfallTotal: expenseDrawdown.shortfall };
     } else {
-      expenseResult = sumEventExpenses(balances, config.expenseEvents, config, oneBasedMonth, year);
+      expenseResult = sumEventExpenses(
+        balances,
+        config.expenseEvents,
+        config,
+        oneBasedMonth,
+        year,
+        inflationRateForYear,
+      );
     }
     totalShortfall = roundToCents(totalShortfall + expenseResult.shortfallTotal);
 
