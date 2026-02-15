@@ -505,3 +505,9 @@ Verification run (all passing):
 - `npm run lint`
 - `npm test`
 - `npm run build`
+- Documentation alignment pass completed to reflect implemented behavior as source of truth:
+  - Updated `docs/PRD.md` for stateless backend wording, independent Planning/Tracking workspaces, and stress overlay framing.
+  - Updated `docs/SPECS.md` for workspace isolation, Tracking initialization/edit boundary semantics, stale indicators, `Portfolio End (Real)` stat label, annualized historical summary labels, spreadsheet mode, expanded editable columns, and stress panel chart changes (compact vertical charts, no timing-sensitivity panel).
+  - Updated `docs/SCENARIOS.md` narratives for annualized historical summary, Tracking initialization run, MC stale UX, stress chart overlays, and portfolio-end terminology.
+  - Replaced `docs/API.md` with current implemented `/api/v1` contract surface (`/health`, `/simulate`, `/historical/summary`, `/reforecast`, `/stress-test`).
+  - Updated `docs/ARCHITECTURE.md` and `docs/ENGINEERING.md` with implementation deltas for workspace-isolated state and final stress UI direction.

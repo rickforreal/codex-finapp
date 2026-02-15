@@ -309,8 +309,7 @@ retirement-forecaster/
 │       │   │   │   └── StressTest/
 │       │   │   │       ├── StressTestPanel.tsx
 │       │   │   │       ├── ScenarioCard.tsx
-│       │   │   │       ├── ComparisonChart.tsx
-│       │   │   │       └── TimingSensitivity.tsx
+│       │   │   │       └── CompactComparisonCharts.tsx
 │       │   │   └── shared/
 │       │   │       ├── NumericInput.tsx
 │       │   │       ├── CurrencyInput.tsx
@@ -537,9 +536,9 @@ App
         │   └── ShockTiming (#57d)
         ├── AddRemoveScenario (#58)
         └── ResultsDisplay (#59)
-            ├── ComparisonBarChart
+            ├── CompactVerticalComparisonCharts
             ├── ComparisonMetricsTable
-            └── TimingSensitivityChart [Manual mode only]
+            └── WithdrawalComparisonRows (median/mean)
 ```
 
 ### 6.2 State Management — Zustand Store
@@ -604,6 +603,18 @@ AppStore
     ├── chartZoom: { start, end } | null
     └── reforecastStatus: "idle" | "pending" | "complete"
 ```
+
+**Current implementation alignment (Phase 9+):**
+
+- Store now maintains **mode-isolated workspaces**:
+  - `planningWorkspace`
+  - `trackingWorkspace`
+  - `trackingInitialized`
+- Active top-level fields are synchronized from the current workspace on mode switch.
+- First switch into Tracking clones Planning once, then clears Tracking simulation/stress caches.
+- Tracking-specific actuals are stored as `actualOverridesByMonth` with `lastEditedMonthIndex` boundary metadata.
+- Table/UI controls include `tableSpreadsheetMode` in addition to `tableGranularity` and `tableAssetColumnsEnabled`.
+- Stress state is workspace-local and includes scenario config plus latest stress result payload.
 
 **Slice isolation.** Each slice exposes its own action creators. Components subscribe to the minimal slice they need via Zustand's selector pattern, preventing unnecessary re-renders.
 
@@ -816,7 +827,7 @@ This function:
 
 ### 7.3 Deterministic Reforecast Engine
 
-The deterministic reforecast is a specialized variant of the simulation used exclusively for Tracking Mode's reactive re-forecast. It has its own dedicated route (`POST /api/v1/reforecast`) and engine module (`engine/deterministic.ts`).
+The deterministic reforecast is a specialized variant of the simulation available for Tracking workflows. It has its own dedicated route (`POST /api/v1/reforecast`) and engine module (`engine/deterministic.ts`).
 
 **What makes it deterministic:** Instead of sampling random returns (Manual) or historical returns (Monte Carlo), the deterministic path applies a **fixed monthly return** derived from the user's Return Assumptions (#11–#16):
 
@@ -828,7 +839,7 @@ This rate is applied identically to every projected month. There is no randomnes
 
 **How it interacts with actuals:** For months with user-entered actuals, the engine uses those values directly (locked). For months without actuals (gap-fill months in the past, and all future months), the engine applies the fixed monthly returns and computes withdrawals, income, and expenses per the config.
 
-**What users see:** In Tracking Mode, after editing an actual, the deterministic re-forecast result is what populates the chart (dashed projection line), table (projected rows), and summary stats. This is the "working projection" — a single, reproducible path showing "if everything goes as expected from here." Clicking Run Simulation replaces this with a stochastic (Manual) or distributional (MC) result.
+**What users see (current implementation):** In Tracking Mode, editing updates same-row derived values immediately and establishes a latest-edited boundary. Subsequent Manual/Monte Carlo runs preserve rows up to that boundary and recompute only future rows. Monte Carlo edits mark MC visuals stale until rerun.
 
 **Performance target:** The deterministic reforecast must complete in <50ms server-side (it's a single pass with no randomness), keeping the total round-trip (including network) under ~200ms for a responsive editing experience.
 

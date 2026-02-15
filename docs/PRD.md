@@ -4,7 +4,7 @@
 
 This is a single-page web application that helps people approaching or in early retirement answer a fundamental question: **will my money last?**
 
-The user describes their financial situation — how much they've saved, how they plan to spend, and what income they expect — and the app simulates their entire retirement trajectory month by month, projecting portfolio balances, withdrawal income, and the probability of running out of money. There is no backend, no accounts, no saved state between sessions.
+The user describes their financial situation — how much they've saved, how they plan to spend, and what income they expect — and the app simulates their entire retirement trajectory month by month, projecting portfolio balances, withdrawal income, and the probability of running out of money. The app uses a stateless backend compute service (no accounts, no server-side user state persistence between sessions).
 
 ## Who It's For
 
@@ -14,9 +14,11 @@ The primary user is someone within a few years of retirement (or recently retire
 
 The app has two operating modes, toggled at the top of the page:
 
-**Planning Mode** is for pre-retirement exploration. The user configures their assumptions — portfolio size, expected returns, spending patterns, withdrawal strategy — and runs simulations to see projected outcomes. Nothing is "real" in this mode; it's a sandbox for testing strategies and asking "what if?" The user can run a single stochastic simulation (one possible future) or a Monte Carlo simulation (a thousand possible futures drawn from historical market data) to understand the range of outcomes and the probability their portfolio survives.
+**Planning Mode** is for pre-retirement exploration. The user configures assumptions — portfolio size, expected returns, spending patterns, withdrawal strategy — and runs simulations to see projected outcomes. Nothing is "real" in this mode; it's a sandbox for testing strategies and asking "what if?" The user can run a single stochastic simulation (one possible future) or a Monte Carlo simulation (a thousand possible futures drawn from historical market data) to understand the range of outcomes and the probability their portfolio survives.
 
 **Tracking Mode** is for people already in retirement. They enter actual portfolio values and actual withdrawals as months pass, and the app re-forecasts their remaining trajectory from where they actually are. This turns the app from a planning tool into an ongoing monitoring dashboard. The user can see whether they're ahead of or behind their plan, and can run Monte Carlo simulations from their current position to get an updated probability of success incorporating real-world data.
+
+Planning and Tracking operate as independent workspaces. On first switch into Tracking, the app clones the current Planning inputs once, clears Tracking simulation caches, and then both modes evolve independently.
 
 ## How the Simulation Works
 
@@ -38,7 +40,7 @@ The user controls the simulation through several major input categories:
 
 The output area presents results at four levels of detail, each answering the question differently:
 
-**Summary statistics** are the headline numbers — total spending, median monthly income, terminal portfolio value, and (in Monte Carlo mode) the probability of success. These give an instant pass/fail assessment.
+**Summary statistics** are the headline numbers — total drawdown, median monthly income, portfolio end (real), and (in Monte Carlo mode) the probability of success. These give an instant pass/fail assessment.
 
 **The portfolio chart** shows how the portfolio value evolves over time as a line chart. In Monte Carlo mode, confidence bands show the range of possible outcomes. In Tracking Mode, the chart distinguishes actual historical performance from projected future values. The user can toggle between nominal and inflation-adjusted views, and can switch to an asset class breakdown to see how the portfolio composition shifts over time.
 
@@ -46,7 +48,7 @@ The output area presents results at four levels of detail, each answering the qu
 
 **Snapshot and history controls** sit in the application toolbar alongside the mode toggle. An undo/redo pair lets the user step backward and forward through recent changes, encouraging experimentation. A snapshot system lets the user save the complete state of their dashboard — all inputs, actuals, and configuration — to a named JSON file on their local drive, and reload any previously saved snapshot. This gives the app session-to-session continuity without a backend.
 
-**The stress test panel** lets the user apply hypothetical market shocks — a stock crash, a prolonged bear market, an inflation spike — and compare the outcomes against the base case. This makes sequence-of-returns risk tangible: the same crash is far more damaging in Year 1 than in Year 20, and the stress test makes that visible.
+**The stress test panel** lets the user apply hypothetical market shocks — a stock crash, a prolonged bear market, an inflation spike — and compare the outcomes against the base case. Stress scenarios are also overlaid directly on the main chart with legend and tooltip support, so base-vs-scenario divergence is visible in context.
 
 ## Design Principles
 

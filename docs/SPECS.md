@@ -4,7 +4,7 @@ These sit at the very top of the page, acting as the global "command bar" for th
 
 ### Affordance #1: Mode Toggle (Planning / Tracking)
 
-**Purpose:**  Switches the output view between a pure projection (Planning) and an actuals-plus-projection view (Tracking). Shares all configuration inputs; only the output area changes.
+**Purpose:**  Switches the output view between a pure projection (Planning) and an actuals-plus-projection view (Tracking). Planning and Tracking retain separate workspaces after initial Tracking initialization.
 
 **Control type:** Segmented toggle (two segments: "Planning" and "Tracking")
 
@@ -17,16 +17,18 @@ These sit at the very top of the page, acting as the global "command bar" for th
 
 **Behavior:**
 * Default state on app load: Planning
-* Switching modes does not change any input panel values. All configuration (withdrawal strategy, return assumptions, spending phases, etc.) is shared between modes.
+* Planning and Tracking each retain their own inputs and result caches.
+* First switch to Tracking clones the current Planning workspace once, then clears Tracking simulation caches (including stress results) so Tracking starts as a fresh branch.
 * Switching to Planning Mode: Displays the results of the last simulation run (Manual or Monte Carlo). If no simulation has been run yet, the output area shows an empty/initial state (see Affordance #3  for details). No automatic recalculation occurs on mode switch.
-* Switching to Tracking Mode: Displays actuals plus re-forecast. Re-forecasting in Tracking Mode is reactive — editing an actual value immediately recalculates future projected months using the current configuration. This is the only context in the app where changes trigger automatic recalculation.
+* Switching to Tracking Mode: Displays Tracking workspace results. If no Tracking run has been performed yet, output remains empty until the user runs a simulation.
 
 **State:**
-* Stores a simple enum: "planning" | "tracking"
-* Actuals data (the user's inline edits in the table) are stored in a separate data structure that persists regardless of which mode is active.
+* Stores active mode enum: "planning" | "tracking"
+* Stores per-mode workspace snapshots (`planningWorkspace`, `trackingWorkspace`) and `trackingInitialized`.
+* Actual overrides are stored in the active workspace.
 
 **Edge cases:**
-* If the user has never entered any actuals and switches to Tracking Mode, it behaves identically to Planning Mode (all rows are projected). No error or warning — it's a valid state.
+* If Tracking has never been run, the detail table shows an initialization empty state and prompts the user to run a simulation.
 
 ### Affordance #2: Simulation Mode Selector
 **Purpose:** Selects which simulation engine powers the Planning Mode projection — Manual (user-defined parameters, single stochastic path) or Monte Carlo (historical data sampling, 1,000+ paths).
@@ -54,9 +56,8 @@ These sit at the very top of the page, acting as the global "command bar" for th
   * The output area displays the results of the last Monte Carlo run. If none has been performed, it shows the empty/initial state.
   * Previously computed Manual results are preserved in memory.
 * When in Tracking Mode:
-  * **Manual selected:** Editing an actual value triggers an immediate deterministic re-forecast of all non-actual months (gap-fill and future projection). This is the reactive behavior previously described — fast, instant.
-  * **Monte Carlo selected:** Editing an actual value triggers an immediate deterministic re-forecast of the non-actual months (same as Manual — the reactive path is always deterministic for responsiveness). However, the Monte Carlo results become **stale** (see Affordance #3 for stale behavior). The user must click "Run Simulation" to re-run the full Monte Carlo from the current position forward.
-  * *This means the **reactive recalculation in Tracking Mode is always deterministic**, regardless of which simulation mode is selected. Monte Carlo is only executed on-demand via the button. This keeps the UI responsive — re-running 1,000 simulations on every keystroke would be impractical.*
+  * **Manual selected:** Editing an actual value updates table/chart/stats immediately. The latest edited month defines the boundary; months up to and including that boundary are preserved while later months are recomputed.
+  * **Monte Carlo selected:** Editing an actual value marks Monte Carlo outputs stale. Chart/table/stats remain frozen until Run Simulation is clicked.
 * Switching modes in Tracking
   * **Switching from Manual to Monte Carlo in Tracking Mode:** the output area continues to show the current deterministic projection (actuals + forecast). The Monte Carlo results are empty until the user clicks Run Simulation. The Probability of Success card (#41) appears but shows "—" until a run completes.
   * **Switching from Monte Carlo to Manual:** the output area reverts to showing the deterministic single-path projection. Previously computed Monte Carlo results are preserved in memory.
@@ -91,19 +92,17 @@ These sit at the very top of the page, acting as the global "command bar" for th
   * Produces percentile curves and probability of success. Updates the chart (confidence bands), table (shows median path), and summary stats.
   * Speed: may take a few seconds. Button shows "Running..." with spinner. Web worker recommended.
 * **On click in Tracking Mode, Manual selected:**
-  - Re-runs the deterministic stochastic simulation for all non-actual months.
-  - For months with user-entered actuals: uses the actual values (locked).
-  - For months before the last actual but without user edits: simulates using configured assumptions (random returns from the user-defined return/std. dev. parameters), producing a new random gap-fill path.
-  - For months after the last actual: projects forward using the same random generation.
-  - Updates the chart (single line with solid/dashed split), table, and summary stats.
-  - This is useful because each click generates a *different* random gap-fill and projection (since Manual mode is stochastic). The user can click repeatedly to see different possible outcomes from their current position.
+  - Runs a fresh Manual stochastic simulation using current inputs and overrides.
+  - Preserves rows up to and including the latest edited month in the displayed result.
+  - Replaces only future rows after that boundary.
+  - Updates chart, table, and summary stats in sync.
 * **On click in Tracking Mode, Monte Carlo selected:**
   - Runs 1,000+ Monte Carlo simulations.
-  - For months with user-entered actuals: all simulations use the same actual values (locked, identical across all runs).
-  - For gap-fill months (past months without actuals): each simulation generates its own random path using historical sampling from the selected era.
-  - For future months: each simulation continues with independent historical sampling.
+  - Applies actual overrides for edited months.
+  - Preserves displayed rows through the latest edited month boundary.
+  - Replaces future rows after the boundary with fresh Monte Carlo output.
   - Produces confidence bands and probability of success *from the current position forward*.
-  - Updates the chart: solid line for actuals, confidence bands fanning out from the "today" marker (or from Month 1 if there are gap months before the first actual).
+  - Updates chart with confidence bands and median path.
   - The summary stats for the projected portion reflect the Monte Carlo distribution.
   - Clears the "stale" indicator (if any).  
 * Initial state (no simulation run yet):
@@ -113,18 +112,16 @@ These sit at the very top of the page, acting as the global "command bar" for th
     * Summary stats: all cards show "—".
   * This state persists until the user clicks the button for the first time.
 * Initial State in Tracking Mode:
-  * When the user first switches to Tracking Mode (or is in Tracking Mode on app load), the Run Simulation button is in its normal "ready" state. No simulation needs to be run for the deterministic projection to appear — it's computed reactively. The button is relevant in Tracking Mode primarily for:
-    * 1. Re-rolling the stochastic gap-fill in Manual mode (getting a different random path).
-    * 2. Running Monte Carlo from the current position.
+  * When the user first switches to Tracking Mode, the Run Simulation button is in its normal "ready" state and no results are shown until the first Tracking run.
+  * After the first Tracking run, edits and reruns follow the boundary preservation rules above.
 * **Stale behavior:**
-  * When the user edits an actual cell in the table while Monte Carlo results exist, the Monte Carlo results become stale. The deterministic projection updates reactively (as always in Tracking Mode), but the confidence bands, percentile data, and Probability of Success are now based on outdated actuals.
-  * **Visual indicator:** The Run Simulation button gains a small orange dot badge (top-right corner of the button, ~8px diameter) to signal "your Monte Carlo results are out of date — re-run to update."
+  * When the user edits an actual cell in the table while Monte Carlo results exist, Monte Carlo results become stale.
+  * **Visual indicator:** A `Stale` pill appears in the detail table controls in Tracking + Monte Carlo.
   * The confidence bands on the chart become semi-transparent (~40% of their normal opacity) and a small banner appears below the chart: _"Monte Carlo results are based on previous actuals. Click Run Simulation to update."_ — muted text, ~11px, with a small warning icon (⚠).
-  * The Probability of Success card (#41) dims slightly and its value gains a small "stale" annotation: the value text drops to ~60% opacity and a tiny "⚠" icon appears next to the percentage.
-  * **Clearing stale state:** Clicking Run Simulation re-runs the Monte Carlo with the updated actuals, clears the badge, restores full opacity to the bands and PoS card, and removes the banner.
+  * **Clearing stale state:** Clicking Run Simulation re-runs Monte Carlo with updated overrides, removes stale pill, and restores full-opacity chart layers.
   * This stale mechanism exists **only** for Monte Carlo in Tracking Mode. It does not apply to:
     * Planning Mode (either Manual or Monte Carlo) — there's no reactive recalculation, so staleness isn't a concept.
-    * Manual in Tracking Mode — the deterministic re-forecast is instant and always current.
+    * Manual in Tracking Mode — chart, stats, and table stay current after edits.
 
 **State:**
 * simulationStatus: "idle" | "running" | "complete"
@@ -679,7 +676,7 @@ When the user has selected Monte Carlo mode, this display replaces the Return As
   * Title line: the currently selected era name and date range from the Historical Era Selector (Affordance #11a), e.g., "Full History (1926–2024)" — semi-bold, ~14px.
   * Below the Historical Era Selector, a compact three-row summary:
 
-| Asset Class | Average Return | Standard Deviation | Sample Size |
+| Asset Class | Average Return (Annualized) | Standard Deviation (Annualized) | Sample Size |
 |-------------|---------------|-------------------|-------------|
 | Stocks | 10.2% | 15.3% | 1,188 months |
 | Bonds | 5.1% | 4.2% | 1,188 months |
@@ -2762,13 +2759,13 @@ All nine stat cards (#33–#41) share a common design pattern:
 
 ---
 
-## Affordance #40: Terminal Portfolio Value
+## Affordance #40: Portfolio End (Real)
 
-**Purpose:** The portfolio balance remaining at the end of the retirement period. This is one of the most important numbers — it tells the user whether they "survived" (positive value) or "failed" (ran out of money before the end), and by how much.
+**Purpose:** The inflation-adjusted portfolio balance remaining at the end of the retirement period.
 
 ### Appearance
 
-- **Label:** `TERMINAL VALUE`
+- **Label:** `PORTFOLIO END (REAL)`
 - **Value:** Dollar amount with abbreviation for large numbers. E.g., `$412K` or `$0`.
 - **Value color:** This is the one stat card where the value itself is color-coded:
   - **Positive value (>$0):** Green text (e.g., `#2E7D32`). The portfolio survived.
@@ -2780,10 +2777,8 @@ All nine stat cards (#33–#41) share a common design pattern:
 
 ### Behavior
 
-- In **Manual mode (single stochastic path):** Displays the terminal value from that single simulation run.
-- In **Monte Carlo mode:** Displays the **median** terminal value (50th percentile across all simulations). The annotation adds _"median"_ superscript. Additionally:
-  - If the median terminal value is $0 (meaning more than half of simulations failed), the card uses the red failure styling.
-  - If the median is positive but some simulations failed, the card uses the green success styling but the secondary annotation notes: _"XX% of simulations depleted"_ in a muted amber/red, giving the user the full picture.
+- In **Manual mode (single stochastic path):** displays the real terminal value of the active path.
+- In **Monte Carlo mode:** displays the real value corresponding to the median terminal portfolio.
 
 ### State
 
@@ -2822,14 +2817,7 @@ All nine stat cards (#33–#41) share a common design pattern:
 - The color thresholds (90%/75%) are based on common financial planning standards. Some planners consider 85%+ acceptable; others insist on 95%+. These thresholds are **not configurable** by the user — they're hardcoded visual guidance. (A v2 could let users set their own "acceptable" threshold.)
 * **Behavior in Tracking Mode:**
   - Displays the percentage of Monte Carlo simulations that survived the full retirement period, computed from the latest Monte Carlo run.
-  - The simulations incorporate the user's actual data for historical months, then diverge stochastically from the last actual forward. This means the PoS answers: _"Given my actual portfolio performance so far, what's the probability my money lasts?"_
-  - **Secondary annotation in Tracking Mode:** In addition to the standard _"X of Y simulations survived"_, add a second line: _"Projected from [month/year of last actual]"_ — clarifying the point from which the Monte Carlo fanned out. E.g., _"Projected from Mar 2030"_.
-* **Stale Display:**
-  * When Monte Carlo results are stale in Tracking Mode (user edited an actual after the last MC run):
-    - The value text drops to ~60% opacity.
-    - A small ⚠ icon appears to the right of the percentage value.
-    - The secondary annotation gains an additional line in muted amber text: _"Actuals changed — re-run for updated results."_
-    - The card's enhanced border (normally colored by the success threshold) changes to a neutral gray, removing the green/amber/red signal until fresh results are available. This prevents the user from trusting a stale probability.
+  - Stale state after Tracking edits is communicated primarily at chart/table level.
 
 ### State
 
@@ -2845,10 +2833,10 @@ All nine stat cards (#33–#41) share a common design pattern:
 The nine cards (or eight, when Probability of Success is hidden) are arranged using a responsive CSS grid:
 
 - **Wide desktop (~1200px+ output area width):** All cards in a single row. This is the ideal layout — all metrics are visible simultaneously without scrolling.
-- **Standard desktop (~900–1199px):** Cards wrap into two rows. The first row contains the five most important cards: Probability of Success (if visible), Terminal Value, Total Drawdown (Real), Median Monthly, Mean Monthly. The second row contains: Std. Deviation, 25th Percentile, 75th Percentile, Total Drawdown (Nominal). This ordering prioritizes the metrics a user scans first.
+- **Standard desktop (~900–1199px):** Cards wrap into two rows. The first row contains the five most important cards: Probability of Success (if visible), Portfolio End (Real), Total Drawdown (Real), Median Monthly, Mean Monthly. The second row contains: Std. Deviation, 25th Percentile, 75th Percentile, Total Drawdown (Nominal). This ordering prioritizes the metrics a user scans first.
 - **Narrow or tablet (~600–899px):** Cards wrap into three rows of 2–3 cards each.
 - The **Probability of Success card** (#41), when visible, always occupies the **first position** (top-left) in the flow, regardless of screen width. Its larger styling and color coding make it the natural starting point for scanning the results.
-- The **Terminal Value card** (#40) always occupies the **second position**, directly after Probability of Success (or first if PoS is hidden).
+- The **Portfolio End (Real) card** (#40) always occupies the **second position**, directly after Probability of Success (or first if PoS is hidden).
 
 ### Scrolling
 
@@ -2865,7 +2853,7 @@ The nine cards (or eight, when Probability of Success is hidden) are arranged us
 | Values represent | Results from a single stochastic path | Median values across all simulation paths |
 | Superscript annotation | None | _"median"_ on applicable cards |
 | Probability of Success | Hidden | Visible, prominent |
-| Terminal Value failure styling | Red if $0 on that single path | Red if median is $0; amber note if some paths failed |
+| Portfolio End (Real) failure styling | Red if $0 on that single path | Red if median is $0; amber note if some paths failed |
 
 ---
 
@@ -2876,8 +2864,8 @@ In **Tracking Mode**, the summary stats reflect a hybrid of actuals and projecti
 - For months where the user has entered actual values, the stats use those actual withdrawals.
 - For projected future months, the stats use the forecasted values.
 - The stats are recomputed immediately whenever the user edits an actual value in the table (reactive in Tracking Mode).
-- No Monte Carlo in Tracking Mode, so the Probability of Success card is always hidden.
-- The Terminal Value is based on the single projected path from the current actuals forward — it answers "given what's happened so far and my current settings, where am I headed?"
+- In Tracking + Manual, stats update reactively with table edits.
+- In Tracking + Monte Carlo, stats remain on the last Monte Carlo run until rerun after edits.
 
 ---
 
@@ -2894,7 +2882,7 @@ In **Tracking Mode**, the summary stats reflect a hybrid of actuals and projecti
 
 # Output Area — Section: Portfolio Chart (#42–#48)
 
-The Portfolio Chart is the primary visualization of the app — a time-series chart showing how the portfolio value evolves over the entire retirement period. It sits directly below the Summary Statistics Bar and above the Detail Table. In a single glance, the user can see whether their portfolio survives, when it peaks, when it declines, and (in Monte Carlo mode) the range of possible outcomes.
+The Portfolio Chart is the primary visualization of the app — a time-series chart showing how the portfolio value evolves over the entire retirement period. It sits directly below the Summary Statistics Bar and above the Detail Table. In a single glance, the user can see whether their portfolio survives, when it peaks, when it declines, and (in Monte Carlo mode) the range of possible outcomes. When stress scenarios exist, scenario paths are overlaid on this same chart with legend entries and tooltip values.
 
 ## Section Container
 
@@ -3308,14 +3296,15 @@ The Detail Table is the app's most data-dense output — a month-by-month (or ye
 
 ## Table Controls Bar
 
-The controls bar sits above the table column headers and contains three elements arranged horizontally:
+The controls bar sits above the table column headers and contains four primary elements arranged horizontally:
 
 ```
-[Monthly | Annual]     [☐ Show Asset Classes]     [⬇ Export CSV]
+[Monthly | Annual]     [☐ Show Asset Classes]     [☐ Spreadsheet Mode]     [⬇ Export CSV]
 ```
 
 - **Left-aligned:** Monthly/Annual toggle (#49)
 - **Center:** Asset Class Columns toggle (#50 — new number, replaces the old expandable rows concept)
+- **Center-right:** Spreadsheet Mode toggle (expands full table height and removes internal vertical scroll)
 - **Right-aligned:** Export CSV button (#56)
 
 ---
@@ -3598,7 +3587,7 @@ The row in which the total portfolio first reaches $0 gets special treatment:
 
 ## Affordance #52: Tracking Mode Editable Cells
 
-**Purpose:** In Tracking Mode, allows the user to enter actual portfolio values and withdrawal amounts for months that have already occurred. This is the mechanism by which real-world data enters the simulation.
+**Purpose:** In Tracking Mode, allows the user to enter actual portfolio values, withdrawals, income, and expenses. This is the mechanism by which real-world data enters the simulation.
 
 **Control type:** Inline editable table cells
 
@@ -3606,20 +3595,22 @@ The row in which the total portfolio first reaches $0 gets special treatment:
 
 A cell is editable if **all** of the following are true:
 1. The app is in **Tracking Mode**.
-2. The row's calendar date is **on or before the current real-world date** (the month has actually occurred).
-3. The cell belongs to one of the following columns (only in expanded view — in compact view, the aggregated columns are **not directly editable**; the user must enable "Show Asset Classes" to edit):
+2. The row is in **Monthly** view.
+3. The cell belongs to one of the following columns:
    - **Stocks Start** (under Portfolio Start)
    - **Bonds Start** (under Portfolio Start)
    - **Cash Start** (under Portfolio Start)
    - **Stocks Wdrl** (under Withdrawal Nominal)
    - **Bonds Wdrl** (under Withdrawal Nominal)
    - **Cash Wdrl** (under Withdrawal Nominal)
+   - **Income**
+   - **Expenses**
 
-This gives the user six editable fields per month: three asset class starting values and three asset class withdrawal amounts. All other cells (market movement, percentages, totals, income, expenses, portfolio end) are **computed** from these inputs and the simulation configuration.
+This gives the user eight editable fields per month: three asset class starting values, three asset class withdrawal amounts, plus income and expenses. Other cells are computed from these inputs and the simulation configuration.
 
 ### Compact View Behavior
 
-When "Show Asset Classes" is unchecked (compact view), the table shows aggregated columns that are not directly editable. If the user is in Tracking Mode and clicks on a compact-view cell that *would* be editable in expanded view, a small tooltip appears: _"Enable 'Show Asset Classes' to edit individual values."_ This gently guides the user to the expanded view without silently failing.
+When "Show Asset Classes" is unchecked (compact view), asset-specific start/withdrawal cells are not editable. Income and Expenses remain editable in monthly view.
 
 ### Editable Cell Appearance
 
@@ -3634,8 +3625,9 @@ When "Show Asset Classes" is unchecked (compact view), the table shows aggregate
 - **After editing (on blur/Enter):**
   - The value re-formats with dollar sign and commas.
   - The dot indicator appears (or updates) in the top-right corner.
-  - The **Total** sub-column and all computed columns in the same row update immediately (the engine recalculates that row's totals, market movement, and portfolio end).
-  - All projected rows below recalculate immediately (the reactive Tracking Mode re-forecast).
+  - The same-row derived values update immediately (start total, market move, return %, per-asset move/end, and end total).
+  - The latest edited month becomes the simulation boundary.
+  - Rows up to and including the boundary are preserved on subsequent runs; months after the boundary are recalculated.
   - If Monte Carlo results exist, they become stale (see #3 revision).
 
 ### Clearing an Actual
@@ -3645,12 +3637,12 @@ When "Show Asset Classes" is unchecked (compact view), the table shows aggregate
 
 ### Validation
 
-- Values must be non-negative integers (no cents). Negative values are rejected — the cell reverts to the previous value with an amber flash.
+- Values must be non-negative integers (no cents). Blank values normalize to zero. Negative values are rejected.
 - The Total Start (sum of the three asset class starts) is computed, not editable. If the user enters values that seem inconsistent (e.g., they update Stocks Start but not Bonds or Cash), this is fine — the app uses whatever values are present (user-entered or computed) and recalculates accordingly.
 
 ### State
 
-- Actuals are stored in a separate data structure: `actuals[monthIndex].stocksStart`, `actuals[monthIndex].bondsStart`, `actuals[monthIndex].cashStart`, `actuals[monthIndex].stocksWithdrawal`, `actuals[monthIndex].bondsWithdrawal`, `actuals[monthIndex].cashWithdrawal`. Each field is either a number (user-entered) or `null` (not entered, use computed value).
+- Actual overrides are stored by month with optional fields for start balances, withdrawals by asset, income total, and expense total.
 
 ---
 
@@ -3771,8 +3763,10 @@ In Monte Carlo mode, the table presents a unique challenge: there are 1,000+ sim
 | Hover over an Income or Expenses cell | Tooltip shows individual event breakdown. |
 | Hover over a clamped withdrawal | Tooltip explains which bound was hit and the original calculated value. |
 | Click an editable cell (Tracking Mode, expanded) | Cell becomes an inline input. Edit, Tab/Enter to confirm, Escape to cancel. |
-| Edit and confirm an actual value | Row recalculates. All projected rows re-forecast. MC results become stale if applicable. |
+| Edit and confirm an actual value | Same-row derived values update immediately. Future months after latest edited boundary are recomputed; preserved rows stay fixed. MC results become stale if applicable. |
 | Clear an actual value | Cell reverts to computed. Dot indicator disappears. Downstream recalculation triggers. |
+| Click row reset (↺) in monthly Tracking view | All overrides for that row are cleared and row values revert to computed baseline. |
+| Tracking + Monte Carlo stale state | A `Stale` pill appears in table controls; chart MC layers dim and stale banner appears until rerun. |
 | Click Export CSV | CSV file downloads immediately with current view's data. |
 | Scroll vertically | Controls bar and column headers remain sticky. |
 | Scroll horizontally (expanded view) | Period column remains frozen at left. Scroll shadows indicate hidden content. |
@@ -3927,7 +3921,7 @@ stressScenarios[i]: {
 
 **Purpose:** Shows the comparison between the base simulation and each stress scenario, making the impact of the shock immediately visible.
 
-**Control type:** A results area below the scenario cards, containing a comparison bar chart and a comparison metrics table.
+**Control type:** A results area below the scenario cards, containing compact comparison charts and a comparison metrics table.
 
 ### Results Area Visibility
 
@@ -3940,36 +3934,27 @@ stressScenarios[i]: {
 - **Manual mode:** The stress test re-runs the single stochastic simulation with the same random seed as the base simulation, but with the shock parameters overlaid during the affected period. Using the same random seed ensures the *only* difference between base and stress cases is the shock itself — all other market randomness is identical. This isolates the shock's impact cleanly.
 - **Monte Carlo mode:** The stress test re-runs the full Monte Carlo (same number of simulations, same historical era) with the shock overlaid. This produces stress-case confidence bands and probability of success. This is computationally expensive (N scenarios × 1,000 simulations), so a small spinner appears on the results area while computing, and results render progressively as each scenario completes.
 
-### Comparison Bar Chart
+### Comparison Charts
 
-A horizontal grouped bar chart positioned directly below the scenario cards.
+Compact **vertical** comparison charts are positioned directly below the scenario cards.
 
 #### Appearance
 
 - **Width:** Full width of the panel.
-- **Height:** ~160px (grows slightly if 4 scenarios require more vertical space).
-- **Structure:** One group of horizontal bars per metric, with the base case and each scenario side by side. Three metric groups:
-
-  1. **Terminal Portfolio Value** — the headline comparison.
-  2. **Total Drawdown (Real)** — how much spending the plan supports.
-  3. **Probability of Success** — Monte Carlo only; hidden in Manual mode.
-
-- Each group has a label on the left (metric name, ~12px, muted) and bars extending to the right.
-- **Bar colors:**
-  - Base Case: app's primary color (dark navy) at ~70% opacity.
-  - Scenario 1: muted orange (matching its card accent).
-  - Scenario 2: muted purple.
-  - Scenario 3: muted teal.
-  - Scenario 4: muted indigo.
-- **Bar labels:** Each bar shows its value at the right end (inside or outside the bar depending on bar length): "$1.2M", "$340K", "94.2%", etc.
-- **Zero line:** A thin vertical line at $0 for portfolio value bars. Bars that go to $0 (portfolio depletion) terminate at this line with a small red marker (●) to emphasize failure.
-- Between each metric group, a thin horizontal divider.
+- **Height:** compact cards (~120–140px chart area each).
+- **Structure:** one compact chart per metric:
+  1. **Terminal Value**
+  2. **Total Drawdown (Real)**
+  3. **Probability of Success** (Monte Carlo only)
+  4. **Median Monthly Withdrawal (Real)**
+  5. **Mean Monthly Withdrawal (Real)**
+- Base and each scenario render as separate vertical bars with consistent color mapping.
+- Values are shown above bars and labels below bars.
 
 #### Behavior
 
-- Bars render with a quick grow-from-left animation (300ms, staggered by 50ms per bar) when results first appear.
-- Hovering over a bar highlights it and shows a tooltip with the exact value and the delta from the base case: _"$412K (−$835K vs. base)"_ or _"72.3% (−21.9pp vs. base)"_.
-- If a stress scenario causes earlier depletion, the Terminal Value bar shows "$0" and the tooltip notes: _"Depleted in Month XXX (age XX)"_.
+- Charts recompute automatically with scenario edits and with base simulation changes.
+- Hover states show exact values and base deltas.
 
 ### Comparison Metrics Table
 
@@ -3998,53 +3983,15 @@ Below the bar chart, a small table provides the numeric detail.
 | Δ Drawdown vs. Base | Dollar difference. Red if lower (shock reduced total spending). |
 | Median Monthly Withdrawal (Real) | Median real monthly withdrawal. |
 | Depletion Month | The month the portfolio hits $0, or "Never" if it survives. "Never" in green; month number in red. |
-| First Year of Reduced Withdrawals | The first year where the stress scenario's withdrawal is lower than the base case's withdrawal. Highlights where the impact first becomes visible to the retiree. |
+| Median Monthly Withdrawal (Real) | Median real monthly withdrawal level. |
+| Mean Monthly Withdrawal (Real) | Mean real monthly withdrawal level. |
 
 - In Manual mode, the "Probability of Success" and "Δ Success vs. Base" rows are hidden.
 - The "Δ" (delta) rows use smaller text (~10px) and are visually subordinate to the primary metric rows — they're supporting detail, not headlines.
 
 #### Monte Carlo Specific Detail
 
-When in Monte Carlo mode, each scenario column in the table can optionally show a small **mini confidence range** below the primary value:
-
-```
-Terminal Value:     $412K
-                    (10th: $0 — 90th: $1.1M)
-```
-
-This is shown in very small muted text (~9px) below the main value, providing distribution context without cluttering the table. Only shown for Terminal Value and Total Drawdown rows.
-
----
-
-## Timing Sensitivity Mini-Chart (Optional Enhancement)
-
-Below the comparison table, a small optional chart provides deeper insight into sequence-of-returns risk.
-
-### Purpose
-
-Shows how the same shock produces different outcomes depending on *when* it occurs. This directly answers: "Does it matter if the crash happens in Year 1 vs. Year 10 vs. Year 20?"
-
-### Appearance
-
-- **Dimensions:** Full panel width, ~120px height.
-- **Type:** Line chart with multiple series.
-- **X-axis:** "Shock Start Year" — from Year 1 to the retirement duration.
-- **Y-axis:** Terminal Portfolio Value (or Probability of Success in MC mode).
-- **Series:** One line per active scenario, colored by the scenario's accent color. Each line plots the terminal value (or PoS) that would result if that scenario's shock started in that year.
-- The chart is auto-generated: the engine runs the base config + each scenario's shock at every possible start year and records the terminal outcome. For a 40-year retirement, that's 40 data points per scenario.
-
-### Behavior
-
-- **Computation cost:** In Manual mode, this is 40 × N_scenarios single-path simulations — fast enough to compute on demand. In Monte Carlo mode, this would be 40 × N_scenarios × 1,000 simulations — prohibitively expensive. Therefore, **this chart is only shown in Manual mode.** In Monte Carlo mode, a note replaces it: _"Timing sensitivity analysis is available in Manual simulation mode."_
-- The chart renders after the primary comparison results, with a slight delay (~500ms) to avoid blocking the initial results display.
-- Hover tooltip: Shows the exact terminal value for each scenario at the hovered start year.
-- A thin horizontal dashed line at $0 marks the depletion threshold. Where a scenario's line drops to $0, it terminates (the portfolio was depleted before retirement ended).
-
-### Visual Insight
-
-The typical shape of these lines is a downward slope from left to right — early shocks are worse than late shocks. But the *steepness* of the slope varies dramatically by shock type and withdrawal strategy. A conservative strategy (low withdrawal rate) produces a flatter line (more resilient to timing); an aggressive strategy produces a steep line (highly sensitive to early shocks). This chart makes that trade-off viscerally clear.
-
-- A small helper below the chart: _"Earlier shocks typically cause worse outcomes due to sequence-of-returns risk. The slope of each line indicates how timing-sensitive your strategy is."_
+In Monte Carlo mode, the table keeps PoS and delta rows and remains compact; it does not include a timing sensitivity chart.
 
 ---
 

@@ -382,7 +382,7 @@ The application is built in **12 phases**, ordered so that each phase produces a
 
 ### Phase 9: Tracking Mode
 
-**Goal:** Tracking Mode is fully operational — users can enter actuals, see a deterministic re-forecast, and MC results show stale indicators when actuals change.
+**Goal:** Tracking Mode is fully operational — users can enter actuals, see reactive projection updates with boundary preservation, and MC results show stale indicators when actuals change.
 
 **Server:**
 - `engine/deterministic.ts`: deterministic reforecast engine (fixed monthly returns, no randomness).
@@ -430,9 +430,9 @@ The application is built in **12 phases**, ordered so that each phase produces a
 - `StressTestPanel` (collapsible section below the main output area).
 - `ScenarioCard` (#57) with label, shock type selector, shock parameters, timing.
 - Add/Remove scenario buttons (#58), max 4.
-- `ComparisonBarChart`: grouped bars comparing base vs. scenarios on key metrics.
+- Compact vertical comparison charts for base vs. scenarios on key metrics.
 - `ComparisonMetricsTable`: side-by-side stats.
-- `TimingSensitivityChart`: line chart showing how shock timing affects outcomes (Manual mode only).
+- Main chart overlays for stress scenarios with legend and tooltip values.
 
 **Tests:**
 - Stress engine test: verify that a scenario with identical parameters to the base produces identical results (same seed). Verify that a −30% shock in Year 1 produces a measurably worse outcome than the base.
@@ -442,10 +442,13 @@ The application is built in **12 phases**, ordered so that each phase produces a
 - [ ] Up to 4 scenarios can be added and configured.
 - [ ] Running stress test produces comparison charts and metrics.
 - [ ] The "no shock" scenario matches the base simulation exactly.
-- [ ] Timing sensitivity chart renders in Manual mode (hidden in MC mode).
 - [ ] Stress test tests pass.
 - [ ] `npm run typecheck` passes.
 - [ ] Phases 2–9 still function correctly.
+
+**Implementation note (accepted delta):**
+- Timing sensitivity chart was intentionally removed from the shipped Stress panel UX.
+- Stress comparisons are presented via compact vertical charts + metrics table + main-chart scenario overlays.
 
 ---
 
