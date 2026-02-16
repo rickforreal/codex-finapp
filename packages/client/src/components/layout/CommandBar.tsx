@@ -274,33 +274,43 @@ export const CommandBar = () => {
         </div>
 
         <div className="ml-auto flex items-center gap-2">
-          <button
-            type="button"
-            onClick={handleSaveSnapshot}
-            className="grid h-9 w-9 place-items-center rounded-md border border-brand-border bg-white text-slate-600 transition hover:border-brand-blue hover:text-brand-blue"
-            aria-label="Save snapshot"
-            title="Save Snapshot"
-          >
-            <svg viewBox="0 0 24 24" className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth="2">
-              <path d="M12 3v10" />
-              <path d="m8 9 4 4 4-4" />
-              <path d="M4 15v4a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-4" />
-            </svg>
-          </button>
+          <div className="group relative">
+            <button
+              type="button"
+              onClick={handleSaveSnapshot}
+              className="grid h-9 w-9 place-items-center rounded-md border border-brand-border bg-white text-slate-600 transition hover:border-brand-blue hover:text-brand-blue"
+              aria-label="Save snapshot"
+              title="Save Snapshot"
+            >
+              <svg viewBox="0 0 24 24" className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth="2">
+                <path d="M12 3v10" />
+                <path d="m8 9 4 4 4-4" />
+                <path d="M4 15v4a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-4" />
+              </svg>
+            </button>
+            <span className="pointer-events-none absolute left-1/2 top-full z-20 mt-1 -translate-x-1/2 whitespace-nowrap rounded bg-slate-800 px-2 py-1 text-[11px] font-medium text-white opacity-0 transition group-hover:opacity-100">
+              Save Snapshot
+            </span>
+          </div>
 
-          <button
-            type="button"
-            onClick={handleLoadClick}
-            className="grid h-9 w-9 place-items-center rounded-md border border-brand-border bg-white text-slate-600 transition hover:border-brand-blue hover:text-brand-blue"
-            aria-label="Load snapshot"
-            title="Load Snapshot"
-          >
-            <svg viewBox="0 0 24 24" className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth="2">
-              <path d="M12 21V11" />
-              <path d="m8 15 4-4 4 4" />
-              <path d="M4 9V5a2 2 0 0 1 2-2h12a2 2 0 0 1 2 2v4" />
-            </svg>
-          </button>
+          <div className="group relative">
+            <button
+              type="button"
+              onClick={handleLoadClick}
+              className="grid h-9 w-9 place-items-center rounded-md border border-brand-border bg-white text-slate-600 transition hover:border-brand-blue hover:text-brand-blue"
+              aria-label="Load snapshot"
+              title="Load Snapshot"
+            >
+              <svg viewBox="0 0 24 24" className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth="2">
+                <path d="M12 21V11" />
+                <path d="m8 15 4-4 4 4" />
+                <path d="M4 9V5a2 2 0 0 1 2-2h12a2 2 0 0 1 2 2v4" />
+              </svg>
+            </button>
+            <span className="pointer-events-none absolute left-1/2 top-full z-20 mt-1 -translate-x-1/2 whitespace-nowrap rounded bg-slate-800 px-2 py-1 text-[11px] font-medium text-white opacity-0 transition group-hover:opacity-100">
+              Load Snapshot
+            </span>
+          </div>
 
           <button
             type="button"

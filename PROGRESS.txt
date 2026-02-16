@@ -1,3 +1,10 @@
+## 2026-02-15 16:57 — P12A-T2 | COMPLETE
+
+Addressed navbar QA feedback: removed the visible gap in the Manual/Monte Carlo segmented toggle and added explicit hover tooltips to Save/Load snapshot icon buttons.
+Updated `SegmentedToggle` layout to equal-width grid pills and added tooltip UI wrappers in `CommandBar`.
+
+Validation passed: `npm run typecheck -w @finapp/client` and `npm run lint -w @finapp/client`.
+
 ## 2026-02-15 16:44 — SESSION START | Resuming from Phase 12, Task P12A-T1. Last completed: P11-T6 (packed snapshot output format).
 
 Read startup context from `AGENTS.md`, `PROGRESS.txt`, and `TASKS.md`, then reviewed Phase 12 requirements in `docs/ENGINEERING.md` before implementation planning.
