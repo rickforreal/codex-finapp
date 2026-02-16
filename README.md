@@ -1,5 +1,5 @@
 # FinApp
-
+◊
 Retirement forecasting and funds-management web app built as a TypeScript monorepo.
 
 FinApp helps model retirement outcomes in two workflows:
