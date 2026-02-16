@@ -1,3 +1,12 @@
+## 2026-02-15 19:40 — P12F-T1 | COMPLETE
+
+Implemented Phase 12F loading-state UX for running simulations:
+- Summary stats now shows a running-state loading indicator.
+- Portfolio chart and Detail Ledger table now show centered loading overlays while simulation status is `running`.
+- Existing cached content remains visible behind overlays for continuity during recomputation.
+
+Validation passed: `npm run typecheck -w @finapp/client` and `npm run lint -w @finapp/client`.
+
 ## 2026-02-15 19:33 — P12E-T1 | COMPLETE
 
 Phase 12E Stress Test update: changed default panel state to expanded (`stress.isExpanded = true`) so Stress Test content is visible by default.

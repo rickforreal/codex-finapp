@@ -125,6 +125,7 @@ export const DetailTable = () => {
   const retirementStartDate = useAppStore((state) => state.coreParams.retirementStartDate);
   const mode = useAppStore((state) => state.mode);
   const simulationMode = useAppStore((state) => state.simulationMode);
+  const simulationStatus = useAppStore((state) => state.simulationResults.status);
   const mcStale = useAppStore((state) => state.simulationResults.mcStale);
   const actualOverridesByMonth = useAppStore((state) => state.actualOverridesByMonth);
   const lastEditedMonthIndex = useAppStore((state) => state.lastEditedMonthIndex);
@@ -494,7 +495,7 @@ export const DetailTable = () => {
 
   return (
     <section
-      className={`rounded-xl border border-brand-border bg-white shadow-panel ${
+      className={`relative rounded-xl border border-brand-border bg-white shadow-panel ${
         tableSpreadsheetMode ? 'overflow-visible' : 'overflow-hidden'
       }`}
     >
@@ -736,6 +737,14 @@ export const DetailTable = () => {
           )}
         </div>
       </div>
+      {simulationStatus === 'running' ? (
+        <div className="pointer-events-none absolute inset-0 z-40 flex items-center justify-center rounded-xl bg-white/60 backdrop-blur-[1px]">
+          <div className="rounded-md border border-brand-border bg-white px-3 py-2 text-xs text-slate-600 shadow-sm">
+            <span className="mr-2 inline-block h-3 w-3 animate-spin rounded-full border-2 border-slate-300 border-t-brand-blue align-[-1px]" />
+            Recomputing detail ledger...
+          </div>
+        </div>
+      ) : null}
     </section>
   );
 };

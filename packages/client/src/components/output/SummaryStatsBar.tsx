@@ -12,6 +12,7 @@ const inflationFactor = (inflationRate: number, monthIndexOneBased: number): num
 
 export const SummaryStatsBar = () => {
   const result = useActiveSimulationResult();
+  const simulationStatus = useAppStore((state) => state.simulationResults.status);
   const inflationRate = useAppStore((state) => state.coreParams.inflationRate);
   const startingAge = useAppStore((state) => state.coreParams.startingAge);
   const retirementDuration = useAppStore((state) => state.coreParams.retirementDuration);
@@ -67,6 +68,12 @@ export const SummaryStatsBar = () => {
 
   return (
     <section className="rounded-xl bg-brand-surface p-4">
+      {simulationStatus === 'running' ? (
+        <div className="mb-2 flex items-center gap-2 text-xs text-slate-600">
+          <span className="inline-block h-3 w-3 animate-spin rounded-full border-2 border-slate-300 border-t-brand-blue" />
+          <span>Updating summary metrics...</span>
+        </div>
+      ) : null}
       <div className="grid grid-cols-[repeat(auto-fit,minmax(170px,1fr))] gap-3">
         {showPoS ? (
           <StatCard

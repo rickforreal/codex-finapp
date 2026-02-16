@@ -706,3 +706,11 @@ Acceptance Criteria:
 [AC1] Stress Test panel is expanded by default on app load.
 [AC2] Existing collapse/expand toggle behavior remains functional.
 [AC3] Client typecheck and lint pass.
+
+- [x] P12F-T1: Add output loading-state UX while simulation is running
+Phase: 12 (Polish & Hardening)
+Dependencies: P12E-T1
+Acceptance Criteria:
+[AC1] While simulation status is `running`, chart and detail table show visible loading overlays.
+[AC2] Summary stats area shows a running-state loading indicator.
+[AC3] Client typecheck and lint pass.

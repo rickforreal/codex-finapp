@@ -83,6 +83,7 @@ export const PortfolioChart = () => {
   const inflationRate = useAppStore((state) => state.coreParams.inflationRate);
   const startingAge = useAppStore((state) => state.coreParams.startingAge);
   const stressResult = useAppStore((state) => state.stress.result);
+  const simulationStatus = useAppStore((state) => state.simulationResults.status);
 
   const [hoverIndex, setHoverIndex] = useState<number | null>(null);
 
@@ -338,7 +339,7 @@ export const PortfolioChart = () => {
         : null;
 
   return (
-    <section className="rounded-xl border border-brand-border bg-white p-4 shadow-panel">
+    <section className="relative rounded-xl border border-brand-border bg-white p-4 shadow-panel">
       <div className="mb-3 flex flex-wrap items-center justify-end gap-4">
         <SegmentedToggle
           value={chartDisplayMode}
@@ -593,6 +594,14 @@ export const PortfolioChart = () => {
         <p className="mt-2 text-xs text-amber-700">
           Monte Carlo results are stale after edits. Run Simulation to refresh projections.
         </p>
+      ) : null}
+      {simulationStatus === 'running' ? (
+        <div className="pointer-events-none absolute inset-0 z-40 flex items-center justify-center rounded-xl bg-white/65 backdrop-blur-[1px]">
+          <div className="rounded-md border border-brand-border bg-white px-3 py-2 text-xs text-slate-600 shadow-sm">
+            <span className="mr-2 inline-block h-3 w-3 animate-spin rounded-full border-2 border-slate-300 border-t-brand-blue align-[-1px]" />
+            Running simulation...
+          </div>
+        </div>
       ) : null}
     </section>
   );
