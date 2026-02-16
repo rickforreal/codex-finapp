@@ -717,7 +717,11 @@ export const DetailTable = () => {
                               }
                             }}
                             className="h-7 w-[110px] rounded border px-2 text-xs"
-                            style={{ borderColor: 'var(--theme-state-selected-cell-outline)' }}
+                            style={{
+                              borderColor: 'var(--theme-state-selected-cell-outline)',
+                              backgroundColor: 'var(--theme-color-surface-primary)',
+                              color: 'var(--theme-color-text-primary)',
+                            }}
                           />
                         ) : (
                           <>

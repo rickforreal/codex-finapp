@@ -8,6 +8,16 @@ export type ThemeFontFamilyId =
   | 'atkinsonHyperlegible';
 
 export type ThemeColorTokens = {
+  neutral50: string;
+  neutral100: string;
+  neutral200: string;
+  neutral300: string;
+  neutral400: string;
+  neutral500: string;
+  neutral600: string;
+  neutral700: string;
+  neutral800: string;
+  neutral900: string;
   appBackground: string;
   surfacePrimary: string;
   surfaceSecondary: string;

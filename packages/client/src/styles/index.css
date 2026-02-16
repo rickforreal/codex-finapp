@@ -5,6 +5,16 @@
 @tailwind utilities;
 
 :root {
+  --theme-color-neutral-50: #f8fafd;
+  --theme-color-neutral-100: #eef2f8;
+  --theme-color-neutral-200: #d9dfea;
+  --theme-color-neutral-300: #b8c2d6;
+  --theme-color-neutral-400: #94a3b8;
+  --theme-color-neutral-500: #64748b;
+  --theme-color-neutral-600: #475569;
+  --theme-color-neutral-700: #334155;
+  --theme-color-neutral-800: #1f2937;
+  --theme-color-neutral-900: #10233d;
   --theme-color-app-background: #f2f5fb;
   --theme-color-surface-primary: #ffffff;
   --theme-color-surface-secondary: #f8fafd;
@@ -77,4 +87,114 @@ body {
   min-height: 100vh;
   color: var(--theme-color-text-primary);
   background-color: var(--theme-color-app-background);
+}
+
+/* Bridge existing Tailwind utility usage to theme tokens. */
+.bg-white {
+  background-color: var(--theme-color-surface-primary) !important;
+}
+
+.bg-white\/95,
+.bg-white\/90 {
+  background-color: var(--theme-color-overlay) !important;
+}
+
+.bg-white\/65,
+.bg-white\/60 {
+  background-color: color-mix(in srgb, var(--theme-color-surface-primary) 65%, transparent) !important;
+}
+
+.bg-slate-50 {
+  background-color: var(--theme-color-neutral-50) !important;
+}
+
+.bg-slate-100 {
+  background-color: var(--theme-color-neutral-100) !important;
+}
+
+.bg-slate-300 {
+  background-color: var(--theme-color-neutral-300) !important;
+}
+
+.bg-slate-800 {
+  background-color: var(--theme-color-neutral-800) !important;
+}
+
+.text-slate-400 {
+  color: var(--theme-color-neutral-400) !important;
+}
+
+.text-slate-500 {
+  color: var(--theme-color-neutral-500) !important;
+}
+
+.text-slate-600 {
+  color: var(--theme-color-neutral-600) !important;
+}
+
+.text-slate-700 {
+  color: var(--theme-color-neutral-700) !important;
+}
+
+.text-slate-800 {
+  color: var(--theme-color-neutral-800) !important;
+}
+
+.text-slate-900 {
+  color: var(--theme-color-neutral-900) !important;
+}
+
+.border-slate-100 {
+  border-color: var(--theme-color-border-subtle) !important;
+}
+
+.border-slate-200 {
+  border-color: var(--theme-color-border-primary) !important;
+}
+
+.text-blue-500 {
+  color: var(--theme-color-info) !important;
+}
+
+.bg-blue-50 {
+  background-color: var(--theme-color-interactive-secondary) !important;
+}
+
+.border-blue-200 {
+  border-color: var(--theme-color-info) !important;
+}
+
+.bg-amber-100 {
+  background-color: color-mix(in srgb, var(--theme-color-warning) 22%, transparent) !important;
+}
+
+.text-amber-700,
+.text-amber-800 {
+  color: var(--theme-color-warning) !important;
+}
+
+/* Theme native form controls that do not carry explicit bg/text utility classes. */
+input:not([type='checkbox']):not([type='radio']):not([type='range']):not([type='file']),
+select,
+textarea {
+  background-color: var(--theme-color-surface-primary);
+  color: var(--theme-color-text-primary);
+  border-color: var(--theme-color-border-primary);
+}
+
+input:not([type='checkbox']):not([type='radio']):not([type='range']):not([type='file'])::placeholder,
+textarea::placeholder {
+  color: var(--theme-color-text-muted);
+}
+
+input:disabled,
+select:disabled,
+textarea:disabled {
+  background-color: var(--theme-color-surface-secondary);
+  color: var(--theme-color-text-muted);
+}
+
+select option {
+  background-color: var(--theme-color-surface-primary);
+  color: var(--theme-color-text-primary);
 }

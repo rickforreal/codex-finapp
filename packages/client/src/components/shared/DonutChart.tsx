@@ -12,7 +12,7 @@ export const DonutChart = ({ stocks, bonds, cash }: Props) => {
   const bondsPct = (bonds / total) * 100;
 
   const style: CSSProperties = {
-    background: `conic-gradient(#4A90D9 0 ${stocksPct}%, #2EAD8E ${stocksPct}% ${stocksPct + bondsPct}%, #D9A441 ${stocksPct + bondsPct}% 100%)`,
+    background: `conic-gradient(var(--theme-color-asset-stocks) 0 ${stocksPct}%, var(--theme-color-asset-bonds) ${stocksPct}% ${stocksPct + bondsPct}%, var(--theme-color-asset-cash) ${stocksPct + bondsPct}% 100%)`,
   };
 
   return (

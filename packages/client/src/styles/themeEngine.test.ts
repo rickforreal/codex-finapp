@@ -13,6 +13,16 @@ const theme: ThemeDefinition = {
   defaultForApp: false,
   tokens: {
     color: {
+      neutral50: '#010101',
+      neutral100: '#020202',
+      neutral200: '#030303',
+      neutral300: '#040404',
+      neutral400: '#050505',
+      neutral500: '#060606',
+      neutral600: '#070707',
+      neutral700: '#080808',
+      neutral800: '#090909',
+      neutral900: '#0a0a0a',
       appBackground: '#000000',
       surfacePrimary: '#111111',
       surfaceSecondary: '#222222',

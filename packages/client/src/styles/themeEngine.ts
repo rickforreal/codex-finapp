@@ -17,6 +17,16 @@ const setVar = (name: string, value: string) => {
 export const applyTheme = (theme: ThemeDefinition): void => {
   const { color, typography, spacing, radius, border, shadow, motion, state, chart } = theme.tokens;
 
+  setVar('--theme-color-neutral-50', color.neutral50);
+  setVar('--theme-color-neutral-100', color.neutral100);
+  setVar('--theme-color-neutral-200', color.neutral200);
+  setVar('--theme-color-neutral-300', color.neutral300);
+  setVar('--theme-color-neutral-400', color.neutral400);
+  setVar('--theme-color-neutral-500', color.neutral500);
+  setVar('--theme-color-neutral-600', color.neutral600);
+  setVar('--theme-color-neutral-700', color.neutral700);
+  setVar('--theme-color-neutral-800', color.neutral800);
+  setVar('--theme-color-neutral-900', color.neutral900);
   setVar('--theme-color-app-background', color.appBackground);
   setVar('--theme-color-surface-primary', color.surfacePrimary);
   setVar('--theme-color-surface-secondary', color.surfaceSecondary);

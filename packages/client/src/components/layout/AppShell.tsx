@@ -10,7 +10,7 @@ export const AppShell = () => {
   const results = useAppStore((state) => state.simulationResults);
 
   return (
-    <div className="min-h-screen bg-[#F2F5FB] text-slate-900">
+    <div className="min-h-screen bg-[var(--theme-color-app-background)] text-slate-900">
       <CommandBar />
       <main className="flex min-h-[calc(100vh-65px)]">
         <aside className="w-[400px] shrink-0 overflow-y-auto border-r border-brand-border bg-brand-panel p-4">

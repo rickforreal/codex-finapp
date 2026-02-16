@@ -505,6 +505,16 @@ export const stressTestRequestSchema = z
 
 const themeColorTokensSchema = z
   .object({
+    neutral50: z.string().min(1),
+    neutral100: z.string().min(1),
+    neutral200: z.string().min(1),
+    neutral300: z.string().min(1),
+    neutral400: z.string().min(1),
+    neutral500: z.string().min(1),
+    neutral600: z.string().min(1),
+    neutral700: z.string().min(1),
+    neutral800: z.string().min(1),
+    neutral900: z.string().min(1),
     appBackground: z.string().min(1),
     surfacePrimary: z.string().min(1),
     surfaceSecondary: z.string().min(1),
