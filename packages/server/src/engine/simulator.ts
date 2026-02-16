@@ -14,7 +14,8 @@ import {
 } from '@finapp/shared';
 
 import { applyConfiguredDrawdown } from './drawdown';
-import { annualToMonthlyRate, inflateAnnualAmount } from './helpers/inflation';
+import { buildMonthlyInflationFactors, inflateAnnualAmount } from './helpers/inflation';
+import { createRollingAnnualizedRealReturns } from './helpers/rollingWindow';
 import { createSeededRandom, generateRandomMonthlyReturn } from './helpers/returns';
 import { roundToCents } from './helpers/rounding';
 import { calculateAnnualWithdrawal, isMonthlyWithdrawalStrategy } from './strategies';
@@ -265,21 +266,12 @@ export const simulateRetirement = (
   };
   const inflationRateForYear = (year: number): number =>
     inflationOverridesByYear[year] ?? config.coreParams.inflationRate;
+  const inflationFactorByMonth = buildMonthlyInflationFactors(durationMonths, inflationRateForYear);
 
   const inflateBySchedule = (baseAmount: number, yearOffset: number): number => {
     let inflated = baseAmount;
     for (let offset = 1; offset <= yearOffset; offset += 1) {
       inflated = inflateAnnualAmount(inflated, inflationRateForYear(offset), 1);
-    }
-    return roundToCents(inflated);
-  };
-
-  const inflateMonthlyBySchedule = (baseAmount: number, monthIndexOneBased: number): number => {
-    let inflated = baseAmount;
-    for (let index = 1; index < monthIndexOneBased; index += 1) {
-      const monthYear = Math.floor((index - 1) / 12) + 1;
-      const monthlyInflation = annualToMonthlyRate(inflationRateForYear(monthYear));
-      inflated *= 1 + monthlyInflation;
     }
     return roundToCents(inflated);
   };
@@ -293,11 +285,9 @@ export const simulateRetirement = (
   let currentMonthlyWithdrawal = 0;
   let totalWithdrawn = 0;
   let totalShortfall = 0;
-  const trailingRealReturnsByAsset = {
-    stocks: [] as number[],
-    bonds: [] as number[],
-    cash: [] as number[],
-  };
+  const adaptiveRollingReturns = isMonthlyWithdrawalStrategy(config.withdrawalStrategy)
+    ? createRollingAnnualizedRealReturns(config.withdrawalStrategy.params.lookbackMonths)
+    : null;
 
   const rows: SinglePathResult['rows'] = [];
 
@@ -346,6 +336,7 @@ export const simulateRetirement = (
       previousAnnualWithdrawal = 0;
       currentMonthlyWithdrawal = 0;
     } else if (isMonthlyWithdrawalStrategy(config.withdrawalStrategy)) {
+      const annualizedRealReturnsByAsset = adaptiveRollingReturns?.annualized() ?? undefined;
       const monthlyWithdrawal = calculateAnnualWithdrawal(
         {
           year,
@@ -360,13 +351,14 @@ export const simulateRetirement = (
           remainingMonths: durationMonths - monthIndex,
           inflationRate: inflationRateForYear(year),
           startOfMonthWeights: resolveStartOfMonthWeights(startBalances),
-          trailingRealReturnsByAsset,
+          annualizedRealReturnsByAsset,
         },
         config.withdrawalStrategy,
       );
       const phase = findSpendingPhaseForYear(config, year);
-      const monthlyMin = inflateMonthlyBySchedule(phase.minMonthlySpend, oneBasedMonth);
-      const monthlyMax = inflateMonthlyBySchedule(phase.maxMonthlySpend, oneBasedMonth);
+      const monthlyInflationFactor = inflationFactorByMonth[oneBasedMonth] ?? 1;
+      const monthlyMin = roundToCents(phase.minMonthlySpend * monthlyInflationFactor);
+      const monthlyMax = roundToCents(phase.maxMonthlySpend * monthlyInflationFactor);
       currentMonthlyWithdrawal = Math.max(monthlyMin, Math.min(monthlyWithdrawal, monthlyMax));
     } else if (monthInYear === 1) {
       const annualWithdrawal = calculateAnnualWithdrawal(
@@ -383,7 +375,6 @@ export const simulateRetirement = (
           remainingMonths: durationMonths - monthIndex,
           inflationRate: config.coreParams.inflationRate,
           startOfMonthWeights: resolveStartOfMonthWeights(startBalances),
-          trailingRealReturnsByAsset,
         },
         config.withdrawalStrategy,
       );
@@ -466,10 +457,14 @@ export const simulateRetirement = (
       endBalances: { ...balances },
     });
 
-    const inflationForMonth = inflationRateForYear(year);
-    trailingRealReturnsByAsset.stocks.push(toRealMonthlyReturn(returns.stocks, inflationForMonth));
-    trailingRealReturnsByAsset.bonds.push(toRealMonthlyReturn(returns.bonds, inflationForMonth));
-    trailingRealReturnsByAsset.cash.push(toRealMonthlyReturn(returns.cash, inflationForMonth));
+    if (adaptiveRollingReturns) {
+      const inflationForMonth = inflationRateForYear(year);
+      adaptiveRollingReturns.push({
+        stocks: toRealMonthlyReturn(returns.stocks, inflationForMonth),
+        bonds: toRealMonthlyReturn(returns.bonds, inflationForMonth),
+        cash: toRealMonthlyReturn(returns.cash, inflationForMonth),
+      });
+    }
   }
 
   return {

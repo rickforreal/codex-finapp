@@ -13,7 +13,8 @@ import {
 } from '@finapp/shared';
 
 import { applyConfiguredDrawdown } from './drawdown';
-import { annualToMonthlyRate, inflateAnnualAmount } from './helpers/inflation';
+import { annualToMonthlyRate, buildMonthlyInflationFactors, inflateAnnualAmount } from './helpers/inflation';
+import { createRollingAnnualizedRealReturns } from './helpers/rollingWindow';
 import { roundToCents } from './helpers/rounding';
 import { calculateAnnualWithdrawal, isMonthlyWithdrawalStrategy } from './strategies';
 import { toRealMonthlyReturn } from './strategies/dynamicSwrAdaptive';
@@ -31,14 +32,6 @@ const resolveStartOfMonthWeights = (balances: AssetBalances): { stocks: number; 
     bonds: balances.bonds / total,
     cash: balances.cash / total,
   };
-};
-
-const inflateMonthlyByAnnualRate = (baseAmount: number, annualInflationRate: number, monthIndexOneBased: number): number => {
-  const monthlyInflationRate = annualToMonthlyRate(annualInflationRate);
-  if (monthIndexOneBased <= 1) {
-    return roundToCents(baseAmount);
-  }
-  return roundToCents(baseAmount * (1 + monthlyInflationRate) ** (monthIndexOneBased - 1));
 };
 
 const findSpendingPhaseForYear = (config: SimulationConfig, year: number): SpendingPhase => {
@@ -235,6 +228,10 @@ export const reforecastDeterministic = (
     bonds: annualToMonthlyRate(config.returnAssumptions.bonds.expectedReturn),
     cash: annualToMonthlyRate(config.returnAssumptions.cash.expectedReturn),
   };
+  const inflationFactorByMonth = buildMonthlyInflationFactors(
+    durationMonths,
+    () => config.coreParams.inflationRate,
+  );
 
   const initialBalances: AssetBalances = {
     stocks: config.portfolio.stocks,
@@ -251,11 +248,9 @@ export const reforecastDeterministic = (
   let currentMonthlyWithdrawal = 0;
   let totalWithdrawn = 0;
   let totalShortfall = 0;
-  const trailingRealReturnsByAsset = {
-    stocks: [] as number[],
-    bonds: [] as number[],
-    cash: [] as number[],
-  };
+  const adaptiveRollingReturns = isMonthlyWithdrawalStrategy(config.withdrawalStrategy)
+    ? createRollingAnnualizedRealReturns(config.withdrawalStrategy.params.lookbackMonths)
+    : null;
 
   const rows: SinglePathResult['rows'] = [];
 
@@ -301,6 +296,7 @@ export const reforecastDeterministic = (
       previousAnnualWithdrawal = 0;
       currentMonthlyWithdrawal = 0;
     } else if (isMonthlyWithdrawalStrategy(config.withdrawalStrategy)) {
+      const annualizedRealReturnsByAsset = adaptiveRollingReturns?.annualized() ?? undefined;
       const monthlyWithdrawal = calculateAnnualWithdrawal(
         {
           year,
@@ -315,21 +311,14 @@ export const reforecastDeterministic = (
           remainingMonths: durationMonths - monthIndex,
           inflationRate: config.coreParams.inflationRate,
           startOfMonthWeights: resolveStartOfMonthWeights(startBalances),
-          trailingRealReturnsByAsset,
+          annualizedRealReturnsByAsset,
         },
         config.withdrawalStrategy,
       );
       const phase = findSpendingPhaseForYear(config, year);
-      const monthlyMin = inflateMonthlyByAnnualRate(
-        phase.minMonthlySpend,
-        config.coreParams.inflationRate,
-        oneBasedMonth,
-      );
-      const monthlyMax = inflateMonthlyByAnnualRate(
-        phase.maxMonthlySpend,
-        config.coreParams.inflationRate,
-        oneBasedMonth,
-      );
+      const monthlyInflationFactor = inflationFactorByMonth[oneBasedMonth] ?? 1;
+      const monthlyMin = roundToCents(phase.minMonthlySpend * monthlyInflationFactor);
+      const monthlyMax = roundToCents(phase.maxMonthlySpend * monthlyInflationFactor);
       currentMonthlyWithdrawal = Math.max(monthlyMin, Math.min(monthlyWithdrawal, monthlyMax));
     } else if (monthInYear === 1) {
       const annualWithdrawal = calculateAnnualWithdrawal(
@@ -346,7 +335,6 @@ export const reforecastDeterministic = (
           remainingMonths: durationMonths - monthIndex,
           inflationRate: config.coreParams.inflationRate,
           startOfMonthWeights: resolveStartOfMonthWeights(startBalances),
-          trailingRealReturnsByAsset,
         },
         config.withdrawalStrategy,
       );
@@ -416,9 +404,13 @@ export const reforecastDeterministic = (
       endBalances: { ...balances },
     });
 
-    trailingRealReturnsByAsset.stocks.push(toRealMonthlyReturn(monthlyRates.stocks, config.coreParams.inflationRate));
-    trailingRealReturnsByAsset.bonds.push(toRealMonthlyReturn(monthlyRates.bonds, config.coreParams.inflationRate));
-    trailingRealReturnsByAsset.cash.push(toRealMonthlyReturn(monthlyRates.cash, config.coreParams.inflationRate));
+    if (adaptiveRollingReturns) {
+      adaptiveRollingReturns.push({
+        stocks: toRealMonthlyReturn(monthlyRates.stocks, config.coreParams.inflationRate),
+        bonds: toRealMonthlyReturn(monthlyRates.bonds, config.coreParams.inflationRate),
+        cash: toRealMonthlyReturn(monthlyRates.cash, config.coreParams.inflationRate),
+      });
+    }
   }
 
   return {

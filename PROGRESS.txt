@@ -695,3 +695,20 @@ Verification run (all passing):
 - `npm run typecheck`
 - `npm run lint`
 - `npm test`
+- Adaptive SWR performance optimization implemented (no API/UX changes):
+  - Added rolling trailing-return helper `packages/server/src/engine/helpers/rollingWindow.ts` to compute annualized realized returns in O(1) per month instead of re-slicing/reducing trailing arrays.
+  - Added monthly inflation factor precompute helper `buildMonthlyInflationFactors` in `packages/server/src/engine/helpers/inflation.ts`.
+  - Updated `packages/server/src/engine/simulator.ts` and `packages/server/src/engine/deterministic.ts`:
+    - Adaptive strategy now consumes precomputed annualized realized returns from rolling tracker.
+    - Adaptive monthly min/max clamping now uses O(1) lookup from precomputed monthly inflation factors.
+    - Non-adaptive strategies remain unchanged in behavior.
+  - Extended strategy context with optional `annualizedRealReturnsByAsset` to support optimized path while preserving fallback compatibility.
+  - Added tests:
+    - `packages/server/tests/engine/helpers/rollingWindow.test.ts`
+    - `packages/server/tests/engine/helpers/inflation.test.ts`
+    - Extended `packages/server/tests/engine/strategies/dynamicSwrAdaptive.test.ts` for precomputed annualized-return path.
+
+Verification run (all passing):
+- `npm run typecheck`
+- `npm run lint`
+- `npm test`

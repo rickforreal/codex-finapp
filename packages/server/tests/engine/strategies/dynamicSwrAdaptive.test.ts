@@ -58,6 +58,37 @@ describe('DynamicSWR Adaptive', () => {
     expect(monthly).toBe(Math.round(expectedAnnual / 12));
   });
 
+  it('uses precomputed annualized returns when provided', () => {
+    const context = createStrategyContext({
+      remainingMonths: 240,
+      inflationRate: 0.03,
+      startOfMonthWeights: { stocks: 0.6, bonds: 0.3, cash: 0.1 },
+      trailingRealReturnsByAsset: undefined,
+      annualizedRealReturnsByAsset: {
+        stocks: (1.01 ** 12) - 1,
+        bonds: (1.005 ** 12) - 1,
+        cash: (1.002 ** 12) - 1,
+      },
+    });
+
+    const monthly = calculateDynamicSwrAdaptiveMonthlyWithdrawal(context, {
+      fallbackExpectedRateOfReturn: 0.02,
+      lookbackMonths: 12,
+    });
+
+    const realRoi =
+      ((1.01 ** 12) - 1) * 0.6 +
+      ((1.005 ** 12) - 1) * 0.3 +
+      ((1.002 ** 12) - 1) * 0.1;
+    const nominalRoi = (1 + realRoi) * (1 + 0.03) - 1;
+    const expectedAnnual = calculateDynamicSwrWithdrawal(
+      { ...context, remainingYears: context.remainingMonths / 12 },
+      { expectedRateOfReturn: nominalRoi },
+    );
+
+    expect(monthly).toBe(Math.round(expectedAnnual / 12));
+  });
+
   it('returns 0 when portfolio is depleted', () => {
     const context = createStrategyContext({ portfolioValue: 0 });
     const monthly = calculateDynamicSwrAdaptiveMonthlyWithdrawal(context, {
@@ -68,4 +99,3 @@ describe('DynamicSWR Adaptive', () => {
     expect(monthly).toBe(0);
   });
 });
-

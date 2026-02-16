@@ -24,13 +24,17 @@ export const calculateDynamicSwrAdaptiveMonthlyWithdrawal = (
   }
 
   const realReturns = context.trailingRealReturnsByAsset;
+  const annualizedRealReturns = context.annualizedRealReturnsByAsset;
   const weights = context.startOfMonthWeights;
 
   let nominalRoi = params.fallbackExpectedRateOfReturn;
   if (realReturns && weights) {
-    const stocksAnnualized = annualizeRealReturn(realReturns.stocks, params.lookbackMonths);
-    const bondsAnnualized = annualizeRealReturn(realReturns.bonds, params.lookbackMonths);
-    const cashAnnualized = annualizeRealReturn(realReturns.cash, params.lookbackMonths);
+    const stocksAnnualized =
+      annualizedRealReturns?.stocks ?? annualizeRealReturn(realReturns.stocks, params.lookbackMonths);
+    const bondsAnnualized =
+      annualizedRealReturns?.bonds ?? annualizeRealReturn(realReturns.bonds, params.lookbackMonths);
+    const cashAnnualized =
+      annualizedRealReturns?.cash ?? annualizeRealReturn(realReturns.cash, params.lookbackMonths);
     const hasEnoughHistory =
       Number.isFinite(stocksAnnualized) &&
       Number.isFinite(bondsAnnualized) &&
@@ -43,6 +47,12 @@ export const calculateDynamicSwrAdaptiveMonthlyWithdrawal = (
         weights.cash * cashAnnualized;
       nominalRoi = (1 + realRoi) * (1 + context.inflationRate) - 1;
     }
+  } else if (annualizedRealReturns && weights) {
+    const realRoi =
+      weights.stocks * annualizedRealReturns.stocks +
+      weights.bonds * annualizedRealReturns.bonds +
+      weights.cash * annualizedRealReturns.cash;
+    nominalRoi = (1 + realRoi) * (1 + context.inflationRate) - 1;
   }
 
   const annualWithdrawal = calculateDynamicSwrWithdrawal(
@@ -59,4 +69,3 @@ export const toRealMonthlyReturn = (nominalMonthlyReturn: number, annualInflatio
   const monthlyInflation = annualToMonthlyRate(annualInflationRate);
   return (1 + nominalMonthlyReturn) / (1 + monthlyInflation) - 1;
 };
-

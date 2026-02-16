@@ -12,6 +12,12 @@ export interface TrailingRealReturnsByAsset {
   cash: number[];
 }
 
+export interface AnnualizedRealReturnsByAsset {
+  stocks: number;
+  bonds: number;
+  cash: number;
+}
+
 export interface StrategyContext {
   year: number;
   monthIndex: number;
@@ -25,6 +31,7 @@ export interface StrategyContext {
   remainingMonths: number;
   inflationRate: number;
   startOfMonthWeights?: AssetWeights;
+  annualizedRealReturnsByAsset?: AnnualizedRealReturnsByAsset;
   trailingRealReturnsByAsset?: TrailingRealReturnsByAsset;
   capeRatio?: number;
 }

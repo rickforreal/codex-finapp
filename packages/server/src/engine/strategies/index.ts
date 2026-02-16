@@ -52,5 +52,7 @@ export const calculateAnnualWithdrawal = (
   return calculator(context, strategy.params);
 };
 
-export const isMonthlyWithdrawalStrategy = (strategy: WithdrawalStrategyConfig): boolean =>
+export const isMonthlyWithdrawalStrategy = (
+  strategy: WithdrawalStrategyConfig,
+): strategy is Extract<WithdrawalStrategyConfig, { type: WithdrawalStrategyType.DynamicSwrAdaptive }> =>
   strategy.type === WithdrawalStrategyType.DynamicSwrAdaptive;
