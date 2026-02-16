@@ -1,3 +1,11 @@
+## 2026-02-15 19:47 — P12Z-T1 | COMPLETE
+
+Completed Phase 12 pragmatic closeout verification and documentation update.
+[DECISION] CSV export (#56) is intentionally out of scope for this release and documented as an accepted scope delta in `docs/ENGINEERING.md`.
+[DEFERRED] P12D-T4 (manual-mode Detail Ledger header whitespace) remains explicitly deferred and tracked in `TASKS.md`.
+
+Full regression gate passed: `npm test`, `npm run typecheck`, `npm run lint`, and `npm run build`.
+
 ## 2026-02-15 19:40 — P12F-T1 | COMPLETE
 
 Implemented Phase 12F loading-state UX for running simulations:

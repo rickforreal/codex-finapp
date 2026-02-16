@@ -481,12 +481,14 @@ The application is built in **12 phases**, ordered so that each phase produces a
 
 ### Phase 12: Polish & Hardening
 
-**Goal:** The application feels finished. Animations are smooth, errors are handled gracefully, edge cases are covered, and the CSV export works.
+**Goal:** The application feels finished. Animations are smooth, errors are handled gracefully, and edge cases are covered.
+
+**Implementation note (accepted scope delta):**
+- CSV export (#56) was intentionally removed from the current delivery scope by product decision during Phase 12 closeout.
 
 **Client:**
 - CSS transitions and animations per SPECS.md: section expand/collapse, strategy parameter panel crossfade, card add/remove, chart draw-on animation, value clamping amber flash.
 - Error boundaries around major sections (chart, table, input panel) — display a friendly message instead of a white screen.
-- CSV export button (#56): exports the detail table to a `.csv` file download.
 - Responsive edge cases: minimum viable sidebar width, output area reflow.
 - Loading states: spinner or skeleton while simulation is running.
 - Empty states: output area before first simulation run.
@@ -507,7 +509,7 @@ The application is built in **12 phases**, ordered so that each phase produces a
 - [ ] Chart has draw-on animation on initial render.
 - [ ] Value clamping produces the amber flash described in SPECS.md.
 - [ ] A JavaScript error in the chart component does not crash the entire app.
-- [ ] CSV export downloads a correctly formatted file with all visible table columns.
+- [ ] CSV export (#56) is out of scope for this release (accepted product decision documented in TASKS/PROGRESS).
 - [ ] The output area shows a meaningful empty state before any simulation is run.
 - [ ] A loading indicator appears while a simulation is in progress.
 - [ ] Performance targets from ARCHITECTURE Section 10 are met.

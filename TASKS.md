@@ -714,3 +714,12 @@ Acceptance Criteria:
 [AC1] While simulation status is `running`, chart and detail table show visible loading overlays.
 [AC2] Summary stats area shows a running-state loading indicator.
 [AC3] Client typecheck and lint pass.
+
+- [x] P12Z-T1: Phase 12 pragmatic closeout verification and documentation
+Phase: 12 (Polish & Hardening)
+Dependencies: P12F-T1
+Acceptance Criteria:
+[AC1] Full regression gate passes: `npm test`, `npm run typecheck`, `npm run lint`, `npm run build`.
+[AC2] `docs/ENGINEERING.md` reflects accepted scope delta: CSV export intentionally removed from current release.
+[AC3] Open deferred issue (`P12D-T4`) remains tracked with explicit deferral rationale.
+[DECISION] CSV export (#56) removed from this release scope by product direction; Phase 12 closes without implementing export.
