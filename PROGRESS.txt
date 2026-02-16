@@ -1,3 +1,10 @@
+## 2026-02-16 02:34 — PHASE13-BUGFIXES | COMPLETE
+
+Fixed two post-Phase-13 UX defects in client UI state/layout:
+1) `CollapsibleSection` no longer clips long Additional Income / Large Expenses lists (replaced fixed max-height with measured animated height via `scrollHeight` + `ResizeObserver`).
+2) Snapshot Load file picker no longer restricts file names via `accept` filter; loader now relies strictly on JSON/schema validation.
+
+Validation passed: `npm run test -w @finapp/client`, `npm run typecheck -w @finapp/client`, and `npm run lint -w @finapp/client`.
 ## 2026-02-16 01:56 — FEATURE-MONOKAI-FOLLOWUP | COMPLETE
 
 Fixed theme dropdown getting stuck on "Loading..." after snapshot load. Root cause: theme hydration fetch ran only on initial mount, so snapshot-restored empty/loading theme state had no refetch path.

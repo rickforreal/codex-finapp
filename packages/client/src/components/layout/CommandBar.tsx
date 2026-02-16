@@ -376,7 +376,6 @@ export const CommandBar = () => {
         <input
           ref={fileInputRef}
           type="file"
-          accept="application/json,.json"
           className="hidden"
           onChange={(event) => void handleLoadSnapshot(event)}
         />
