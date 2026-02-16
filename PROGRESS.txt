@@ -1,3 +1,14 @@
+## 2026-02-15 16:44 — SESSION START | Resuming from Phase 12, Task P12A-T1. Last completed: P11-T6 (packed snapshot output format).
+
+Read startup context from `AGENTS.md`, `PROGRESS.txt`, and `TASKS.md`, then reviewed Phase 12 requirements in `docs/ENGINEERING.md` before implementation planning.
+
+## 2026-02-15 16:44 — P12A-T2 | COMPLETE
+
+Implemented Phase 12A navbar UX refresh in `packages/client/src/components/layout/CommandBar.tsx`: added fixed left FinApp brand block, compact command-group labels, right-aligned Run Simulation action cluster, and icon-only Save/Load snapshot controls with tooltip titles and accessibility labels.
+Tracking controls were kept near mode controls, Monte Carlo historical era remains conditional, and existing command behaviors were preserved.
+
+Verification passed: `npm run typecheck`, `npm run lint`, `npm test`, and `npm run build`.
+
 ## 2026-02-14 04:49 — P5-T6 | COMPLETE
 
 Manual Phase 5 verification accepted by user review; Phase 5 marked complete.

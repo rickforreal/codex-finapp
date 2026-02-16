@@ -600,3 +600,21 @@ Acceptance Criteria:
 [AC1] Snapshot schema version is bumped and enforces strict exact-match loading.
 [AC2] Cached output rows are serialized as compact packed arrays (`columns` + `data`) across simulation and stress caches.
 [AC3] Snapshot tests cover malformed packed columns/row widths in addition to round-trip/version rejection behavior.
+
+## Phase 12 Plan — Polish & Hardening
+
+- [x] P12A-T1: Implement navbar UX refresh (brand block, right-aligned run, icon snapshot actions)
+Phase: 12 (Polish & Hardening)
+Dependencies: P11-T6
+Acceptance Criteria:
+[AC1] Command bar renders a fixed left brand block with app title (`FinApp`) and non-bloated compact height.
+[AC2] `Run Simulation` is positioned in the far-right action cluster.
+[AC3] Save/Load snapshot actions are icon-only buttons with tooltip titles and accessible labels.
+
+- [x] P12A-T2: Add compact command-group labels without regressing command behavior
+Phase: 12 (Polish & Hardening)
+Dependencies: P12A-T1
+Acceptance Criteria:
+[AC1] Small labels render for `View Mode`, `Simulation Type`, and `Historical Era` (MC-only) without materially increasing navbar height.
+[AC2] Tracking-specific controls (`Clear Actuals`, `Actuals through`) remain near mode controls.
+[AC3] Existing run/snapshot behavior and validation continue to pass automated checks (`typecheck`, `lint`, `test`, `build`).
