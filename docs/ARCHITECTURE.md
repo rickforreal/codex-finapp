@@ -36,10 +36,9 @@ This document defines the technical architecture for the Retirement Forecasting 
 │       │        │ (Manual+MC)  │                     │
 │       │        └──────────────┘                     │
 │       │                                             │
-│  ┌────┴──────────────────────┐  ┌────────────────┐  │
-│  │  Snapshot Save/Load       │  │  CSV Export     │  │
-│  │  (JSON ↔ File System)     │  │  (client-only)  │  │
-│  └───────────────────────────┘  └────────────────┘  │
+│  ┌────┴───────────────────────────────────────────┐  │
+│  │  Snapshot Save/Load (JSON ↔ File System)       │  │
+│  └─────────────────────────────────────────────────┘  │
 │       │                                             │
 └───────┼─────────────────────────────────────────────┘
         │  HTTP (REST/JSON)
@@ -90,7 +89,7 @@ This document defines the technical architecture for the Retirement Forecasting 
 
 **Shared type system.** Domain types and API contracts are defined once in a shared TypeScript package and imported by both client and server. This eliminates type drift across the boundary.
 
-**Client owns all UX state.** Snapshot serialization, chart zoom/pan, table view preferences, and simulation result caching are entirely client-side concerns. The server never sees or manages these.
+**Client owns all UX state.** Snapshot serialization, chart/table display preferences, stale flags, loading state, and simulation result caching are entirely client-side concerns. The server never sees or manages these.
 
 ### 2.3 Future Extensibility
 
@@ -328,7 +327,7 @@ retirement-forecaster/
 │       │   │   └── useKeyboardShortcuts.ts
 │       │   ├── utils/
 │       │   │   ├── formatting.ts
-│       │   │   ├── csvExport.ts
+│       │   │   ├── csvExport.ts      # reserved for future CSV export scope
 │       │   │   └── validation.ts
 │       │   └── styles/
 │       │       └── tailwind.config.ts
@@ -506,18 +505,18 @@ App
     │
     ├── PortfolioChart
     │   ├── RealNominalToggle (#43)
-    │   ├── AssetClassBreakdownToggle (#44)
+    │   ├── BreakdownLabelControl (#44)
     │   ├── Chart (#42) [line/area/bands depending on mode]
     │   │   ├── ConfidenceBands (#45) [MC mode]
     │   │   ├── TrackingOverlay (#46) [Tracking mode]
     │   │   └── ChartTooltip (#47) [hover]
-    │   └── ZoomPanControls (#48) [range selector bar]
+    │   └── ZoomPanControls (#48) [deferred/disabled]
     │
     ├── DetailTable
     │   ├── TableControlsBar
     │   │   ├── MonthlyAnnualToggle (#49)
-    │   │   ├── AssetClassColumnsToggle (#50)
-    │   │   └── ExportCsvButton (#56)
+    │   │   ├── BreakdownLabelControl (#50)
+    │   │   └── SpreadsheetIconButton (#55 behavior)
     │   ├── StickyHeaders (#51)
     │   ├── VirtualizedRows
     │   │   ├── TableRow [standard]
@@ -591,12 +590,12 @@ AppStore
 │   └── reforecast: ReforecastResult | null   # Tracking mode deterministic result
 │
 └── ui (included in snapshots)
-    ├── chartDisplayMode: "nominal" | "real"
+    ├── chartDisplayMode: "nominal" | "real"   # default "real"
     ├── chartBreakdownEnabled: boolean
     ├── tableGranularity: "monthly" | "annual"
     ├── tableAssetColumnsEnabled: boolean
     ├── tableSort: { column, direction } | null
-    ├── chartZoom: { start, end } | null
+    ├── chartZoom: { start, end } | null       # reserved; not user-exposed in current UI
     └── reforecastStatus: "idle" | "pending" | "complete"
 ```
 
@@ -667,15 +666,14 @@ Recharts is a React-native charting library built on D3 primitives. It renders a
 | Comparison bar chart (#59) | `<BarChart>` + grouped `<Bar>` components |
 | Glide path preview (#26d) | `<AreaChart>` stacked, small dimensions |
 | Donut chart (#10) | `<PieChart>` + `<Pie innerRadius outerRadius>` |
-| Timing sensitivity (#59) | `<LineChart>` with multiple `<Line>` series |
 
 **Animations.** Recharts has built-in animation support (`isAnimationActive`, `animationDuration`). The initial draw-on animation for the portfolio chart (#42) can be achieved with `animationBegin` and `animationDuration` props. Subsequent updates use a shorter crossfade.
 
 **Tooltip.** Recharts provides a `<Tooltip>` component with custom content renderers. The crosshair is implemented via a `<ReferenceLine>` that tracks the mouse position using the `onMouseMove` event on the chart container.
 
-**Zoom/Pan.** Recharts does not have built-in zoom/pan. The range selector bar (#48) is implemented as a custom component below the chart that controls the x-axis domain. When the user drags or resizes the range selector, it updates the `domain` prop on the `<XAxis>`, which Recharts handles with a smooth re-render. The "Reset Zoom" button restores the full domain.
+**Zoom/Pan.** Zoom/pan controls are deferred in the current UI. The chart renders the full horizon.
 
-**Performance.** For Monte Carlo confidence bands (up to 480 data points × 5 percentile series), SVG rendering is adequate. If profiling reveals jank during zoom/pan interactions, the chart can switch to Recharts' Canvas renderer. The data point count (max ~2,400 for bands across 480 months) is well within SVG performance limits on modern browsers.
+**Performance.** For Monte Carlo confidence bands (up to 480 data points × 5 percentile series), SVG rendering is adequate. The data point count (max ~2,400 for bands across 480 months) is well within SVG performance limits on modern browsers.
 
 ### 6.7 Table Virtualization
 
@@ -995,7 +993,6 @@ Load:
 | Stress test, Manual (4 scenarios) | < 200ms server-side | Same |
 | Stress test, Monte Carlo (4 scenarios × 1,000 runs) | < 15 seconds server-side | Same |
 | Chart render (initial draw-on) | < 100ms after data arrives | Time from data in store to pixels on screen |
-| Chart zoom/pan interaction | 60fps | No visible jank during drag |
 | Detail table scroll (480 rows, virtualized) | 60fps | No visible jank during scroll |
 | Snapshot save | < 100ms | Time from click to download trigger |
 | Snapshot load | < 200ms | Time from file read to store updated |

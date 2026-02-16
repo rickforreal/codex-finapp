@@ -2865,7 +2865,7 @@ In **Tracking Mode**, the summary stats reflect a hybrid of actuals and projecti
 
 # Output Area — Section: Portfolio Chart (#42–#48)
 
-The Portfolio Chart is the primary visualization of the app — a time-series chart showing how the portfolio value evolves over the entire retirement period. It sits directly below the Summary Statistics Bar and above the Detail Table. In a single glance, the user can see whether their portfolio survives, when it peaks, when it declines, and (in Monte Carlo mode) the range of possible outcomes. When stress scenarios exist, scenario paths are overlaid on this same chart with legend entries and tooltip values.
+The Portfolio Chart is the primary visualization of the app — a time-series chart showing how the portfolio value evolves over the entire retirement period. It sits directly below the Summary Statistics Bar and above the Detail Ledger. In a single glance, the user can see whether their portfolio survives, when it peaks, when it declines, and (in Monte Carlo mode) the range of possible outcomes. When stress scenarios exist, scenario paths are overlaid on this same chart with legend entries and tooltip values.
 
 ## Section Container
 
@@ -2874,7 +2874,7 @@ The Portfolio Chart is the primary visualization of the app — a time-series ch
 - **Chart height:** ~360px on desktop. This is large enough to show meaningful detail across a 40-year timeline without dominating the page. On narrower viewports (<900px), the height can reduce to ~280px.
 - **Horizontal padding:** ~16px left and right, matching the output area's general padding.
 - **Top margin:** ~16px below the stat bar.
-- **Bottom margin:** ~24px above the Detail Table, providing a clear visual break.
+- **Bottom margin:** ~24px above the Detail Ledger, providing a clear visual break.
 
 ---
 
@@ -2963,13 +2963,13 @@ The chart renders differently depending on the simulation mode:
 
 ### Behavior
 
-- Default: **Nominal** (shows the raw dollar amounts as they would appear in the future).
+- Default: **Real** (shows inflation-adjusted purchasing power by default).
 - Switching between modes:
   - The Y-axis rescales smoothly (300ms ease) to accommodate the new value range. Real values are always ≤ nominal values (deflated by inflation), so switching to Real will compress the Y-axis downward.
   - The line/bands morph smoothly to their new positions (300ms). This animation makes the inflation impact viscerally apparent — the user sees the portfolio "shrink" when switching to Real.
   - The Y-axis tick labels update to reflect the new values.
   - The chart tooltip (#47) also updates to show values in the selected denomination.
-- **This toggle also affects the Detail Table's "Real" columns** — but only the chart. The table always shows both nominal and real in separate columns. The toggle is chart-specific.
+- This toggle is chart-specific. It does not change detail-table columns, which always show their defined nominal/real fields.
 
 ### State
 
@@ -2977,17 +2977,18 @@ The chart renders differently depending on the simulation mode:
 
 ---
 
-## Affordance #44: Asset Class Breakdown Toggle
+## Affordance #44: Asset Class Breakdown Control
 
 **Purpose:** Switches the chart between showing the total portfolio value as a single line and showing the value broken down by asset class as a stacked area chart. This lets the user see how the portfolio composition changes over time — especially useful for visualizing bucket depletion or rebalancing drift.
 
-**Control type:** Toggle switch with label
+**Control type:** Text label control (click-to-toggle)
 
 ### Appearance
 
-- Positioned **above the chart**, to the left of the Real/Nominal toggle (#43), with ~16px gap between them.
-- A small labeled toggle switch: toggle track (~36px wide, ~20px tall) with the label "By Asset Class" to its left (~12px text).
-- Off state: gray track (total portfolio view). On state: app's accent color (breakdown view).
+- Positioned **above the chart**, to the right of the Real/Nominal toggle (#43), with ~16px gap between them.
+- A small label-style control with icon + text: "Breakdown".
+- Off state: muted gray label text.
+- On state: brighter accent blue label text. The control is intentionally not bold and does not render as a switch.
 
 ### Behavior
 
@@ -3158,63 +3159,11 @@ _(or "Source: Projected" for future months)_
 
 ---
 
-## Affordance #48: Chart Zoom / Pan
+## Affordance #48: Chart Zoom / Pan (Deferred)
 
-**Purpose:** Allows the user to zoom into a specific time range on the chart for closer inspection, and to pan across the timeline when zoomed in. Over a 40-year retirement (480 months), the full chart can feel compressed — zooming in reveals monthly-level detail.
+**Current release behavior:** Chart zoom/pan and range-selector controls are intentionally disabled for the shipped Phase 12 UX. The chart always renders the full horizon.
 
-**Control type:** Composite — scroll-to-zoom + drag-to-pan + range selector bar
-
-### Range Selector Bar
-
-A small **range selector** sits directly below the main chart, acting as both a minimap and a zoom control.
-
-#### Appearance
-
-- **Dimensions:** Full width of the chart area, ~40px height. Positioned immediately below the X-axis, with ~4px gap.
-- **Content:** A miniature, simplified version of the main chart rendered inside the selector. This mini-chart shows the full timeline at all times (it never zooms), using a simple filled area in a very muted color (~10% opacity primary). No axes, no labels, no grid — just the shape.
-- **Selection window:** A draggable, resizable highlighted region within the range selector that represents the currently visible portion of the main chart:
-  - The selected region has a slightly tinted background (primary color at ~15% opacity) and two **drag handles** at its left and right edges: small vertical bars (~8px wide, full height of the range selector, primary color at ~40% opacity, with a cursor of `ew-resize` on hover).
-  - The area outside the selection window is overlaid with a darker tint (white at ~50% opacity), dimming the unselected portion of the mini-chart.
-- When the chart is fully zoomed out (showing the entire timeline), the selection window fills the entire range selector and the handles are at the far left and right edges.
-
-#### Behavior
-
-- **Resizing the window (zooming):** Dragging a left or right handle changes the visible time range in the main chart. The main chart smoothly rescales its X-axis (200ms ease) as the handle moves. Dragging the left handle rightward or the right handle leftward zooms in. Minimum zoom: ~12 months visible.
-- **Dragging the window (panning):** Clicking and dragging the body of the selection window (between the handles) pans the visible range left or right. The main chart scrolls accordingly.
-- **Double-click to reset:** Double-clicking anywhere in the range selector resets the zoom to the full timeline (the selection window expands to fill the entire bar with a smooth animation, 300ms).
-
-### Scroll-to-Zoom (Desktop)
-
-- **Mouse wheel over the main chart:** Scrolling up zooms in, scrolling down zooms out. The zoom is centered on the cursor's horizontal position. The range selector's selection window updates to reflect the new zoom level.
-- **Zoom limits:** Minimum ~12 months visible, maximum = full timeline.
-
-### Drag-to-Pan (Desktop)
-
-- **Click and drag on the main chart:** When zoomed in, clicking and dragging horizontally on the chart area pans the view. The cursor changes to `grab` on hover (when zoomed in) and `grabbing` while dragging.
-- When fully zoomed out, drag-to-pan is disabled (nothing to pan to). The cursor remains the default pointer.
-
-### Touch Interactions (Mobile/Tablet)
-
-- **Pinch-to-zoom:** Standard two-finger pinch gesture on the chart area zooms in/out.
-- **Single-finger drag:** When zoomed in, a single-finger horizontal swipe pans the view.
-- The range selector is also touch-interactive: drag the handles or the window body.
-
-### Zoom-Dependent X-Axis Behavior
-
-As the user zooms in, the X-axis tick labels adapt to the zoom level:
-
-| Visible Range | X-Axis Tick Format | Tick Interval |
-|---|---|---|
-| > 20 years | "Year 1 (55)", "Year 5 (60)" | Every ~5 years |
-| 5–20 years | "Year 12 (67)", "Year 13 (68)" | Every 1–2 years |
-| 1–5 years | "Jan 2032", "Jul 2032" | Every ~6 months |
-| < 1 year | "Jan", "Feb", "Mar" | Every 1–2 months |
-
-This progressive detail reveals monthly granularity when zoomed in, which is especially useful in Tracking Mode for reviewing recent actuals.
-
-### State
-
-- `chartZoom`: `{ startMonth: number, endMonth: number }` — the currently visible range. Default: `{ startMonth: 1, endMonth: totalMonths }` (fully zoomed out).
+**State note:** `chartZoom` may still exist in internal state/snapshots for forward compatibility but is not user-editable in the UI.
 
 ---
 
@@ -3223,26 +3172,11 @@ This progressive detail reveals monthly granularity when zoomed in, which is esp
 The controls above the chart are arranged in a single horizontal row:
 
 ```
-[By Asset Class toggle]          [Values: [Nominal | Real]]
+[Nominal | Real]     [Breakdown]
 ```
 
-- Left-aligned: Asset Class Breakdown toggle (#44)
-- Right-aligned: Real/Nominal toggle (#43)
+- Right-aligned cluster: Real/Nominal toggle (#43) followed by Breakdown label control (#44)
 - Center space is empty (clean, uncluttered)
-
-The range selector (#48) sits below the chart:
-
-```
-┌──────────────────────────────────────────────────┐
-│                                                  │
-│                  MAIN CHART AREA                 │
-│                  (360px height)                  │
-│                                                  │
-└──────────────────────────────────────────────────┘
-┌──────────────────────────────────────────────────┐
-│  ░░░░░░[═══════════════════]░░░░░░░░░░░░░░░░░░░  │  ← Range Selector (40px)
-└──────────────────────────────────────────────────┘
-```
 
 ---
 
@@ -3255,40 +3189,33 @@ The range selector (#48) sits below the chart:
 | Toggle Real / Nominal | Y-axis rescales, line/bands morph smoothly (300ms). |
 | Toggle Asset Class Breakdown | Line transforms to/from stacked area (400ms). MC bands hide/show. |
 | Hover over chart | Vertical crosshair + tooltip appear, following cursor. |
-| Scroll wheel on chart | Zoom in/out centered on cursor. Range selector updates. |
-| Drag on chart (when zoomed) | Pan the visible range. Range selector updates. |
-| Drag range selector handles | Zoom the main chart. |
-| Drag range selector body | Pan the main chart. |
-| Double-click range selector | Reset to full zoom (300ms animation). |
 | Switch to Tracking Mode | Chart shows solid/dashed split with "Today" marker. |
 | Edit an actual in Tracking Mode | Chart updates reactively — solid line extends, projections recalculate. |
-| Resize browser | Chart redraws at new dimensions. Range selector scales proportionally. |
+| Resize browser | Chart redraws at new dimensions. |
 
-# Output Area — Section: Detail Table (#49–#56)
+# Output Area — Section: Detail Ledger (#49–#56)
 
-The Detail Table is the app's most data-dense output — a month-by-month (or year-by-year) ledger of the entire retirement simulation. It shows portfolio balances, market movements, withdrawals, income, expenses, and end-of-period values. It serves as both a verification tool (did the simulation do what I expected?) and a planning reference (what does month 237 look like?).
+The Detail Ledger is the app's most data-dense output — a month-by-month (or year-by-year) ledger of the entire retirement simulation. It shows portfolio balances, market movements, withdrawals, income, expenses, and end-of-period values. It serves as both a verification tool (did the simulation do what I expected?) and a planning reference (what does month 237 look like?).
 
 ## Section Container
 
 - **Position:** Below the Portfolio Chart, spanning the full width of the output area.
 - **Section header row:** A thin horizontal bar containing the table's controls (Monthly/Annual toggle, Asset Class Columns toggle, Export button). This header row is **sticky** — it remains visible at the top of the table when scrolling vertically through rows. Background: white with a subtle bottom border (1px, light gray) and a faint drop shadow (0 2px 4px rgba(0,0,0,0.04)) to indicate it's floating above the scrolling content.
-- **Top margin:** ~24px below the chart's range selector.
+- **Top margin:** ~24px below the chart.
 - **Table height:** The table does not have a fixed height. It renders all rows and the page scrolls naturally. However, the **column headers** (below the controls bar) are also sticky, positioned directly below the controls bar when scrolling.
 
 ---
 
 ## Table Controls Bar
 
-The controls bar sits above the table column headers and contains four primary elements arranged horizontally:
+The controls bar sits above the table column headers and contains four elements arranged horizontally:
 
 ```
-[Monthly | Annual]     [☐ Show Asset Classes]     [☐ Spreadsheet Mode]     [⬇ Export CSV]
+Detail Ledger      [Monthly | Annual]  [Breakdown]  [Expand/Compress icon]
 ```
 
-- **Left-aligned:** Monthly/Annual toggle (#49)
-- **Center:** Asset Class Columns toggle (#50 — new number, replaces the old expandable rows concept)
-- **Center-right:** Spreadsheet Mode toggle (expands full table height and removes internal vertical scroll)
-- **Right-aligned:** Export CSV button (#56)
+- **Left-aligned:** Table title "Detail Ledger"
+- **Right-aligned cluster:** Monthly/Annual toggle (#49), Breakdown label control (#50), Spreadsheet icon button (#55 behavior)
 
 ---
 
@@ -3330,22 +3257,22 @@ The controls bar sits above the table column headers and contains four primary e
 
 ---
 
-## Affordance #50: Asset Class Columns Toggle
+## Affordance #50: Asset Class Breakdown Control
 
 **Purpose:** Switches the table between a compact view (aggregated portfolio totals) and an expanded view where each column that involves portfolio values is broken into three sub-columns (Stocks, Bonds, Cash). This replaces the previously planned "expandable rows" concept with a simpler column-based approach.
 
-**Control type:** Checkbox toggle with label
+**Control type:** Label control (click-to-toggle)
 
 ### Appearance
 
-- A small checkbox (standard styled checkbox, ~16px) with the label "Show Asset Classes" to its right, ~12px text.
-- Positioned in the center of the controls bar.
-- Unchecked state: compact view. Checked state: expanded view.
+- A small label-style control with icon + text "Breakdown" positioned to the right of the Monthly/Annual toggle.
+- Off state: muted gray text.
+- On state: brighter accent text.
 
 ### Behavior
 
-- Default: **Unchecked** (compact view).
-- **When checked (expanded view):** The following columns split into three sub-columns each, with a grouped header:
+- Default: **Off** (compact view).
+- **When enabled (expanded view):** The following columns split into three sub-columns each, with a grouped header:
 
   | Compact Column | Expanded Sub-Columns |
   |---|---|
@@ -3357,7 +3284,7 @@ The controls bar sits above the table column headers and contains four primary e
 
   The "Total" sub-column in each group matches what the compact view shows. The three asset class sub-columns are additional detail.
 
-- **When unchecked (compact view):** Only the aggregate total columns are shown. The table is narrower and easier to scan.
+- **When disabled (compact view):** Only the aggregate total columns are shown. The table is narrower and easier to scan.
 - The transition between views is instant. Column widths adjust to accommodate the additional columns. If the expanded table exceeds the output area width, horizontal scrolling activates (see table scrolling behavior below).
 - **Sub-column header styling:** Each asset class sub-column header includes the standard color dot (blue for Stocks, teal for Bonds, amber for Cash) to the left of the header text. The "Total" sub-column has no dot. The grouped parent header (e.g., "Portfolio Start") spans across its sub-columns with a thin bottom border separating it from the sub-column labels.
 
@@ -3380,9 +3307,9 @@ Below is the full column specification for both compact and expanded views. Colu
 | Header | "Period" |
 | Width | ~80px (monthly) / ~60px (annual) |
 | Alignment | Left |
-| Format (Planning, Monthly) | "1", "2", ... "480" — plain month index |
+| Format (Planning, Monthly) | Calendar format `YYYY-Mon` anchored to Retirement Start Date (e.g., "2030-Jan") |
 | Format (Planning, Annual) | "Year 1", "Year 2", ... "Year 40" |
-| Format (Tracking, Monthly) | "Jan 2028", "Feb 2028", ... — calendar month/year derived from Retirement Start Date (#4c) |
+| Format (Tracking, Monthly) | Calendar format `YYYY-Mon` (same as Planning monthly) |
 | Format (Tracking, Annual) | "2028", "2029", ... — calendar year |
 | Sticky | Yes — this column is **horizontally sticky** (frozen) when the table scrolls horizontally in expanded view. It remains visible at the left edge so the user always knows which period they're looking at. |
 
@@ -3593,7 +3520,7 @@ This gives the user eight editable fields per month: three asset class starting 
 
 ### Compact View Behavior
 
-When "Show Asset Classes" is unchecked (compact view), asset-specific start/withdrawal cells are not editable. Income and Expenses remain editable in monthly view.
+When Breakdown is off (compact view), asset-specific start/withdrawal cells are not editable. Income and Expenses remain editable in monthly view.
 
 ### Editable Cell Appearance
 
@@ -3671,37 +3598,9 @@ _This affordance previously described "Sort by Column" separately. It has been r
 
 ---
 
-## Affordance #56: Export to CSV Button
+## Affordance #56: Export to CSV (Deferred)
 
-**Purpose:** Exports the current table data to a CSV file that the user can open in Excel, Google Sheets, or any spreadsheet tool. This is the app's primary data export mechanism.
-
-**Control type:** Action button
-
-### Appearance
-
-- Positioned in the right side of the table controls bar.
-- A small secondary-style button: subtle border (1px, light gray), no background fill, muted dark text.
-- Icon: a small download arrow (⬇) to the left of the label.
-- Label: "Export CSV"
-- Size: auto-width, ~28px height.
-
-### Behavior
-
-- **On click:** Generates and downloads a CSV file immediately. No confirmation dialog needed.
-- **File name:** `retirement-forecast-[mode]-[date].csv` — e.g., `retirement-forecast-planning-2026-02-09.csv`. The mode (planning/tracking) and the current date are included for the user's reference.
-- **CSV content:**
-  - The export includes **all columns in the current view** (compact or expanded, depending on the toggle state). If "Show Asset Classes" is checked, the CSV includes all sub-columns. If unchecked, only the aggregated columns.
-  - The export includes **all rows in the current view** (monthly or annual, depending on the toggle state).
-  - The export respects the current **sort order**. If the user has sorted by a column, the CSV rows match that order.
-  - Header row: column names, with grouped headers flattened. E.g., in expanded view, the header for stocks start is "Portfolio Start - Stocks" (parent + sub-column, separated by " - ").
-  - Values are exported as **raw numbers** (no dollar signs, no commas, no abbreviations). Percentages are exported as decimals (e.g., 0.0123 for 1.23%). This ensures clean spreadsheet import.
-  - A second "units" row below the header indicates the format: "$", "$", "%", etc. This helps the user apply formatting in their spreadsheet.
-- In **Tracking Mode:** The CSV includes an additional column "Source" with values "Actual" or "Projected" for each row, so the user can filter/distinguish in their spreadsheet.
-- In **Monte Carlo mode:** The CSV exports the **median path** data. A note is included in the first row as a comment: "# Monte Carlo median path (50th percentile) from [X] simulations". Some CSV parsers will treat this as a comment; others will show it in cell A1. Either is acceptable.
-
-### State
-
-- No persistent state — the export is generated on-demand from the current simulation results and table view settings.
+CSV export is intentionally out of scope for the current release. This affordance is reserved for a future phase.
 
 ---
 
@@ -3750,7 +3649,6 @@ In Monte Carlo mode, the table presents a unique challenge: there are 1,000+ sim
 | Clear an actual value | Cell reverts to computed. Dot indicator disappears. Downstream recalculation triggers. |
 | Click row reset (↺) in monthly Tracking view | All overrides for that row are cleared and row values revert to computed baseline. |
 | Tracking + Monte Carlo stale state | A `Stale` pill appears in table controls; chart MC layers dim and stale banner appears until rerun. |
-| Click Export CSV | CSV file downloads immediately with current view's data. |
 | Scroll vertically | Controls bar and column headers remain sticky. |
 | Scroll horizontally (expanded view) | Period column remains frozen at left. Scroll shadows indicate hidden content. |
 
@@ -3760,14 +3658,14 @@ The Stress Test Panel lets the user explore "what if" scenarios by applying hypo
 
 ## Section Container
 
-- **Position:** Below the Detail Table, spanning the full width of the output area. This is the final section of the output area.
+- **Position:** Below the Detail Ledger, spanning the full width of the output area. This is the final section of the output area.
 - **Collapsible panel** with a header bar that serves as the expand/collapse toggle.
 - **Header bar appearance:**
   - Full-width horizontal bar, ~44px height, subtle background (faint warm gray, `#F5F3F0` — slightly warmer than the cool grays used elsewhere to give this section a distinct "sandbox" feel).
   - Left side: A small caution/experiment icon (⚗ or ⚠ in muted amber) + label "Stress Test" in semi-bold ~14px text.
   - Right side: Expand/collapse chevron (▸ when collapsed, ▾ when expanded), muted gray.
   - The entire header bar is clickable (not just the chevron).
-- **Default state:** **Collapsed.** The stress test is an advanced/exploratory tool — most users will focus on the core simulation results first. Collapsing it by default keeps the output area focused.
+- **Default state:** **Expanded.** Stress testing is now a first-class analysis workflow and is visible immediately after a simulation run.
 - **Expanded state:** The panel opens with a slide-down animation (200ms ease). Internal padding: ~16px on all sides.
 - **Prerequisite:** The panel content is only functional when a base simulation has been run. If expanded before any simulation, the interior shows a centered muted message: _"Run a simulation first to enable stress testing."_ No controls are interactive.
 

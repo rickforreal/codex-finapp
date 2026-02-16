@@ -44,9 +44,11 @@ The output area presents results at four levels of detail, each answering the qu
 
 **The portfolio chart** shows how the portfolio value evolves over time as a line chart. In Monte Carlo mode, confidence bands show the range of possible outcomes. In Tracking Mode, the chart distinguishes actual historical performance from projected future values. The user can toggle between nominal and inflation-adjusted views, and can switch to an asset class breakdown to see how the portfolio composition shifts over time.
 
-**The detail table** is a month-by-month (or year-by-year) ledger showing every number — starting balance, market movement, withdrawals, income, expenses, ending balance — with the option to expand each row into per-asset-class detail. In Tracking Mode, past months are editable so the user can enter actual values.
+**The detail ledger** is a month-by-month (or year-by-year) ledger showing every number — starting balance, market movement, withdrawals, income, expenses, ending balance — with a Breakdown control to switch between compact and per-asset-class columns. In Tracking Mode, past months are editable so the user can enter actual values.
 
 **Snapshot controls** sit in the application toolbar alongside the mode toggle. The user can save the complete state of their dashboard — inputs, actuals, configuration, and cached outputs — to a named JSON file on their local drive, and reload any previously saved snapshot. This gives the app session-to-session continuity without a backend.
+
+**CSV export is deferred** in the current release and is reserved for a future phase.
 
 **The stress test panel** lets the user apply hypothetical market shocks — a stock crash, a prolonged bear market, an inflation spike — and compare the outcomes against the base case. Stress scenarios are also overlaid directly on the main chart with legend and tooltip support, so base-vs-scenario divergence is visible in context.
 

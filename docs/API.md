@@ -4,6 +4,8 @@ This document describes the currently implemented backend API.
 
 The API is stateless for user data: clients send full configuration and optional override payloads on each compute request.
 
+Note: CSV export is not part of the current release scope and there is no CSV export endpoint.
+
 ## Base URL
 
 - All routes are served under `/api/v1`.

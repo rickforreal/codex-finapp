@@ -430,20 +430,20 @@ SnapshotState {
     errorMessage: string | null;
   };
   stress: {
-    isExpanded: boolean;
+    isExpanded: boolean; // default true
     scenarios: StressScenario[];
     result: StressTestResult | null;
     status: "idle" | "running" | "complete" | "error";
     errorMessage: string | null;
   };
   ui: {
-    chartDisplayMode: "nominal" | "real";
+    chartDisplayMode: "nominal" | "real"; // default "real"
     chartBreakdownEnabled: boolean;
     tableGranularity: "monthly" | "annual";
     tableAssetColumnsEnabled: boolean;
     tableSpreadsheetMode: boolean;
     tableSort: { column: string; direction: "asc" | "desc" } | null;
-    chartZoom: { start: number; end: number } | null;
+    chartZoom: { start: number; end: number } | null; // reserved, not user-exposed in current UI
     reforecastStatus: "idle" | "pending" | "complete";
     collapsedSections: Record<string, boolean>;
   };

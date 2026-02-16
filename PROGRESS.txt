@@ -618,3 +618,8 @@ Verification run (all passing):
   - Snapshot JSON now serializes in compact form to further reduce payload size.
   - Expanded snapshot tests in `packages/client/src/store/snapshot.test.ts` for malformed packed column headers and malformed row widths.
   - Updated `docs/SPECS.md`, `docs/ENGINEERING.md`, `docs/ARCHITECTURE.md`, `docs/DATA_MODEL.md`, `docs/SCENARIOS.md`, and `TASKS.md` to reflect packed snapshot output storage.
+- Phase 12 documentation reconciliation pass completed (post-polish deltas):
+  - Updated `docs/SPECS.md` to reflect shipped chart/detail/stress behavior: chart defaults to Real, label-style Breakdown controls, zoom/pan deferred, Detail Ledger naming/controls, CSV export deferred, and Stress panel default expanded.
+  - Updated `docs/SCENARIOS.md` to align narratives with current UX (Detail Ledger naming, Breakdown control labels, no active zoom/pan flow, loading-state scenario, and no CSV-export scenario).
+  - Updated `docs/ARCHITECTURE.md` to remove active CSV-export/zoom assumptions from current UI architecture, align component naming, and annotate deferred/reserved areas.
+  - Updated `docs/PRD.md`, `docs/DATA_MODEL.md`, and `docs/API.md` with current-release scope and defaults (CSV deferred, `chartDisplayMode` default real, `stress.isExpanded` default true, `chartZoom` reserved).
