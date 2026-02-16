@@ -210,6 +210,31 @@ Affordance index reserved for future use. No explicit app-level redo behavior is
 | **Keyboard shortcut** | None |
 | **Tooltip** | "Load state from file" |
 
+### Affordance #66 · Theme Selector
+
+**Purpose:** Selects a global visual theme for the entire app (inputs, outputs, chart, detail ledger, stress panel, and command bar).
+
+**Control type:** Compact icon-first control in the command bar action cluster.
+
+**Appearance:**
+- Palette icon button near Save/Load Snapshot and Run Simulation.
+- Clicking opens a small menu listing available server-provided themes.
+- Active theme row is visibly highlighted.
+
+**Behavior:**
+- Themes are loaded from `GET /api/v1/themes`.
+- Selection applies immediately (no page refresh and no rerun required).
+- Startup precedence:
+  1. snapshot-selected theme (if present and available)
+  2. local browser preference
+  3. server default theme
+- Theme selection is persisted to snapshots and local preference.
+
+**Current built-ins:**
+- Light
+- Dark
+- High Contrast (accessibility-focused)
+
 ## Input Panel — Section: Core Parameters
 This is the first section within the input panel (sidebar). It's expanded by default on app load.
 

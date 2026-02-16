@@ -6,11 +6,15 @@ import {
   DrawdownStrategyType,
   HistoricalEra,
   SimulationMode,
+  ThemeId,
   WithdrawalStrategyType,
   type DrawdownStrategy,
   type ActualMonthOverride,
   type ActualOverridesByMonth,
   type HistoricalDataSummary,
+  type ThemeCatalogItem,
+  type ThemeDefinition,
+  type ThemeValidationIssue,
   type StressScenario,
   type StressTestResult,
   type SimulationConfig,
@@ -56,6 +60,7 @@ type TableGranularity = 'monthly' | 'annual';
 type RunStatus = 'idle' | 'running' | 'complete' | 'error';
 type ReforecastStatus = 'idle' | 'pending' | 'complete';
 type StressRunStatus = 'idle' | 'running' | 'complete' | 'error';
+type ThemeStatus = 'idle' | 'loading' | 'ready' | 'error';
 
 type WithdrawalParamKey =
   | 'initialWithdrawalRate'
@@ -204,6 +209,15 @@ export type SnapshotState = {
     status: StressRunStatus;
     errorMessage: string | null;
   };
+  theme: {
+    selectedThemeId: ThemeId;
+    defaultThemeId: ThemeId;
+    themes: ThemeDefinition[];
+    catalog: ThemeCatalogItem[];
+    validationIssues: ThemeValidationIssue[];
+    status: ThemeStatus;
+    errorMessage: string | null;
+  };
   ui: {
     chartDisplayMode: ChartDisplayMode;
     chartBreakdownEnabled: boolean;
@@ -273,6 +287,18 @@ export type AppStore = SnapshotState & {
   setTableSort: (sort: { column: string; direction: 'asc' | 'desc' } | null) => void;
   toggleSection: (id: string) => void;
   setStateFromSnapshot: (snapshotState: SnapshotState) => void;
+  setThemeState: (
+    payload: {
+      selectedThemeId?: ThemeId;
+      defaultThemeId?: ThemeId;
+      themes?: ThemeDefinition[];
+      catalog?: ThemeCatalogItem[];
+      validationIssues?: ThemeValidationIssue[];
+      status?: ThemeStatus;
+      errorMessage?: string | null;
+    },
+  ) => void;
+  setSelectedThemeId: (themeId: ThemeId) => void;
 };
 
 const defaultPhase = (): SpendingPhaseForm => ({
@@ -841,6 +867,15 @@ const cloneSnapshotState = (snapshot: SnapshotState): SnapshotState => ({
         }
       : null,
   },
+  theme: {
+    selectedThemeId: snapshot.theme.selectedThemeId,
+    defaultThemeId: snapshot.theme.defaultThemeId,
+    themes: snapshot.theme.themes.map((theme) => ({ ...theme })),
+    catalog: snapshot.theme.catalog.map((item) => ({ ...item })),
+    validationIssues: snapshot.theme.validationIssues.map((issue) => ({ ...issue })),
+    status: snapshot.theme.status,
+    errorMessage: snapshot.theme.errorMessage,
+  },
   ui: {
     ...snapshot.ui,
     chartZoom: snapshot.ui.chartZoom ? { ...snapshot.ui.chartZoom } : null,
@@ -908,6 +943,15 @@ export const useAppStore = create<AppStore>((set) => ({
     isExpanded: true,
     scenarios: [],
     result: null,
+    status: 'idle',
+    errorMessage: null,
+  },
+  theme: {
+    selectedThemeId: ThemeId.Light,
+    defaultThemeId: ThemeId.Light,
+    themes: [],
+    catalog: [],
+    validationIssues: [],
     status: 'idle',
     errorMessage: null,
   },
@@ -1499,6 +1543,26 @@ export const useAppStore = create<AppStore>((set) => ({
         },
       },
     })),
+  setThemeState: (payload) =>
+    set((state) => ({
+      theme: {
+        selectedThemeId: payload.selectedThemeId ?? state.theme.selectedThemeId,
+        defaultThemeId: payload.defaultThemeId ?? state.theme.defaultThemeId,
+        themes: payload.themes ?? state.theme.themes,
+        catalog: payload.catalog ?? state.theme.catalog,
+        validationIssues: payload.validationIssues ?? state.theme.validationIssues,
+        status: payload.status ?? state.theme.status,
+        errorMessage:
+          payload.errorMessage === undefined ? state.theme.errorMessage : payload.errorMessage,
+      },
+    })),
+  setSelectedThemeId: (themeId) =>
+    set((state) => ({
+      theme: {
+        ...state.theme,
+        selectedThemeId: themeId,
+      },
+    })),
   setStateFromSnapshot: (snapshotState) =>
     set((state) => ({
       ...state,
@@ -1622,6 +1686,15 @@ const snapshotStateFromStore = (state: AppStore): SnapshotState => ({
   lastEditedMonthIndex: state.lastEditedMonthIndex,
   simulationResults: cloneWorkspace(workspaceFromState(state)).simulationResults,
   stress: cloneWorkspace(workspaceFromState(state)).stress,
+  theme: {
+    selectedThemeId: state.theme.selectedThemeId,
+    defaultThemeId: state.theme.defaultThemeId,
+    themes: state.theme.themes.map((theme) => ({ ...theme })),
+    catalog: state.theme.catalog.map((item) => ({ ...item })),
+    validationIssues: state.theme.validationIssues.map((issue) => ({ ...issue })),
+    status: state.theme.status,
+    errorMessage: state.theme.errorMessage,
+  },
   ui: {
     ...state.ui,
     chartZoom: state.ui.chartZoom ? { ...state.ui.chartZoom } : null,

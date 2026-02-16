@@ -1,3 +1,14 @@
+## 2026-02-15 20:30 — SESSION START | Resuming from P12Z-T1. Last completed: Phase 12 closeout + doc reconciliation. Next: new Phase 13 theming foundation.
+
+## 2026-02-15 20:30 — P13-T6 | COMPLETE
+
+Implemented Phase 13 server-defined theming end-to-end: shared theme contracts/schemas, server theme registry + `/api/v1/themes`, client theme state + precedence resolution (`Snapshot > local preference > server default`), CSS-token theme engine, command-bar theme selector, and tokenized chart/stress/detail-table state colors.
+
+[DECISION] Theme definitions are server-authored and client-selected by `ThemeId` only; no client-authored custom themes in Phase 13.
+[DECISION] Built-in themes shipped: Light, Dark, High Contrast.
+[ASSUMPTION] Color accessibility checks emit warnings (`ThemeValidationIssue`) rather than hard-failing startup to preserve intended visual identity while exposing contrast risk.
+
+Validation passed: `npm run typecheck`, `npm run lint`, `npm test`, and `npm run build`.
 ## 2026-02-15 19:47 — P12Z-T1 | COMPLETE
 
 Completed Phase 12 pragmatic closeout verification and documentation update.

@@ -6,6 +6,7 @@ import {
   DrawdownStrategyType,
   HistoricalEra,
   SimulationMode,
+  ThemeId,
   WithdrawalStrategyType,
 } from '../constants/enums';
 
@@ -501,3 +502,183 @@ export const stressTestRequestSchema = z
       }
     });
   });
+
+const themeColorTokensSchema = z
+  .object({
+    appBackground: z.string().min(1),
+    surfacePrimary: z.string().min(1),
+    surfaceSecondary: z.string().min(1),
+    surfaceMuted: z.string().min(1),
+    overlay: z.string().min(1),
+    borderSubtle: z.string().min(1),
+    borderPrimary: z.string().min(1),
+    borderStrong: z.string().min(1),
+    textPrimary: z.string().min(1),
+    textSecondary: z.string().min(1),
+    textMuted: z.string().min(1),
+    textInverse: z.string().min(1),
+    focusRing: z.string().min(1),
+    interactivePrimary: z.string().min(1),
+    interactivePrimaryHover: z.string().min(1),
+    interactiveSecondary: z.string().min(1),
+    interactiveSecondaryHover: z.string().min(1),
+    positive: z.string().min(1),
+    negative: z.string().min(1),
+    warning: z.string().min(1),
+    info: z.string().min(1),
+    chartGrid: z.string().min(1),
+    chartAxis: z.string().min(1),
+    chartText: z.string().min(1),
+    chartTooltipBackground: z.string().min(1),
+    chartTooltipBorder: z.string().min(1),
+    chartTooltipText: z.string().min(1),
+    brandNavy: z.string().min(1),
+    brandBlue: z.string().min(1),
+    assetStocks: z.string().min(1),
+    assetBonds: z.string().min(1),
+    assetCash: z.string().min(1),
+    mcBandOuter: z.string().min(1),
+    mcBandInner: z.string().min(1),
+    stressBase: z.string().min(1),
+    stressScenarioA: z.string().min(1),
+    stressScenarioB: z.string().min(1),
+    stressScenarioC: z.string().min(1),
+    stressScenarioD: z.string().min(1),
+  })
+  .strict();
+
+const themeTypographySchema = z
+  .object({
+    fontSans: z.enum(['ibmPlexSans', 'ibmPlexMono', 'systemSans', 'systemMono', 'atkinsonHyperlegible']),
+    fontMono: z.enum(['ibmPlexSans', 'ibmPlexMono', 'systemSans', 'systemMono', 'atkinsonHyperlegible']),
+    fontSizeXs: z.string().min(1),
+    fontSizeSm: z.string().min(1),
+    fontSizeMd: z.string().min(1),
+    fontSizeLg: z.string().min(1),
+    fontSizeXl: z.string().min(1),
+    fontWeightRegular: z.number().int().positive(),
+    fontWeightMedium: z.number().int().positive(),
+    fontWeightSemibold: z.number().int().positive(),
+    letterSpacingWide: z.string().min(1),
+  })
+  .strict();
+
+const themeSpacingSchema = z
+  .object({
+    xs: z.string().min(1),
+    sm: z.string().min(1),
+    md: z.string().min(1),
+    lg: z.string().min(1),
+    xl: z.string().min(1),
+    xxl: z.string().min(1),
+  })
+  .strict();
+
+const themeRadiusSchema = z
+  .object({
+    sm: z.string().min(1),
+    md: z.string().min(1),
+    lg: z.string().min(1),
+    xl: z.string().min(1),
+    pill: z.string().min(1),
+  })
+  .strict();
+
+const themeBorderSchema = z
+  .object({
+    widthThin: z.string().min(1),
+    widthBase: z.string().min(1),
+    widthThick: z.string().min(1),
+  })
+  .strict();
+
+const themeShadowSchema = z
+  .object({
+    panel: z.string().min(1),
+    popover: z.string().min(1),
+    focus: z.string().min(1),
+  })
+  .strict();
+
+const themeMotionSchema = z
+  .object({
+    durationFastMs: z.number().int().nonnegative(),
+    durationNormalMs: z.number().int().nonnegative(),
+    durationSlowMs: z.number().int().nonnegative(),
+    easingStandard: z.string().min(1),
+  })
+  .strict();
+
+const themeStateSchema = z
+  .object({
+    editedCellBackground: z.string().min(1),
+    preservedRowBackground: z.string().min(1),
+    staleBackground: z.string().min(1),
+    staleText: z.string().min(1),
+    selectedCellOutline: z.string().min(1),
+  })
+  .strict();
+
+const themeChartSchema = z
+  .object({
+    manualLine: z.string().min(1),
+    manualAreaTop: z.string().min(1),
+    manualAreaBottom: z.string().min(1),
+    mcMedianLine: z.string().min(1),
+    mcBandOuter: z.string().min(1),
+    mcBandInner: z.string().min(1),
+  })
+  .strict();
+
+export const themeDefinitionSchema = z
+  .object({
+    id: z.nativeEnum(ThemeId),
+    name: z.string().min(1),
+    description: z.string().min(1),
+    version: z.string().min(1),
+    isHighContrast: z.boolean(),
+    defaultForApp: z.boolean(),
+    tokens: z
+      .object({
+        color: themeColorTokensSchema,
+        typography: themeTypographySchema,
+        spacing: themeSpacingSchema,
+        radius: themeRadiusSchema,
+        border: themeBorderSchema,
+        shadow: themeShadowSchema,
+        motion: themeMotionSchema,
+        state: themeStateSchema,
+        chart: themeChartSchema,
+      })
+      .strict(),
+  })
+  .strict();
+
+export const themesResponseSchema = z
+  .object({
+    defaultThemeId: z.nativeEnum(ThemeId),
+    themes: z.array(themeDefinitionSchema).min(1),
+    catalog: z.array(
+      z
+        .object({
+          id: z.nativeEnum(ThemeId),
+          name: z.string().min(1),
+          description: z.string().min(1),
+          version: z.string().min(1),
+          isHighContrast: z.boolean(),
+          defaultForApp: z.boolean(),
+        })
+        .strict(),
+    ),
+    validationIssues: z.array(
+      z
+        .object({
+          themeId: z.nativeEnum(ThemeId),
+          tokenPath: z.string().min(1),
+          severity: z.literal('warning'),
+          message: z.string().min(1),
+        })
+        .strict(),
+    ),
+  })
+  .strict();

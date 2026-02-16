@@ -52,14 +52,18 @@ The output area presents results at four levels of detail, each answering the qu
 
 **The stress test panel** lets the user apply hypothetical market shocks — a stock crash, a prolonged bear market, an inflation spike — and compare the outcomes against the base case. Stress scenarios are also overlaid directly on the main chart with legend and tooltip support, so base-vs-scenario divergence is visible in context.
 
+**Theme system** lets the user switch visual identity globally (Light, Dark, High Contrast in the current release). Themes are server-defined token bundles (color, typography, spacing, chart/state styling) and are applied app-wide by selecting a theme ID.
+
 ## Design Principles
 
 **Information-dense but not overwhelming.** The app packs a lot of data into a single page. Inputs live in a sidebar; outputs fill the main area. Sections collapse and expand. Detail is progressive — summary first, chart second, table third, stress test last.
 
 **Professional financial aesthetic.** Clean, muted colors. No playful gradients or illustrations. Tabular numerals in the table. The app should feel like a Bloomberg terminal's approachable cousin, not a consumer fintech app.
+Themed variants must preserve this professional tone while supporting stronger contrast variants for accessibility.
 
 **Desktop-first.** This is a power-user tool optimized for large screens. It should be usable on tablet but is not designed for phones. Horizontal space is assumed to be generous.
 
 **Explore-and-iterate workflow.** In Planning Mode, changing inputs does not automatically re-run the simulation — the user adjusts parameters and clicks "Run Simulation" when ready. This gives them control over when expensive computations happen and lets them make multiple changes before seeing results. In Tracking Mode, editing actual values triggers immediate re-forecasting for responsiveness.
 
 **Nondestructive exploration.** The app supports named snapshot files as the primary recovery and comparison mechanism. Users can save and reload complete dashboard states as JSON files, enabling side-by-side strategy comparison across sessions and durable persistence without requiring a backend or accounts.
+Theme selection is part of the persisted state so loaded snapshots restore their visual context exactly.

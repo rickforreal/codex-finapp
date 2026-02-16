@@ -15,7 +15,12 @@ const scenarioTypes: Array<{ value: StressScenarioType; label: string }> = [
   { value: 'custom', label: 'Custom' },
 ];
 
-const accentColors = ['#E67E22B3', '#8E44ADB3', '#16A085B3', '#2C3E80B3'];
+const accentColors = [
+  'var(--theme-color-stress-a)',
+  'var(--theme-color-stress-b)',
+  'var(--theme-color-stress-c)',
+  'var(--theme-color-stress-d)',
+];
 
 const replacementScenarioForType = (scenario: StressScenario, type: StressScenarioType): StressScenario => {
   if (type === scenario.type) {
@@ -169,10 +174,10 @@ export const StressTestPanel = () => {
   const result = stress.result;
   const comparisonSet = result
     ? [
-        { label: 'Base', color: '#334155', rows: result.base.result.rows, metrics: result.base.metrics },
+        { label: 'Base', color: 'var(--theme-color-stress-base)', rows: result.base.result.rows, metrics: result.base.metrics },
         ...result.scenarios.map((scenario, index) => ({
           label: scenario.scenarioLabel,
-          color: accentColors[index] ?? '#6366F1',
+          color: accentColors[index] ?? 'var(--theme-color-info)',
           rows: scenario.result.rows,
           metrics: scenario.metrics,
         })),
@@ -203,7 +208,7 @@ export const StressTestPanel = () => {
       <button
         type="button"
         onClick={toggleStressPanel}
-        className="flex w-full items-center justify-between rounded-t-xl bg-[#F5F3F0] px-4 py-3 text-left"
+        className="flex w-full items-center justify-between rounded-t-xl bg-brand-surface px-4 py-3 text-left"
       >
         <span className="text-sm font-semibold text-slate-800">Stress Test</span>
         <span className="text-slate-500">{stress.isExpanded ? '▾' : '▸'}</span>

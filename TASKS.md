@@ -723,3 +723,53 @@ Acceptance Criteria:
 [AC2] `docs/ENGINEERING.md` reflects accepted scope delta: CSV export intentionally removed from current release.
 [AC3] Open deferred issue (`P12D-T4`) remains tracked with explicit deferral rationale.
 [DECISION] CSV export (#56) removed from this release scope by product direction; Phase 12 closes without implementing export.
+
+## Phase 13 Plan — Server-Defined Themes
+
+- [x] P13-T1: Add shared theme contracts/enums/schemas
+Phase: 13 (Server-Defined Themes)
+Dependencies: P12Z-T1
+Acceptance Criteria:
+[AC1] Shared contracts define `ThemeId`, `ThemeDefinition`, `ThemeCatalogItem`, and `ThemeValidationIssue`.
+[AC2] Shared API contracts include `ThemesResponse`.
+[AC3] Shared schema validation covers server theme payload shape.
+
+- [x] P13-T2: Implement server theme registry and validation
+Phase: 13 (Server-Defined Themes)
+Dependencies: P13-T1
+Acceptance Criteria:
+[AC1] Built-in Light, Dark, and High Contrast themes are defined on server.
+[AC2] Theme validation warnings are generated for contrast-sensitive token pairs.
+[AC3] Registry exports a typed response payload with default theme metadata.
+
+- [x] P13-T3: Implement `/api/v1/themes` route and tests
+Phase: 13 (Server-Defined Themes)
+Dependencies: P13-T2
+Acceptance Criteria:
+[AC1] `GET /api/v1/themes` returns catalog + full definitions + default theme id.
+[AC2] Route is registered under `/api/v1`.
+[AC3] Route tests pass for shape/default semantics.
+
+- [x] P13-T4: Add client theme state, precedence resolution, and CSS token applier
+Phase: 13 (Server-Defined Themes)
+Dependencies: P13-T3
+Acceptance Criteria:
+[AC1] Client fetches theme catalog from server and resolves startup theme using snapshot > local preference > server default.
+[AC2] Theme selection is stored in app state and persisted to snapshot/local preference.
+[AC3] Applying a theme updates CSS custom properties globally.
+
+- [x] P13-T5: Add command bar theme selector UI and wire global switching
+Phase: 13 (Server-Defined Themes)
+Dependencies: P13-T4
+Acceptance Criteria:
+[AC1] Command bar includes icon-first theme control.
+[AC2] Selecting a theme applies immediately without rerun.
+[AC3] Built-in themes appear and active theme is visibly highlighted.
+
+- [x] P13-T6: Tokenize chart/table stress visuals and complete regression gate
+Phase: 13 (Server-Defined Themes)
+Dependencies: P13-T4, P13-T5
+Acceptance Criteria:
+[AC1] Chart/manual/MC/stress colors are sourced from theme tokens.
+[AC2] Tracking edited/preserved/stale table states use theme state tokens.
+[AC3] `npm test`, `npm run typecheck`, `npm run lint`, and `npm run build` pass.

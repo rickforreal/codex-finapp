@@ -44,3 +44,9 @@ export enum AppMode {
   Planning = 'planning',
   Tracking = 'tracking',
 }
+
+export enum ThemeId {
+  Light = 'light',
+  Dark = 'dark',
+  HighContrast = 'highContrast',
+}

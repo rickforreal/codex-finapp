@@ -1,10 +1,10 @@
 import { z } from 'zod';
 
-import { AppMode, HistoricalEra, SimulationMode, type MonthlySimulationRow, type SimulateResponse, type SinglePathResult, type StressTestResult } from '@finapp/shared';
+import { AppMode, HistoricalEra, SimulationMode, ThemeId, type MonthlySimulationRow, type SimulateResponse, type SinglePathResult, type StressTestResult } from '@finapp/shared';
 
 import { getSnapshotState, type SnapshotState, type WorkspaceSnapshot, useAppStore } from './useAppStore';
 
-export const SNAPSHOT_SCHEMA_VERSION = 3;
+export const SNAPSHOT_SCHEMA_VERSION = 4;
 
 export const PACKED_ROW_COLUMNS = [
   'monthIndex',
@@ -149,6 +149,17 @@ const snapshotStateSchema = z
     lastEditedMonthIndex: z.number().int().nullable(),
     simulationResults: z.unknown(),
     stress: z.unknown(),
+    theme: z
+      .object({
+        selectedThemeId: z.nativeEnum(ThemeId),
+        defaultThemeId: z.nativeEnum(ThemeId),
+        themes: z.array(z.unknown()),
+        catalog: z.array(z.unknown()),
+        validationIssues: z.array(z.unknown()),
+        status: z.enum(['idle', 'loading', 'ready', 'error']),
+        errorMessage: z.string().nullable(),
+      })
+      .strict(),
     ui: z.unknown(),
   })
   .strict();

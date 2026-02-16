@@ -553,7 +553,13 @@ export const DetailTable = () => {
                   </svg>
                 </button>
                 {mode === AppMode.Tracking && simulationMode === SimulationMode.MonteCarlo && mcStale ? (
-                  <span className="rounded-full bg-amber-100 px-2 py-1 text-xs font-semibold text-amber-800">
+                  <span
+                    className="rounded-full px-2 py-1 text-xs font-semibold"
+                    style={{
+                      backgroundColor: 'var(--theme-state-stale-background)',
+                      color: 'var(--theme-state-stale-text)',
+                    }}
+                  >
                     Stale
                   </span>
                 ) : null}
@@ -622,9 +628,17 @@ export const DetailTable = () => {
                       tableGranularity === 'monthly' &&
                       lastEditedMonthIndex !== null &&
                       row.monthIndex <= lastEditedMonthIndex
-                        ? 'bg-sky-100/80'
+                        ? ''
                         : ''
                     }`}
+                    style={
+                      mode === AppMode.Tracking &&
+                      tableGranularity === 'monthly' &&
+                      lastEditedMonthIndex !== null &&
+                      row.monthIndex <= lastEditedMonthIndex
+                        ? { backgroundColor: 'var(--theme-state-preserved-row-background)' }
+                        : undefined
+                    }
                   >
                     {columns.map((column) => (
                       <td
@@ -634,12 +648,20 @@ export const DetailTable = () => {
                           selectedCell?.rowId === row.id && selectedCell.column === column.key ? 0 : -1
                         }
                         className={`relative whitespace-nowrap px-3 py-2 font-mono outline-none ${valueToneClass(row, column)} ${
-                          isCellEdited(row, column) ? 'bg-sky-100/70 font-semibold text-sky-900' : ''
-                        } ${
-                          selectedCell?.rowId === row.id && selectedCell.column === column.key
-                            ? 'bg-blue-50 shadow-[inset_0_0_0_2px_rgba(59,130,246,0.7)]'
-                            : ''
+                          isCellEdited(row, column) ? 'font-semibold' : ''
                         }`}
+                        style={{
+                          backgroundColor:
+                            selectedCell?.rowId === row.id && selectedCell.column === column.key
+                              ? 'var(--theme-color-interactive-secondary)'
+                              : isCellEdited(row, column)
+                                ? 'var(--theme-state-edited-cell-background)'
+                                : undefined,
+                          boxShadow:
+                            selectedCell?.rowId === row.id && selectedCell.column === column.key
+                              ? 'inset 0 0 0 2px var(--theme-state-selected-cell-outline)'
+                              : undefined,
+                        }}
                         onClick={() => setSelectedCell({ rowId: row.id, column: column.key })}
                         onDoubleClick={() => beginCellEdit(row, column)}
                         onKeyDown={(event) => {
@@ -694,7 +716,8 @@ export const DetailTable = () => {
                                 setEditingCell(null);
                               }
                             }}
-                            className="h-7 w-[110px] rounded border border-sky-400 px-2 text-xs"
+                            className="h-7 w-[110px] rounded border px-2 text-xs"
+                            style={{ borderColor: 'var(--theme-state-selected-cell-outline)' }}
                           />
                         ) : (
                           <>
@@ -705,7 +728,10 @@ export const DetailTable = () => {
                           </>
                         )}
                         {isCellEdited(row, column) ? (
-                          <span className="absolute right-1 top-1 h-1.5 w-1.5 rounded-full bg-sky-600" />
+                          <span
+                            className="absolute right-1 top-1 h-1.5 w-1.5 rounded-full"
+                            style={{ backgroundColor: 'var(--theme-state-selected-cell-outline)' }}
+                          />
                         ) : null}
                       </td>
                     ))}

@@ -520,6 +520,43 @@ The application is built in **12 phases**, ordered so that each phase produces a
 
 ---
 
+### Phase 13: Server-Defined Themes
+
+**Goal:** Add a robust global theming platform where themes are authored on the server, selected by ID on the client, and applied across all major UI surfaces via semantic tokens.
+
+**Shared:**
+- Add `ThemeId`, `ThemeDefinition`, `ThemeCatalogItem`, and `ThemeValidationIssue` contracts.
+- Add theme response schemas for strict shape validation.
+
+**Server:**
+- Add built-in theme registry (Light, Dark, High Contrast) with comprehensive token bundles.
+- Add accessibility validation warnings for contrast-sensitive token pairs.
+- Add `GET /api/v1/themes` endpoint returning:
+  - `defaultThemeId`
+  - full theme definitions
+  - lightweight catalog
+  - validation warnings
+
+**Client:**
+- Add global theme state slice (selected/default theme ID, catalog/definitions, status).
+- Resolve startup precedence as: `Snapshot > local preference > server default`.
+- Add command bar theme selector (icon-first compact control).
+- Apply themes through CSS variable mapping from semantic tokens.
+- Persist selected theme in snapshots and local storage.
+- Drive chart bands/lines, stress overlays, and tracking-edit state colors from theme tokens.
+
+**Definition of Done:**
+- [ ] Theme definitions are server-owned and delivered through `/api/v1/themes`.
+- [ ] Global theme switching works without page reload.
+- [ ] Built-in Light, Dark, and High Contrast themes are selectable.
+- [ ] Snapshot save/load round-trip preserves selected theme.
+- [ ] Startup precedence follows `Snapshot > local preference > server default`.
+- [ ] Chart + stress palette colors are theme-driven.
+- [ ] New route and theme-application tests pass.
+- [ ] `npm test`, `npm run typecheck`, `npm run lint`, and `npm run build` all pass.
+
+---
+
 ## 4. Definition of Done
 
 ### 4.1 Per-Phase Checklist
@@ -667,6 +704,7 @@ Within every file, organize imports in this order (with a blank line between gro
 | Phase 10 (Stress Testing) | Tests for stress engine. |
 | Phase 11 (Snapshots) | Tests for snapshot serialization, validation, and restore behavior. |
 | Phase 12 (Polish) | No new tests. Run full suite for regression. |
+| Phase 13 (Themes) | Add route tests for `/themes` and client token-application tests. |
 
 ### 8.2 Test Naming Convention
 

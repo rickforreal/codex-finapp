@@ -1,16 +1,80 @@
-@import url('https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@400;500;600&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Atkinson+Hyperlegible:wght@400;700&family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@400;500;600&display=swap');
 
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
 
 :root {
-  color: #10233d;
-  background-color: #f2f5fb;
-  font-family: 'IBM Plex Sans', sans-serif;
+  --theme-color-app-background: #f2f5fb;
+  --theme-color-surface-primary: #ffffff;
+  --theme-color-surface-secondary: #f8fafd;
+  --theme-color-surface-muted: #eef2f8;
+  --theme-color-overlay: #ffffffd9;
+  --theme-color-border-subtle: #e5eaf3;
+  --theme-color-border-primary: #d9dfea;
+  --theme-color-border-strong: #b8c2d6;
+  --theme-color-text-primary: #10233d;
+  --theme-color-text-secondary: #334155;
+  --theme-color-text-muted: #64748b;
+  --theme-color-text-inverse: #ffffff;
+  --theme-color-focus-ring: #3168ff;
+  --theme-color-interactive-primary: #1a365d;
+  --theme-color-interactive-primary-hover: #112844;
+  --theme-color-interactive-secondary: #e7eef9;
+  --theme-color-interactive-secondary-hover: #d9e6ff;
+  --theme-color-positive: #15803d;
+  --theme-color-negative: #b91c1c;
+  --theme-color-warning: #a16207;
+  --theme-color-info: #1d4ed8;
+  --theme-color-chart-grid: #e8edf6;
+  --theme-color-chart-axis: #b8c2d6;
+  --theme-color-chart-text: #64748b;
+  --theme-color-chart-tooltip-background: #ffffff;
+  --theme-color-chart-tooltip-border: #d9dfea;
+  --theme-color-chart-tooltip-text: #10233d;
+  --theme-color-brand-navy: #1a365d;
+  --theme-color-brand-blue: #3168ff;
+  --theme-color-asset-stocks: #4a90d9;
+  --theme-color-asset-bonds: #2ead8e;
+  --theme-color-asset-cash: #d9a441;
+  --theme-color-mc-band-outer: #93c5fd55;
+  --theme-color-mc-band-inner: #60a5fa66;
+  --theme-color-stress-base: #334155;
+  --theme-color-stress-a: #e67e22;
+  --theme-color-stress-b: #8e44ad;
+  --theme-color-stress-c: #16a085;
+  --theme-color-stress-d: #2c3e80;
+  --theme-chart-manual-line: #1a365d;
+  --theme-chart-manual-area-top: #1a365d33;
+  --theme-chart-manual-area-bottom: #1a365d08;
+  --theme-chart-mc-median-line: #1a365d;
+  --theme-chart-mc-band-outer: #93c5fd55;
+  --theme-chart-mc-band-inner: #60a5fa66;
+  --theme-state-edited-cell-background: #dbeafe;
+  --theme-state-preserved-row-background: #e2e8f0;
+  --theme-state-stale-background: #fef3c7;
+  --theme-state-stale-text: #92400e;
+  --theme-state-selected-cell-outline: #2563eb;
+  --theme-font-sans: 'IBM Plex Sans', sans-serif;
+  --theme-font-mono: 'IBM Plex Mono', monospace;
+  --theme-font-size-xs: 0.75rem;
+  --theme-font-size-sm: 0.875rem;
+  --theme-font-size-md: 1rem;
+  --theme-font-size-lg: 1.125rem;
+  --theme-font-size-xl: 1.375rem;
+  --theme-font-weight-regular: 400;
+  --theme-font-weight-medium: 500;
+  --theme-font-weight-semibold: 600;
+  --theme-letter-spacing-wide: 0.14em;
+  --theme-shadow-panel: 0 1px 2px rgba(16, 35, 61, 0.08);
+  color: var(--theme-color-text-primary);
+  background-color: var(--theme-color-app-background);
+  font-family: var(--theme-font-sans);
 }
 
 body {
   margin: 0;
   min-height: 100vh;
+  color: var(--theme-color-text-primary);
+  background-color: var(--theme-color-app-background);
 }

@@ -381,7 +381,7 @@ Snapshot files are client-side JSON envelopes used for session portability.
 
 ```ts
 SnapshotEnvelope {
-  schemaVersion: number;   // strict exact match required on load (current: 3)
+  schemaVersion: number;   // strict exact match required on load (current: 4)
   name: string;
   savedAt: string;         // ISO timestamp
   data: SnapshotState;
@@ -436,6 +436,15 @@ SnapshotState {
     status: "idle" | "running" | "complete" | "error";
     errorMessage: string | null;
   };
+  theme: {
+    selectedThemeId: ThemeId;
+    defaultThemeId: ThemeId;
+    themes: ThemeDefinition[];
+    catalog: ThemeCatalogItem[];
+    validationIssues: ThemeValidationIssue[];
+    status: "idle" | "loading" | "ready" | "error";
+    errorMessage: string | null;
+  };
   ui: {
     chartDisplayMode: "nominal" | "real"; // default "real"
     chartBreakdownEnabled: boolean;
@@ -446,6 +455,30 @@ SnapshotState {
     chartZoom: { start: number; end: number } | null; // reserved, not user-exposed in current UI
     reforecastStatus: "idle" | "pending" | "complete";
     collapsedSections: Record<string, boolean>;
+  };
+}
+```
+
+Theme modeling (server-owned):
+
+```ts
+ThemeDefinition {
+  id: ThemeId;                      // light | dark | highContrast
+  name: string;
+  description: string;
+  version: string;
+  isHighContrast: boolean;
+  defaultForApp: boolean;
+  tokens: {
+    color: ThemeColorTokens;        // semantic UI/chart/state palette
+    typography: ThemeTypographyTokens;
+    spacing: ThemeSpacingTokens;
+    radius: ThemeRadiusTokens;
+    border: ThemeBorderTokens;
+    shadow: ThemeShadowTokens;
+    motion: ThemeMotionTokens;
+    state: ThemeStateTokens;        // edited/preserved/stale/selection visuals
+    chart: ThemeChartTokens;        // manual line/fill + MC bands/median
   };
 }
 ```

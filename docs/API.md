@@ -74,6 +74,26 @@ Response:
 }
 ```
 
+### GET `/api/v1/themes`
+
+Returns built-in server-authored theme definitions plus catalog metadata and validation warnings.
+
+Response:
+
+```ts
+{
+  defaultThemeId: ThemeId;
+  themes: ThemeDefinition[];
+  catalog: ThemeCatalogItem[];
+  validationIssues: Array<{
+    themeId: ThemeId;
+    tokenPath: string;
+    severity: "warning";
+    message: string;
+  }>;
+}
+```
+
 ### POST `/api/v1/reforecast`
 
 Deterministic reforecast endpoint for Tracking workflows.

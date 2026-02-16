@@ -8,6 +8,7 @@ import type {
   SimulationConfig,
   SinglePathResult,
 } from '../domain/simulation';
+import type { ThemeCatalogItem, ThemeDefinition, ThemeValidationIssue } from '../domain/theme';
 import type { SimulationMode } from '../constants/enums';
 
 export interface HealthResponse {
@@ -30,6 +31,13 @@ export interface SimulateResponse {
 
 export interface HistoricalSummaryResponse {
   summary: HistoricalDataSummary;
+}
+
+export interface ThemesResponse {
+  defaultThemeId: ThemeDefinition['id'];
+  themes: ThemeDefinition[];
+  catalog: ThemeCatalogItem[];
+  validationIssues: ThemeValidationIssue[];
 }
 
 export interface ReforecastRequest {

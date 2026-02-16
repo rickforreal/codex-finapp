@@ -34,6 +34,7 @@ const mergeRowsWithPreservedBoundary = <
 
 export const CommandBar = () => {
   const fileInputRef = useRef<HTMLInputElement | null>(null);
+  const [themeMenuOpen, setThemeMenuOpen] = useState(false);
   const [snapshotMessage, setSnapshotMessage] = useState<string | null>(null);
   const mode = useAppStore((state) => state.mode);
   const simulationMode = useAppStore((state) => state.simulationMode);
@@ -54,6 +55,8 @@ export const CommandBar = () => {
   const lastEditedMonthIndex = useAppStore((state) => state.lastEditedMonthIndex);
   const startDate = useAppStore((state) => state.coreParams.retirementStartDate);
   const clearAllActualOverrides = useAppStore((state) => state.clearAllActualOverrides);
+  const theme = useAppStore((state) => state.theme);
+  const setSelectedThemeId = useAppStore((state) => state.setSelectedThemeId);
   const canRun =
     drawdownType !== DrawdownStrategyType.Rebalancing ||
     Math.abs(targetAllocation.stocks + targetAllocation.bonds + targetAllocation.cash - 1) < 0.000001;
@@ -274,6 +277,54 @@ export const CommandBar = () => {
         </div>
 
         <div className="ml-auto flex items-center gap-2">
+          <div className="relative">
+            <button
+              type="button"
+              onClick={() => setThemeMenuOpen((open) => !open)}
+              className="grid h-9 w-9 place-items-center rounded-md border border-brand-border bg-white text-slate-600 transition hover:border-brand-blue hover:text-brand-blue"
+              aria-label="Select theme"
+              title="Select Theme"
+            >
+              <svg viewBox="0 0 24 24" className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth="2">
+                <path d="M12 3a9 9 0 1 0 9 9c0-1.7-1.3-3-3-3h-1.2a2.8 2.8 0 0 1-2.8-2.8V5.5A2.5 2.5 0 0 0 12 3Z" />
+                <circle cx="7.5" cy="11.5" r=".8" />
+                <circle cx="9.8" cy="7.7" r=".8" />
+                <circle cx="14.4" cy="7.6" r=".8" />
+              </svg>
+            </button>
+            {themeMenuOpen ? (
+              <div className="absolute right-0 top-11 z-30 w-64 rounded-md border border-brand-border bg-white p-2 shadow-lg">
+                <p className="px-2 pb-1 text-[11px] font-semibold uppercase tracking-wide text-slate-500">Theme</p>
+                <div className="space-y-1">
+                  {theme.catalog.map((item) => (
+                    <button
+                      key={item.id}
+                      type="button"
+                      onClick={() => {
+                        setSelectedThemeId(item.id);
+                        setThemeMenuOpen(false);
+                      }}
+                      className={`flex w-full items-center justify-between rounded px-2 py-1.5 text-left text-sm transition ${
+                        item.id === theme.selectedThemeId
+                          ? 'bg-brand-panel text-slate-900'
+                          : 'text-slate-700 hover:bg-brand-surface'
+                      }`}
+                    >
+                      <span>{item.name}</span>
+                      {item.isHighContrast ? (
+                        <span className="rounded bg-brand-surface px-1.5 py-0.5 text-[10px] text-slate-600">
+                          A11y
+                        </span>
+                      ) : null}
+                    </button>
+                  ))}
+                  {theme.catalog.length === 0 ? (
+                    <p className="px-2 py-1 text-xs text-slate-500">Loading themes...</p>
+                  ) : null}
+                </div>
+              </div>
+            ) : null}
+          </div>
           <div className="group relative">
             <button
               type="button"

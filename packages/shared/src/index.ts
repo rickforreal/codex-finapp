@@ -3,4 +3,5 @@ export * from './constants/eras';
 export * from './contracts/api';
 export * from './contracts/schemas';
 export * from './domain/simulation';
+export * from './domain/theme';
 export * from './ui/colors';

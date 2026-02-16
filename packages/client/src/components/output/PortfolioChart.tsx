@@ -38,7 +38,12 @@ type StressTooltipPoint = {
 const height = 360;
 const margin = { top: 20, right: 10, bottom: 44, left: 56 };
 const plotHeight = height - margin.top - margin.bottom;
-const stressScenarioColors = ['#E67E22', '#8E44AD', '#16A085', '#2C3E80'];
+const stressScenarioColors = [
+  'var(--theme-color-stress-a)',
+  'var(--theme-color-stress-b)',
+  'var(--theme-color-stress-c)',
+  'var(--theme-color-stress-d)',
+];
 
 const inflationFactor = (inflationRate: number, monthIndex: number): number => (1 + inflationRate) ** (monthIndex / 12);
 
@@ -323,7 +328,7 @@ export const PortfolioChart = () => {
             return {
               scenarioId: scenario.scenarioId,
               scenarioLabel: scenario.scenarioLabel,
-              color: stressScenarioColors[index] ?? '#64748B',
+              color: stressScenarioColors[index] ?? 'var(--theme-color-text-muted)',
               portfolio: chartDisplayMode === 'real' ? nominalPortfolio / factor : nominalPortfolio,
               withdrawal:
                 chartDisplayMode === 'real' ? row.withdrawals.actual / factor : row.withdrawals.actual,
@@ -373,8 +378,15 @@ export const PortfolioChart = () => {
             const y = yAt(value);
             return (
               <g key={`y-${index}`}>
-                <line x1={margin.left} y1={y} x2={margin.left + plotWidth} y2={y} stroke="#E8EDF6" strokeDasharray="4 4" />
-                <text x={margin.left - 10} y={y + 4} textAnchor="end" fontSize="11" fill="#64748B">
+                <line
+                  x1={margin.left}
+                  y1={y}
+                  x2={margin.left + plotWidth}
+                  y2={y}
+                  stroke="var(--theme-color-chart-grid)"
+                  strokeDasharray="4 4"
+                />
+                <text x={margin.left - 10} y={y + 4} textAnchor="end" fontSize="11" fill="var(--theme-color-chart-text)">
                   {formatCompactCurrency(Math.round(value))}
                 </text>
               </g>
@@ -391,8 +403,8 @@ export const PortfolioChart = () => {
             const x = xAt(localIndex);
             return (
               <g key={`x-${index}`}>
-                <line x1={x} y1={margin.top + plotHeight} x2={x} y2={margin.top + plotHeight + 5} stroke="#94A3B8" />
-                <text x={x} y={height - 12} textAnchor="middle" fontSize="11" fill="#64748B">
+                <line x1={x} y1={margin.top + plotHeight} x2={x} y2={margin.top + plotHeight + 5} stroke="var(--theme-color-chart-axis)" />
+                <text x={x} y={height - 12} textAnchor="middle" fontSize="11" fill="var(--theme-color-chart-text)">
                   Y{point.year}
                 </text>
               </g>
@@ -404,29 +416,29 @@ export const PortfolioChart = () => {
             y1={margin.top + plotHeight}
             x2={margin.left + plotWidth}
             y2={margin.top + plotHeight}
-            stroke="#B8C2D6"
+            stroke="var(--theme-color-chart-axis)"
           />
-          <line x1={margin.left} y1={margin.top} x2={margin.left} y2={margin.top + plotHeight} stroke="#B8C2D6" />
+          <line x1={margin.left} y1={margin.top} x2={margin.left} y2={margin.top + plotHeight} stroke="var(--theme-color-chart-axis)" />
 
           {chartBreakdownEnabled ? (
             <>
-              <path d={areaPath(xValues, cashUpper, cashLower)} fill="#D9A441AA" />
-              <path d={areaPath(xValues, bondsUpper, bondsLower)} fill="#2EAD8EAA" />
-              <path d={areaPath(xValues, stocksUpper, stocksLower)} fill="#4A90D9AA" />
+              <path d={areaPath(xValues, cashUpper, cashLower)} fill="var(--theme-color-asset-cash)" fillOpacity={0.66} />
+              <path d={areaPath(xValues, bondsUpper, bondsLower)} fill="var(--theme-color-asset-bonds)" fillOpacity={0.66} />
+              <path d={areaPath(xValues, stocksUpper, stocksLower)} fill="var(--theme-color-asset-stocks)" fillOpacity={0.66} />
             </>
           ) : visibleBands ? (
             <g opacity={mode === AppMode.Tracking && simulationMode === SimulationMode.MonteCarlo && mcStale ? 0.4 : 1}>
               {mode === AppMode.Tracking && simulationMode === SimulationMode.MonteCarlo && boundaryMonth !== null ? (
                 <>
-                  <path d={leftRealizedLine} fill="none" stroke="#1A365D" strokeWidth="2.5" />
+                  <path d={leftRealizedLine} fill="none" stroke="var(--theme-chart-manual-line)" strokeWidth="2.5" />
                   {rightBandX.length > 1 ? (
                     <>
-                      <path d={areaPath(rightBandX, rightBandP10.map(yAt), rightBandP90.map(yAt))} fill="#93C5FD55" />
-                      <path d={areaPath(rightBandX, rightBandP25.map(yAt), rightBandP75.map(yAt))} fill="#60A5FA66" />
+                      <path d={areaPath(rightBandX, rightBandP10.map(yAt), rightBandP90.map(yAt))} fill="var(--theme-chart-mc-band-outer)" />
+                      <path d={areaPath(rightBandX, rightBandP25.map(yAt), rightBandP75.map(yAt))} fill="var(--theme-chart-mc-band-inner)" />
                       <path
                         d={linePath(rightBandP50.map((value, index) => ({ x: rightBandX[index] ?? 0, y: yAt(value) })))}
                         fill="none"
-                        stroke="#1A365D"
+                        stroke="var(--theme-chart-mc-median-line)"
                         strokeWidth="2.5"
                       />
                     </>
@@ -434,19 +446,19 @@ export const PortfolioChart = () => {
                 </>
               ) : (
                 <>
-                  <path d={areaPath(xValues, visibleBands.p10.map(yAt), visibleBands.p90.map(yAt))} fill="#93C5FD55" />
-                  <path d={areaPath(xValues, visibleBands.p25.map(yAt), visibleBands.p75.map(yAt))} fill="#60A5FA66" />
-                  <path d={mcMedianLine} fill="none" stroke="#1A365D" strokeWidth="2.5" />
+                  <path d={areaPath(xValues, visibleBands.p10.map(yAt), visibleBands.p90.map(yAt))} fill="var(--theme-chart-mc-band-outer)" />
+                  <path d={areaPath(xValues, visibleBands.p25.map(yAt), visibleBands.p75.map(yAt))} fill="var(--theme-chart-mc-band-inner)" />
+                  <path d={mcMedianLine} fill="none" stroke="var(--theme-chart-mc-median-line)" strokeWidth="2.5" />
                 </>
               )}
               <g transform={`translate(${margin.left + plotWidth - 120}, ${margin.top + 8})`}>
-                <rect x={0} y={0} width={116} height={52} rx={6} fill="#FFFFFFE6" stroke="#D9DFEA" />
-                <text x={10} y={16} fontSize="10" fill="#475569">10-90%</text>
-                <rect x={70} y={9} width={30} height={8} fill="#93C5FD55" />
-                <text x={10} y={31} fontSize="10" fill="#475569">25-75%</text>
-                <rect x={70} y={24} width={30} height={8} fill="#60A5FA66" />
-                <text x={10} y={46} fontSize="10" fill="#475569">Median</text>
-                <line x1={70} y1={42} x2={100} y2={42} stroke="#1A365D" strokeWidth="2" />
+                <rect x={0} y={0} width={116} height={52} rx={6} fill="var(--theme-color-overlay)" stroke="var(--theme-color-border-primary)" />
+                <text x={10} y={16} fontSize="10" fill="var(--theme-color-text-secondary)">10-90%</text>
+                <rect x={70} y={9} width={30} height={8} fill="var(--theme-chart-mc-band-outer)" />
+                <text x={10} y={31} fontSize="10" fill="var(--theme-color-text-secondary)">25-75%</text>
+                <rect x={70} y={24} width={30} height={8} fill="var(--theme-chart-mc-band-inner)" />
+                <text x={10} y={46} fontSize="10" fill="var(--theme-color-text-secondary)">Median</text>
+                <line x1={70} y1={42} x2={100} y2={42} stroke="var(--theme-chart-mc-median-line)" strokeWidth="2" />
               </g>
             </g>
           ) : (
@@ -455,7 +467,7 @@ export const PortfolioChart = () => {
                 d={`${manualLine} L ${xAt(visible.length - 1)} ${yAt(0)} L ${xAt(0)} ${yAt(0)} Z`}
                 fill="url(#portfolioFill)"
               />
-              <path d={manualLine} fill="none" stroke="#1A365D" strokeWidth="2.5" />
+              <path d={manualLine} fill="none" stroke="var(--theme-chart-manual-line)" strokeWidth="2.5" />
             </>
           )}
 
@@ -465,7 +477,7 @@ export const PortfolioChart = () => {
                   key={`stress-scenario-${index}`}
                   d={path}
                   fill="none"
-                  stroke={stressScenarioColors[index] ?? '#64748B'}
+                  stroke={stressScenarioColors[index] ?? 'var(--theme-color-text-muted)'}
                   strokeWidth="2"
                   strokeDasharray="6 4"
                   opacity={0.95}
@@ -475,30 +487,30 @@ export const PortfolioChart = () => {
 
           <defs>
             <linearGradient id="portfolioFill" x1="0" x2="0" y1="0" y2="1">
-              <stop offset="0%" stopColor="#1A365D33" />
-              <stop offset="100%" stopColor="#1A365D08" />
+              <stop offset="0%" stopColor="var(--theme-chart-manual-area-top)" />
+              <stop offset="100%" stopColor="var(--theme-chart-manual-area-bottom)" />
             </linearGradient>
           </defs>
 
           {hoverX !== null ? (
-            <line x1={hoverX} y1={margin.top} x2={hoverX} y2={margin.top + plotHeight} stroke="#64748B" strokeDasharray="4 4" />
+            <line x1={hoverX} y1={margin.top} x2={hoverX} y2={margin.top + plotHeight} stroke="var(--theme-color-chart-text)" strokeDasharray="4 4" />
           ) : null}
           {boundaryX !== null && mode === AppMode.Tracking ? (
             <>
-              <line x1={boundaryX} y1={margin.top} x2={boundaryX} y2={margin.top + plotHeight} stroke="#1D4ED8" strokeDasharray="5 4" />
-              <text x={boundaryX + 6} y={margin.top + 16} fontSize="10" fill="#1E3A8A">
+              <line x1={boundaryX} y1={margin.top} x2={boundaryX} y2={margin.top + plotHeight} stroke="var(--theme-color-info)" strokeDasharray="5 4" />
+              <text x={boundaryX + 6} y={margin.top + 16} fontSize="10" fill="var(--theme-color-info)">
                 Actuals {'->'} Simulated
               </text>
             </>
           ) : null}
-            {hoverX !== null && hoverY !== null ? <circle cx={hoverX} cy={hoverY} r={5} fill="#1A365D" /> : null}
+            {hoverX !== null && hoverY !== null ? <circle cx={hoverX} cy={hoverY} r={5} fill="var(--theme-chart-manual-line)" /> : null}
           </svg>
         </div>
 
         {!chartBreakdownEnabled && stressPaths.length > 0 ? (
           <div className="absolute right-3 top-3 rounded-md border border-slate-200 bg-white/90 px-3 py-2 text-[11px] text-slate-700 shadow-sm">
             <div className="mb-1 flex items-center gap-2">
-              <span className="inline-block h-[2px] w-5 bg-[#1A365D]" />
+              <span className="inline-block h-[2px] w-5 bg-brand-navy" />
               <span>Base</span>
             </div>
             {stressResult?.scenarios.map((scenario, index) => (
@@ -506,7 +518,7 @@ export const PortfolioChart = () => {
                 <span
                   className="inline-block w-5 border-t-2 border-dashed"
                   style={{
-                    borderTopColor: stressScenarioColors[index] ?? '#64748B',
+                    borderTopColor: stressScenarioColors[index] ?? 'var(--theme-color-text-muted)',
                   }}
                 />
                 <span className="max-w-[160px] truncate">{scenario.scenarioLabel}</span>
