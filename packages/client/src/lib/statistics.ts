@@ -83,8 +83,12 @@ export const buildSummaryStats = (rows: MonthlySimulationRow[], inflationRate: n
     };
   }
 
-  const nominalWithdrawals = rows.map((row) => row.withdrawals.actual);
-  const realWithdrawals = rows.map((row) => row.withdrawals.actual / inflationFactor(inflationRate, row.monthIndex));
+  const withdrawalRows = rows.filter((row) => row.withdrawals.requested > 0);
+  const sourceRows = withdrawalRows.length > 0 ? withdrawalRows : rows;
+  const nominalWithdrawals = sourceRows.map((row) => row.withdrawals.requested);
+  const realWithdrawals = sourceRows.map(
+    (row) => row.withdrawals.requested / inflationFactor(inflationRate, row.monthIndex),
+  );
   const totals = rows.map(totalBalance);
   const { p25, p50, p75 } = computeQuantiles(realWithdrawals);
 
