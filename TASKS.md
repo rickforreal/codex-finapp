@@ -698,3 +698,11 @@ Acceptance Criteria:
 [AC1] Manual mode shows no residual whitespace under `Detail Ledger` header before column header row.
 [AC2] Sticky header behavior remains correct across Manual/Monte Carlo and Monthly/Annual toggles.
 [DEFERRED] User requested moving on; issue is reproducible intermittently and will be revisited in a later polish pass.
+
+- [x] P12E-T1: Default Stress Test panel to expanded
+Phase: 12 (Polish & Hardening)
+Dependencies: P12D-T3
+Acceptance Criteria:
+[AC1] Stress Test panel is expanded by default on app load.
+[AC2] Existing collapse/expand toggle behavior remains functional.
+[AC3] Client typecheck and lint pass.

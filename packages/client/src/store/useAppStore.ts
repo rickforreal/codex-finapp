@@ -905,7 +905,7 @@ export const useAppStore = create<AppStore>((set) => ({
     errorMessage: null,
   },
   stress: {
-    isExpanded: false,
+    isExpanded: true,
     scenarios: [],
     result: null,
     status: 'idle',

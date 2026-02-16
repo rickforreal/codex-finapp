@@ -1,3 +1,10 @@
+## 2026-02-15 19:33 — P12E-T1 | COMPLETE
+
+Phase 12E Stress Test update: changed default panel state to expanded (`stress.isExpanded = true`) so Stress Test content is visible by default.
+Collapse/expand toggle behavior is unchanged.
+
+Validation passed: `npm run typecheck -w @finapp/client` and `npm run lint -w @finapp/client`.
+
 ## 2026-02-15 19:27 — P12D-T4 | DEFERRED
 
 User-approved deferral of remaining manual-mode `Detail Ledger` header whitespace issue after multiple sticky-offset fixes (including dynamic measured offset and scroll-state sync) did not fully resolve observed behavior.
