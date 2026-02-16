@@ -1,4 +1,4 @@
-import { useEffect } from 'react';
+import { useEffect, useRef } from 'react';
 
 import { fetchHealth } from './api/healthApi';
 import { fetchThemes } from './api/themeApi';
@@ -9,6 +9,7 @@ import { useAppStore } from './store/useAppStore';
 const App = () => {
   const themeState = useAppStore((state) => state.theme);
   const setThemeState = useAppStore((state) => state.setThemeState);
+  const themeFetchInFlightRef = useRef(false);
 
   useEffect(() => {
     void fetchHealth()
@@ -21,8 +22,15 @@ const App = () => {
   }, []);
 
   useEffect(() => {
+    const hasThemeCatalog = themeState.catalog.length > 0 && themeState.themes.length > 0;
+    if (hasThemeCatalog || themeFetchInFlightRef.current) {
+      return;
+    }
+
     let cancelled = false;
+    themeFetchInFlightRef.current = true;
     setThemeState({ status: 'loading', errorMessage: null });
+
     void fetchThemes()
       .then((response) => {
         if (cancelled) {
@@ -31,9 +39,7 @@ const App = () => {
         const availableIds = new Set(response.catalog.map((item) => item.id));
         const state = useAppStore.getState();
         const snapshotPreference =
-          state.theme.themes.length > 0 && availableIds.has(state.theme.selectedThemeId)
-            ? state.theme.selectedThemeId
-            : null;
+          availableIds.has(state.theme.selectedThemeId) ? state.theme.selectedThemeId : null;
         const localPreference = loadThemePreference();
         const localPreferenceId = localPreference && availableIds.has(localPreference as typeof response.defaultThemeId)
           ? (localPreference as typeof response.defaultThemeId)
@@ -63,12 +69,15 @@ const App = () => {
         }
         const message = error instanceof Error ? error.message : 'Failed to load themes';
         setThemeState({ status: 'error', errorMessage: message });
+      })
+      .finally(() => {
+        themeFetchInFlightRef.current = false;
       });
 
     return () => {
       cancelled = true;
     };
-  }, [setThemeState]);
+  }, [setThemeState, themeState.catalog.length, themeState.themes.length]);
 
   useEffect(() => {
     if (themeState.status !== 'ready') {

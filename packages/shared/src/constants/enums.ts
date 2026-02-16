@@ -49,4 +49,5 @@ export enum ThemeId {
   Light = 'light',
   Dark = 'dark',
   HighContrast = 'highContrast',
+  Monokai = 'monokai',
 }

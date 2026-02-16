@@ -18,7 +18,7 @@ describe('GET /api/v1/themes', () => {
     expect(body.defaultThemeId).toBe(ThemeId.Light);
     expect(Array.isArray(body.themes)).toBe(true);
     expect(body.themes.map((theme: { id: ThemeId }) => theme.id)).toEqual(
-      expect.arrayContaining([ThemeId.Light, ThemeId.Dark, ThemeId.HighContrast]),
+      expect.arrayContaining([ThemeId.Light, ThemeId.Dark, ThemeId.HighContrast, ThemeId.Monokai]),
     );
 
     await app.close();

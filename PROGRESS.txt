@@ -1,3 +1,19 @@
+## 2026-02-16 01:56 — FEATURE-MONOKAI-FOLLOWUP | COMPLETE
+
+Fixed theme dropdown getting stuck on "Loading..." after snapshot load. Root cause: theme hydration fetch ran only on initial mount, so snapshot-restored empty/loading theme state had no refetch path.
+
+Updated `packages/client/src/App.tsx` to rehydrate themes whenever catalog/definitions are missing, with an in-flight guard to prevent duplicate fetches. Client `test`, `typecheck`, and `lint` all pass.
+## 2026-02-16 01:38 — FEATURE-MONOKAI-BUILD | COMPLETE
+
+Implemented Monokai as a new built-in server-defined theme: added `ThemeId.Monokai`, added a full Monokai token bundle in `packages/server/src/themes/registry.ts`, and updated `/api/v1/themes` route tests to assert Monokai is included in built-in IDs.
+
+Validation passed: `npm test`, `npm run typecheck`, `npm run lint`, and `npm run build`.
+[QUESTION] Manual visual acceptance (`docs/features/themes/monokai/ACCEPTANCE.md`) is still pending user review, including live picker rendering and persistence smoke checks.
+## 2026-02-16 01:34 — FEATURE-MONOKAI-PLAN | COMPLETE
+
+Created a decision-complete feature planning pack under `docs/features/themes/monokai/` with implementation plan, task breakdown, acceptance checklist, and token-direction guidance.
+
+[DECISION] No canonical doc updates were made in planning because Monokai is additive within the existing Phase 13 server-defined theming architecture.
 ## 2026-02-15 20:30 — SESSION START | Resuming from P12Z-T1. Last completed: Phase 12 closeout + doc reconciliation. Next: new Phase 13 theming foundation.
 
 ## 2026-02-15 20:30 — P13-T6 | COMPLETE

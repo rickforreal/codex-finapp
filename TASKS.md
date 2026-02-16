@@ -773,3 +773,31 @@ Acceptance Criteria:
 [AC1] Chart/manual/MC/stress colors are sourced from theme tokens.
 [AC2] Tracking edited/preserved/stale table states use theme state tokens.
 [AC3] `npm test`, `npm run typecheck`, `npm run lint`, and `npm run build` pass.
+
+## Feature Plan — Monokai Theme
+
+- [x] FM-T1: Add `ThemeId.Monokai` in shared enums
+Phase: Feature/Monokai
+Dependencies: none
+Acceptance Criteria:
+[AC1] Shared enum exports `ThemeId.Monokai`.
+
+- [x] FM-T2: Add Monokai definition to server theme registry
+Phase: Feature/Monokai
+Dependencies: FM-T1
+Acceptance Criteria:
+[AC1] `/api/v1/themes` includes Monokai in catalog and `themes` payload.
+[AC2] Light remains `defaultThemeId`.
+
+- [x] FM-T3: Update built-in theme route tests
+Phase: Feature/Monokai
+Dependencies: FM-T2
+Acceptance Criteria:
+[AC1] Route test asserts Monokai appears in built-in IDs.
+
+- [ ] FM-T4: Run full verification and visual QA
+Phase: Feature/Monokai
+Dependencies: FM-T3
+Acceptance Criteria:
+[AC1] `npm test`, `npm run typecheck`, `npm run lint`, and `npm run build` pass.
+[AC2] Monokai passes checklist in `docs/features/themes/monokai/ACCEPTANCE.md`.
