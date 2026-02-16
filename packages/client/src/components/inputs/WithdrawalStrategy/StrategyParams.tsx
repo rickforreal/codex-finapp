@@ -109,6 +109,31 @@ export const StrategyParams = () => {
     );
   }
 
+  if (strategy.type === WithdrawalStrategyType.DynamicSwrAdaptive) {
+    return (
+      <div className="space-y-2">
+        <PercentField
+          label="Fallback Expected Rate of Return"
+          value={strategy.params.fallbackExpectedRateOfReturn}
+          onChange={set('fallbackExpectedRateOfReturn')}
+          min={1}
+          max={15}
+          step={0.1}
+        />
+        <label className="space-y-1">
+          <p className="text-xs font-medium text-slate-600">Realized Return Lookback (months)</p>
+          <NumericInput
+            value={strategy.params.lookbackMonths}
+            onChange={set('lookbackMonths')}
+            min={6}
+            max={60}
+            step={1}
+          />
+        </label>
+      </div>
+    );
+  }
+
   if (strategy.type === WithdrawalStrategyType.SensibleWithdrawals) {
     return (
       <div className="space-y-3">

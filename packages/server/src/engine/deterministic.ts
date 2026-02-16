@@ -13,14 +13,33 @@ import {
 } from '@finapp/shared';
 
 import { applyConfiguredDrawdown } from './drawdown';
-import { inflateAnnualAmount } from './helpers/inflation';
+import { annualToMonthlyRate, inflateAnnualAmount } from './helpers/inflation';
 import { roundToCents } from './helpers/rounding';
-import { calculateAnnualWithdrawal } from './strategies';
+import { calculateAnnualWithdrawal, isMonthlyWithdrawalStrategy } from './strategies';
+import { toRealMonthlyReturn } from './strategies/dynamicSwrAdaptive';
 
 const totalPortfolio = (balances: AssetBalances): number =>
   roundToCents(balances.stocks + balances.bonds + balances.cash);
+const resolveStartOfMonthWeights = (balances: AssetBalances): { stocks: number; bonds: number; cash: number } => {
+  const total = totalPortfolio(balances);
+  if (total <= 0) {
+    return { stocks: 0, bonds: 0, cash: 0 };
+  }
 
-const annualToMonthlyRate = (annualRate: number): number => (1 + annualRate) ** (1 / 12) - 1;
+  return {
+    stocks: balances.stocks / total,
+    bonds: balances.bonds / total,
+    cash: balances.cash / total,
+  };
+};
+
+const inflateMonthlyByAnnualRate = (baseAmount: number, annualInflationRate: number, monthIndexOneBased: number): number => {
+  const monthlyInflationRate = annualToMonthlyRate(annualInflationRate);
+  if (monthIndexOneBased <= 1) {
+    return roundToCents(baseAmount);
+  }
+  return roundToCents(baseAmount * (1 + monthlyInflationRate) ** (monthIndexOneBased - 1));
+};
 
 const findSpendingPhaseForYear = (config: SimulationConfig, year: number): SpendingPhase => {
   const match = config.spendingPhases.find((phase) => year >= phase.startYear && year <= phase.endYear);
@@ -232,6 +251,11 @@ export const reforecastDeterministic = (
   let currentMonthlyWithdrawal = 0;
   let totalWithdrawn = 0;
   let totalShortfall = 0;
+  const trailingRealReturnsByAsset = {
+    stocks: [] as number[],
+    bonds: [] as number[],
+    cash: [] as number[],
+  };
 
   const rows: SinglePathResult['rows'] = [];
 
@@ -273,36 +297,69 @@ export const reforecastDeterministic = (
     }
     balances = afterMarket;
 
-    if (monthInYear === 1) {
-      if (year < withdrawalStartYear) {
-        previousAnnualWithdrawal = 0;
-        currentMonthlyWithdrawal = 0;
-      } else {
-        const annualWithdrawal = calculateAnnualWithdrawal(
-          {
-            year,
-            retirementYears: config.coreParams.retirementDuration,
-            portfolioValue: totalPortfolio(balances),
-            initialPortfolioValue: totalPortfolio(initialBalances),
-            previousWithdrawal: previousAnnualWithdrawal,
-            previousYearReturn,
-            previousYearStartPortfolio,
-            remainingYears: config.coreParams.retirementDuration - year + 1,
-            inflationRate: config.coreParams.inflationRate,
-          },
-          config.withdrawalStrategy,
-        );
-        const phase = findSpendingPhaseForYear(config, year);
-        const annualMin = roundToCents(
-          inflateAnnualAmount(phase.minMonthlySpend * 12, config.coreParams.inflationRate, year - 1),
-        );
-        const annualMax = roundToCents(
-          inflateAnnualAmount(phase.maxMonthlySpend * 12, config.coreParams.inflationRate, year - 1),
-        );
-        const clampedAnnual = Math.max(annualMin, Math.min(annualWithdrawal, annualMax));
-        previousAnnualWithdrawal = clampedAnnual;
-        currentMonthlyWithdrawal = roundToCents(clampedAnnual / 12);
-      }
+    if (year < withdrawalStartYear) {
+      previousAnnualWithdrawal = 0;
+      currentMonthlyWithdrawal = 0;
+    } else if (isMonthlyWithdrawalStrategy(config.withdrawalStrategy)) {
+      const monthlyWithdrawal = calculateAnnualWithdrawal(
+        {
+          year,
+          monthIndex: oneBasedMonth,
+          retirementYears: config.coreParams.retirementDuration,
+          portfolioValue: totalPortfolio(balances),
+          initialPortfolioValue: totalPortfolio(initialBalances),
+          previousWithdrawal: previousAnnualWithdrawal,
+          previousYearReturn,
+          previousYearStartPortfolio,
+          remainingYears: config.coreParams.retirementDuration - year + 1,
+          remainingMonths: durationMonths - monthIndex,
+          inflationRate: config.coreParams.inflationRate,
+          startOfMonthWeights: resolveStartOfMonthWeights(startBalances),
+          trailingRealReturnsByAsset,
+        },
+        config.withdrawalStrategy,
+      );
+      const phase = findSpendingPhaseForYear(config, year);
+      const monthlyMin = inflateMonthlyByAnnualRate(
+        phase.minMonthlySpend,
+        config.coreParams.inflationRate,
+        oneBasedMonth,
+      );
+      const monthlyMax = inflateMonthlyByAnnualRate(
+        phase.maxMonthlySpend,
+        config.coreParams.inflationRate,
+        oneBasedMonth,
+      );
+      currentMonthlyWithdrawal = Math.max(monthlyMin, Math.min(monthlyWithdrawal, monthlyMax));
+    } else if (monthInYear === 1) {
+      const annualWithdrawal = calculateAnnualWithdrawal(
+        {
+          year,
+          monthIndex: oneBasedMonth,
+          retirementYears: config.coreParams.retirementDuration,
+          portfolioValue: totalPortfolio(balances),
+          initialPortfolioValue: totalPortfolio(initialBalances),
+          previousWithdrawal: previousAnnualWithdrawal,
+          previousYearReturn,
+          previousYearStartPortfolio,
+          remainingYears: config.coreParams.retirementDuration - year + 1,
+          remainingMonths: durationMonths - monthIndex,
+          inflationRate: config.coreParams.inflationRate,
+          startOfMonthWeights: resolveStartOfMonthWeights(startBalances),
+          trailingRealReturnsByAsset,
+        },
+        config.withdrawalStrategy,
+      );
+      const phase = findSpendingPhaseForYear(config, year);
+      const annualMin = roundToCents(
+        inflateAnnualAmount(phase.minMonthlySpend * 12, config.coreParams.inflationRate, year - 1),
+      );
+      const annualMax = roundToCents(
+        inflateAnnualAmount(phase.maxMonthlySpend * 12, config.coreParams.inflationRate, year - 1),
+      );
+      const clampedAnnual = Math.max(annualMin, Math.min(annualWithdrawal, annualMax));
+      previousAnnualWithdrawal = clampedAnnual;
+      currentMonthlyWithdrawal = roundToCents(clampedAnnual / 12);
     }
 
     const editedWithdrawals = override ? applyEditedWithdrawals(balances, override) : null;
@@ -358,6 +415,10 @@ export const reforecastDeterministic = (
       expenseTotal: expenseResult.actualTotal,
       endBalances: { ...balances },
     });
+
+    trailingRealReturnsByAsset.stocks.push(toRealMonthlyReturn(monthlyRates.stocks, config.coreParams.inflationRate));
+    trailingRealReturnsByAsset.bonds.push(toRealMonthlyReturn(monthlyRates.bonds, config.coreParams.inflationRate));
+    trailingRealReturnsByAsset.cash.push(toRealMonthlyReturn(monthlyRates.cash, config.coreParams.inflationRate));
   }
 
   return {

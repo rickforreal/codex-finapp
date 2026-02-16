@@ -46,6 +46,11 @@ export interface DynamicSwrParams {
   expectedRateOfReturn: number;
 }
 
+export interface DynamicSwrAdaptiveParams {
+  fallbackExpectedRateOfReturn: number;
+  lookbackMonths: number;
+}
+
 export interface SensibleWithdrawalsParams {
   baseWithdrawalRate: number;
   extrasWithdrawalRate: number;
@@ -94,6 +99,7 @@ export type WithdrawalStrategyConfig =
   | { type: WithdrawalStrategyType.OneOverN; params: OneOverNParams }
   | { type: WithdrawalStrategyType.Vpw; params: VpwParams }
   | { type: WithdrawalStrategyType.DynamicSwr; params: DynamicSwrParams }
+  | { type: WithdrawalStrategyType.DynamicSwrAdaptive; params: DynamicSwrAdaptiveParams }
   | { type: WithdrawalStrategyType.SensibleWithdrawals; params: SensibleWithdrawalsParams }
   | { type: WithdrawalStrategyType.NinetyFivePercent; params: NinetyFivePercentParams }
   | { type: WithdrawalStrategyType.GuytonKlinger; params: GuytonKlingerParams }

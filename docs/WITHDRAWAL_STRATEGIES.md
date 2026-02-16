@@ -1,6 +1,6 @@
 # Withdrawal Strategies — Mathematical Reference
 
-This document provides the precise formulas and algorithmic logic for all 12 withdrawal strategies and both drawdown (asset sourcing) strategies. It is the authoritative reference for implementing the simulation engine. Every variable name maps to a SPECS.md parameter or a derived simulation value.
+This document provides the precise formulas and algorithmic logic for all 13 withdrawal strategies and both drawdown (asset sourcing) strategies. It is the authoritative reference for implementing the simulation engine. Every variable name maps to a SPECS.md parameter or a derived simulation value.
 
 ---
 
@@ -12,17 +12,18 @@ This document provides the precise formulas and algorithmic logic for all 12 wit
 4. [Strategy 2: Percent of Portfolio](#strategy-2-percent-of-portfolio)
 5. [Strategy 3: 1/N](#strategy-3-1n)
 6. [Strategy 4: Variable Percentage Withdrawal (VPW)](#strategy-4-variable-percentage-withdrawal-vpw)
-7. [Strategy 5: Dynamic SWR](#strategy-5-dynamic-swr)
-8. [Strategy 6: Sensible Withdrawals](#strategy-6-sensible-withdrawals)
-9. [Strategy 7: 95% Rule](#strategy-7-95-rule)
-10. [Strategy 8: Guyton-Klinger](#strategy-8-guyton-klinger)
-11. [Strategy 9: Vanguard Dynamic Spending](#strategy-9-vanguard-dynamic-spending)
-12. [Strategy 10: Endowment Strategy](#strategy-10-endowment-strategy)
-13. [Strategy 11: Hebeler Autopilot II](#strategy-11-hebeler-autopilot-ii)
-14. [Strategy 12: CAPE-Based](#strategy-12-cape-based)
-15. [Drawdown Strategy A: Bucket](#drawdown-strategy-a-bucket)
-16. [Drawdown Strategy B: Rebalancing](#drawdown-strategy-b-rebalancing)
-17. [Appendix: PMT Function](#appendix-pmt-function)
+7. [Strategy 5: Dynamic SWR (Fixed ROI)](#strategy-5-dynamic-swr-fixed-roi)
+8. [Strategy 5B: Adaptive Dynamic SWR (Monthly Realized TWR)](#strategy-5b-adaptive-dynamic-swr-monthly-realized-twr)
+9. [Strategy 6: Sensible Withdrawals](#strategy-6-sensible-withdrawals)
+10. [Strategy 7: 95% Rule](#strategy-7-95-rule)
+11. [Strategy 8: Guyton-Klinger](#strategy-8-guyton-klinger)
+12. [Strategy 9: Vanguard Dynamic Spending](#strategy-9-vanguard-dynamic-spending)
+13. [Strategy 10: Endowment Strategy](#strategy-10-endowment-strategy)
+14. [Strategy 11: Hebeler Autopilot II](#strategy-11-hebeler-autopilot-ii)
+15. [Strategy 12: CAPE-Based](#strategy-12-cape-based)
+16. [Drawdown Strategy A: Bucket](#drawdown-strategy-a-bucket)
+17. [Drawdown Strategy B: Rebalancing](#drawdown-strategy-b-rebalancing)
+18. [Appendix: PMT Function](#appendix-pmt-function)
 
 ---
 
@@ -44,13 +45,15 @@ This document provides the precise formulas and algorithmic logic for all 12 wit
 
 ### Annual-to-Monthly Conversion
 
-All withdrawal strategies calculate an **annual** withdrawal at the start of each simulation year (every 12th month). The monthly withdrawal is:
+Most withdrawal strategies calculate an **annual** withdrawal at the start of each simulation year (every 12th month). The monthly withdrawal is:
 
 ```
 monthly_withdrawal = annual_withdrawal / 12
 ```
 
 This monthly amount is applied evenly across all 12 months of that year. The annual recalculation happens at the start of the next year using the portfolio value at that point.
+
+Exception: **Strategy 5B (Adaptive Dynamic SWR)** recalculates every month and emits a monthly withdrawal directly.
 
 ### Year Indexing
 
@@ -231,7 +234,7 @@ else:
 
 ---
 
-## Strategy 5: Dynamic SWR
+## Strategy 5: Dynamic SWR (Fixed ROI)
 
 **Category:** Adaptive  
 **SPECS parameters:** `expectedRateOfReturn` (21-5a)  
@@ -261,6 +264,75 @@ This formula is a present-value annuity calculation that determines the level re
 - If `roi < inf` (negative expected real return), the formula still works but produces higher withdrawals earlier (spending down faster because the portfolio is expected to lose real value).
 - Edge case: if `roi == inf`, use the `Pₜ / nₜ` fallback to avoid division by zero.
 - As `nₜ → 1`, `Wₜ → Pₜ × (roi - inf) / (1 - (1+inf)/(1+roi))` which approaches `Pₜ` (full spend in the last year).
+
+---
+
+## Strategy 5B: Adaptive Dynamic SWR (Monthly Realized TWR)
+
+**Category:** Adaptive  
+**SPECS parameters:** `fallbackExpectedRateOfReturn` (21-5b1), `lookbackMonths` (21-5b2)  
+**Also uses:** `inflationRate` from Core Parameters (#6)
+
+### Formula / Algorithm
+
+This variant updates the Dynamic SWR ROI input each month using trailing realized **real TWR**.
+
+Let:
+
+- `L = lookbackMonths`
+- `m` = current month index in retirement (`m = 1..12N`)
+- `Mₘ = 12N - m + 1` (remaining months)
+- `w_a,m` = start-of-month portfolio weight for asset class `a` in month `m`
+- `r_nom,a,k` = realized nominal monthly return for asset class `a` in month `k`
+- `i_annual` = annual inflation rate
+- `i_month = (1 + i_annual)^(1/12) - 1`
+
+For each asset class over the trailing window (`k = m-L .. m-1`):
+
+```
+r_real,a,k = ((1 + r_nom,a,k) / (1 + i_month)) - 1
+
+R_real,a,ann = ( Π(1 + r_real,a,k) )^(12 / L) - 1
+```
+
+Aggregate to portfolio-level adaptive real ROI using current start-of-month weights:
+
+```
+R_real,ann = Σ_a (w_a,m × R_real,a,ann)
+```
+
+Convert to annual nominal ROI for Dynamic SWR annuity math:
+
+```
+roi_adaptive = (1 + R_real,ann) × (1 + i_annual) - 1
+```
+
+Warm-up period (insufficient trailing history):
+
+```
+if m <= L:
+    roi_adaptive = fallbackExpectedRateOfReturn
+```
+
+Compute monthly withdrawal at month `m` by applying the Dynamic SWR annuity using `roi_adaptive`, with remaining years `nₘ = Mₘ / 12`, then dividing to monthly:
+
+```
+if roi_adaptive == i_annual:
+    annual_m = Pₘ / nₘ
+else:
+    annual_m = Pₘ × (roi_adaptive - i_annual) / (1 - ((1 + i_annual) / (1 + roi_adaptive))^nₘ)
+
+monthly_m = annual_m / 12
+```
+
+Apply spending phase min/max clamping after this monthly withdrawal is computed (using the phase bounds inflation-adjusted for the current simulation year).
+
+### Notes
+
+- Uses realized **TWR** (flow-neutral) rather than IRR/MWR.
+- Uses per-asset realized returns, aggregated each month by current portfolio weights.
+- Uses no extra smoothing or ROI hard-bounds beyond the existing spending phase min/max clamps.
+- If `lookbackMonths = 12`, fixed fallback ROI is used through month 12 and is superseded beginning month 13.
 
 ---
 

@@ -68,6 +68,8 @@ type WithdrawalParamKey =
   | 'expectedRealReturn'
   | 'drawdownTarget'
   | 'expectedRateOfReturn'
+  | 'fallbackExpectedRateOfReturn'
+  | 'lookbackMonths'
   | 'baseWithdrawalRate'
   | 'extrasWithdrawalRate'
   | 'minimumFloor'
@@ -439,6 +441,8 @@ const defaultWithdrawalStrategyParams = (): WithdrawalStrategyParamsForm => ({
   expectedRealReturn: 0.03,
   drawdownTarget: 1,
   expectedRateOfReturn: 0.06,
+  fallbackExpectedRateOfReturn: 0.06,
+  lookbackMonths: 12,
   baseWithdrawalRate: 0.03,
   extrasWithdrawalRate: 0.1,
   minimumFloor: 0.95,
@@ -478,6 +482,14 @@ const resolveWithdrawalStrategyConfig = (
       };
     case WithdrawalStrategyType.DynamicSwr:
       return { type, params: { expectedRateOfReturn: params.expectedRateOfReturn } };
+    case WithdrawalStrategyType.DynamicSwrAdaptive:
+      return {
+        type,
+        params: {
+          fallbackExpectedRateOfReturn: params.fallbackExpectedRateOfReturn,
+          lookbackMonths: Math.round(params.lookbackMonths),
+        },
+      };
     case WithdrawalStrategyType.SensibleWithdrawals:
       return {
         type,

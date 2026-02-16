@@ -11,6 +11,7 @@ const STRATEGY_OPTIONS: Array<{ value: WithdrawalStrategyType; label: string }> 
   { value: WithdrawalStrategyType.OneOverN, label: '1/N' },
   { value: WithdrawalStrategyType.Vpw, label: 'VPW' },
   { value: WithdrawalStrategyType.DynamicSwr, label: 'Dynamic SWR' },
+  { value: WithdrawalStrategyType.DynamicSwrAdaptive, label: 'Dynamic SWR (Adaptive TWR)' },
   { value: WithdrawalStrategyType.SensibleWithdrawals, label: 'Sensible Withdrawals' },
   { value: WithdrawalStrategyType.NinetyFivePercent, label: '95% Rule' },
   { value: WithdrawalStrategyType.GuytonKlinger, label: 'Guyton-Klinger' },

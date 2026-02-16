@@ -1,7 +1,20 @@
 import type { WithdrawalStrategyConfig } from '@finapp/shared';
 
+export interface AssetWeights {
+  stocks: number;
+  bonds: number;
+  cash: number;
+}
+
+export interface TrailingRealReturnsByAsset {
+  stocks: number[];
+  bonds: number[];
+  cash: number[];
+}
+
 export interface StrategyContext {
   year: number;
+  monthIndex: number;
   retirementYears: number;
   portfolioValue: number;
   initialPortfolioValue: number;
@@ -9,7 +22,10 @@ export interface StrategyContext {
   previousYearReturn: number;
   previousYearStartPortfolio: number;
   remainingYears: number;
+  remainingMonths: number;
   inflationRate: number;
+  startOfMonthWeights?: AssetWeights;
+  trailingRealReturnsByAsset?: TrailingRealReturnsByAsset;
   capeRatio?: number;
 }
 

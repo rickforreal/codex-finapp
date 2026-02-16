@@ -668,3 +668,30 @@ Verification run (all passing):
   - Updated `docs/SCENARIOS.md` to align narratives with current UX (Detail Ledger naming, Breakdown control labels, no active zoom/pan flow, loading-state scenario, and no CSV-export scenario).
   - Updated `docs/ARCHITECTURE.md` to remove active CSV-export/zoom assumptions from current UI architecture, align component naming, and annotate deferred/reserved areas.
   - Updated `docs/PRD.md`, `docs/DATA_MODEL.md`, and `docs/API.md` with current-release scope and defaults (CSV deferred, `chartDisplayMode` default real, `stress.isExpanded` default true, `chartZoom` reserved).
+- Phase 13 pre-implementation documentation update completed for Adaptive Dynamic SWR variant:
+  - Updated `docs/WITHDRAWAL_STRATEGIES.md` with new **Strategy 5B: Adaptive Dynamic SWR (Monthly Realized TWR)**, including formulas for trailing real TWR (per-asset), weight aggregation, fallback ROI warm-up, and monthly-cadence recalculation details.
+  - Updated `docs/SPECS.md` withdrawal strategy UX/spec to include **Dynamic SWR (Adaptive TWR)** in selector/tooltip/parameter panel, plus monthly-cadence exception to annual strategy behavior.
+  - Updated `docs/DATA_MODEL.md` and `docs/API.md` to add `withdrawalStrategy.type = "dynamicSwrAdaptive"` with params `{ fallbackExpectedRateOfReturn, lookbackMonths }`.
+  - Updated `docs/ARCHITECTURE.md` simulation/strategy architecture notes to document annual vs monthly strategy cadence and context requirements for realized-return-driven calculation.
+  - Updated `docs/PRD.md` and `docs/SCENARIOS.md` strategy counts from 12 to 13.
+- Implemented Adaptive Dynamic SWR feature (new withdrawal strategy variant):
+  - Added `WithdrawalStrategyType.DynamicSwrAdaptive` and shared model/schema support with params `{ fallbackExpectedRateOfReturn, lookbackMonths }`.
+  - Added server strategy implementation in `packages/server/src/engine/strategies/dynamicSwrAdaptive.ts` using trailing realized real TWR (per-asset), start-of-month weighted aggregation, nominal ROI conversion, fallback ROI warm-up, and monthly withdrawal output.
+  - Updated simulation engines (`simulator.ts`, `deterministic.ts`) to support strategy-level monthly cadence for Adaptive Dynamic SWR while preserving annual cadence for all other strategies.
+  - Wired client selector/params/tooltip support for "Dynamic SWR (Adaptive TWR)" in Withdrawal Strategy UI and store config mapping.
+  - Added/updated tests: new adaptive strategy unit tests and simulator coverage for monthly recalculation behavior; expanded strategy sweep from 12 to 13 strategies.
+
+Verification run (all passing):
+- `npm run typecheck`
+- `npm run lint`
+- `npm test`
+- `npm run build`
+- Fixed Adaptive Dynamic SWR spending-phase clamp behavior:
+  - Updated `packages/server/src/engine/simulator.ts` to apply month-level inflation-adjusted min/max monthly spending bounds for monthly-cadence strategies (`dynamicSwrAdaptive`) instead of year-stepped annual/12 bounds.
+  - Updated `packages/server/src/engine/deterministic.ts` with the same month-level clamp behavior for deterministic reforecast.
+  - Added regression coverage in `packages/server/tests/engine/simulator.test.ts` to verify adaptive strategy monthly max clamp rises month-over-month under positive inflation.
+
+Verification run (all passing):
+- `npm run typecheck`
+- `npm run lint`
+- `npm test`

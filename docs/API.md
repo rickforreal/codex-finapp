@@ -40,6 +40,18 @@ Response:
 
 Runs Manual or Monte Carlo based on `config.simulationMode`.
 
+`config.withdrawalStrategy` supports all strategy variants in `SimulationConfig`, including `dynamicSwrAdaptive` with:
+
+```ts
+{
+  type: "dynamicSwrAdaptive";
+  params: {
+    fallbackExpectedRateOfReturn: number;
+    lookbackMonths: number;
+  };
+}
+```
+
 Request:
 
 ```ts

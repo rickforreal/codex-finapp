@@ -30,7 +30,7 @@ The user controls the simulation through several major input categories:
 
 **Spending phases** allow the user to define different spending levels across retirement — higher spending in active early years, lower in the middle, potentially higher again in late retirement for healthcare. Each phase sets a floor and ceiling on monthly withdrawals.
 
-**Withdrawal strategy** determines how much money to pull from the portfolio each month. The app offers twelve strategies ranging from simple (a fixed percentage of the portfolio) to sophisticated (Guyton-Klinger guardrails, CAPE-based dynamic withdrawals, endowment-style smoothing). Each strategy has its own trade-offs between income stability and portfolio longevity, and the app surfaces the relevant parameters for whichever strategy is selected.
+**Withdrawal strategy** determines how much money to pull from the portfolio each month. The app offers thirteen strategies ranging from simple (a fixed percentage of the portfolio) to sophisticated (Guyton-Klinger guardrails, CAPE-based dynamic withdrawals, endowment-style smoothing, and adaptive realized-return-based Dynamic SWR). Each strategy has its own trade-offs between income stability and portfolio longevity, and the app surfaces the relevant parameters for whichever strategy is selected.
 
 **Asset drawdown strategy** determines which asset classes the withdrawals come from — either a bucket approach (deplete cash first, then bonds, then stocks) or a rebalancing approach (withdraw from overweight classes to maintain target allocations, with optional glide path shifts over time).
 

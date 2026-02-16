@@ -198,6 +198,17 @@ const simulationConfigSchema = z
         .strict(),
       z
         .object({
+          type: z.literal(WithdrawalStrategyType.DynamicSwrAdaptive),
+          params: z
+            .object({
+              fallbackExpectedRateOfReturn: z.number().min(-1).max(1),
+              lookbackMonths: z.number().int().min(6).max(60),
+            })
+            .strict(),
+        })
+        .strict(),
+      z
+        .object({
           type: z.literal(WithdrawalStrategyType.SensibleWithdrawals),
           params: z
             .object({

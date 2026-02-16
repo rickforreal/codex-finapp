@@ -740,7 +740,9 @@ This function takes a fully resolved config and a pre-generated array of monthly
    f. Record the end-of-month state (round to integer cents at this point).
 3. Return the full monthly time series plus summary statistics.
 
-**Annual-to-monthly withdrawal conversion (explicit rule):** The annual withdrawal is calculated by the active strategy at the first month of each simulation year, using the portfolio value at that point. The annual amount is then subject to spending phase clamping (annual min = `phase_min × 12 × (1+i)^(t-1)`, annual max = `phase_max × 12 × (1+i)^(t-1)`). The clamped annual amount is divided by 12 to produce a fixed monthly withdrawal. This monthly amount is applied identically to all 12 months within that year. There is no additional monthly-level clamping — the spending phase bounds operate at the annual level only.
+**Annual-to-monthly withdrawal conversion (explicit rule):** For annual-cadence strategies, the annual withdrawal is calculated at the first month of each simulation year, using the portfolio value at that point. The annual amount is then subject to spending phase clamping (annual min = `phase_min × 12 × (1+i)^(t-1)`, annual max = `phase_max × 12 × (1+i)^(t-1)`). The clamped annual amount is divided by 12 to produce a fixed monthly withdrawal. This monthly amount is applied identically to all 12 months within that year.
+
+**Monthly-cadence exception:** `dynamicSwrAdaptive` recalculates withdrawal every month using trailing realized real TWR (per-asset annualized, aggregated by current month start weights) with configurable lookback and fallback ROI warm-up. This strategy still applies spending phase min/max clamping after calculation, using bounds inflation-adjusted for the current simulation year.
 
 **Strategy registry (`strategies/index.ts`):**
 
@@ -748,29 +750,44 @@ This function takes a fully resolved config and a pre-generated array of monthly
 const strategyRegistry: Record<WithdrawalStrategyType, StrategyFunction> = {
   'constant-dollar': constantDollar,
   'percent-of-portfolio': percentOfPortfolio,
-  // ... all 12
+  // ... all 13
 };
 ```
 
-Each strategy function has the signature:
+Each strategy function has this conceptual signature:
 
 ```typescript
+type StrategyCadence = 'annual' | 'monthly';
+
 type StrategyFunction = (context: StrategyContext) => number;
 
 interface StrategyContext {
   year: number;
+  monthIndex: number;              // 1-based across retirement horizon
   portfolioValue: number;          // in cents
   initialPortfolioValue: number;   // in cents
   previousWithdrawal: number;      // clamped, in cents
   previousYearReturn: number;      // weighted average decimal
   remainingYears: number;
+  remainingMonths: number;
   inflationRate: number;
+  startOfMonthWeights?: { stocks: number; bonds: number; cash: number };
+  trailingRealizedReturnsByAsset?: {
+    stocks: number[];              // trailing nominal monthly returns
+    bonds: number[];
+    cash: number[];
+  };
   params: StrategyParams;
   capeRatio?: number;
 }
 ```
 
-The return value is the gross annual withdrawal in cents (before spending phase clamping). The core loop applies clamping after calling the strategy.
+The return value is a gross withdrawal in cents (before spending phase clamping), interpreted according to the strategy cadence:
+
+- `annual`: annual withdrawal amount, converted to monthly by `/12` and held fixed for the year.
+- `monthly`: direct monthly withdrawal amount (used by `dynamicSwrAdaptive`).
+
+The core loop applies spending phase clamping after calling the strategy.
 
 **Monte Carlo runner (`monteCarlo.ts`):**
 

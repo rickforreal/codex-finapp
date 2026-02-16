@@ -89,6 +89,13 @@ WithdrawalStrategyConfig =
   | { type: "oneOverN"; params: {} }
   | { type: "vpw"; params: { expectedRealReturn: number; drawdownTarget: number } }
   | { type: "dynamicSwr"; params: { expectedRateOfReturn: number } }
+  | {
+      type: "dynamicSwrAdaptive";
+      params: {
+        fallbackExpectedRateOfReturn: number;
+        lookbackMonths: number;
+      };
+    }
   | { type: "sensibleWithdrawals"; params: { baseWithdrawalRate: number; extrasWithdrawalRate: number } }
   | { type: "ninetyFivePercent"; params: { annualWithdrawalRate: number; minimumFloor: number } }
   | {

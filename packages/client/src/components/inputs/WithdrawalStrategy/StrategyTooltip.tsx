@@ -55,6 +55,16 @@ const TOOLTIP_BY_STRATEGY: Record<WithdrawalStrategyType, StrategyGuidance> = {
       tradeoff:
         'Responsive to changing portfolio size, but can still produce noticeable annual spending changes.',
     },
+  [WithdrawalStrategyType.DynamicSwrAdaptive]:
+    {
+      summary: 'Monthly Dynamic SWR using trailing realized real returns with a fallback ROI warm-up period.',
+      parameterEffects: [
+        'Fallback Expected Rate of Return is used until enough realized history exists for the lookback window.',
+        'Realized Return Lookback controls responsiveness: shorter windows react faster but swing more.',
+      ],
+      tradeoff:
+        'Highly responsive to realized performance, but can produce noisier month-to-month spending than annual methods.',
+    },
   [WithdrawalStrategyType.SensibleWithdrawals]:
     {
       summary: 'Combines a base withdrawal with optional extras after positive prior-year real gains.',

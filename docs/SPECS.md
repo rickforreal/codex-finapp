@@ -1028,6 +1028,7 @@ This section allows the user to select and configure a retirement withdrawal str
   ── ADAPTIVE ──
   Variable Percentage Withdrawal (VPW)
   Dynamic SWR
+  Dynamic SWR (Adaptive TWR)
   Sensible Withdrawals
 
   ── GUARDRAILS ──
@@ -1056,7 +1057,7 @@ This section allows the user to select and configure a retirement withdrawal str
 
 ### State
 
-- `withdrawalStrategy.type`: enum string (one of the 12 strategy keys)
+- `withdrawalStrategy.type`: enum string (one of the 13 strategy keys)
 
 ---
 
@@ -1177,6 +1178,28 @@ Each year, withdrawal = PMT(expected_real_return, remaining_years, current_portf
 Each year: Withdrawal = [Portfolio × (roi − inflation)] ÷ [1 − ((1 + inflation) / (1 + roi))^n], where n = remaining years. As n decreases, the withdrawal increases, exhausting the portfolio by the final year.
 
 **Formula Reference:** See *Strategy 5* in WITHDRAWAL_STRATEGIES.md
+
+---
+
+### Strategy 5B: Dynamic SWR (Adaptive TWR)
+
+**Description:** A realized-return variant of Dynamic SWR. Recomputes withdrawal monthly using trailing realized real TWR (per-asset, then aggregated by current weights), making spending more responsive to actual portfolio behavior.
+
+**Parameters:**
+
+| # | Label | Control | Range | Step | Default | Notes |
+|---|---|---|---|---|---|---|
+| 21-5b1 | Fallback Expected Rate of Return (%) | Numeric input with % suffix | 1.0% – 15.0% | 0.1% | 6.0% | Nominal ROI assumption used only until enough realized history exists to fill lookback window. |
+| 21-5b2 | Realized Return Lookback (Months) | Numeric input | 6 – 60 | 1 | 12 | Trailing window used to compute annualized real TWR from realized monthly returns. |
+
+**Note:** Inflation rate is sourced from Core Parameters (#6). No extra smoothing or ROI hard-bounds are applied beyond spending phase min/max clamping.
+
+**Computed helper:** _"ROI source: Fixed fallback until month L, then trailing realized real TWR (annualized)."_
+
+**Algorithm summary:**
+At each month, compute trailing realized real monthly return for each asset class over the lookback window, annualize each, aggregate with current start-of-month asset weights into a portfolio real ROI, convert to nominal ROI, then run the Dynamic SWR annuity formula using remaining horizon and convert to monthly withdrawal. Before the lookback window is available, use the fallback expected ROI.
+
+**Formula Reference:** See *Strategy 5B* in WITHDRAWAL_STRATEGIES.md
 
 ---
 
@@ -1391,7 +1414,7 @@ Each strategy's tooltip follows a consistent three-part structure:
 
 ### Tooltip Content Per Strategy
 
-Below is the content for each of the 12 strategies:
+Below is the content for each of the 13 strategies:
 
 **Constant Dollar:**
 > **Withdraws a fixed inflation-adjusted amount each year.**
@@ -1417,6 +1440,11 @@ Below is the content for each of the 12 strategies:
 > **Continuously recalculates an annuity-like withdrawal based on current balance and remaining years.**
 > Uses a present-value formula incorporating expected returns and inflation to determine how much you can withdraw each year while fully exhausting the portfolio by the end of retirement.
 > _Trade-off: Responsive to market conditions and ensures full spend-down. Income varies with portfolio performance._
+
+**Dynamic SWR (Adaptive TWR):**
+> **Recalculates Dynamic SWR monthly using trailing realized real returns.**
+> Uses trailing real TWR from actual portfolio path behavior (computed per asset class and aggregated by current weights) to update the ROI assumption over time. Early months use a fallback expected ROI until enough history exists.
+> _Trade-off: More responsive to real-world performance, but monthly spending can be noisier than annual recalculation._
 
 **Sensible Withdrawals:**
 > **A conservative base withdrawal plus a bonus from good years' gains.**
@@ -1459,7 +1487,7 @@ Below is the content for each of the 12 strategies:
 
 ### Guardrail Interaction Reminder
 
-All 12 strategies produce a "raw" withdrawal amount each period. This amount is then clamped by the active spending phase's min/max bounds (from Section: Spending Phases, #17d/#17e). The clamping is a hard override:
+All 13 strategies produce a "raw" withdrawal amount each period. This amount is then clamped by the active spending phase's min/max bounds (from Section: Spending Phases, #17d/#17e). The clamping is a hard override:
 
 - If raw withdrawal < phase min → withdrawal = phase min
 - If raw withdrawal > phase max → withdrawal = phase max
@@ -1469,13 +1497,13 @@ This interaction is handled at the simulation engine level, not within individua
 
 ### Annual vs. Monthly Calculation
 
-All strategies in the financial literature are described in annual terms. The simulation engine should:
+Most strategies in the financial literature are described in annual terms. The simulation engine should:
 1. Calculate the annual withdrawal using the strategy's formula at the start of each year (every 12th month).
 2. Divide the annual withdrawal by 12 to determine the monthly withdrawal amount.
 3. Apply the monthly withdrawal evenly across the 12 months of that year.
 4. At the start of the next year, recalculate based on the current portfolio value and strategy rules.
 
-This means the monthly view in the table shows the same withdrawal amount for all 12 months within a given year (unless modified by income/expense events or by Tracking Mode actuals).
+Exception: **Dynamic SWR (Adaptive TWR)** recalculates at monthly cadence. It computes a monthly withdrawal each month from trailing realized returns and remaining horizon. Other strategies remain annual-to-monthly as above.
 
 ### Strategy Comparison (Future Enhancement)
 

@@ -56,7 +56,7 @@ describe('simulateRetirement', () => {
     expect(unseededA).not.toEqual(unseededB);
   });
 
-  it('should run successfully across all 12 withdrawal strategies with distinct withdrawal patterns', () => {
+  it('should run successfully across all 13 withdrawal strategies with distinct withdrawal patterns', () => {
     const base = createBaseConfig();
     const returns = createZeroReturns(base.coreParams.retirementDuration * 12);
     const strategies = [
@@ -65,6 +65,10 @@ describe('simulateRetirement', () => {
       { type: WithdrawalStrategyType.OneOverN, params: {} },
       { type: WithdrawalStrategyType.Vpw, params: { expectedRealReturn: 0.03, drawdownTarget: 1 } },
       { type: WithdrawalStrategyType.DynamicSwr, params: { expectedRateOfReturn: 0.06 } },
+      {
+        type: WithdrawalStrategyType.DynamicSwrAdaptive,
+        params: { fallbackExpectedRateOfReturn: 0.06, lookbackMonths: 12 },
+      },
       {
         type: WithdrawalStrategyType.SensibleWithdrawals,
         params: { baseWithdrawalRate: 0.03, extrasWithdrawalRate: 0.1 },
@@ -123,6 +127,60 @@ describe('simulateRetirement', () => {
     expect(year4FirstMonth?.withdrawals.requested).toBe(0);
     expect(year5FirstMonth?.year).toBe(5);
     expect(year5FirstMonth?.withdrawals.requested).toBeGreaterThan(0);
+  });
+
+  it('recalculates withdrawals monthly for dynamic SWR adaptive strategy', () => {
+    const config = createBaseConfig();
+    config.coreParams.retirementDuration = 3;
+    config.withdrawalStrategy = {
+      type: WithdrawalStrategyType.DynamicSwrAdaptive,
+      params: { fallbackExpectedRateOfReturn: 0.06, lookbackMonths: 12 },
+    };
+    config.spendingPhases[0] = {
+      ...config.spendingPhases[0],
+      minMonthlySpend: 0,
+      maxMonthlySpend: 100_000_000,
+    };
+
+    const returns = Array.from({ length: config.coreParams.retirementDuration * 12 }, (_, index) => {
+      if (index < 12) {
+        return { stocks: 0.002, bonds: 0.001, cash: 0.0005 };
+      }
+      return { stocks: 0.02, bonds: 0.008, cash: 0.003 };
+    });
+
+    const result = simulateRetirement(config, returns);
+    const month12 = result.rows[11]?.withdrawals.requested ?? 0;
+    const postLookbackYear = result.rows
+      .slice(12, 24)
+      .map((row) => row.withdrawals.requested);
+
+    expect(month12).toBeGreaterThan(0);
+    expect(new Set(postLookbackYear).size).toBeGreaterThan(1);
+  });
+
+  it('applies month-level inflation to adaptive strategy spending max clamp', () => {
+    const config = createBaseConfig();
+    config.coreParams.retirementDuration = 2;
+    config.coreParams.inflationRate = 0.12;
+    config.withdrawalStrategy = {
+      type: WithdrawalStrategyType.DynamicSwrAdaptive,
+      params: { fallbackExpectedRateOfReturn: 0.2, lookbackMonths: 12 },
+    };
+    config.spendingPhases[0] = {
+      ...config.spendingPhases[0],
+      minMonthlySpend: 0,
+      maxMonthlySpend: 10_000,
+    };
+
+    const result = simulateRetirement(config, createZeroReturns(config.coreParams.retirementDuration * 12));
+    const month1 = result.rows[0]?.withdrawals.requested ?? 0;
+    const month2 = result.rows[1]?.withdrawals.requested ?? 0;
+    const month12 = result.rows[11]?.withdrawals.requested ?? 0;
+
+    expect(month1).toBe(10_000);
+    expect(month2).toBeGreaterThan(month1);
+    expect(month12).toBeGreaterThan(month2);
   });
 
   it('should integrate rebalancing drawdown with income and expense events', () => {

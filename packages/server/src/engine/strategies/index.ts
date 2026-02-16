@@ -7,6 +7,7 @@ import {
 import { calculateCapeBasedWithdrawal } from './capeBased';
 import { calculateConstantDollarWithdrawal } from './constantDollar';
 import { calculateDynamicSwrWithdrawal } from './dynamicSwr';
+import { calculateDynamicSwrAdaptiveMonthlyWithdrawal } from './dynamicSwrAdaptive';
 import { calculateEndowmentWithdrawal } from './endowment';
 import { calculateGuytonKlingerWithdrawal } from './guytonKlinger';
 import { calculateHebelerAutopilotWithdrawal } from './hebelerAutopilot';
@@ -33,6 +34,7 @@ const strategyRegistry: {
   [WithdrawalStrategyType.OneOverN]: calculateOneOverNWithdrawal,
   [WithdrawalStrategyType.Vpw]: calculateVpwWithdrawal,
   [WithdrawalStrategyType.DynamicSwr]: calculateDynamicSwrWithdrawal,
+  [WithdrawalStrategyType.DynamicSwrAdaptive]: calculateDynamicSwrAdaptiveMonthlyWithdrawal,
   [WithdrawalStrategyType.SensibleWithdrawals]: calculateSensibleWithdrawals,
   [WithdrawalStrategyType.NinetyFivePercent]: calculateNinetyFivePercentWithdrawal,
   [WithdrawalStrategyType.GuytonKlinger]: calculateGuytonKlingerWithdrawal,
@@ -49,3 +51,6 @@ export const calculateAnnualWithdrawal = (
   const calculator = strategyRegistry[strategy.type] as StrategyFunction<typeof strategy.params>;
   return calculator(context, strategy.params);
 };
+
+export const isMonthlyWithdrawalStrategy = (strategy: WithdrawalStrategyConfig): boolean =>
+  strategy.type === WithdrawalStrategyType.DynamicSwrAdaptive;

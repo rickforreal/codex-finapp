@@ -10,6 +10,7 @@ export enum WithdrawalStrategyType {
   OneOverN = 'oneOverN',
   Vpw = 'vpw',
   DynamicSwr = 'dynamicSwr',
+  DynamicSwrAdaptive = 'dynamicSwrAdaptive',
   SensibleWithdrawals = 'sensibleWithdrawals',
   NinetyFivePercent = 'ninetyFivePercent',
   GuytonKlinger = 'guytonKlinger',
