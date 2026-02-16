@@ -618,3 +618,51 @@ Acceptance Criteria:
 [AC1] Small labels render for `View Mode`, `Simulation Type`, and `Historical Era` (MC-only) without materially increasing navbar height.
 [AC2] Tracking-specific controls (`Clear Actuals`, `Actuals through`) remain near mode controls.
 [AC3] Existing run/snapshot behavior and validation continue to pass automated checks (`typecheck`, `lint`, `test`, `build`).
+
+- [x] P12B-T1: Re-layout Core Parameters fields into two rows
+Phase: 12 (Polish & Hardening)
+Dependencies: P12A-T2
+Acceptance Criteria:
+[AC1] `Starting Age`, `Withdrawals Start At`, and `Expected Inflation Rate` are rendered on one row.
+[AC2] `Retirement Start Date` and `Retirement Duration` are rendered on the second row.
+[AC3] Existing field validation and store bindings continue to work.
+
+- [x] P12B-T2: Expand Withdrawal Strategy guidance panel with collapsible detail
+Phase: 12 (Polish & Hardening)
+Dependencies: P12B-T1
+Acceptance Criteria:
+[AC1] Strategy guidance shows concise default summary.
+[AC2] Expand/collapse control reveals parameter effect notes and tradeoff commentary.
+[AC3] Guidance updates by selected strategy and preserves existing strategy selection behavior.
+
+- [x] P12B-T3: Compact Historical Data summary table and add era commentary card
+Phase: 12 (Polish & Hardening)
+Dependencies: P12B-T1
+Acceptance Criteria:
+[AC1] Historical summary table renders four columns without horizontal scrolling.
+[AC2] Column headers are shortened to fit panel width cleanly.
+[AC3] Era-specific descriptive commentary appears in a sub-container below the table.
+
+- [x] P12C-T1: Update chart controls layout and default display mode
+Phase: 12 (Polish & Hardening)
+Dependencies: P12B-T3
+Acceptance Criteria:
+[AC1] Chart control row uses `Breakdown` label/toggle to the right of Nominal/Real selector.
+[AC2] Real is the default chart display mode.
+[AC3] Empty-state chart control row mirrors the same control language and ordering.
+
+- [x] P12C-T2: Remove chart zoom slider panel
+Phase: 12 (Polish & Hardening)
+Dependencies: P12C-T1
+Acceptance Criteria:
+[AC1] The chart zoom/range slider container is removed from the chart panel.
+[AC2] Chart renders full simulation horizon by default.
+[AC3] Chart tooltip and overlays still function after zoom control removal.
+
+- [x] P12C-T3: Apply Monte Carlo y-axis focus scaling for median readability
+Phase: 12 (Polish & Hardening)
+Dependencies: P12C-T1
+Acceptance Criteria:
+[AC1] In Monte Carlo view, y-axis ceiling is biased toward median/IQR range so p50 undulations are more visible.
+[AC2] Upper percentile bands can clip at the chart top rather than flattening the median line.
+[AC3] Manual-mode y-axis behavior remains unchanged.

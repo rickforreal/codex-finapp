@@ -1,3 +1,31 @@
+## 2026-02-15 18:47 — P12C-T3 | COMPLETE
+
+Applied final chart/input QA polish requested after Phase 12B/12C review:
+- Core Parameters copy/format updates (`Withdrawals Start`, inline `yrs`, revised labels).
+- Historical Data header rename (`Returns`, `Volatility`) and spacing/alignment fixes.
+- Breakdown control converted from switch to label-style toggle, then tuned to smaller non-bold text with brighter active blue.
+
+Validation passed during iteration: `npm run typecheck -w @finapp/client` and `npm run lint -w @finapp/client`.
+
+## 2026-02-15 18:37 — P12C-T3 | COMPLETE
+
+Implemented Phase 12C chart-panel polish:
+- Replaced `By Asset Class` wording with `Breakdown` and moved it to the right of the Nominal/Real toggle.
+- Switched default chart display mode to Real.
+- Removed the zoom slider container so chart shows full-horizon by default.
+- Added Monte Carlo y-axis focus scaling using median/IQR-oriented ceiling so P50 trajectory is more legible while upper percentile bands may clip above the chart.
+
+Validation passed: `npm run typecheck -w @finapp/client` and `npm run lint -w @finapp/client`.
+
+## 2026-02-15 17:02 — P12B-T3 | COMPLETE
+
+Implemented Phase 12B input-panel polish:
+- Core Parameters now uses two rows (`Starting Age`, `Withdrawals Start At`, `Expected Inflation Rate`) and (`Retirement Start Date`, `Retirement Duration`).
+- Withdrawal Strategy guidance now shows concise summary by default with an expand/collapse details panel covering parameter effects and strategy tradeoff commentary.
+- Historical Data summary table was compressed to four fixed columns without horizontal scroll and now includes era-specific commentary text below the table.
+
+Validation passed: `npm run typecheck -w @finapp/client` and `npm run lint -w @finapp/client`.
+
 ## 2026-02-15 16:57 — P12A-T2 | COMPLETE
 
 Addressed navbar QA feedback: removed the visible gap in the Manual/Monte Carlo segmented toggle and added explicit hover tooltips to Save/Load snapshot icon buttons.

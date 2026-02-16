@@ -5,7 +5,6 @@ import { AppMode, AssetClass, SimulationMode } from '@finapp/shared';
 import { formatCompactCurrency, formatCurrency, formatPeriodLabel } from '../../lib/format';
 import { useActiveSimulationResult, useAppStore } from '../../store/useAppStore';
 import { SegmentedToggle } from '../shared/SegmentedToggle';
-import { ToggleSwitch } from '../shared/ToggleSwitch';
 
 type ChartPoint = {
   monthIndex: number;
@@ -79,15 +78,33 @@ export const PortfolioChart = () => {
   const simulationMode = useAppStore((state) => state.simulationMode);
   const mcStale = useAppStore((state) => state.simulationResults.mcStale);
   const lastEditedMonthIndex = useAppStore((state) => state.lastEditedMonthIndex);
-  const chartZoom = useAppStore((state) => state.ui.chartZoom);
   const setChartDisplayMode = useAppStore((state) => state.setChartDisplayMode);
   const setChartBreakdownEnabled = useAppStore((state) => state.setChartBreakdownEnabled);
-  const setChartZoom = useAppStore((state) => state.setChartZoom);
   const inflationRate = useAppStore((state) => state.coreParams.inflationRate);
   const startingAge = useAppStore((state) => state.coreParams.startingAge);
   const stressResult = useAppStore((state) => state.stress.result);
 
   const [hoverIndex, setHoverIndex] = useState<number | null>(null);
+
+  const BreakdownLabelToggle = ({
+    checked,
+    onChange,
+  }: {
+    checked: boolean;
+    onChange: (next: boolean) => void;
+  }) => (
+    <button
+      type="button"
+      onClick={() => onChange(!checked)}
+      className={`inline-flex items-center gap-1.5 text-[13px] font-medium transition ${
+        checked ? 'text-blue-500' : 'text-slate-500 hover:text-slate-700'
+      }`}
+      aria-pressed={checked}
+    >
+      <span className="text-base leading-none">◷</span>
+      <span>Breakdown</span>
+    </button>
+  );
 
   useEffect(() => {
     const node = containerRef.current;
@@ -154,15 +171,17 @@ export const PortfolioChart = () => {
     return (
       <section className="rounded-xl border border-brand-border bg-white p-4 shadow-panel">
         <div className="mb-3 flex flex-wrap items-center justify-between gap-3">
-          <ToggleSwitch checked={false} onChange={() => undefined} label="By Asset Class" />
-          <SegmentedToggle
-            value="nominal"
-            onChange={() => undefined}
-            options={[
-              { label: 'Nominal', value: 'nominal' },
-              { label: 'Real', value: 'real' },
-            ]}
-          />
+          <div className="ml-auto flex items-center gap-4">
+            <SegmentedToggle
+              value="real"
+              onChange={() => undefined}
+              options={[
+                { label: 'Nominal', value: 'nominal' },
+                { label: 'Real', value: 'real' },
+              ]}
+            />
+            <BreakdownLabelToggle checked={false} onChange={() => undefined} />
+          </div>
         </div>
         <div className="flex h-[360px] items-center justify-center rounded-lg border border-dashed border-brand-border bg-brand-surface">
           <p className="text-sm text-slate-500">Run a simulation to see your portfolio projection.</p>
@@ -174,8 +193,8 @@ export const PortfolioChart = () => {
   const totalMonths = points.length;
   const width = chartWidth;
   const plotWidth = width - margin.left - margin.right;
-  const start = Math.max(0, Math.min(chartZoom?.start ?? 0, totalMonths - 1));
-  const end = Math.max(start + 1, Math.min(chartZoom?.end ?? totalMonths - 1, totalMonths - 1));
+  const start = 0;
+  const end = Math.max(totalMonths - 1, 1);
   const visible = points.slice(start, end + 1);
   const localCount = Math.max(visible.length - 1, 1);
   const xAt = (index: number): number => margin.left + (index / localCount) * plotWidth;
@@ -223,11 +242,15 @@ export const PortfolioChart = () => {
     }),
   );
   const visibleStressCurves = stressScenarioCurves.map((curve) => curve.slice(start, end + 1));
-  const maxFromStress = Math.max(
-    1,
-    ...visibleStressCurves.flatMap((curve) => curve),
-  );
-  const maxY = Math.max(maxFromPoints, maxFromBands, maxFromStress, 1);
+  const maxFromStress = Math.max(1, ...visibleStressCurves.flatMap((curve) => curve));
+  const mcFocusedCeiling =
+    visibleBands && !chartBreakdownEnabled
+      ? Math.max(1, Math.max(...visibleBands.p75, ...visibleBands.p50, maxFromPoints) * 1.15)
+      : null;
+  const maxY =
+    simulationMode === SimulationMode.MonteCarlo && mcFocusedCeiling !== null
+      ? Math.max(1, mcFocusedCeiling)
+      : Math.max(maxFromPoints, maxFromBands, maxFromStress, 1);
   const yAt = (value: number): number => margin.top + plotHeight - (value / maxY) * plotHeight;
 
   const xValues = visible.map((_, index) => xAt(index));
@@ -314,18 +337,9 @@ export const PortfolioChart = () => {
         ? yAt(hoverSeries.total)
         : null;
 
-  const zoomTo = (nextStart: number, nextEnd: number) => {
-    if (nextStart <= 0 && nextEnd >= totalMonths - 1) {
-      setChartZoom(null);
-      return;
-    }
-    setChartZoom({ start: nextStart, end: nextEnd });
-  };
-
   return (
     <section className="rounded-xl border border-brand-border bg-white p-4 shadow-panel">
-      <div className="mb-3 flex flex-wrap items-center justify-between gap-3">
-        <ToggleSwitch checked={chartBreakdownEnabled} onChange={setChartBreakdownEnabled} label="By Asset Class" />
+      <div className="mb-3 flex flex-wrap items-center justify-end gap-4">
         <SegmentedToggle
           value={chartDisplayMode}
           onChange={setChartDisplayMode}
@@ -334,6 +348,7 @@ export const PortfolioChart = () => {
             { label: 'Real', value: 'real' },
           ]}
         />
+        <BreakdownLabelToggle checked={chartBreakdownEnabled} onChange={setChartBreakdownEnabled} />
       </div>
 
       <div ref={containerRef} className="relative overflow-visible rounded-lg border border-brand-border">
@@ -579,53 +594,6 @@ export const PortfolioChart = () => {
           Monte Carlo results are stale after edits. Run Simulation to refresh projections.
         </p>
       ) : null}
-
-      <div className="mt-3 rounded-lg border border-brand-border bg-brand-surface p-3">
-        <div className="mb-2 flex items-center justify-between text-xs text-slate-600">
-          <span>
-            Visible range: months {start + 1}-{end + 1} of {totalMonths}
-          </span>
-          {chartZoom ? (
-            <button
-              type="button"
-              className="rounded border border-brand-border bg-white px-2 py-1 font-medium text-slate-700"
-              onClick={() => setChartZoom(null)}
-            >
-              Reset Zoom
-            </button>
-          ) : null}
-        </div>
-        <div className="grid gap-2 md:grid-cols-2">
-          <label className="space-y-1">
-            <span className="text-xs text-slate-600">Start Month</span>
-            <input
-              type="range"
-              min={0}
-              max={Math.max(totalMonths - 2, 0)}
-              value={start}
-              onChange={(event) => {
-                const nextStart = Math.min(Number(event.target.value), end - 1);
-                zoomTo(nextStart, end);
-              }}
-              className="w-full"
-            />
-          </label>
-          <label className="space-y-1">
-            <span className="text-xs text-slate-600">End Month</span>
-            <input
-              type="range"
-              min={1}
-              max={Math.max(totalMonths - 1, 1)}
-              value={end}
-              onChange={(event) => {
-                const nextEnd = Math.max(Number(event.target.value), start + 1);
-                zoomTo(start, nextEnd);
-              }}
-              className="w-full"
-            />
-          </label>
-        </div>
-      </div>
     </section>
   );
 };

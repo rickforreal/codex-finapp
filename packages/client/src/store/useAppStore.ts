@@ -912,7 +912,7 @@ export const useAppStore = create<AppStore>((set) => ({
     errorMessage: null,
   },
   ui: {
-    chartDisplayMode: 'nominal',
+    chartDisplayMode: 'real',
     chartBreakdownEnabled: false,
     tableGranularity: 'annual',
     tableAssetColumnsEnabled: false,

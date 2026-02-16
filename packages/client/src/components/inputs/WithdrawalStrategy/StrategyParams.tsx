@@ -111,7 +111,7 @@ export const StrategyParams = () => {
 
   if (strategy.type === WithdrawalStrategyType.SensibleWithdrawals) {
     return (
-      <div className="space-y-2">
+      <div className="space-y-3">
         <PercentField
           label="Base Withdrawal Rate"
           value={strategy.params.baseWithdrawalRate}
