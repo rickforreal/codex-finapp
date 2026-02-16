@@ -415,7 +415,7 @@ export const PortfolioChart = () => {
             </>
           ) : visibleBands ? (
             <g opacity={mode === AppMode.Tracking && simulationMode === SimulationMode.MonteCarlo && mcStale ? 0.4 : 1}>
-              {mode === AppMode.Tracking && simulationMode === SimulationMode.MonteCarlo ? (
+              {mode === AppMode.Tracking && simulationMode === SimulationMode.MonteCarlo && boundaryMonth !== null ? (
                 <>
                   <path d={leftRealizedLine} fill="none" stroke="#1A365D" strokeWidth="2.5" />
                   {rightBandX.length > 1 ? (

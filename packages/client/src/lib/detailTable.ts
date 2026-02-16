@@ -34,7 +34,25 @@ const total = (stocks: number, bonds: number, cash: number): number => stocks + 
 const inflationFactor = (inflationRate: number, monthIndexOneBased: number): number =>
   (1 + inflationRate) ** (monthIndexOneBased / 12);
 
-const toMonthlyRow = (row: MonthlySimulationRow, startingAge: number, inflationRate: number): DetailRow => {
+const formatCalendarPeriod = (
+  retirementStartDate: { month: number; year: number },
+  monthIndexOneBased: number,
+): string => {
+  const date = new Date(
+    retirementStartDate.year,
+    retirementStartDate.month - 1 + (monthIndexOneBased - 1),
+    1,
+  );
+  const month = date.toLocaleDateString(undefined, { month: 'short' });
+  return `${date.getFullYear()}-${month}`;
+};
+
+const toMonthlyRow = (
+  row: MonthlySimulationRow,
+  startingAge: number,
+  inflationRate: number,
+  retirementStartDate: { month: number; year: number },
+): DetailRow => {
   const startStocks = row.startBalances[AssetClass.Stocks];
   const startBonds = row.startBalances[AssetClass.Bonds];
   const startCash = row.startBalances[AssetClass.Cash];
@@ -55,7 +73,7 @@ const toMonthlyRow = (row: MonthlySimulationRow, startingAge: number, inflationR
   return {
     id: `m-${row.monthIndex}`,
     monthIndex: row.monthIndex,
-    period: `Y${row.year}-M${row.monthInYear}`,
+    period: formatCalendarPeriod(retirementStartDate, row.monthIndex),
     age: startingAge + Math.floor((row.monthIndex - 1) / 12),
     startTotal,
     endTotal,
@@ -84,14 +102,16 @@ export const buildMonthlyDetailRows = (
   rows: MonthlySimulationRow[],
   startingAge: number,
   inflationRate: number,
-): DetailRow[] => rows.map((row) => toMonthlyRow(row, startingAge, inflationRate));
+  retirementStartDate: { month: number; year: number },
+): DetailRow[] => rows.map((row) => toMonthlyRow(row, startingAge, inflationRate, retirementStartDate));
 
 export const buildAnnualDetailRows = (
   rows: MonthlySimulationRow[],
   startingAge: number,
   inflationRate: number,
+  retirementStartDate: { month: number; year: number },
 ): DetailRow[] => {
-  const monthly = buildMonthlyDetailRows(rows, startingAge, inflationRate);
+  const monthly = buildMonthlyDetailRows(rows, startingAge, inflationRate, retirementStartDate);
   const annual = new Map<number, DetailRow[]>();
 
   monthly.forEach((row, index) => {
@@ -140,7 +160,7 @@ export const buildAnnualDetailRows = (
     return {
       id: `y-${year}`,
       monthIndex: year * 12,
-      period: `Year ${year}`,
+      period: `${retirementStartDate.year + year - 1}`,
       age: startingAge + year - 1,
       startTotal,
       endTotal: last.endTotal,
@@ -167,6 +187,9 @@ export const buildAnnualDetailRows = (
 };
 
 const readSortValue = (row: DetailRow, column: string): number | string => {
+  if (column === 'period') {
+    return row.monthIndex;
+  }
   const value = row[column as keyof DetailRow];
   return typeof value === 'number' || typeof value === 'string' ? value : 0;
 };

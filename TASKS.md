@@ -666,3 +666,35 @@ Acceptance Criteria:
 [AC1] In Monte Carlo view, y-axis ceiling is biased toward median/IQR range so p50 undulations are more visible.
 [AC2] Upper percentile bands can clip at the chart top rather than flattening the median line.
 [AC3] Manual-mode y-axis behavior remains unchanged.
+
+- [x] P12D-T1: Refresh detail-table header controls and title
+Phase: 12 (Polish & Hardening)
+Dependencies: P12C-T3
+Acceptance Criteria:
+[AC1] `Detail Ledger` title is shown in the table header area.
+[AC2] Monthly/Annual toggle is positioned on the right side of the header controls.
+[AC3] Asset-column control is replaced by `Breakdown` label-style toggle and spreadsheet mode is replaced by an icon-only expand/compress button.
+
+- [x] P12D-T2: Add keyboard-first cell selection/edit behavior
+Phase: 12 (Polish & Hardening)
+Dependencies: P12D-T1
+Acceptance Criteria:
+[AC1] Clicking a table cell highlights it as active.
+[AC2] Tab/Shift+Tab moves selection left-to-right and top-to-bottom across cells.
+[AC3] In Tracking monthly mode, Enter on an editable selected cell starts edit mode with value auto-selected for replacement.
+
+- [x] P12D-T3: Update period display and Monte Carlo median labeling
+Phase: 12 (Polish & Hardening)
+Dependencies: P12D-T1
+Acceptance Criteria:
+[AC1] Monthly `Period` displays calendar format (`YYYY-Mon`) anchored to `Retirement Start (MM/YYYY)`.
+[AC2] First monthly period matches the configured retirement start month/year.
+[AC3] Detail table indicates Monte Carlo rows represent median-path values.
+
+- [DEFERRED] P12D-T4: Resolve remaining manual-mode table-header whitespace gap
+Phase: 12 (Polish & Hardening)
+Dependencies: P12D-T1
+Acceptance Criteria:
+[AC1] Manual mode shows no residual whitespace under `Detail Ledger` header before column header row.
+[AC2] Sticky header behavior remains correct across Manual/Monte Carlo and Monthly/Annual toggles.
+[DEFERRED] User requested moving on; issue is reproducible intermittently and will be revisited in a later polish pass.

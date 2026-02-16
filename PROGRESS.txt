@@ -1,3 +1,18 @@
+## 2026-02-15 19:27 — P12D-T4 | DEFERRED
+
+User-approved deferral of remaining manual-mode `Detail Ledger` header whitespace issue after multiple sticky-offset fixes (including dynamic measured offset and scroll-state sync) did not fully resolve observed behavior.
+[DEFERRED] Continue with next Phase 12 work and revisit this table-header spacing bug in a later focused pass.
+
+## 2026-02-15 18:54 — P12D-T3 | COMPLETE
+
+Implemented Phase 12D detail-table polish:
+- Header controls updated: `Detail Ledger` title, right-aligned Monthly/Annual toggle, `Breakdown` label-style control, and icon-only expand/compress table mode button.
+- Added keyboard-oriented cell interaction: click-to-select highlight, Tab/Shift+Tab traversal across cells, and Enter-to-edit for editable tracking cells with auto-selected value text.
+- Monthly period labels now render as calendar dates (`YYYY-Mon`) anchored to `coreParams.retirementStartDate`; annual period labels now show calendar year.
+- Added explicit Monte Carlo note that table values represent the median path.
+
+Validation passed: `npm run typecheck -w @finapp/client` and `npm run lint -w @finapp/client`.
+
 ## 2026-02-15 18:47 — P12C-T3 | COMPLETE
 
 Applied final chart/input QA polish requested after Phase 12B/12C review:

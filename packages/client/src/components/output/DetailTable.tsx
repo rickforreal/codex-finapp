@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 
 import { AppMode, SimulationMode, type ActualMonthOverride } from '@finapp/shared';
 
@@ -7,7 +7,6 @@ import { formatCurrency, formatPercent } from '../../lib/format';
 import { buildAnnualDetailRows, buildMonthlyDetailRows, sortDetailRows, type DetailRow } from '../../lib/detailTable';
 import { getCurrentConfig, useActiveSimulationResult, useAppStore } from '../../store/useAppStore';
 import { SegmentedToggle } from '../shared/SegmentedToggle';
-import { ToggleSwitch } from '../shared/ToggleSwitch';
 
 type Column = {
   key: keyof DetailRow;
@@ -118,9 +117,12 @@ const computeStartBalanceDeltas = (
 };
 
 export const DetailTable = () => {
+  const viewportRef = useRef<HTMLDivElement | null>(null);
+  const headerControlsRef = useRef<HTMLDivElement | null>(null);
   const result = useActiveSimulationResult();
   const startingAge = useAppStore((state) => state.coreParams.startingAge);
   const inflationRate = useAppStore((state) => state.coreParams.inflationRate);
+  const retirementStartDate = useAppStore((state) => state.coreParams.retirementStartDate);
   const mode = useAppStore((state) => state.mode);
   const simulationMode = useAppStore((state) => state.simulationMode);
   const mcStale = useAppStore((state) => state.simulationResults.mcStale);
@@ -139,16 +141,18 @@ export const DetailTable = () => {
   const setTableSpreadsheetMode = useAppStore((state) => state.setTableSpreadsheetMode);
   const setTableSort = useAppStore((state) => state.setTableSort);
   const [scrollTop, setScrollTop] = useState(0);
+  const [headerOffset, setHeaderOffset] = useState(44);
   const [editingCell, setEditingCell] = useState<{ rowId: string; column: keyof DetailRow } | null>(null);
   const [draftValue, setDraftValue] = useState('');
+  const [selectedCell, setSelectedCell] = useState<{ rowId: string; column: keyof DetailRow } | null>(null);
 
   const rawRows = useMemo(() => {
     const rows = result?.result.rows ?? [];
     if (tableGranularity === 'annual') {
-      return buildAnnualDetailRows(rows, startingAge, inflationRate);
+      return buildAnnualDetailRows(rows, startingAge, inflationRate, retirementStartDate);
     }
-    return buildMonthlyDetailRows(rows, startingAge, inflationRate);
-  }, [inflationRate, result, startingAge, tableGranularity]);
+    return buildMonthlyDetailRows(rows, startingAge, inflationRate, retirementStartDate);
+  }, [inflationRate, result, retirementStartDate, startingAge, tableGranularity]);
 
   const rows = useMemo(() => sortDetailRows(rawRows, tableSort), [rawRows, tableSort]);
   const columns = tableAssetColumnsEnabled ? [...baseColumns, ...assetColumns] : baseColumns;
@@ -371,6 +375,121 @@ export const DetailTable = () => {
 
     upsertActualOverride(monthIndex, patch);
     setEditingCell(null);
+    setSelectedCell({ rowId: row.id, column: column.key });
+  };
+
+  const moveSelection = (forward: boolean) => {
+    if (rows.length === 0 || columns.length === 0) {
+      return;
+    }
+    const currentRowIndex = selectedCell ? rows.findIndex((row) => row.id === selectedCell.rowId) : 0;
+    const currentColumnIndex = selectedCell ? columns.findIndex((column) => column.key === selectedCell.column) : 0;
+    const safeRowIndex = currentRowIndex < 0 ? 0 : currentRowIndex;
+    const safeColumnIndex = currentColumnIndex < 0 ? 0 : currentColumnIndex;
+    const currentFlat = safeRowIndex * columns.length + safeColumnIndex;
+    const maxFlat = rows.length * columns.length - 1;
+    const nextFlat = Math.max(0, Math.min(maxFlat, currentFlat + (forward ? 1 : -1)));
+    const nextRow = rows[Math.floor(nextFlat / columns.length)];
+    const nextColumn = columns[nextFlat % columns.length];
+    if (!nextRow || !nextColumn) {
+      return;
+    }
+    setSelectedCell({ rowId: nextRow.id, column: nextColumn.key });
+  };
+
+  const beginCellEdit = (row: DetailRow, column: Column) => {
+    if (!isEditableCell(row, column)) {
+      return;
+    }
+    setEditingCell({ rowId: row.id, column: column.key });
+    setSelectedCell({ rowId: row.id, column: column.key });
+    setDraftValue(String(Math.round(Number(displayCellValue(row, column)))));
+  };
+
+  useEffect(() => {
+    if (editingCell) {
+      return;
+    }
+    if (!selectedCell) {
+      return;
+    }
+    let target = document.querySelector<HTMLElement>(
+      `[data-cell-id="${selectedCell.rowId}:${String(selectedCell.column)}"]`,
+    );
+    if (!target && isVirtualized) {
+      const rowIndex = rows.findIndex((row) => row.id === selectedCell.rowId);
+      if (rowIndex >= 0) {
+        const nextScrollTop = Math.max(0, rowIndex * rowHeight - rowHeight * 2);
+        viewportRef.current?.scrollTo({ top: nextScrollTop });
+        setScrollTop(nextScrollTop);
+        target = document.querySelector<HTMLElement>(
+          `[data-cell-id="${selectedCell.rowId}:${String(selectedCell.column)}"]`,
+        );
+      }
+    }
+    target?.focus();
+  }, [editingCell, isVirtualized, rows, selectedCell]);
+
+  useEffect(() => {
+    const node = headerControlsRef.current;
+    if (!node) {
+      return;
+    }
+    const updateOffset = () => {
+      setHeaderOffset(Math.max(0, Math.ceil(node.getBoundingClientRect().height)));
+    };
+    updateOffset();
+    const observer = new ResizeObserver(updateOffset);
+    observer.observe(node);
+    return () => observer.disconnect();
+  }, [simulationMode]);
+
+  useEffect(() => {
+    if (tableSpreadsheetMode) {
+      setScrollTop(0);
+      return;
+    }
+    const next = viewportRef.current?.scrollTop ?? 0;
+    setScrollTop(next);
+  }, [tableSpreadsheetMode, tableGranularity, rows.length]);
+
+  const BreakdownLabelToggle = ({
+    checked,
+    onChange,
+  }: {
+    checked: boolean;
+    onChange: (next: boolean) => void;
+  }) => (
+    <button
+      type="button"
+      onClick={() => onChange(!checked)}
+      className={`inline-flex items-center gap-1.5 text-[13px] font-medium transition ${
+        checked ? 'text-blue-500' : 'text-slate-500 hover:text-slate-700'
+      }`}
+      aria-pressed={checked}
+    >
+      <span className="text-base leading-none">◷</span>
+      <span>Breakdown</span>
+    </button>
+  );
+
+  const moveSelectionByArrow = (rowDelta: number, columnDelta: number) => {
+    if (!selectedCell || rows.length === 0 || columns.length === 0) {
+      return;
+    }
+    const rowIndex = rows.findIndex((row) => row.id === selectedCell.rowId);
+    const columnIndex = columns.findIndex((column) => column.key === selectedCell.column);
+    if (rowIndex < 0 || columnIndex < 0) {
+      return;
+    }
+    const nextRowIndex = Math.max(0, Math.min(rows.length - 1, rowIndex + rowDelta));
+    const nextColumnIndex = Math.max(0, Math.min(columns.length - 1, columnIndex + columnDelta));
+    const nextRow = rows[nextRowIndex];
+    const nextColumn = columns[nextColumnIndex];
+    if (!nextRow || !nextColumn) {
+      return;
+    }
+    setSelectedCell({ rowId: nextRow.id, column: nextColumn.key });
   };
 
   return (
@@ -380,35 +499,64 @@ export const DetailTable = () => {
       }`}
     >
       <div
+        ref={viewportRef}
         className={tableSpreadsheetMode ? 'overflow-visible' : 'max-h-[520px] overflow-auto'}
         onScroll={tableSpreadsheetMode ? undefined : (event) => setScrollTop(event.currentTarget.scrollTop)}
       >
         <div className={tableMinWidthClass}>
-          <div className="sticky top-0 z-30 border-b border-brand-border bg-white px-4 py-3">
-            <div className="flex flex-wrap items-center justify-between gap-3">
-              <SegmentedToggle
-                value={tableGranularity}
-                onChange={setTableGranularity}
-                options={[
-                  { label: 'Monthly', value: 'monthly' },
-                  { label: 'Annual', value: 'annual' },
-                ]}
-              />
-              <ToggleSwitch
-                checked={tableAssetColumnsEnabled}
-                onChange={setTableAssetColumnsEnabled}
-                label="Show Asset Columns"
-              />
-              <ToggleSwitch
-                checked={tableSpreadsheetMode}
-                onChange={setTableSpreadsheetMode}
-                label="Spreadsheet Mode"
-              />
-              {mode === AppMode.Tracking && simulationMode === SimulationMode.MonteCarlo && mcStale ? (
-                <span className="rounded-full bg-amber-100 px-2 py-1 text-xs font-semibold text-amber-800">
-                  Stale
-                </span>
-              ) : null}
+          <div ref={headerControlsRef} className="sticky top-0 z-30 border-b border-brand-border bg-white px-4 py-3">
+            <div className="flex flex-wrap items-start justify-between gap-3">
+              <div>
+                <p className="text-sm font-semibold text-slate-800">Detail Ledger</p>
+                {simulationMode === SimulationMode.MonteCarlo ? (
+                  <p className="text-xs text-slate-500">Showing median path values.</p>
+                ) : null}
+              </div>
+              <div className="flex flex-wrap items-center gap-3">
+                <SegmentedToggle
+                  value={tableGranularity}
+                  onChange={setTableGranularity}
+                  options={[
+                    { label: 'Monthly', value: 'monthly' },
+                    { label: 'Annual', value: 'annual' },
+                  ]}
+                />
+                <BreakdownLabelToggle checked={tableAssetColumnsEnabled} onChange={setTableAssetColumnsEnabled} />
+                <button
+                  type="button"
+                  onClick={() => setTableSpreadsheetMode(!tableSpreadsheetMode)}
+                  className={`grid h-8 w-8 place-items-center rounded-md border transition ${
+                    tableSpreadsheetMode
+                      ? 'border-blue-200 bg-blue-50 text-blue-500'
+                      : 'border-brand-border bg-white text-slate-500 hover:text-slate-700'
+                  }`}
+                  title={tableSpreadsheetMode ? 'Compress table view' : 'Expand table view'}
+                  aria-label={tableSpreadsheetMode ? 'Compress table view' : 'Expand table view'}
+                >
+                  <svg viewBox="0 0 24 24" className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth="2">
+                    {tableSpreadsheetMode ? (
+                      <>
+                        <path d="M15 9l6-6" />
+                        <path d="M21 9V3h-6" />
+                        <path d="M9 15l-6 6" />
+                        <path d="M3 15v6h6" />
+                      </>
+                    ) : (
+                      <>
+                        <path d="M9 3L3 9" />
+                        <path d="M3 3v6h6" />
+                        <path d="M15 21l6-6" />
+                        <path d="M21 21v-6h-6" />
+                      </>
+                    )}
+                  </svg>
+                </button>
+                {mode === AppMode.Tracking && simulationMode === SimulationMode.MonteCarlo && mcStale ? (
+                  <span className="rounded-full bg-amber-100 px-2 py-1 text-xs font-semibold text-amber-800">
+                    Stale
+                  </span>
+                ) : null}
+              </div>
             </div>
           </div>
 
@@ -420,7 +568,10 @@ export const DetailTable = () => {
             </div>
           ) : (
             <table className="w-full border-collapse text-xs">
-              <thead className="sticky top-[60px] z-20 bg-white">
+              <thead
+                className="sticky z-20 bg-white"
+                style={{ top: headerOffset }}
+              >
                 <tr>
                   {columns.map((column) => {
                     const active = tableSort?.column === column.key;
@@ -477,15 +628,49 @@ export const DetailTable = () => {
                     {columns.map((column) => (
                       <td
                         key={`${row.id}-${column.key}`}
-                        className={`relative whitespace-nowrap px-3 py-2 font-mono ${valueToneClass(row, column)} ${
+                        data-cell-id={`${row.id}:${String(column.key)}`}
+                        tabIndex={
+                          selectedCell?.rowId === row.id && selectedCell.column === column.key ? 0 : -1
+                        }
+                        className={`relative whitespace-nowrap px-3 py-2 font-mono outline-none ${valueToneClass(row, column)} ${
                           isCellEdited(row, column) ? 'bg-sky-100/70 font-semibold text-sky-900' : ''
+                        } ${
+                          selectedCell?.rowId === row.id && selectedCell.column === column.key
+                            ? 'bg-blue-50 shadow-[inset_0_0_0_2px_rgba(59,130,246,0.7)]'
+                            : ''
                         }`}
-                        onDoubleClick={() => {
-                          if (!isEditableCell(row, column)) {
+                        onClick={() => setSelectedCell({ rowId: row.id, column: column.key })}
+                        onDoubleClick={() => beginCellEdit(row, column)}
+                        onKeyDown={(event) => {
+                          if (event.key === 'Tab') {
+                            event.preventDefault();
+                            moveSelection(!event.shiftKey);
                             return;
                           }
-                          setEditingCell({ rowId: row.id, column: column.key });
-                          setDraftValue(String(Math.round(Number(displayCellValue(row, column)))));
+                          if (event.key === 'ArrowRight') {
+                            event.preventDefault();
+                            moveSelectionByArrow(0, 1);
+                            return;
+                          }
+                          if (event.key === 'ArrowLeft') {
+                            event.preventDefault();
+                            moveSelectionByArrow(0, -1);
+                            return;
+                          }
+                          if (event.key === 'ArrowDown') {
+                            event.preventDefault();
+                            moveSelectionByArrow(1, 0);
+                            return;
+                          }
+                          if (event.key === 'ArrowUp') {
+                            event.preventDefault();
+                            moveSelectionByArrow(-1, 0);
+                            return;
+                          }
+                          if (event.key === 'Enter' && editingCell === null) {
+                            event.preventDefault();
+                            beginCellEdit(row, column);
+                          }
                         }}
                       >
                         {editingCell?.rowId === row.id && editingCell.column === column.key ? (
@@ -494,9 +679,15 @@ export const DetailTable = () => {
                             value={draftValue}
                             onChange={(event) => setDraftValue(event.target.value)}
                             onBlur={() => commitCellEdit(row, column)}
+                            onFocus={(event) => event.currentTarget.select()}
                             onKeyDown={(event) => {
                               if (event.key === 'Enter') {
                                 commitCellEdit(row, column);
+                              }
+                              if (event.key === 'Tab') {
+                                event.preventDefault();
+                                commitCellEdit(row, column);
+                                moveSelection(!event.shiftKey);
                               }
                               if (event.key === 'Escape') {
                                 setEditingCell(null);
