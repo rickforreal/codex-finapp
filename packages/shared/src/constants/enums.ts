@@ -50,4 +50,5 @@ export enum ThemeId {
   Dark = 'dark',
   HighContrast = 'highContrast',
   Monokai = 'monokai',
+  Synthwave84 = 'synthwave84',
 }

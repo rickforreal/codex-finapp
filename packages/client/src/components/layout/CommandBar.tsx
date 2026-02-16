@@ -57,6 +57,7 @@ export const CommandBar = () => {
   const clearAllActualOverrides = useAppStore((state) => state.clearAllActualOverrides);
   const theme = useAppStore((state) => state.theme);
   const setSelectedThemeId = useAppStore((state) => state.setSelectedThemeId);
+  const setThemeState = useAppStore((state) => state.setThemeState);
   const canRun =
     drawdownType !== DrawdownStrategyType.Rebalancing ||
     Math.abs(targetAllocation.stocks + targetAllocation.bonds + targetAllocation.cash - 1) < 0.000001;
@@ -104,6 +105,15 @@ export const CommandBar = () => {
     try {
       const raw = await file.text();
       const loaded = applySnapshot(raw);
+      // Theme catalog is server-authoritative; force refresh so older snapshots
+      // pick up newly added built-in themes while keeping selectedThemeId.
+      setThemeState({
+        themes: [],
+        catalog: [],
+        validationIssues: [],
+        status: 'idle',
+        errorMessage: null,
+      });
       setSnapshotMessage(`Loaded snapshot: ${loaded.name}`);
     } catch (error) {
       if (error instanceof SnapshotLoadError) {
@@ -319,7 +329,11 @@ export const CommandBar = () => {
                     </button>
                   ))}
                   {theme.catalog.length === 0 ? (
-                    <p className="px-2 py-1 text-xs text-slate-500">Loading themes...</p>
+                    <p className="px-2 py-1 text-xs text-slate-500">
+                      {theme.status === 'error'
+                        ? (theme.errorMessage ?? 'Failed to load themes')
+                        : 'Loading themes...'}
+                    </p>
                   ) : null}
                 </div>
               </div>

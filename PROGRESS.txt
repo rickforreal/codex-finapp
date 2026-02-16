@@ -1,3 +1,14 @@
+## 2026-02-16 03:41 — FEATURE-SYNTHWAVE84-BUILD | COMPLETE
+
+Implemented Synthwave '84 as a new built-in server-defined theme: added `ThemeId.Synthwave84`, added a full Synthwave token bundle in `packages/server/src/themes/registry.ts`, and extended `/api/v1/themes` route tests to include Synthwave in built-in IDs.
+
+Validation passed: `npm test`, `npm run typecheck`, `npm run lint`, and `npm run build`.
+[QUESTION] Manual visual/persistence acceptance in `docs/features/themes/synthwave84/ACCEPTANCE.md` is still pending user verification.
+## 2026-02-16 03:39 — FEATURE-SYNTHWAVE84-PLAN | COMPLETE
+
+Created a decision-complete planning pack for Synthwave '84 under `docs/features/themes/synthwave84/` with implementation plan, task breakdown, acceptance criteria, and token-direction guidance.
+
+[DECISION] Canonical docs were not updated at planning time because this feature is additive within existing server-defined themes architecture.
 ## 2026-02-16 02:34 — PHASE13-BUGFIXES | COMPLETE
 
 Fixed two post-Phase-13 UX defects in client UI state/layout:

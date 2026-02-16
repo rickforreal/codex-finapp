@@ -801,3 +801,31 @@ Dependencies: FM-T3
 Acceptance Criteria:
 [AC1] `npm test`, `npm run typecheck`, `npm run lint`, and `npm run build` pass.
 [AC2] Monokai passes checklist in `docs/features/themes/monokai/ACCEPTANCE.md`.
+
+## Feature Plan — Synthwave '84 Theme
+
+- [x] FS84-T1: Add `ThemeId.Synthwave84` in shared enums
+Phase: Feature/Synthwave84
+Dependencies: none
+Acceptance Criteria:
+[AC1] Shared enum exports `ThemeId.Synthwave84`.
+
+- [x] FS84-T2: Add Synthwave '84 definition to server theme registry
+Phase: Feature/Synthwave84
+Dependencies: FS84-T1
+Acceptance Criteria:
+[AC1] `/api/v1/themes` includes Synthwave '84 in catalog and `themes` payload.
+[AC2] App default theme remains unchanged.
+
+- [x] FS84-T3: Update built-in theme route tests
+Phase: Feature/Synthwave84
+Dependencies: FS84-T2
+Acceptance Criteria:
+[AC1] Route tests assert `ThemeId.Synthwave84` appears in built-in IDs.
+
+- [ ] FS84-T4: Run verification + visual QA
+Phase: Feature/Synthwave84
+Dependencies: FS84-T3
+Acceptance Criteria:
+[AC1] `npm test`, `npm run typecheck`, `npm run lint`, and `npm run build` pass.
+[AC2] Synthwave '84 passes checklist in `docs/features/themes/synthwave84/ACCEPTANCE.md`.
