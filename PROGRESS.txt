@@ -769,3 +769,11 @@ Verification run (all passing):
   - `npm test -w @finapp/server -- monteCarlo.test.ts`
   - `npm run typecheck`
   - `npm run lint`
+- Phase 14 compare/stress chart UX fixes.
+  - Added stress scenario overlays to Compare-mode chart rendering (previously missing in compare branch).
+  - Standardized line semantics: Portfolio A/B lines are solid; stress scenario overlays are dotted.
+  - Decoupled compare portfolio palette from stress palette: Portfolio B now uses dedicated compare color (`--theme-color-info`) across chart lines, MC bands, legend, tooltip markers, and compare stat cards.
+- Validation (client):
+  - `npm run typecheck -w @finapp/client`
+  - `npm run lint -w @finapp/client`
+  - `npm run build -w @finapp/client`

@@ -154,10 +154,13 @@ export const DetailTable = () => {
 
   const rawRows = useMemo(() => {
     const rows = result?.result.rows ?? [];
+    const runStartingAge = result?.configSnapshot?.coreParams.startingAge ?? startingAge;
+    const runInflationRate = result?.configSnapshot?.coreParams.inflationRate ?? inflationRate;
+    const runRetirementStartDate = result?.configSnapshot?.coreParams.retirementStartDate ?? retirementStartDate;
     if (tableGranularity === 'annual') {
-      return buildAnnualDetailRows(rows, startingAge, inflationRate, retirementStartDate);
+      return buildAnnualDetailRows(rows, runStartingAge, runInflationRate, runRetirementStartDate);
     }
-    return buildMonthlyDetailRows(rows, startingAge, inflationRate, retirementStartDate);
+    return buildMonthlyDetailRows(rows, runStartingAge, runInflationRate, runRetirementStartDate);
   }, [inflationRate, result, retirementStartDate, startingAge, tableGranularity]);
 
   const rows = useMemo(() => sortDetailRows(rawRows, tableSort), [rawRows, tableSort]);
@@ -545,14 +548,19 @@ export const DetailTable = () => {
         expenseTotal: number;
         endBalances: { stocks: number; bonds: number; cash: number };
       }>,
+      slotResult: ReturnType<typeof resolveSlotResult>,
     ) => {
+      const slotStartingAge = slotResult?.configSnapshot?.coreParams.startingAge ?? startingAge;
+      const slotInflationRate = slotResult?.configSnapshot?.coreParams.inflationRate ?? inflationRate;
+      const slotRetirementStartDate =
+        slotResult?.configSnapshot?.coreParams.retirementStartDate ?? retirementStartDate;
       if (tableGranularity === 'annual') {
-        return buildAnnualDetailRows(slotRows, startingAge, inflationRate, retirementStartDate);
+        return buildAnnualDetailRows(slotRows, slotStartingAge, slotInflationRate, slotRetirementStartDate);
       }
-      return buildMonthlyDetailRows(slotRows, startingAge, inflationRate, retirementStartDate);
+      return buildMonthlyDetailRows(slotRows, slotStartingAge, slotInflationRate, slotRetirementStartDate);
     };
-    const leftRows = sortDetailRows(toRows(leftResult?.result.rows ?? []), tableSort);
-    const rightRows = sortDetailRows(toRows(rightResult?.result.rows ?? []), tableSort);
+    const leftRows = sortDetailRows(toRows(leftResult?.result.rows ?? [], leftResult), tableSort);
+    const rightRows = sortDetailRows(toRows(rightResult?.result.rows ?? [], rightResult), tableSort);
 
     const renderPane = (
       title: string,

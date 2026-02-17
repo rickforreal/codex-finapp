@@ -20,11 +20,14 @@ export const SummaryStatsBar = () => {
   const retirementDuration = useAppStore((state) => state.coreParams.retirementDuration);
   const simulationMode = useAppStore((state) => state.simulationMode);
   const startingPortfolio = useAppStore((state) => state.portfolio.stocks + state.portfolio.bonds + state.portfolio.cash);
+  const activeRunInflationRate = result?.configSnapshot?.coreParams.inflationRate ?? inflationRate;
+  const activeRunRetirementDuration = result?.configSnapshot?.coreParams.retirementDuration ?? retirementDuration;
+  const activeRunStartingAge = result?.configSnapshot?.coreParams.startingAge ?? startingAge;
 
   const stats = useMemo(() => {
     const rows = result?.result.rows ?? [];
-    return buildSummaryStats(rows, inflationRate);
-  }, [inflationRate, result]);
+    return buildSummaryStats(rows, activeRunInflationRate);
+  }, [activeRunInflationRate, result]);
 
   const hasResult = Boolean(result);
   const drawdownRealPctOfNominal =
@@ -38,20 +41,20 @@ export const SummaryStatsBar = () => {
   const pos = monteCarlo?.probabilityOfSuccess ?? null;
   const posClassName =
     pos === null ? undefined : pos >= 0.9 ? 'text-emerald-700' : pos >= 0.75 ? 'text-amber-700' : 'text-rose-700';
-  const terminalMedianNominal = monteCarlo?.percentileCurves.total.p50[retirementDuration * 12 - 1] ?? null;
+  const terminalMedianNominal = monteCarlo?.percentileCurves.total.p50[activeRunRetirementDuration * 12 - 1] ?? null;
   const terminalMedianReal =
     terminalMedianNominal === null
       ? null
-      : terminalMedianNominal / inflationFactor(inflationRate, retirementDuration * 12);
+      : terminalMedianNominal / inflationFactor(activeRunInflationRate, activeRunRetirementDuration * 12);
   const manualTerminalNominal = result?.result.rows[result.result.rows.length - 1]
     ? result.result.rows[result.result.rows.length - 1]!.endBalances.stocks +
       result.result.rows[result.result.rows.length - 1]!.endBalances.bonds +
       result.result.rows[result.result.rows.length - 1]!.endBalances.cash
     : 0;
   const manualTerminalReal =
-    retirementDuration <= 0
+    activeRunRetirementDuration <= 0
       ? manualTerminalNominal
-      : manualTerminalNominal / inflationFactor(inflationRate, retirementDuration * 12);
+      : manualTerminalNominal / inflationFactor(activeRunInflationRate, activeRunRetirementDuration * 12);
   const terminalDisplayValue =
     simulationMode === SimulationMode.MonteCarlo
       ? (terminalMedianReal ?? 0)
@@ -65,7 +68,7 @@ export const SummaryStatsBar = () => {
         ? 'Median terminal portfolio depleted'
         : stats.depletionMonthIndex === null
           ? 'Depleted before end of horizon'
-          : `Depleted in month ${stats.depletionMonthIndex + 1} (age ${startingAge + Math.floor(stats.depletionMonthIndex / 12)})`
+          : `Depleted in month ${stats.depletionMonthIndex + 1} (age ${activeRunStartingAge + Math.floor(stats.depletionMonthIndex / 12)})`
       : `${formatPercent(terminalPctOfStarting)} of starting`;
 
   if (mode === AppMode.Compare) {
@@ -83,8 +86,10 @@ export const SummaryStatsBar = () => {
     const rightResult = resolveSlotResult(compareResults.rightWorkspace);
     const leftRows = leftResult?.result.rows ?? [];
     const rightRows = rightResult?.result.rows ?? [];
-    const leftStats = buildSummaryStats(leftRows, inflationRate);
-    const rightStats = buildSummaryStats(rightRows, inflationRate);
+    const leftInflationRate = leftResult?.configSnapshot?.coreParams.inflationRate ?? inflationRate;
+    const rightInflationRate = rightResult?.configSnapshot?.coreParams.inflationRate ?? inflationRate;
+    const leftStats = buildSummaryStats(leftRows, leftInflationRate);
+    const rightStats = buildSummaryStats(rightRows, rightInflationRate);
     const leftHas = leftRows.length > 0;
     const rightHas = rightRows.length > 0;
 
@@ -104,7 +109,7 @@ export const SummaryStatsBar = () => {
               <p className="font-mono text-[18px] font-semibold leading-none" style={{ color: 'var(--theme-chart-manual-line)' }}>
                 {leftValue === null ? 'A: —' : `A: ${formatter(leftValue)}`}
               </p>
-              <p className="font-mono text-[18px] font-semibold leading-none" style={{ color: 'var(--theme-color-stress-a)' }}>
+              <p className="font-mono text-[18px] font-semibold leading-none" style={{ color: 'var(--theme-color-info)' }}>
                 {rightValue === null ? 'B: —' : `B: ${formatter(rightValue)}`}
               </p>
             </div>
@@ -132,6 +137,18 @@ export const SummaryStatsBar = () => {
         rightRows[rightRows.length - 1]!.endBalances.bonds +
         rightRows[rightRows.length - 1]!.endBalances.cash
       : null;
+    const leftDuration = leftResult?.configSnapshot?.coreParams.retirementDuration ?? retirementDuration;
+    const rightDuration = rightResult?.configSnapshot?.coreParams.retirementDuration ?? retirementDuration;
+    const leftInflation = leftResult?.configSnapshot?.coreParams.inflationRate ?? inflationRate;
+    const rightInflation = rightResult?.configSnapshot?.coreParams.inflationRate ?? inflationRate;
+    const leftTerminalReal =
+      leftTerminal === null || leftDuration <= 0
+        ? leftTerminal
+        : leftTerminal / inflationFactor(leftInflation, leftDuration * 12);
+    const rightTerminalReal =
+      rightTerminal === null || rightDuration <= 0
+        ? rightTerminal
+        : rightTerminal / inflationFactor(rightInflation, rightDuration * 12);
     const leftMcPos = leftResult?.monteCarlo?.probabilityOfSuccess ?? null;
     const rightMcPos = rightResult?.monteCarlo?.probabilityOfSuccess ?? null;
 
@@ -184,9 +201,9 @@ export const SummaryStatsBar = () => {
             (value) => formatCurrency(Math.round(value)),
           )}
           {compareCard(
-            'Portfolio End (Nominal)',
-            leftTerminal,
-            rightTerminal,
+            'Portfolio End (Real)',
+            leftTerminalReal,
+            rightTerminalReal,
             (value) => formatCompactCurrency(Math.round(value)),
           )}
         </div>

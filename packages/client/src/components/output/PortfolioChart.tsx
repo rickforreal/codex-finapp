@@ -38,7 +38,6 @@ type StressTooltipPoint = {
 type CompareTooltipPoint = {
   label: string;
   color: string;
-  dashed?: boolean;
   portfolio: number;
   withdrawal: number;
 };
@@ -52,6 +51,7 @@ const stressScenarioColors = [
   'var(--theme-color-stress-c)',
   'var(--theme-color-stress-d)',
 ];
+const comparePortfolioBColor = 'var(--theme-color-info)';
 
 const inflationFactor = (inflationRate: number, monthIndex: number): number => (1 + inflationRate) ** (monthIndex / 12);
 
@@ -101,6 +101,8 @@ export const PortfolioChart = () => {
   const startingAge = useAppStore((state) => state.coreParams.startingAge);
   const stressResult = useAppStore((state) => state.stress.result);
   const simulationStatus = useAppStore((state) => state.simulationResults.status);
+  const activeRunInflationRate = result?.configSnapshot?.coreParams.inflationRate ?? inflationRate;
+  const activeRunStartingAge = result?.configSnapshot?.coreParams.startingAge ?? startingAge;
 
   const [hoverIndex, setHoverIndex] = useState<number | null>(null);
 
@@ -149,7 +151,7 @@ export const PortfolioChart = () => {
         ? (useAppStore.getState().simulationResults.reforecast?.result.rows ?? result?.result.rows ?? [])
         : (result?.result.rows ?? []);
     return rows.map((row) => {
-      const factor = inflationFactor(inflationRate, row.monthIndex);
+      const factor = inflationFactor(activeRunInflationRate, row.monthIndex);
       const stocksNominal = row.endBalances[AssetClass.Stocks];
       const bondsNominal = row.endBalances[AssetClass.Bonds];
       const cashNominal = row.endBalances[AssetClass.Cash];
@@ -166,7 +168,7 @@ export const PortfolioChart = () => {
         cashReal: cashNominal / factor,
       };
     });
-  }, [inflationRate, result]);
+  }, [activeRunInflationRate, result]);
 
   const monteCarloBands = useMemo<MonteCarloBands | null>(() => {
     if (simulationMode !== SimulationMode.MonteCarlo || !result?.monteCarlo) {
@@ -174,7 +176,7 @@ export const PortfolioChart = () => {
     }
 
     const toDisplayValue = (value: number, monthIndexOneBased: number) =>
-      chartDisplayMode === 'real' ? value / inflationFactor(inflationRate, monthIndexOneBased) : value;
+      chartDisplayMode === 'real' ? value / inflationFactor(activeRunInflationRate, monthIndexOneBased) : value;
 
     return {
       p10: result.monteCarlo.percentileCurves.total.p10.map((value, index) => toDisplayValue(value, index + 1)),
@@ -183,7 +185,7 @@ export const PortfolioChart = () => {
       p75: result.monteCarlo.percentileCurves.total.p75.map((value, index) => toDisplayValue(value, index + 1)),
       p90: result.monteCarlo.percentileCurves.total.p90.map((value, index) => toDisplayValue(value, index + 1)),
     };
-  }, [chartDisplayMode, inflationRate, result, simulationMode]);
+  }, [activeRunInflationRate, chartDisplayMode, result, simulationMode]);
 
   if (mode === AppMode.Compare) {
     const resolveSlotResult = (workspace: (typeof compareResults)['leftWorkspace']) => {
@@ -197,35 +199,42 @@ export const PortfolioChart = () => {
       return preferred ?? workspace.simulationResults.manual ?? workspace.simulationResults.monteCarlo;
     };
 
-    const buildTotals = (rows: MonthlySimulationRow[]) =>
+    const buildTotals = (rows: MonthlySimulationRow[], slotInflationRate: number) =>
       rows.map((row) => {
         const nominal = totalFromRow(row);
         return chartDisplayMode === 'real'
-          ? nominal / inflationFactor(inflationRate, row.monthIndex)
+          ? nominal / inflationFactor(slotInflationRate, row.monthIndex)
           : nominal;
       });
 
-    const toDisplayValue = (value: number, monthIndexOneBased: number) =>
-      chartDisplayMode === 'real' ? value / inflationFactor(inflationRate, monthIndexOneBased) : value;
-    const toDisplayBands = (curve: MonteCarloPercentileCurves | null): MonteCarloBands | null => {
+    const leftResult = resolveSlotResult(compareResults.leftWorkspace);
+    const rightResult = resolveSlotResult(compareResults.rightWorkspace);
+    const leftInflationRate = leftResult?.configSnapshot?.coreParams.inflationRate ?? inflationRate;
+    const rightInflationRate = rightResult?.configSnapshot?.coreParams.inflationRate ?? inflationRate;
+    const toDisplayValue = (value: number, monthIndexOneBased: number, slotInflationRate: number) =>
+      chartDisplayMode === 'real' ? value / inflationFactor(slotInflationRate, monthIndexOneBased) : value;
+    const toDisplayBands = (curve: MonteCarloPercentileCurves | null, slotInflationRate: number): MonteCarloBands | null => {
       if (!curve) {
         return null;
       }
       return {
-        p10: curve.p10.map((value, index) => toDisplayValue(value, index + 1)),
-        p25: curve.p25.map((value, index) => toDisplayValue(value, index + 1)),
-        p50: curve.p50.map((value, index) => toDisplayValue(value, index + 1)),
-        p75: curve.p75.map((value, index) => toDisplayValue(value, index + 1)),
-        p90: curve.p90.map((value, index) => toDisplayValue(value, index + 1)),
+        p10: curve.p10.map((value, index) => toDisplayValue(value, index + 1, slotInflationRate)),
+        p25: curve.p25.map((value, index) => toDisplayValue(value, index + 1, slotInflationRate)),
+        p50: curve.p50.map((value, index) => toDisplayValue(value, index + 1, slotInflationRate)),
+        p75: curve.p75.map((value, index) => toDisplayValue(value, index + 1, slotInflationRate)),
+        p90: curve.p90.map((value, index) => toDisplayValue(value, index + 1, slotInflationRate)),
       };
     };
-
-    const leftResult = resolveSlotResult(compareResults.leftWorkspace);
-    const rightResult = resolveSlotResult(compareResults.rightWorkspace);
     const leftRows = leftResult?.result.rows ?? [];
     const rightRows = rightResult?.result.rows ?? [];
-    const leftBands = simulationMode === SimulationMode.MonteCarlo ? toDisplayBands(leftResult?.monteCarlo?.percentileCurves.total ?? null) : null;
-    const rightBands = simulationMode === SimulationMode.MonteCarlo ? toDisplayBands(rightResult?.monteCarlo?.percentileCurves.total ?? null) : null;
+    const leftBands =
+      simulationMode === SimulationMode.MonteCarlo
+        ? toDisplayBands(leftResult?.monteCarlo?.percentileCurves.total ?? null, leftInflationRate)
+        : null;
+    const rightBands =
+      simulationMode === SimulationMode.MonteCarlo
+        ? toDisplayBands(rightResult?.monteCarlo?.percentileCurves.total ?? null, rightInflationRate)
+        : null;
 
     if (leftRows.length === 0 && rightRows.length === 0) {
       return (
@@ -237,8 +246,8 @@ export const PortfolioChart = () => {
       );
     }
 
-    const leftTotals = buildTotals(leftRows);
-    const rightTotals = buildTotals(rightRows);
+    const leftTotals = buildTotals(leftRows, leftInflationRate);
+    const rightTotals = buildTotals(rightRows, rightInflationRate);
     const maxCount = Math.max(
       leftTotals.length,
       rightTotals.length,
@@ -261,6 +270,18 @@ export const PortfolioChart = () => {
     const rightPath = linePath(rightTotals.map((value, index) => ({ x: xAt(index), y: yAt(value) })));
     const leftMedianPath = linePath((leftBands?.p50 ?? []).map((value, index) => ({ x: xAt(index), y: yAt(value) })));
     const rightMedianPath = linePath((rightBands?.p50 ?? []).map((value, index) => ({ x: xAt(index), y: yAt(value) })));
+    const compareStressCurves = (stressResult?.scenarios ?? []).map((scenario) =>
+      scenario.result.rows.map((row) => {
+        const nominal = row.endBalances.stocks + row.endBalances.bonds + row.endBalances.cash;
+        if (chartDisplayMode === 'real') {
+          return nominal / inflationFactor(activeRunInflationRate, row.monthIndex);
+        }
+        return nominal;
+      }),
+    );
+    const compareStressPaths = compareStressCurves.map((curve) =>
+      linePath(curve.slice(0, maxCount).map((value, index) => ({ x: xAt(index), y: yAt(value) }))),
+    );
     const xValues = Array.from({ length: maxCount }, (_, index) => xAt(index));
     const yTicks = 6;
     const xTicks = Math.min(8, maxCount);
@@ -270,8 +291,8 @@ export const PortfolioChart = () => {
     const hoverX = activeHoverIndex === null ? null : xAt(activeHoverIndex);
     const leftHoverRow = activeHoverIndex === null ? null : leftRows[activeHoverIndex];
     const rightHoverRow = activeHoverIndex === null ? null : rightRows[activeHoverIndex];
-    const toDisplay = (row: MonthlySimulationRow, value: number) =>
-      chartDisplayMode === 'real' ? value / inflationFactor(inflationRate, row.monthIndex) : value;
+    const toDisplay = (row: MonthlySimulationRow, value: number, slotInflationRate: number) =>
+      chartDisplayMode === 'real' ? value / inflationFactor(slotInflationRate, row.monthIndex) : value;
     const tooltipPoints: CompareTooltipPoint[] = [
       leftHoverRow || (activeHoverIndex !== null && leftBands?.p50[activeHoverIndex] !== undefined)
         ? {
@@ -281,23 +302,22 @@ export const PortfolioChart = () => {
               activeHoverIndex !== null && leftBands?.p50[activeHoverIndex] !== undefined
                 ? (leftBands.p50[activeHoverIndex] ?? 0)
                 : leftHoverRow
-                  ? toDisplay(leftHoverRow, totalFromRow(leftHoverRow))
+                  ? toDisplay(leftHoverRow, totalFromRow(leftHoverRow), leftInflationRate)
                   : 0,
-            withdrawal: leftHoverRow ? toDisplay(leftHoverRow, leftHoverRow.withdrawals.actual) : 0,
+            withdrawal: leftHoverRow ? toDisplay(leftHoverRow, leftHoverRow.withdrawals.actual, leftInflationRate) : 0,
           }
         : null,
       rightHoverRow || (activeHoverIndex !== null && rightBands?.p50[activeHoverIndex] !== undefined)
         ? {
             label: 'Portfolio B',
-            color: 'var(--theme-color-stress-a)',
-            dashed: true,
+            color: comparePortfolioBColor,
             portfolio:
               activeHoverIndex !== null && rightBands?.p50[activeHoverIndex] !== undefined
                 ? (rightBands.p50[activeHoverIndex] ?? 0)
                 : rightHoverRow
-                  ? toDisplay(rightHoverRow, totalFromRow(rightHoverRow))
+                  ? toDisplay(rightHoverRow, totalFromRow(rightHoverRow), rightInflationRate)
                   : 0,
-            withdrawal: rightHoverRow ? toDisplay(rightHoverRow, rightHoverRow.withdrawals.actual) : 0,
+            withdrawal: rightHoverRow ? toDisplay(rightHoverRow, rightHoverRow.withdrawals.actual, rightInflationRate) : 0,
           }
         : null,
     ].filter((entry): entry is CompareTooltipPoint => entry !== null);
@@ -393,7 +413,7 @@ export const PortfolioChart = () => {
                         rightBands.p10.map(yAt),
                         rightBands.p90.map(yAt),
                       )}
-                      fill="var(--theme-color-stress-a)"
+                      fill={comparePortfolioBColor}
                       fillOpacity={0.16}
                     />
                     <path
@@ -402,21 +422,34 @@ export const PortfolioChart = () => {
                         rightBands.p25.map(yAt),
                         rightBands.p75.map(yAt),
                       )}
-                      fill="var(--theme-color-stress-a)"
+                      fill={comparePortfolioBColor}
                       fillOpacity={0.26}
                     />
-                    <path d={rightMedianPath} fill="none" stroke="var(--theme-color-stress-a)" strokeWidth={2.5} strokeDasharray="6 4" />
+                    <path d={rightMedianPath} fill="none" stroke={comparePortfolioBColor} strokeWidth={2.5} />
                   </>
                 ) : (
-                  <path d={rightPath} fill="none" stroke="var(--theme-color-stress-a)" strokeWidth={2.5} strokeDasharray="6 4" />
+                  <path d={rightPath} fill="none" stroke={comparePortfolioBColor} strokeWidth={2.5} />
                 )}
               </>
             ) : (
               <>
-                <path d={rightPath} fill="none" stroke="var(--theme-color-stress-a)" strokeWidth={2.5} strokeDasharray="6 4" />
+                <path d={rightPath} fill="none" stroke={comparePortfolioBColor} strokeWidth={2.5} />
                 <path d={leftPath} fill="none" stroke="var(--theme-chart-manual-line)" strokeWidth={3} />
               </>
             )}
+            {!chartBreakdownEnabled
+              ? compareStressPaths.map((path, index) => (
+                  <path
+                    key={`compare-stress-scenario-${index}`}
+                    d={path}
+                    fill="none"
+                    stroke={stressScenarioColors[index] ?? 'var(--theme-color-text-muted)'}
+                    strokeWidth="2"
+                    strokeDasharray="2 4"
+                    opacity={0.95}
+                  />
+                ))
+              : null}
 
             {hoverX !== null ? (
               <line x1={hoverX} y1={margin.top} x2={hoverX} y2={margin.top + plotHeight} stroke="var(--theme-color-chart-text)" strokeDasharray="4 4" />
@@ -424,7 +457,20 @@ export const PortfolioChart = () => {
           </svg>
           <div className="pointer-events-none absolute right-3 top-3 rounded-md border border-brand-border bg-white/95 px-3 py-2 text-xs text-slate-700">
             <div className="flex items-center gap-2"><span className="h-[2px] w-4 bg-[var(--theme-chart-manual-line)]" />Portfolio A{simulationMode === SimulationMode.MonteCarlo ? ' (P50 + bands)' : ''}</div>
-            <div className="mt-1 flex items-center gap-2"><span className="h-[2px] w-4 bg-[var(--theme-color-stress-a)]" />Portfolio B{simulationMode === SimulationMode.MonteCarlo ? ' (P50 + bands)' : ''}</div>
+            <div className="mt-1 flex items-center gap-2"><span className="h-[2px] w-4" style={{ backgroundColor: comparePortfolioBColor }} />Portfolio B{simulationMode === SimulationMode.MonteCarlo ? ' (P50 + bands)' : ''}</div>
+            {compareStressPaths.length > 0 ? (
+              <div className="mt-2 border-t border-brand-border pt-1.5">
+                {stressResult?.scenarios.map((scenario, index) => (
+                  <div key={scenario.scenarioId} className="mt-1 flex items-center gap-2">
+                    <span
+                      className="inline-block w-4 border-t-2 border-dotted"
+                      style={{ borderTopColor: stressScenarioColors[index] ?? 'var(--theme-color-text-muted)' }}
+                    />
+                    <span className="max-w-[150px] truncate">{scenario.scenarioLabel}</span>
+                  </div>
+                ))}
+              </div>
+            ) : null}
           </div>
           {hoverX !== null && tooltipPoints.length > 0 ? (
             <div
@@ -440,8 +486,8 @@ export const PortfolioChart = () => {
                   <div key={entry.label} className="rounded border border-slate-100 bg-slate-50 px-2 py-1">
                     <p className="mb-1 flex items-center gap-1.5 font-medium text-slate-700">
                       <span
-                        className={`inline-block h-[2px] w-4 ${entry.dashed ? 'border-t-2 border-dashed' : ''}`}
-                        style={entry.dashed ? { borderTopColor: entry.color } : { backgroundColor: entry.color }}
+                        className="inline-block h-[2px] w-4"
+                        style={{ backgroundColor: entry.color }}
                       />
                       <span>{entry.label}</span>
                     </p>
@@ -532,7 +578,7 @@ export const PortfolioChart = () => {
     scenario.result.rows.map((row) => {
       const nominal = row.endBalances.stocks + row.endBalances.bonds + row.endBalances.cash;
       if (chartDisplayMode === 'real') {
-        return nominal / inflationFactor(inflationRate, row.monthIndex);
+        return nominal / inflationFactor(activeRunInflationRate, row.monthIndex);
       }
       return nominal;
     }),
@@ -614,7 +660,7 @@ export const PortfolioChart = () => {
               return null;
             }
             const nominalPortfolio = row.endBalances.stocks + row.endBalances.bonds + row.endBalances.cash;
-            const factor = inflationFactor(inflationRate, row.monthIndex);
+            const factor = inflationFactor(activeRunInflationRate, row.monthIndex);
             return {
               scenarioId: scenario.scenarioId,
               scenarioLabel: scenario.scenarioLabel,
@@ -769,7 +815,7 @@ export const PortfolioChart = () => {
                   fill="none"
                   stroke={stressScenarioColors[index] ?? 'var(--theme-color-text-muted)'}
                   strokeWidth="2"
-                  strokeDasharray="6 4"
+                  strokeDasharray="2 4"
                   opacity={0.95}
                 />
               ))
@@ -806,7 +852,7 @@ export const PortfolioChart = () => {
             {stressResult?.scenarios.map((scenario, index) => (
               <div key={scenario.scenarioId} className="flex items-center gap-2">
                 <span
-                  className="inline-block w-5 border-t-2 border-dashed"
+                  className="inline-block w-5 border-t-2 border-dotted"
                   style={{
                     borderTopColor: stressScenarioColors[index] ?? 'var(--theme-color-text-muted)',
                   }}
@@ -825,7 +871,7 @@ export const PortfolioChart = () => {
               top: 10,
             }}
           >
-            <p className="font-semibold text-slate-800">{formatPeriodLabel(hoverPoint.monthIndex, startingAge)}</p>
+            <p className="font-semibold text-slate-800">{formatPeriodLabel(hoverPoint.monthIndex, activeRunStartingAge)}</p>
             <div className="mt-2 space-y-1 text-slate-600">
               <p className="flex items-center justify-between gap-2">
                 <span>Portfolio</span>

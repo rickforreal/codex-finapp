@@ -755,6 +755,86 @@ const snapshotFieldsFromWorkspace = (workspace: WorkspaceSnapshot) => ({
   stress: workspace.stress,
 });
 
+const inputFieldsFromWorkspace = (workspace: WorkspaceSnapshot) => ({
+  selectedHistoricalEra: workspace.selectedHistoricalEra,
+  coreParams: workspace.coreParams,
+  portfolio: workspace.portfolio,
+  returnAssumptions: workspace.returnAssumptions,
+  spendingPhases: workspace.spendingPhases,
+  withdrawalStrategy: workspace.withdrawalStrategy,
+  drawdownStrategy: workspace.drawdownStrategy,
+  historicalData: workspace.historicalData,
+  incomeEvents: workspace.incomeEvents,
+  expenseEvents: workspace.expenseEvents,
+  actualOverridesByMonth: workspace.actualOverridesByMonth,
+  lastEditedMonthIndex: workspace.lastEditedMonthIndex,
+});
+
+const currentInputFieldsFromState = (state: AppStore): ReturnType<typeof inputFieldsFromWorkspace> => ({
+  selectedHistoricalEra: state.selectedHistoricalEra,
+  coreParams: { ...state.coreParams, retirementStartDate: { ...state.coreParams.retirementStartDate } },
+  portfolio: { ...state.portfolio },
+  returnAssumptions: {
+    stocks: { ...state.returnAssumptions.stocks },
+    bonds: { ...state.returnAssumptions.bonds },
+    cash: { ...state.returnAssumptions.cash },
+  },
+  spendingPhases: state.spendingPhases.map((phase) => ({ ...phase })),
+  withdrawalStrategy: {
+    ...state.withdrawalStrategy,
+    params: { ...state.withdrawalStrategy.params },
+  },
+  drawdownStrategy: {
+    ...state.drawdownStrategy,
+    bucketOrder: [...state.drawdownStrategy.bucketOrder],
+    rebalancing: {
+      ...state.drawdownStrategy.rebalancing,
+      targetAllocation: { ...state.drawdownStrategy.rebalancing.targetAllocation },
+      glidePath: state.drawdownStrategy.rebalancing.glidePath.map((waypoint) => ({
+        year: waypoint.year,
+        allocation: { ...waypoint.allocation },
+      })),
+    },
+  },
+  historicalData: {
+    ...state.historicalData,
+    summary: state.historicalData.summary
+      ? {
+          ...state.historicalData.summary,
+          selectedEra: { ...state.historicalData.summary.selectedEra },
+          eras: state.historicalData.summary.eras.map((era) => ({ ...era })),
+          byAsset: {
+            stocks: { ...state.historicalData.summary.byAsset.stocks },
+            bonds: { ...state.historicalData.summary.byAsset.bonds },
+            cash: { ...state.historicalData.summary.byAsset.cash },
+          },
+        }
+      : null,
+  },
+  incomeEvents: state.incomeEvents.map((event) => ({
+    ...event,
+    start: { ...event.start },
+    end: event.end === 'endOfRetirement' ? event.end : { ...event.end },
+  })),
+  expenseEvents: state.expenseEvents.map((event) => ({
+    ...event,
+    start: { ...event.start },
+    end: event.end === 'endOfRetirement' ? event.end : { ...event.end },
+  })),
+  actualOverridesByMonth: Object.fromEntries(
+    Object.entries(state.actualOverridesByMonth).map(([month, value]) => [
+      month,
+      {
+        startBalances: value.startBalances ? { ...value.startBalances } : undefined,
+        withdrawalsByAsset: value.withdrawalsByAsset ? { ...value.withdrawalsByAsset } : undefined,
+        incomeTotal: value.incomeTotal,
+        expenseTotal: value.expenseTotal,
+      },
+    ]),
+  ),
+  lastEditedMonthIndex: state.lastEditedMonthIndex,
+});
+
 const cloneSnapshotState = (snapshot: SnapshotState): SnapshotState => ({
   mode: snapshot.mode,
   trackingInitialized: snapshot.trackingInitialized,
@@ -1146,12 +1226,22 @@ export const useAppStore = create<AppStore>((set) => ({
         return state;
       }
       const nextCompareWorkspace = cloneCompareWorkspace(state.compareWorkspace);
-      const currentWorkspace = cloneWorkspace(workspaceFromState(state));
+      const currentInputs = currentInputFieldsFromState(state);
 
       if (nextCompareWorkspace.activeSlot === 'left') {
-        nextCompareWorkspace.leftWorkspace = currentWorkspace;
+        nextCompareWorkspace.leftWorkspace = nextCompareWorkspace.leftWorkspace
+          ? cloneWorkspace({
+              ...nextCompareWorkspace.leftWorkspace,
+              ...currentInputs,
+            })
+          : cloneWorkspace(workspaceFromState(state));
       } else {
-        nextCompareWorkspace.rightWorkspace = currentWorkspace;
+        nextCompareWorkspace.rightWorkspace = nextCompareWorkspace.rightWorkspace
+          ? cloneWorkspace({
+              ...nextCompareWorkspace.rightWorkspace,
+              ...currentInputs,
+            })
+          : cloneWorkspace(workspaceFromState(state));
       }
       nextCompareWorkspace.activeSlot = slot;
 
@@ -1162,7 +1252,7 @@ export const useAppStore = create<AppStore>((set) => ({
 
       return {
         compareWorkspace: nextCompareWorkspace,
-        ...snapshotFieldsFromWorkspace(cloneWorkspace(targetWorkspace)),
+        ...inputFieldsFromWorkspace(cloneWorkspace(targetWorkspace)),
       };
     }),
   upsertActualOverride: (monthIndex, patch) =>

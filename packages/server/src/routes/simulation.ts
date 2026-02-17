@@ -28,6 +28,10 @@ export const simulationRoutes: FastifyPluginAsync = async (app) => {
           return {
             simulationMode: SimulationMode.MonteCarlo,
             seedUsed: mc.seedUsed,
+            configSnapshot: {
+              coreParams: body.config.coreParams,
+              selectedHistoricalEra: body.config.selectedHistoricalEra,
+            },
             result: mc.representativePath,
             monteCarlo: mc.monteCarlo,
           };
@@ -36,7 +40,15 @@ export const simulationRoutes: FastifyPluginAsync = async (app) => {
         const returns = body.monthlyReturns ?? generateMonthlyReturnsFromAssumptions(body.config, body.seed);
         const result = simulateRetirement(body.config, returns, body.actualOverridesByMonth ?? {});
 
-        return { simulationMode: SimulationMode.Manual, seedUsed: body.seed, result };
+        return {
+          simulationMode: SimulationMode.Manual,
+          seedUsed: body.seed,
+          configSnapshot: {
+            coreParams: body.config.coreParams,
+            selectedHistoricalEra: body.config.selectedHistoricalEra,
+          },
+          result,
+        };
       } catch (error) {
         if (error instanceof ZodError) {
           return reply.code(400).send({
