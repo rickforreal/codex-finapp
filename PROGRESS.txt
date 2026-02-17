@@ -758,3 +758,14 @@ Verification run (all passing):
   - `npm run typecheck -w @finapp/client`
   - `npm run lint -w @finapp/client`
   - `npm run build -w @finapp/client`
+- Phase 14/MC refinement: representative-path tie-break update.
+  - Updated `runMonteCarlo` representative-path selection to use deterministic tie-break ordering:
+    1) min terminal-distance to median terminal,
+    2) min drawdown-distance to median total withdrawn,
+    3) min total shortfall,
+    4) stable first-match index.
+  - Added MC engine test coverage asserting terminal-distance minimization and deterministic tie-break stability under fixed seed.
+- Validation:
+  - `npm test -w @finapp/server -- monteCarlo.test.ts`
+  - `npm run typecheck`
+  - `npm run lint`

@@ -81,6 +81,7 @@ export const runMonteCarlo = async (
   const monthlyBondsByRun: number[][] = Array.from({ length: durationMonths }, () => []);
   const monthlyCashByRun: number[][] = Array.from({ length: durationMonths }, () => []);
   const terminalValues: number[] = [];
+  const totalDrawdowns: number[] = [];
   let successCount = 0;
   const runResults: Array<ReturnType<typeof simulateRetirement>> = [];
 
@@ -112,20 +113,41 @@ export const runMonteCarlo = async (
 
     const terminalValue = path.summary.terminalPortfolioValue;
     terminalValues.push(terminalValue);
+    totalDrawdowns.push(path.summary.totalWithdrawn);
     if (terminalValue > 0) {
       successCount += 1;
     }
   }
 
   const terminalMedian = quantile([...terminalValues].sort((a, b) => a - b), 0.5);
+  const drawdownMedian = quantile([...totalDrawdowns].sort((a, b) => a - b), 0.5);
   const representativePath =
     runResults.reduce((best, candidate) => {
       if (!best) {
         return candidate;
       }
-      const currentDelta = Math.abs(candidate.summary.terminalPortfolioValue - terminalMedian);
-      const bestDelta = Math.abs(best.summary.terminalPortfolioValue - terminalMedian);
-      return currentDelta < bestDelta ? candidate : best;
+      const candidateTerminalDelta = Math.abs(candidate.summary.terminalPortfolioValue - terminalMedian);
+      const bestTerminalDelta = Math.abs(best.summary.terminalPortfolioValue - terminalMedian);
+      if (candidateTerminalDelta < bestTerminalDelta) {
+        return candidate;
+      }
+      if (candidateTerminalDelta > bestTerminalDelta) {
+        return best;
+      }
+
+      const candidateDrawdownDelta = Math.abs(candidate.summary.totalWithdrawn - drawdownMedian);
+      const bestDrawdownDelta = Math.abs(best.summary.totalWithdrawn - drawdownMedian);
+      if (candidateDrawdownDelta < bestDrawdownDelta) {
+        return candidate;
+      }
+      if (candidateDrawdownDelta > bestDrawdownDelta) {
+        return best;
+      }
+
+      if (candidate.summary.totalShortfall < best.summary.totalShortfall) {
+        return candidate;
+      }
+      return best;
     }, runResults[0]) ?? runResults[0];
 
   if (!representativePath) {
