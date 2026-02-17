@@ -712,3 +712,30 @@ Verification run (all passing):
 - `npm run typecheck`
 - `npm run lint`
 - `npm test`
+
+2026-02-17 (Phase 14 Compare Portfolios — core implementation)
+- Implemented Compare mode foundations across shared and client store:
+  - Added `AppMode.Compare`.
+  - Added compare workspace state (`leftWorkspace`, `rightWorkspace`, `activeSlot`) with mode-switch seeding rules.
+  - First switch into Compare now seeds Slot A from currently open workspace and initializes Slot B as clone of Slot A.
+  - Added `setCompareActiveSlot`, per-slot compare run status/result actions, and compare selectors.
+- Implemented Compare run orchestration in command bar:
+  - Run Simulation in Compare mode issues dual `/simulate` calls.
+  - Shared seed parity is applied across A/B runs to keep stochastic randomness aligned.
+  - Per-slot errors/status are tracked.
+- Implemented Compare UI core:
+  - Command bar mode selector now includes Compare.
+  - Sidebar now includes `Portfolio A / Portfolio B` slot switcher.
+  - Summary stats now render A/B comparisons with delta values in Compare mode.
+  - Portfolio chart now renders dual A/B paths in Compare mode.
+  - Detail table now renders side-by-side ledgers in Compare mode with shared granularity/breakdown controls.
+- Implemented snapshot compatibility for Compare:
+  - Snapshot schema now supports optional compare workspace payload for backward compatibility.
+  - Compare-mode load flow supports target prompts (`left`/`right`/`both`) and pair-slot selection (`A`/`B`) for single-side imports.
+- Validation gates (all passing):
+  - `npm run typecheck`
+  - `npm run lint`
+  - `npm test`
+  - `npm run build`
+- Remaining for Phase 14 completion:
+  - Stress Test panel is not yet fully dual-slot compare-aware (currently core compare outputs are implemented for chart/stats/detail ledger).

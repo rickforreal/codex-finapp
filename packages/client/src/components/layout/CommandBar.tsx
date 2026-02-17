@@ -4,8 +4,14 @@ import { AppMode, DrawdownStrategyType, HistoricalEra, SimulationMode } from '@f
 
 import { fetchHistoricalSummary } from '../../api/historicalApi';
 import { runSimulation } from '../../api/simulationApi';
-import { SnapshotLoadError, applySnapshot, serializeSnapshot } from '../../store/snapshot';
-import { getCurrentConfig, useAppStore } from '../../store/useAppStore';
+import { SnapshotLoadError, parseSnapshot, serializeSnapshot } from '../../store/snapshot';
+import {
+  getCompareConfigForSlot,
+  getCurrentConfig,
+  getSnapshotState,
+  type WorkspaceSnapshot,
+  useAppStore,
+} from '../../store/useAppStore';
 import { Dropdown } from '../shared/Dropdown';
 import { SegmentedToggle } from '../shared/SegmentedToggle';
 
@@ -32,6 +38,26 @@ const mergeRowsWithPreservedBoundary = <
   };
 };
 
+const workspaceFromTopLevelSnapshotState = (
+  data: ReturnType<typeof getSnapshotState>,
+): WorkspaceSnapshot => ({
+  simulationMode: data.simulationMode,
+  selectedHistoricalEra: data.selectedHistoricalEra,
+  coreParams: data.coreParams,
+  portfolio: data.portfolio,
+  returnAssumptions: data.returnAssumptions,
+  spendingPhases: data.spendingPhases,
+  withdrawalStrategy: data.withdrawalStrategy,
+  drawdownStrategy: data.drawdownStrategy,
+  historicalData: data.historicalData,
+  incomeEvents: data.incomeEvents,
+  expenseEvents: data.expenseEvents,
+  actualOverridesByMonth: data.actualOverridesByMonth,
+  lastEditedMonthIndex: data.lastEditedMonthIndex,
+  simulationResults: data.simulationResults,
+  stress: data.stress,
+});
+
 export const CommandBar = () => {
   const fileInputRef = useRef<HTMLInputElement | null>(null);
   const [themeMenuOpen, setThemeMenuOpen] = useState(false);
@@ -49,6 +75,8 @@ export const CommandBar = () => {
   const setHistoricalSummary = useAppStore((state) => state.setHistoricalSummary);
   const setSimulationStatus = useAppStore((state) => state.setSimulationStatus);
   const setSimulationResult = useAppStore((state) => state.setSimulationResult);
+  const setCompareSlotSimulationStatus = useAppStore((state) => state.setCompareSlotSimulationStatus);
+  const setCompareSlotSimulationResult = useAppStore((state) => state.setCompareSlotSimulationResult);
   const drawdownType = useAppStore((state) => state.drawdownStrategy.type);
   const targetAllocation = useAppStore((state) => state.drawdownStrategy.rebalancing.targetAllocation);
   const actualOverridesByMonth = useAppStore((state) => state.actualOverridesByMonth);
@@ -58,7 +86,8 @@ export const CommandBar = () => {
   const theme = useAppStore((state) => state.theme);
   const setSelectedThemeId = useAppStore((state) => state.setSelectedThemeId);
   const setThemeState = useAppStore((state) => state.setThemeState);
-  const canRun =
+  const setStateFromSnapshot = useAppStore((state) => state.setStateFromSnapshot);
+  const canRunActiveWorkspace =
     drawdownType !== DrawdownStrategyType.Rebalancing ||
     Math.abs(targetAllocation.stocks + targetAllocation.bonds + targetAllocation.cash - 1) < 0.000001;
 
@@ -104,7 +133,90 @@ export const CommandBar = () => {
 
     try {
       const raw = await file.text();
-      const loaded = applySnapshot(raw);
+      const parsed = parseSnapshot(raw);
+      let loaded = parsed;
+      if (mode === AppMode.Compare) {
+        const targetRaw = window.prompt(
+          'Load into compare target: left, right, or both',
+          'both',
+        );
+        const target = targetRaw?.trim().toLowerCase();
+        if (!target || !['left', 'right', 'both'].includes(target)) {
+          return;
+        }
+
+        if (target === 'both') {
+          setStateFromSnapshot(parsed.data);
+        } else {
+          const sourceCompare = parsed.data.compareWorkspace;
+          const sourceCandidates: Array<{ label: 'A' | 'B'; workspace: WorkspaceSnapshot | null }> = [
+            { label: 'A', workspace: sourceCompare.leftWorkspace },
+            { label: 'B', workspace: sourceCompare.rightWorkspace },
+          ];
+          const hasPair = sourceCandidates.filter((entry) => entry.workspace !== null).length > 1;
+          let sourceWorkspace: WorkspaceSnapshot | null = null;
+          if (hasPair) {
+            const chosenSlotRaw = window.prompt('Select source pair slot: A or B', 'A');
+            const chosenSlot = chosenSlotRaw?.trim().toUpperCase();
+            if (chosenSlot !== 'A' && chosenSlot !== 'B') {
+              return;
+            }
+            sourceWorkspace = sourceCandidates.find((entry) => entry.label === chosenSlot)?.workspace ?? null;
+          } else {
+            sourceWorkspace =
+              sourceCompare.leftWorkspace ??
+              sourceCompare.rightWorkspace ??
+              parsed.data.planningWorkspace ??
+              parsed.data.trackingWorkspace ??
+              workspaceFromTopLevelSnapshotState(parsed.data);
+          }
+
+          if (!sourceWorkspace) {
+            window.alert('Snapshot does not contain a loadable workspace.');
+            return;
+          }
+
+          const current = getSnapshotState();
+          const next = {
+            ...current,
+            compareWorkspace: {
+              ...current.compareWorkspace,
+              leftWorkspace:
+                target === 'left' ? sourceWorkspace : current.compareWorkspace.leftWorkspace,
+              rightWorkspace:
+                target === 'right' ? sourceWorkspace : current.compareWorkspace.rightWorkspace,
+            },
+          };
+          if (next.mode === AppMode.Compare) {
+            const activeSlot = next.compareWorkspace.activeSlot;
+            const activeWorkspace =
+              activeSlot === 'left'
+                ? next.compareWorkspace.leftWorkspace
+                : next.compareWorkspace.rightWorkspace;
+            if (activeWorkspace) {
+              next.simulationMode = activeWorkspace.simulationMode;
+              next.selectedHistoricalEra = activeWorkspace.selectedHistoricalEra;
+              next.coreParams = activeWorkspace.coreParams;
+              next.portfolio = activeWorkspace.portfolio;
+              next.returnAssumptions = activeWorkspace.returnAssumptions;
+              next.spendingPhases = activeWorkspace.spendingPhases;
+              next.withdrawalStrategy = activeWorkspace.withdrawalStrategy;
+              next.drawdownStrategy = activeWorkspace.drawdownStrategy;
+              next.historicalData = activeWorkspace.historicalData;
+              next.incomeEvents = activeWorkspace.incomeEvents;
+              next.expenseEvents = activeWorkspace.expenseEvents;
+              next.actualOverridesByMonth = activeWorkspace.actualOverridesByMonth;
+              next.lastEditedMonthIndex = activeWorkspace.lastEditedMonthIndex;
+              next.simulationResults = activeWorkspace.simulationResults;
+              next.stress = activeWorkspace.stress;
+            }
+          }
+          setStateFromSnapshot(next);
+          loaded = { ...parsed, data: next };
+        }
+      } else {
+        setStateFromSnapshot(parsed.data);
+      }
       // Theme catalog is server-authoritative; force refresh so older snapshots
       // pick up newly added built-in themes while keeping selectedThemeId.
       setThemeState({
@@ -155,11 +267,62 @@ export const CommandBar = () => {
       : (eraOptions[0]?.value ?? selectedHistoricalEra);
 
   const handleRunSimulation = async () => {
-    if (!canRun) {
+    if (!canRunActiveWorkspace) {
       setSimulationStatus('error', 'Rebalancing target allocation must sum to 100%.');
       return;
     }
     try {
+      if (mode === AppMode.Compare) {
+        const leftConfig = getCompareConfigForSlot('left');
+        const rightConfig = getCompareConfigForSlot('right');
+        if (!leftConfig || !rightConfig) {
+          setSimulationStatus('error', 'Compare mode requires two configured portfolios.');
+          return;
+        }
+
+        leftConfig.simulationMode = simulationMode;
+        leftConfig.selectedHistoricalEra = selectedHistoricalEra;
+        rightConfig.simulationMode = simulationMode;
+        rightConfig.selectedHistoricalEra = selectedHistoricalEra;
+
+        const hasInvalidAllocation = [leftConfig, rightConfig].some((config) => {
+          if (config.drawdownStrategy.type !== DrawdownStrategyType.Rebalancing) {
+            return false;
+          }
+          const allocation = config.drawdownStrategy.rebalancing.targetAllocation;
+          const sum = allocation.stocks + allocation.bonds + allocation.cash;
+          return Math.abs(sum - 1) >= 0.000001;
+        });
+        if (hasInvalidAllocation) {
+          setSimulationStatus('error', 'Rebalancing target allocation must sum to 100% for both compare portfolios.');
+          return;
+        }
+
+        const seed = Math.floor(Math.random() * 2_147_483_000);
+        setCompareSlotSimulationStatus('left', 'running');
+        setCompareSlotSimulationStatus('right', 'running');
+
+        const [leftResult, rightResult] = await Promise.allSettled([
+          runSimulation({ config: leftConfig, seed }),
+          runSimulation({ config: rightConfig, seed }),
+        ]);
+
+        if (leftResult.status === 'fulfilled') {
+          setCompareSlotSimulationResult('left', simulationMode, leftResult.value);
+        } else {
+          const message = leftResult.reason instanceof Error ? leftResult.reason.message : 'Compare left simulation failed';
+          setCompareSlotSimulationStatus('left', 'error', message);
+        }
+
+        if (rightResult.status === 'fulfilled') {
+          setCompareSlotSimulationResult('right', simulationMode, rightResult.value);
+        } else {
+          const message = rightResult.reason instanceof Error ? rightResult.reason.message : 'Compare right simulation failed';
+          setCompareSlotSimulationStatus('right', 'error', message);
+        }
+        return;
+      }
+
       setSimulationStatus('running');
       const config = getCurrentConfig();
       if (
@@ -216,14 +379,15 @@ export const CommandBar = () => {
           <div className="flex flex-wrap items-end gap-x-4 gap-y-2">
             <div className="flex min-w-[160px] flex-col gap-1">
               <p className="px-1 text-[10px] font-semibold uppercase tracking-[0.14em] text-slate-400">View Mode</p>
-              <SegmentedToggle
-                value={mode}
-                onChange={setMode}
-                options={[
+            <SegmentedToggle
+              value={mode}
+              onChange={setMode}
+              options={[
                   { label: 'Planning', value: AppMode.Planning },
                   { label: 'Tracking', value: AppMode.Tracking },
-                ]}
-              />
+                  { label: 'Compare', value: AppMode.Compare },
+              ]}
+            />
             </div>
 
             <div className="flex min-w-[210px] flex-col gap-1">
@@ -380,7 +544,7 @@ export const CommandBar = () => {
           <button
             type="button"
             onClick={() => void handleRunSimulation()}
-            disabled={!canRun}
+            disabled={!canRunActiveWorkspace}
             className="rounded-md bg-brand-navy px-4 py-2 text-sm font-semibold text-white disabled:cursor-not-allowed disabled:bg-slate-400"
           >
             {status === 'running' ? 'Running...' : 'Run Simulation'}

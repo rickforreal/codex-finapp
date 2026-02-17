@@ -1,4 +1,4 @@
-import { SimulationMode } from '@finapp/shared';
+import { AppMode, SimulationMode } from '@finapp/shared';
 
 import { CoreParameters } from '../inputs/CoreParameters';
 import { StartingPortfolio } from '../inputs/StartingPortfolio';
@@ -11,6 +11,7 @@ import { IncomeEvents } from '../inputs/IncomeEvents/IncomeEvents';
 import { ExpenseEvents } from '../inputs/ExpenseEvents/ExpenseEvents';
 import { CollapsibleSection } from '../shared/CollapsibleSection';
 import { useAppStore } from '../../store/useAppStore';
+import { SegmentedToggle } from '../shared/SegmentedToggle';
 
 const sectionIds = {
   core: 'core',
@@ -27,9 +28,26 @@ export const Sidebar = () => {
   const collapsed = useAppStore((state) => state.ui.collapsedSections);
   const toggleSection = useAppStore((state) => state.toggleSection);
   const simulationMode = useAppStore((state) => state.simulationMode);
+  const mode = useAppStore((state) => state.mode);
+  const compareActiveSlot = useAppStore((state) => state.compareWorkspace.activeSlot);
+  const setCompareActiveSlot = useAppStore((state) => state.setCompareActiveSlot);
 
   return (
     <div className="space-y-3">
+      {mode === AppMode.Compare ? (
+        <div className="rounded-xl border border-brand-border bg-brand-surface p-3">
+          <p className="mb-2 text-[11px] font-semibold uppercase tracking-[0.14em] text-slate-500">Compare Slot</p>
+          <SegmentedToggle
+            value={compareActiveSlot}
+            onChange={(value) => setCompareActiveSlot(value as 'left' | 'right')}
+            options={[
+              { label: 'Portfolio A', value: 'left' },
+              { label: 'Portfolio B', value: 'right' },
+            ]}
+          />
+        </div>
+      ) : null}
+
       <CollapsibleSection
         id={sectionIds.core}
         title="Core Parameters"

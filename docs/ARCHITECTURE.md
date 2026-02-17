@@ -542,7 +542,7 @@ The application uses a single Zustand store divided into logical slices. Each sl
 
 ```
 AppStore
-├── mode: "planning" | "tracking"
+├── mode: "planning" | "tracking"   # Phase 14 planned: add "compare"
 ├── simulationMode: "manual" | "monteCarlo"
 ├── selectedHistoricalEra: HistoricalEra
 │
@@ -610,6 +610,13 @@ AppStore
 - Tracking-specific actuals are stored as `actualOverridesByMonth` with `lastEditedMonthIndex` boundary metadata.
 - Table/UI controls include `tableSpreadsheetMode` in addition to `tableGranularity` and `tableAssetColumnsEnabled`.
 - Stress state is workspace-local and includes scenario config plus latest stress result payload.
+
+**Phase 14 planned alignment (Compare Portfolios):**
+
+- Add a compare workspace branch with `left` and `right` slots.
+- First switch into Compare seeds `left` from the currently open Planning/Tracking workspace.
+- `right` initializes as a clone of `left` on first Compare entry.
+- Compare simulation/stress caches remain isolated from Planning/Tracking caches.
 
 **Slice isolation.** Each slice exposes its own action creators. Components subscribe to the minimal slice they need via Zustand's selector pattern, preventing unnecessary re-renders.
 
@@ -929,7 +936,7 @@ No API call is made. The server is not contacted until the user clicks Run Simul
 
 **Exception: Tracking Mode.** When the user edits an input field (not an actual) while in Tracking Mode, the re-forecast flow (Section 9.3) is triggered in addition to the store update.
 
-### 9.2 Run Simulation (Planning Mode)
+### 9.2 Run Simulation (Planning / Compare Mode)
 
 ```
 User clicks Run Simulation
@@ -941,6 +948,19 @@ User clicks Run Simulation
             → Store updates simulationResults.manual (or .monteCarlo)
               → Status → "complete"
                 → SummaryStats, Chart, Table re-render with new data
+```
+
+Phase 14 planned Compare behavior:
+
+```
+User clicks Run Simulation in Compare mode
+  → Client builds two SimulationConfig payloads (left + right)
+    → For fairness, both requests share identical stochastic inputs
+      → Manual: shared monthly return stream
+      → Monte Carlo: shared seed/sampling stream
+        → Sends POST /api/v1/simulate for left and right
+          → Store updates compare outputs per slot
+            → Shared compare chart/stats/ledgers re-render
 ```
 
 ### 9.3 Tracking Mode — Actual Edit and Input Changes (Server-Side Reforecast)

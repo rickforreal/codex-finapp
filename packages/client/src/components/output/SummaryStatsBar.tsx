@@ -1,8 +1,8 @@
 import { useMemo } from 'react';
 
-import { SimulationMode } from '@finapp/shared';
+import { AppMode, SimulationMode } from '@finapp/shared';
 
-import { useActiveSimulationResult, useAppStore } from '../../store/useAppStore';
+import { useActiveSimulationResult, useAppStore, useCompareSimulationResults } from '../../store/useAppStore';
 import { formatCompactCurrency, formatCurrency, formatPercent } from '../../lib/format';
 import { buildSummaryStats } from '../../lib/statistics';
 import { StatCard } from './StatCard';
@@ -12,6 +12,8 @@ const inflationFactor = (inflationRate: number, monthIndexOneBased: number): num
 
 export const SummaryStatsBar = () => {
   const result = useActiveSimulationResult();
+  const compareResults = useCompareSimulationResults();
+  const mode = useAppStore((state) => state.mode);
   const simulationStatus = useAppStore((state) => state.simulationResults.status);
   const inflationRate = useAppStore((state) => state.coreParams.inflationRate);
   const startingAge = useAppStore((state) => state.coreParams.startingAge);
@@ -65,6 +67,119 @@ export const SummaryStatsBar = () => {
           ? 'Depleted before end of horizon'
           : `Depleted in month ${stats.depletionMonthIndex + 1} (age ${startingAge + Math.floor(stats.depletionMonthIndex / 12)})`
       : `${formatPercent(terminalPctOfStarting)} of starting`;
+
+  if (mode === AppMode.Compare) {
+    const leftResult = compareResults.leftWorkspace
+      ? compareResults.leftWorkspace.simulationMode === SimulationMode.Manual
+        ? compareResults.leftWorkspace.simulationResults.manual
+        : compareResults.leftWorkspace.simulationResults.monteCarlo
+      : null;
+    const rightResult = compareResults.rightWorkspace
+      ? compareResults.rightWorkspace.simulationMode === SimulationMode.Manual
+        ? compareResults.rightWorkspace.simulationResults.manual
+        : compareResults.rightWorkspace.simulationResults.monteCarlo
+      : null;
+    const leftRows = leftResult?.result.rows ?? [];
+    const rightRows = rightResult?.result.rows ?? [];
+    const leftStats = buildSummaryStats(leftRows, inflationRate);
+    const rightStats = buildSummaryStats(rightRows, inflationRate);
+    const leftHas = leftRows.length > 0;
+    const rightHas = rightRows.length > 0;
+
+    const compareCard = (
+      label: string,
+      leftValue: number | null,
+      rightValue: number | null,
+      formatter: (value: number) => string,
+    ) => {
+      const delta =
+        leftValue !== null && rightValue !== null ? rightValue - leftValue : null;
+      return (
+        <StatCard
+          label={label}
+          value={leftValue === null ? 'A: —' : `A: ${formatter(leftValue)}`}
+          annotation={
+            rightValue === null
+              ? 'B: —'
+              : delta === null
+                ? `B: ${formatter(rightValue)}`
+                : `B: ${formatter(rightValue)}  |  Δ ${delta >= 0 ? '+' : '-'}${formatter(Math.abs(delta))}`
+          }
+        />
+      );
+    };
+
+    const leftTerminal = leftHas
+      ? leftRows[leftRows.length - 1]!.endBalances.stocks +
+        leftRows[leftRows.length - 1]!.endBalances.bonds +
+        leftRows[leftRows.length - 1]!.endBalances.cash
+      : null;
+    const rightTerminal = rightHas
+      ? rightRows[rightRows.length - 1]!.endBalances.stocks +
+        rightRows[rightRows.length - 1]!.endBalances.bonds +
+        rightRows[rightRows.length - 1]!.endBalances.cash
+      : null;
+    const leftMcPos = leftResult?.monteCarlo?.probabilityOfSuccess ?? null;
+    const rightMcPos = rightResult?.monteCarlo?.probabilityOfSuccess ?? null;
+
+    return (
+      <section className="rounded-xl bg-brand-surface p-4">
+        <div className="grid grid-cols-[repeat(auto-fit,minmax(190px,1fr))] gap-3">
+          {simulationMode === SimulationMode.MonteCarlo
+            ? compareCard('Probability of Success', leftMcPos, rightMcPos, (value) => formatPercent(value))
+            : null}
+          {compareCard(
+            'Total Drawdown (Nominal)',
+            leftHas ? leftStats.totalDrawdownNominal : null,
+            rightHas ? rightStats.totalDrawdownNominal : null,
+            (value) => formatCompactCurrency(value),
+          )}
+          {compareCard(
+            'Total Drawdown (Real)',
+            leftHas ? leftStats.totalDrawdownReal : null,
+            rightHas ? rightStats.totalDrawdownReal : null,
+            (value) => formatCompactCurrency(value),
+          )}
+          {compareCard(
+            'Median Monthly (Real)',
+            leftHas ? leftStats.medianMonthlyReal : null,
+            rightHas ? rightStats.medianMonthlyReal : null,
+            (value) => formatCurrency(Math.round(value)),
+          )}
+          {compareCard(
+            'Mean Monthly (Real)',
+            leftHas ? leftStats.meanMonthlyReal : null,
+            rightHas ? rightStats.meanMonthlyReal : null,
+            (value) => formatCurrency(Math.round(value)),
+          )}
+          {compareCard(
+            'Std. Deviation (Real)',
+            leftHas ? leftStats.stdDevMonthlyReal : null,
+            rightHas ? rightStats.stdDevMonthlyReal : null,
+            (value) => formatCurrency(Math.round(value)),
+          )}
+          {compareCard(
+            '25th Percentile (Real)',
+            leftHas ? leftStats.p25MonthlyReal : null,
+            rightHas ? rightStats.p25MonthlyReal : null,
+            (value) => formatCurrency(Math.round(value)),
+          )}
+          {compareCard(
+            '75th Percentile (Real)',
+            leftHas ? leftStats.p75MonthlyReal : null,
+            rightHas ? rightStats.p75MonthlyReal : null,
+            (value) => formatCurrency(Math.round(value)),
+          )}
+          {compareCard(
+            'Portfolio End (Nominal)',
+            leftTerminal,
+            rightTerminal,
+            (value) => formatCompactCurrency(Math.round(value)),
+          )}
+        </div>
+      </section>
+    );
+  }
 
   return (
     <section className="rounded-xl bg-brand-surface p-4">

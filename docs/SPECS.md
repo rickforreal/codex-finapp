@@ -2,36 +2,40 @@
 ## Page-Level Controls
 These sit at the very top of the page, acting as the global "command bar" for the app. They're always visible regardless of scroll position.
 
-### Affordance #1: Mode Toggle (Planning / Tracking)
+### Affordance #1: Mode Toggle (Planning / Tracking / Compare)
 
-**Purpose:**  Switches the output view between a pure projection (Planning) and an actuals-plus-projection view (Tracking). Planning and Tracking retain separate workspaces after initial Tracking initialization.
+**Purpose:**  Switches the output view between Planning, Tracking, and Compare workflows. Planning and Tracking retain separate workspaces after initial Tracking initialization. Compare uses two planning-style workspaces (A/B) for side-by-side analysis.
 
-**Control type:** Segmented toggle (two segments: "Planning" and "Tracking")
+**Control type:** Segmented toggle (three segments: "Planning", "Tracking", "Compare")
 
 **Appearance:**
-* Horizontal segmented control, pill-shaped, with two options: Planning and Tracking
+* Horizontal segmented control, pill-shaped, with three options: Planning, Tracking, and Compare
 * The active segment has a solid filled background (e.g., dark navy or the app's primary color) with white text. The inactive segment has a transparent background with muted text.
-* Width: fixed, roughly 240px total (120px per segment). Height: ~36px.
+* Width: fixed, roughly 330-360px total. Height: ~36px.
 * Positioned top-left of the command bar (or centered if the command bar has few other elements).
 * Transition: when switching, the filled background slides smoothly from one segment to the other (200ms ease-in-out).
 
 **Behavior:**
 * Default state on app load: Planning
 * Planning and Tracking each retain their own inputs and result caches.
+* Compare retains its own side-by-side workspaces and result caches.
 * First switch to Tracking clones the current Planning workspace once, then clears Tracking simulation caches (including stress results) so Tracking starts as a fresh branch.
 * Switching to Planning Mode: Displays the results of the last simulation run (Manual or Monte Carlo). If no simulation has been run yet, the output area shows an empty/initial state (see Affordance #3  for details). No automatic recalculation occurs on mode switch.
 * Switching to Tracking Mode: Displays Tracking workspace results. If no Tracking run has been performed yet, output remains empty until the user runs a simulation.
+* Switching to Compare Mode: Displays compare outputs for Portfolio A and B. If no Compare run has been performed yet, output remains empty until the user runs a simulation.
+* First switch into Compare Mode seeds Portfolio A from the currently open workspace (Planning or Tracking), then initializes Portfolio B as a clone of A.
 
 **State:**
-* Stores active mode enum: "planning" | "tracking"
-* Stores per-mode workspace snapshots (`planningWorkspace`, `trackingWorkspace`) and `trackingInitialized`.
+* Stores active mode enum: "planning" | "tracking" | "compare"
+* Stores per-mode workspace snapshots (`planningWorkspace`, `trackingWorkspace`, compare workspaces) and `trackingInitialized`.
 * Actual overrides are stored in the active workspace.
 
 **Edge cases:**
 * If Tracking has never been run, the detail table shows an initialization empty state and prompts the user to run a simulation.
+* Compare is Planning-only in V1 (no Tracking actuals behavior inside Compare).
 
 ### Affordance #2: Simulation Mode Selector
-**Purpose:** Selects which simulation engine powers the Planning Mode projection — Manual (user-defined parameters, single stochastic path) or Monte Carlo (historical data sampling, 1,000+ paths).
+**Purpose:** Selects which simulation engine powers the active projection workflow — Manual (user-defined parameters, single stochastic path) or Monte Carlo (historical data sampling, 1,000+ paths).
 
 **Control type:** Segmented toggle (two segments: "Manual" and "Monte Carlo")
 
@@ -40,7 +44,7 @@ These sit at the very top of the page, acting as the global "command bar" for th
 * Active segment: solid filled background in a lighter or secondary shade of the app's primary color (distinguishing it from the Mode Toggle's darker fill). Inactive segment: transparent with muted text.
 * Positioned to the right of the Mode Toggle in the command bar, with ~20px gap.
 * Same slide animation as #1 (200ms ease-in-out).
-* Visibility: **Visible in both Planning Mode and Tracking Mode.** The selector is always present in the command bar when the app is active. It controls which simulation engine runs regardless of the view mode.
+* Visibility: **Visible in Planning, Tracking, and Compare.** The selector is always present in the command bar when the app is active.
 * Label above or to the left (depending on space): "Simulation Type" in small muted text (~11px). Optional — can be omitted if the command bar is tight on space, since the segment labels are self-explanatory.
 
 **Behavior:**
@@ -68,7 +72,7 @@ These sit at the very top of the page, acting as the global "command bar" for th
 
 ### Affordance #3: Run Simulation Button
 
-**Purpose:**  Triggers a simulation run in either Manual or Monte Carlo mode. This is the universal "go" button for Planning Mode.
+**Purpose:**  Triggers a simulation run in either Manual or Monte Carlo mode. This is the universal "go" button for Planning, Tracking, and Compare workflows.
 
 **Control type:** Primary action button
 
@@ -77,7 +81,7 @@ These sit at the very top of the page, acting as the global "command bar" for th
 * Uses the app's primary action color (e.g., solid navy or teal background, white text).
 * Positioned immediately to the right of the Monte Carlo toggle.
 * Size: auto-width based on label, ~36px height (matching the mode toggle height).
-* Visibility: **Visible in both Planning Mode and Tracking Mode.** The button is always present in the command bar as the universal "execute simulation" trigger. 
+* Visibility: **Visible in Planning, Tracking, and Compare.** The button is always present in the command bar as the universal "execute simulation" trigger. 
 * The button label remains "Run Simulation" regardless of which simulation mode is selected. The icon (▶) remains the same.
 
 **Behavior:**
@@ -105,6 +109,11 @@ These sit at the very top of the page, acting as the global "command bar" for th
   - Updates chart with confidence bands and median path.
   - The summary stats for the projected portion reflect the Monte Carlo distribution.
   - Clears the "stale" indicator (if any).  
+* **On click in Compare Mode (Planning-only):**
+  - Runs simulations for both compare slots (Portfolio A and Portfolio B) using the same selected simulation type.
+  - Uses the same stochastic stream for both slots so market randomness is matched across A/B.
+  - Updates shared chart, shared stats cards (A/B values + delta), and side-by-side detail ledgers.
+  - If one slot errors, successful slot output remains visible and the failed slot shows an error state.
 * Initial state (no simulation run yet):
   * When the app first loads, no simulation has been run. The output area (chart, table, summary stats) shows an empty initial state:
     * Chart: empty plot area with axes but no data lines. A centered message in muted text: "Configure your parameters and click Run Simulation to generate a projection."
@@ -189,7 +198,7 @@ Affordance index reserved for future use. No explicit app-level redo behavior is
 |---|---|
 | **Type** | Button with icon (💾 or download icon) labeled "Save Snapshot" |
 | **Location** | Application toolbar near Run Simulation |
-| **Behavior** | Prompts for a snapshot name, serializes the complete application state to JSON, and triggers a browser download. |
+| **Behavior** | Prompts for a snapshot name, serializes the complete application state to JSON, and triggers a browser download. In Compare mode (planned), saves both compared portfolios in one pair snapshot file. |
 | **State captured** | Inputs, spending phases, income/expense events, withdrawal + drawdown configuration, stress configuration, Tracking actuals, current app/simulation mode, and cached output payloads used by chart/stats/table/stress displays. |
 | **File format** | `.json` with a top-level schema version field. Cached monthly outputs are stored in compact packed arrays (`columns` + `data`) to reduce file size. |
 | **File name** | Derived from user-provided snapshot name, sanitized for filesystem safety (e.g., `My Retirement Plan.json`). |
@@ -203,7 +212,7 @@ Affordance index reserved for future use. No explicit app-level redo behavior is
 |---|---|
 | **Type** | Button with icon (📂 or upload icon) labeled "Load Snapshot" |
 | **Location** | Application toolbar, immediately right of Save Snapshot button |
-| **Behavior** | Opens the browser's native file picker filtered to `.json` files. On file selection, parses the JSON, validates against the expected schema, and replaces the entire application state with the loaded values. |
+| **Behavior** | Opens the browser's native file picker filtered to `.json` files. On file selection, parses the JSON, validates against the expected schema, and replaces the application state with loaded values. In Compare mode (planned), user selects import target (`Left`, `Right`, or `Replace both`) and pair snapshots require explicit Pair A/B slot choice when importing to a single side. |
 | **Confirmation** | Shows confirmation before replacing current state. |
 | **Post-load behavior** | Restores full app state, including cached outputs and active mode, exactly as saved in the snapshot. |
 | **Error handling** | If the file is invalid JSON or fails schema validation, show: *"This file doesn't appear to be a valid snapshot."* If `schemaVersion` does not exactly match the supported version, show: *"This snapshot version is not supported by this app."* |
@@ -234,6 +243,67 @@ Affordance index reserved for future use. No explicit app-level redo behavior is
 - Light
 - Dark
 - High Contrast (accessibility-focused)
+- Monokai
+- Synthwave '84
+
+## Phase 14 Planned Additions — Compare Portfolios (SxS)
+
+### Affordance #67 · Compare Slot Switcher (Sidebar)
+
+**Purpose:** Selects which compare portfolio (A or B) the input panel is currently editing.
+
+**Control type:** Segmented toggle (`Portfolio A` / `Portfolio B`)
+
+**Behavior:**
+- Visible only in Compare mode.
+- All input sections bind to the active slot.
+- Switching slots does not copy values; each slot maintains independent inputs/results.
+
+### Affordance #68 · Shared Compare Chart
+
+**Purpose:** Plot both portfolio outcomes in one chart for visual comparison.
+
+**Behavior:**
+- Manual mode: two portfolio lines (A/B) with legend.
+- Monte Carlo mode: two median lines and confidence context for each portfolio.
+- Tooltip includes point-in-time values for both portfolios.
+
+### Affordance #69 · Dual-Value Summary Stats
+
+**Purpose:** Compare key metrics directly for A vs B.
+
+**Behavior:**
+- Each metric card displays:
+  - Portfolio A value
+  - Portfolio B value
+  - Signed delta
+- Formatting follows existing nominal/real conventions.
+
+### Affordance #70 · Side-by-Side Detail Ledgers
+
+**Purpose:** Compare monthly/annual ledger details for both portfolios simultaneously.
+
+**Behavior:**
+- Render two ledger panes in one section (`A` and `B`).
+- Monthly/Annual and Breakdown controls are shared across both panes.
+- Spreadsheet expand is disabled in Compare mode; scrolling is required.
+
+### Affordance #71 · Compare Stress Test
+
+**Purpose:** Apply the same stress scenarios to both compare portfolios.
+
+**Behavior:**
+- Scenario definitions are shared.
+- Running stress test executes both slots and displays per-slot outcomes.
+
+### Affordance #72 · Compare Snapshot Import Targeting
+
+**Purpose:** Remove ambiguity when loading snapshots in Compare mode.
+
+**Behavior:**
+- Load prompt requires target: `Left`, `Right`, or `Replace both`.
+- Single snapshot files can be loaded into a chosen side.
+- Pair snapshot files can replace both sides, or load one selected pair slot (`A` or `B`) into a chosen side.
 
 ## Input Panel — Section: Core Parameters
 This is the first section within the input panel (sidebar). It's expanded by default on app load.

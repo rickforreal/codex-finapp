@@ -5,7 +5,7 @@ import { AppMode, SimulationMode, type ActualMonthOverride } from '@finapp/share
 import { runSimulation } from '../../api/simulationApi';
 import { formatCurrency, formatPercent } from '../../lib/format';
 import { buildAnnualDetailRows, buildMonthlyDetailRows, sortDetailRows, type DetailRow } from '../../lib/detailTable';
-import { getCurrentConfig, useActiveSimulationResult, useAppStore } from '../../store/useAppStore';
+import { getCurrentConfig, useActiveSimulationResult, useAppStore, useCompareSimulationResults } from '../../store/useAppStore';
 import { SegmentedToggle } from '../shared/SegmentedToggle';
 
 type Column = {
@@ -120,6 +120,7 @@ export const DetailTable = () => {
   const viewportRef = useRef<HTMLDivElement | null>(null);
   const headerControlsRef = useRef<HTMLDivElement | null>(null);
   const result = useActiveSimulationResult();
+  const compareResults = useCompareSimulationResults();
   const startingAge = useAppStore((state) => state.coreParams.startingAge);
   const inflationRate = useAppStore((state) => state.coreParams.inflationRate);
   const retirementStartDate = useAppStore((state) => state.coreParams.retirementStartDate);
@@ -492,6 +493,114 @@ export const DetailTable = () => {
     }
     setSelectedCell({ rowId: nextRow.id, column: nextColumn.key });
   };
+
+  if (mode === AppMode.Compare) {
+    const leftResult = compareResults.leftWorkspace
+      ? compareResults.leftWorkspace.simulationMode === SimulationMode.Manual
+        ? compareResults.leftWorkspace.simulationResults.manual
+        : compareResults.leftWorkspace.simulationResults.monteCarlo
+      : null;
+    const rightResult = compareResults.rightWorkspace
+      ? compareResults.rightWorkspace.simulationMode === SimulationMode.Manual
+        ? compareResults.rightWorkspace.simulationResults.manual
+        : compareResults.rightWorkspace.simulationResults.monteCarlo
+      : null;
+    const toRows = (
+      slotRows: Array<{
+        monthIndex: number;
+        year: number;
+        monthInYear: number;
+        startBalances: { stocks: number; bonds: number; cash: number };
+        marketChange: { stocks: number; bonds: number; cash: number };
+        withdrawals: {
+          byAsset: { stocks: number; bonds: number; cash: number };
+          requested: number;
+          actual: number;
+          shortfall: number;
+        };
+        incomeTotal: number;
+        expenseTotal: number;
+        endBalances: { stocks: number; bonds: number; cash: number };
+      }>,
+    ) => {
+      if (tableGranularity === 'annual') {
+        return buildAnnualDetailRows(slotRows, startingAge, inflationRate, retirementStartDate);
+      }
+      return buildMonthlyDetailRows(slotRows, startingAge, inflationRate, retirementStartDate);
+    };
+    const leftRows = sortDetailRows(toRows(leftResult?.result.rows ?? []), tableSort);
+    const rightRows = sortDetailRows(toRows(rightResult?.result.rows ?? []), tableSort);
+
+    const renderPane = (title: string, paneRows: DetailRow[]) => (
+      <div className="min-w-0 flex-1 rounded-lg border border-brand-border bg-white">
+        <div className="border-b border-brand-border px-3 py-2 text-xs font-semibold text-slate-700">{title}</div>
+        <div className="max-h-[430px] overflow-auto">
+          <table className={`${tableMinWidthClass} w-full border-collapse text-left text-xs`}>
+            <thead className="sticky top-0 z-[1] bg-brand-surface text-slate-600">
+              <tr>
+                {columns.map((column) => (
+                  <th key={String(column.key)} className="border-b border-brand-border px-2 py-2 font-semibold">
+                    {column.label}
+                  </th>
+                ))}
+              </tr>
+            </thead>
+            <tbody>
+              {paneRows.length === 0 ? (
+                <tr>
+                  <td colSpan={columns.length} className="px-2 py-6 text-center text-slate-500">
+                    Run compare simulation to populate this ledger.
+                  </td>
+                </tr>
+              ) : (
+                paneRows.map((row) => (
+                  <tr key={`${title}-${row.id}`} className="odd:bg-white even:bg-brand-surface">
+                    {columns.map((column) => (
+                      <td key={`${title}-${row.id}-${String(column.key)}`} className="border-b border-brand-border px-2 py-1.5 text-slate-700">
+                        {formatCell(row[column.key] as string | number, column)}
+                      </td>
+                    ))}
+                  </tr>
+                ))
+              )}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    );
+
+    return (
+      <section className="rounded-xl border border-brand-border bg-white shadow-panel">
+        <div className="flex items-center justify-between gap-3 border-b border-brand-border px-4 py-3">
+          <h3 className="text-base font-semibold text-slate-800">Detail Ledger</h3>
+          <div className="flex items-center gap-2">
+            <SegmentedToggle
+              value={tableGranularity}
+              onChange={(value) => setTableGranularity(value as 'monthly' | 'annual')}
+              options={[
+                { label: 'Monthly', value: 'monthly' },
+                { label: 'Annual', value: 'annual' },
+              ]}
+            />
+            <button
+              type="button"
+              onClick={() => setTableAssetColumnsEnabled(!tableAssetColumnsEnabled)}
+              className={`inline-flex items-center gap-1.5 text-[13px] font-medium transition ${
+                tableAssetColumnsEnabled ? 'text-blue-500' : 'text-slate-500 hover:text-slate-700'
+              }`}
+            >
+              <span className="text-base leading-none">◷</span>
+              <span>Breakdown</span>
+            </button>
+          </div>
+        </div>
+        <div className="grid grid-cols-1 gap-3 p-3 xl:grid-cols-2">
+          {renderPane('Portfolio A', leftRows)}
+          {renderPane('Portfolio B', rightRows)}
+        </div>
+      </section>
+    );
+  }
 
   return (
     <section

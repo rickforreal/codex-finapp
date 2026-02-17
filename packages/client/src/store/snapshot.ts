@@ -115,6 +115,14 @@ const snapshotStateSchema = z
     trackingInitialized: z.boolean(),
     planningWorkspace: z.unknown().nullable(),
     trackingWorkspace: z.unknown().nullable(),
+    compareWorkspace: z
+      .object({
+        activeSlot: z.enum(['left', 'right']),
+        leftWorkspace: z.unknown().nullable(),
+        rightWorkspace: z.unknown().nullable(),
+      })
+      .strict()
+      .optional(),
     simulationMode: z.nativeEnum(SimulationMode),
     selectedHistoricalEra: z.nativeEnum(HistoricalEra),
     coreParams: z
@@ -580,6 +588,11 @@ const unpackSnapshotState = (packed: unknown): SnapshotState => {
 
   return {
     ...data,
+    compareWorkspace: data.compareWorkspace ?? {
+      activeSlot: 'left',
+      leftWorkspace: null,
+      rightWorkspace: null,
+    },
     planningWorkspace: unpackWorkspace(data.planningWorkspace),
     trackingWorkspace: unpackWorkspace(data.trackingWorkspace),
     simulationResults: unpackSimulationResults(data.simulationResults),

@@ -61,6 +61,7 @@ type RunStatus = 'idle' | 'running' | 'complete' | 'error';
 type ReforecastStatus = 'idle' | 'pending' | 'complete';
 type StressRunStatus = 'idle' | 'running' | 'complete' | 'error';
 type ThemeStatus = 'idle' | 'loading' | 'ready' | 'error';
+export type CompareSlotId = 'left' | 'right';
 
 type WithdrawalParamKey =
   | 'initialWithdrawalRate'
@@ -154,6 +155,11 @@ export type SnapshotState = {
   trackingInitialized: boolean;
   planningWorkspace: WorkspaceSnapshot | null;
   trackingWorkspace: WorkspaceSnapshot | null;
+  compareWorkspace: {
+    activeSlot: CompareSlotId;
+    leftWorkspace: WorkspaceSnapshot | null;
+    rightWorkspace: WorkspaceSnapshot | null;
+  };
   simulationMode: SimulationMode;
   selectedHistoricalEra: HistoricalEra;
   coreParams: {
@@ -235,6 +241,7 @@ export type SnapshotState = {
 
 export type AppStore = SnapshotState & {
   setMode: (mode: AppMode) => void;
+  setCompareActiveSlot: (slot: CompareSlotId) => void;
   upsertActualOverride: (monthIndex: number, patch: Partial<ActualMonthOverride>) => void;
   clearActualRowOverrides: (monthIndex: number) => void;
   clearAllActualOverrides: () => void;
@@ -272,6 +279,16 @@ export type AppStore = SnapshotState & {
   updateExpenseEvent: (id: string, patch: Partial<ExpenseEventForm>) => void;
   setSimulationStatus: (status: RunStatus, errorMessage?: string | null) => void;
   setSimulationResult: (mode: SimulationMode, result: SimulateResponse) => void;
+  setCompareSlotSimulationStatus: (
+    slot: CompareSlotId,
+    status: RunStatus,
+    errorMessage?: string | null,
+  ) => void;
+  setCompareSlotSimulationResult: (
+    slot: CompareSlotId,
+    mode: SimulationMode,
+    result: SimulateResponse,
+  ) => void;
   setReforecastResult: (result: SimulateResponse) => void;
   toggleStressPanel: () => void;
   addStressScenario: () => void;
@@ -650,6 +667,26 @@ const cloneWorkspace = (workspace: WorkspaceSnapshot): WorkspaceSnapshot => ({
   },
 });
 
+const cloneCompareWorkspace = (compareWorkspace: SnapshotState['compareWorkspace']): SnapshotState['compareWorkspace'] => ({
+  activeSlot: compareWorkspace.activeSlot,
+  leftWorkspace: compareWorkspace.leftWorkspace ? cloneWorkspace(compareWorkspace.leftWorkspace) : null,
+  rightWorkspace: compareWorkspace.rightWorkspace ? cloneWorkspace(compareWorkspace.rightWorkspace) : null,
+});
+
+const compareWorkspaceWithCurrentState = (state: AppStore): SnapshotState['compareWorkspace'] => {
+  const compareWorkspace = cloneCompareWorkspace(state.compareWorkspace);
+  if (state.mode !== AppMode.Compare) {
+    return compareWorkspace;
+  }
+  const currentWorkspace = cloneWorkspace(workspaceFromState(state));
+  if (compareWorkspace.activeSlot === 'left') {
+    compareWorkspace.leftWorkspace = currentWorkspace;
+  } else {
+    compareWorkspace.rightWorkspace = currentWorkspace;
+  }
+  return compareWorkspace;
+};
+
 const workspaceFromState = (state: AppStore): WorkspaceSnapshot => ({
   simulationMode: state.simulationMode,
   selectedHistoricalEra: state.selectedHistoricalEra,
@@ -700,11 +737,30 @@ const trackingSimulationResultsCleared = (results: WorkspaceSnapshot['simulation
   errorMessage: null,
 });
 
+const snapshotFieldsFromWorkspace = (workspace: WorkspaceSnapshot) => ({
+  simulationMode: workspace.simulationMode,
+  selectedHistoricalEra: workspace.selectedHistoricalEra,
+  coreParams: workspace.coreParams,
+  portfolio: workspace.portfolio,
+  returnAssumptions: workspace.returnAssumptions,
+  spendingPhases: workspace.spendingPhases,
+  withdrawalStrategy: workspace.withdrawalStrategy,
+  drawdownStrategy: workspace.drawdownStrategy,
+  historicalData: workspace.historicalData,
+  incomeEvents: workspace.incomeEvents,
+  expenseEvents: workspace.expenseEvents,
+  actualOverridesByMonth: workspace.actualOverridesByMonth,
+  lastEditedMonthIndex: workspace.lastEditedMonthIndex,
+  simulationResults: workspace.simulationResults,
+  stress: workspace.stress,
+});
+
 const cloneSnapshotState = (snapshot: SnapshotState): SnapshotState => ({
   mode: snapshot.mode,
   trackingInitialized: snapshot.trackingInitialized,
   planningWorkspace: snapshot.planningWorkspace ? cloneWorkspace(snapshot.planningWorkspace) : null,
   trackingWorkspace: snapshot.trackingWorkspace ? cloneWorkspace(snapshot.trackingWorkspace) : null,
+  compareWorkspace: cloneCompareWorkspace(snapshot.compareWorkspace),
   simulationMode: snapshot.simulationMode,
   selectedHistoricalEra: snapshot.selectedHistoricalEra,
   coreParams: {
@@ -901,6 +957,11 @@ export const useAppStore = create<AppStore>((set) => ({
   trackingInitialized: false,
   planningWorkspace: null,
   trackingWorkspace: null,
+  compareWorkspace: {
+    activeSlot: 'left',
+    leftWorkspace: null,
+    rightWorkspace: null,
+  },
   simulationMode: SimulationMode.Manual,
   selectedHistoricalEra: HistoricalEra.FullHistory,
   coreParams: {
@@ -990,6 +1051,50 @@ export const useAppStore = create<AppStore>((set) => ({
       const trackingWorkspace =
         state.mode === AppMode.Tracking ? currentWorkspace : state.trackingWorkspace;
 
+      const persistedCompareWorkspace = (() => {
+        const nextCompare = cloneCompareWorkspace(state.compareWorkspace);
+        if (state.mode === AppMode.Compare) {
+          if (nextCompare.activeSlot === 'left') {
+            nextCompare.leftWorkspace = currentWorkspace;
+          } else {
+            nextCompare.rightWorkspace = currentWorkspace;
+          }
+        }
+        return nextCompare;
+      })();
+
+      if (mode === AppMode.Compare) {
+        const seededCompareWorkspace = (() => {
+          const next = cloneCompareWorkspace(persistedCompareWorkspace);
+          if (!next.leftWorkspace) {
+            next.leftWorkspace = cloneWorkspace(currentWorkspace);
+          }
+          if (!next.rightWorkspace) {
+            next.rightWorkspace = cloneWorkspace(next.leftWorkspace ?? currentWorkspace);
+          }
+          return next;
+        })();
+
+        const activeWorkspace =
+          seededCompareWorkspace.activeSlot === 'left'
+            ? seededCompareWorkspace.leftWorkspace
+            : seededCompareWorkspace.rightWorkspace;
+        const workspaceToShow = cloneWorkspace(
+          activeWorkspace ??
+            seededCompareWorkspace.leftWorkspace ??
+            seededCompareWorkspace.rightWorkspace ??
+            currentWorkspace,
+        );
+
+        return {
+          mode,
+          planningWorkspace,
+          trackingWorkspace,
+          compareWorkspace: seededCompareWorkspace,
+          ...snapshotFieldsFromWorkspace(workspaceToShow),
+        };
+      }
+
       if (mode === AppMode.Tracking) {
         if (!state.trackingInitialized) {
           const seededTracking = cloneWorkspace(currentWorkspace);
@@ -1007,21 +1112,8 @@ export const useAppStore = create<AppStore>((set) => ({
             trackingInitialized: true,
             planningWorkspace,
             trackingWorkspace: seededTracking,
-            simulationMode: seededTracking.simulationMode,
-            selectedHistoricalEra: seededTracking.selectedHistoricalEra,
-            coreParams: seededTracking.coreParams,
-            portfolio: seededTracking.portfolio,
-            returnAssumptions: seededTracking.returnAssumptions,
-            spendingPhases: seededTracking.spendingPhases,
-            withdrawalStrategy: seededTracking.withdrawalStrategy,
-            drawdownStrategy: seededTracking.drawdownStrategy,
-            historicalData: seededTracking.historicalData,
-            incomeEvents: seededTracking.incomeEvents,
-            expenseEvents: seededTracking.expenseEvents,
-            actualOverridesByMonth: seededTracking.actualOverridesByMonth,
-            lastEditedMonthIndex: seededTracking.lastEditedMonthIndex,
-            simulationResults: seededTracking.simulationResults,
-            stress: seededTracking.stress,
+            compareWorkspace: persistedCompareWorkspace,
+            ...snapshotFieldsFromWorkspace(seededTracking),
           };
         }
 
@@ -1032,21 +1124,8 @@ export const useAppStore = create<AppStore>((set) => ({
           mode,
           planningWorkspace,
           trackingWorkspace: nextTracking,
-          simulationMode: nextTracking.simulationMode,
-          selectedHistoricalEra: nextTracking.selectedHistoricalEra,
-          coreParams: nextTracking.coreParams,
-          portfolio: nextTracking.portfolio,
-          returnAssumptions: nextTracking.returnAssumptions,
-          spendingPhases: nextTracking.spendingPhases,
-          withdrawalStrategy: nextTracking.withdrawalStrategy,
-          drawdownStrategy: nextTracking.drawdownStrategy,
-          historicalData: nextTracking.historicalData,
-          incomeEvents: nextTracking.incomeEvents,
-          expenseEvents: nextTracking.expenseEvents,
-          actualOverridesByMonth: nextTracking.actualOverridesByMonth,
-          lastEditedMonthIndex: nextTracking.lastEditedMonthIndex,
-          simulationResults: nextTracking.simulationResults,
-          stress: nextTracking.stress,
+          compareWorkspace: persistedCompareWorkspace,
+          ...snapshotFieldsFromWorkspace(nextTracking),
         };
       }
 
@@ -1057,21 +1136,33 @@ export const useAppStore = create<AppStore>((set) => ({
         mode,
         planningWorkspace: nextPlanning,
         trackingWorkspace,
-        simulationMode: nextPlanning.simulationMode,
-        selectedHistoricalEra: nextPlanning.selectedHistoricalEra,
-        coreParams: nextPlanning.coreParams,
-        portfolio: nextPlanning.portfolio,
-        returnAssumptions: nextPlanning.returnAssumptions,
-        spendingPhases: nextPlanning.spendingPhases,
-        withdrawalStrategy: nextPlanning.withdrawalStrategy,
-        drawdownStrategy: nextPlanning.drawdownStrategy,
-        historicalData: nextPlanning.historicalData,
-        incomeEvents: nextPlanning.incomeEvents,
-        expenseEvents: nextPlanning.expenseEvents,
-        actualOverridesByMonth: nextPlanning.actualOverridesByMonth,
-        lastEditedMonthIndex: nextPlanning.lastEditedMonthIndex,
-        simulationResults: nextPlanning.simulationResults,
-        stress: nextPlanning.stress,
+        compareWorkspace: persistedCompareWorkspace,
+        ...snapshotFieldsFromWorkspace(nextPlanning),
+      };
+    }),
+  setCompareActiveSlot: (slot) =>
+    set((state) => {
+      if (state.compareWorkspace.activeSlot === slot) {
+        return state;
+      }
+      const nextCompareWorkspace = cloneCompareWorkspace(state.compareWorkspace);
+      const currentWorkspace = cloneWorkspace(workspaceFromState(state));
+
+      if (nextCompareWorkspace.activeSlot === 'left') {
+        nextCompareWorkspace.leftWorkspace = currentWorkspace;
+      } else {
+        nextCompareWorkspace.rightWorkspace = currentWorkspace;
+      }
+      nextCompareWorkspace.activeSlot = slot;
+
+      const targetWorkspace = slot === 'left' ? nextCompareWorkspace.leftWorkspace : nextCompareWorkspace.rightWorkspace;
+      if (!targetWorkspace) {
+        return { compareWorkspace: nextCompareWorkspace };
+      }
+
+      return {
+        compareWorkspace: nextCompareWorkspace,
+        ...snapshotFieldsFromWorkspace(cloneWorkspace(targetWorkspace)),
       };
     }),
   upsertActualOverride: (monthIndex, patch) =>
@@ -1450,6 +1541,52 @@ export const useAppStore = create<AppStore>((set) => ({
         errorMessage: null,
       },
     })),
+  setCompareSlotSimulationStatus: (slot, status, errorMessage = null) =>
+    set((state) => {
+      const compareWorkspace = cloneCompareWorkspace(state.compareWorkspace);
+      const key = slot === 'left' ? 'leftWorkspace' : 'rightWorkspace';
+      const workspace = compareWorkspace[key];
+      if (!workspace) {
+        return state;
+      }
+      workspace.simulationResults = {
+        ...workspace.simulationResults,
+        status,
+        errorMessage,
+      };
+
+      const activeWorkspace = compareWorkspace.activeSlot === slot;
+      return activeWorkspace
+        ? {
+            compareWorkspace,
+            simulationResults: workspace.simulationResults,
+          }
+        : { compareWorkspace };
+    }),
+  setCompareSlotSimulationResult: (slot, mode, result) =>
+    set((state) => {
+      const compareWorkspace = cloneCompareWorkspace(state.compareWorkspace);
+      const key = slot === 'left' ? 'leftWorkspace' : 'rightWorkspace';
+      const workspace = compareWorkspace[key];
+      if (!workspace) {
+        return state;
+      }
+      workspace.simulationResults = {
+        ...workspace.simulationResults,
+        manual: mode === SimulationMode.Manual ? result : workspace.simulationResults.manual,
+        monteCarlo: mode === SimulationMode.MonteCarlo ? result : workspace.simulationResults.monteCarlo,
+        status: 'complete',
+        errorMessage: null,
+      };
+
+      const activeWorkspace = compareWorkspace.activeSlot === slot;
+      return activeWorkspace
+        ? {
+            compareWorkspace,
+            simulationResults: workspace.simulationResults,
+          }
+        : { compareWorkspace };
+    }),
   setReforecastResult: (result) =>
     set((state) => ({
       simulationResults: {
@@ -1628,11 +1765,17 @@ export const useTrackingActuals = () =>
     lastEditedMonthIndex: state.lastEditedMonthIndex,
   }));
 
-const snapshotStateFromStore = (state: AppStore): SnapshotState => ({
+export const useCompareSimulationResults = () => useAppStore((state) => state.compareWorkspace);
+
+const snapshotStateFromStore = (state: AppStore): SnapshotState => {
+  const compareWorkspace = compareWorkspaceWithCurrentState(state);
+
+  return {
   mode: state.mode,
   trackingInitialized: state.trackingInitialized,
   planningWorkspace: state.planningWorkspace ? cloneWorkspace(state.planningWorkspace) : null,
   trackingWorkspace: state.trackingWorkspace ? cloneWorkspace(state.trackingWorkspace) : null,
+  compareWorkspace,
   simulationMode: state.simulationMode,
   selectedHistoricalEra: state.selectedHistoricalEra,
   coreParams: {
@@ -1713,29 +1856,33 @@ const snapshotStateFromStore = (state: AppStore): SnapshotState => ({
     tableSort: state.ui.tableSort ? { ...state.ui.tableSort } : null,
     collapsedSections: { ...state.ui.collapsedSections },
   },
-});
+  };
+};
 
 export const getSnapshotState = (): SnapshotState => snapshotStateFromStore(useAppStore.getState());
 
-export const getCurrentConfig = (): SimulationConfig => {
+export const getCompareWorkspaceState = (): SnapshotState['compareWorkspace'] => {
   const state = useAppStore.getState();
-  const effectiveWithdrawalStrategy = resolveWithdrawalStrategyConfig(
-    state.withdrawalStrategy.type,
-    state.withdrawalStrategy.params,
-  );
+  return compareWorkspaceWithCurrentState(state);
+};
 
+const configFromWorkspace = (workspace: WorkspaceSnapshot, mode: AppMode): SimulationConfig => {
+  const effectiveWithdrawalStrategy = resolveWithdrawalStrategyConfig(
+    workspace.withdrawalStrategy.type,
+    workspace.withdrawalStrategy.params,
+  );
   const effectiveDrawdownStrategy: DrawdownStrategy =
-    state.drawdownStrategy.type === DrawdownStrategyType.Bucket
+    workspace.drawdownStrategy.type === DrawdownStrategyType.Bucket
       ? {
           type: DrawdownStrategyType.Bucket,
-          bucketOrder: state.drawdownStrategy.bucketOrder,
+          bucketOrder: workspace.drawdownStrategy.bucketOrder,
         }
       : {
           type: DrawdownStrategyType.Rebalancing,
           rebalancing: {
-            targetAllocation: normalizeAllocation(state.drawdownStrategy.rebalancing.targetAllocation),
-            glidePathEnabled: state.drawdownStrategy.rebalancing.glidePathEnabled,
-            glidePath: state.drawdownStrategy.rebalancing.glidePath.map((waypoint) => ({
+            targetAllocation: normalizeAllocation(workspace.drawdownStrategy.rebalancing.targetAllocation),
+            glidePathEnabled: workspace.drawdownStrategy.rebalancing.glidePathEnabled,
+            glidePath: workspace.drawdownStrategy.rebalancing.glidePath.map((waypoint) => ({
               year: waypoint.year,
               allocation: normalizeAllocation(waypoint.allocation),
             })),
@@ -1743,18 +1890,32 @@ export const getCurrentConfig = (): SimulationConfig => {
         };
 
   return {
-    mode: state.mode,
-    simulationMode: state.simulationMode,
-    selectedHistoricalEra: state.selectedHistoricalEra,
-    coreParams: state.coreParams,
-    portfolio: state.portfolio,
-    returnAssumptions: state.returnAssumptions,
-    spendingPhases: state.spendingPhases,
+    mode,
+    simulationMode: workspace.simulationMode,
+    selectedHistoricalEra: workspace.selectedHistoricalEra,
+    coreParams: workspace.coreParams,
+    portfolio: workspace.portfolio,
+    returnAssumptions: workspace.returnAssumptions,
+    spendingPhases: workspace.spendingPhases,
     withdrawalStrategy: effectiveWithdrawalStrategy,
     drawdownStrategy: effectiveDrawdownStrategy,
-    incomeEvents: state.incomeEvents,
-    expenseEvents: state.expenseEvents,
+    incomeEvents: workspace.incomeEvents,
+    expenseEvents: workspace.expenseEvents,
   };
+};
+
+export const getCompareConfigForSlot = (slot: CompareSlotId): SimulationConfig | null => {
+  const compareWorkspace = getCompareWorkspaceState();
+  const workspace = slot === 'left' ? compareWorkspace.leftWorkspace : compareWorkspace.rightWorkspace;
+  if (!workspace) {
+    return null;
+  }
+  return configFromWorkspace(workspace, AppMode.Compare);
+};
+
+export const getCurrentConfig = (): SimulationConfig => {
+  const state = useAppStore.getState();
+  return configFromWorkspace(cloneWorkspace(workspaceFromState(state)), state.mode);
 };
 
 export const isRebalancingAllocationValid = () => {

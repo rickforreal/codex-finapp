@@ -44,6 +44,7 @@ export enum HistoricalEra {
 export enum AppMode {
   Planning = 'planning',
   Tracking = 'tracking',
+  Compare = 'compare',
 }
 
 export enum ThemeId {

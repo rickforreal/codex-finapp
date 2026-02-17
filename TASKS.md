@@ -829,3 +829,55 @@ Dependencies: FS84-T3
 Acceptance Criteria:
 [AC1] `npm test`, `npm run typecheck`, `npm run lint`, and `npm run build` pass.
 [AC2] Synthwave '84 passes checklist in `docs/features/themes/synthwave84/ACCEPTANCE.md`.
+
+## Phase 14 Plan — Compare Portfolios (SxS)
+
+- [x] P14-T1: Add compare mode/store foundations and workspace switching
+Phase: 14 (Compare Portfolios)
+Dependencies: P13-T6
+Acceptance Criteria:
+[AC1] `AppMode.Compare` is added and command bar mode selector supports Compare.
+[AC2] Store supports compare workspace branch (`left`/`right`) with active slot switching.
+[AC3] First switch into Compare seeds Slot A from current workspace and Slot B from Slot A clone.
+
+- [x] P14-T2: Implement compare run orchestration with shared stochastic parity
+Phase: 14 (Compare Portfolios)
+Dependencies: P14-T1
+Acceptance Criteria:
+[AC1] Compare run triggers two `/simulate` calls.
+[AC2] Both compare slots use shared stochastic seed for fairness.
+[AC3] Per-slot run status and per-slot result caches are persisted in compare workspace state.
+
+- [x] P14-T3: Build compare sidebar + output rendering (chart/stats/detail table)
+Phase: 14 (Compare Portfolios)
+Dependencies: P14-T2
+Acceptance Criteria:
+[AC1] Sidebar has Portfolio A/B switcher in Compare mode.
+[AC2] Summary stats render A/B values and deltas.
+[AC3] Chart renders both portfolio paths in Compare mode.
+[AC4] Detail table renders side-by-side ledgers with shared controls and no spreadsheet expansion.
+
+- [x] P14-T4: Add compare snapshot compatibility (single + pair targeting)
+Phase: 14 (Compare Portfolios)
+Dependencies: P14-T1
+Acceptance Criteria:
+[AC1] Snapshot schema supports compare workspace payloads and remains backward-compatible with old single snapshots.
+[AC2] In Compare mode, load flow prompts for target (`left`/`right`/`both`).
+[AC3] Pair snapshots loaded into one side prompt for source slot (`A`/`B`).
+
+- [ ] P14-T5: Apply stress test dual-slot compare output
+Phase: 14 (Compare Portfolios)
+Dependencies: P14-T2
+Acceptance Criteria:
+[AC1] Shared stress scenarios execute against both compare slots.
+[AC2] Stress outputs are rendered per slot in compare view.
+[AC3] Compare stress behavior is covered by manual QA.
+
+- [x] P14-T6: Run regression verification for implemented Compare core
+Phase: 14 (Compare Portfolios)
+Dependencies: P14-T1, P14-T2, P14-T3, P14-T4
+Acceptance Criteria:
+[AC1] `npm run typecheck` passes.
+[AC2] `npm run lint` passes.
+[AC3] `npm test` passes.
+[AC4] `npm run build` passes.

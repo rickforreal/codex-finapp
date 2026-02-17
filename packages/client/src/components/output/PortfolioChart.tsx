@@ -3,7 +3,7 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { AppMode, AssetClass, SimulationMode } from '@finapp/shared';
 
 import { formatCompactCurrency, formatCurrency, formatPeriodLabel } from '../../lib/format';
-import { useActiveSimulationResult, useAppStore } from '../../store/useAppStore';
+import { useActiveSimulationResult, useAppStore, useCompareSimulationResults } from '../../store/useAppStore';
 import { SegmentedToggle } from '../shared/SegmentedToggle';
 
 type ChartPoint = {
@@ -77,6 +77,7 @@ export const PortfolioChart = () => {
   const containerRef = useRef<HTMLDivElement | null>(null);
   const [chartWidth, setChartWidth] = useState(1200);
   const result = useActiveSimulationResult();
+  const compareResults = useCompareSimulationResults();
   const chartDisplayMode = useAppStore((state) => state.ui.chartDisplayMode);
   const chartBreakdownEnabled = useAppStore((state) => state.ui.chartBreakdownEnabled);
   const mode = useAppStore((state) => state.mode);
@@ -172,6 +173,86 @@ export const PortfolioChart = () => {
       p90: result.monteCarlo.percentileCurves.total.p90.map((value, index) => toDisplayValue(value, index + 1)),
     };
   }, [chartDisplayMode, inflationRate, result, simulationMode]);
+
+  if (mode === AppMode.Compare) {
+    const leftResult = compareResults.leftWorkspace
+      ? compareResults.leftWorkspace.simulationMode === SimulationMode.Manual
+        ? compareResults.leftWorkspace.simulationResults.manual
+        : compareResults.leftWorkspace.simulationResults.monteCarlo
+      : null;
+    const rightResult = compareResults.rightWorkspace
+      ? compareResults.rightWorkspace.simulationMode === SimulationMode.Manual
+        ? compareResults.rightWorkspace.simulationResults.manual
+        : compareResults.rightWorkspace.simulationResults.monteCarlo
+      : null;
+    const buildTotals = (
+      rows: Array<{ monthIndex: number; endBalances: { stocks: number; bonds: number; cash: number } }>,
+    ) =>
+      rows.map((row) => {
+        const nominal = row.endBalances.stocks + row.endBalances.bonds + row.endBalances.cash;
+        return chartDisplayMode === 'real'
+          ? nominal / inflationFactor(inflationRate, row.monthIndex)
+          : nominal;
+      });
+
+    const leftRows = leftResult?.result.rows ?? [];
+    const rightRows = rightResult?.result.rows ?? [];
+    if (leftRows.length === 0 && rightRows.length === 0) {
+      return (
+        <section className="rounded-xl border border-brand-border bg-white p-4 shadow-panel">
+          <div className="flex h-[360px] items-center justify-center rounded-lg border border-dashed border-brand-border bg-brand-surface">
+            <p className="text-sm text-slate-500">Run compare simulation to see both portfolio projections.</p>
+          </div>
+        </section>
+      );
+    }
+
+    const leftTotals = buildTotals(leftRows);
+    const rightTotals = buildTotals(rightRows);
+    const maxCount = Math.max(leftTotals.length, rightTotals.length, 1);
+    const width = chartWidth;
+    const plotWidth = width - margin.left - margin.right;
+    const xAt = (index: number): number => margin.left + (index / Math.max(maxCount - 1, 1)) * plotWidth;
+    const maxY = Math.max(1, ...leftTotals, ...rightTotals);
+    const yAt = (value: number): number => margin.top + plotHeight - (value / maxY) * plotHeight;
+    const leftPath = linePath(leftTotals.map((value, index) => ({ x: xAt(index), y: yAt(value) })));
+    const rightPath = linePath(rightTotals.map((value, index) => ({ x: xAt(index), y: yAt(value) })));
+
+    return (
+      <section className="rounded-xl border border-brand-border bg-white p-4 shadow-panel">
+        <div className="mb-3 flex flex-wrap items-center justify-between gap-3">
+          <div className="ml-auto flex items-center gap-4">
+            <SegmentedToggle
+              value={chartDisplayMode}
+              onChange={(value) => setChartDisplayMode(value as 'nominal' | 'real')}
+              options={[
+                { label: 'Nominal', value: 'nominal' },
+                { label: 'Real', value: 'real' },
+              ]}
+            />
+          </div>
+        </div>
+        <div ref={containerRef} className="relative overflow-visible rounded-lg border border-brand-border bg-brand-surface">
+          <svg width={width} height={height} className="block min-w-full">
+            <line x1={margin.left} x2={margin.left} y1={margin.top} y2={margin.top + plotHeight} stroke="var(--theme-color-chart-axis)" />
+            <line
+              x1={margin.left}
+              x2={margin.left + plotWidth}
+              y1={margin.top + plotHeight}
+              y2={margin.top + plotHeight}
+              stroke="var(--theme-color-chart-axis)"
+            />
+            <path d={leftPath} fill="none" stroke="var(--theme-color-chart-manual-line)" strokeWidth={3} />
+            <path d={rightPath} fill="none" stroke="var(--theme-color-stress-a)" strokeWidth={2.5} strokeDasharray="6 4" />
+          </svg>
+          <div className="pointer-events-none absolute right-3 top-3 rounded-md border border-brand-border bg-white/95 px-3 py-2 text-xs text-slate-700">
+            <div className="flex items-center gap-2"><span className="h-[2px] w-4 bg-[var(--theme-color-chart-manual-line)]" />Portfolio A</div>
+            <div className="mt-1 flex items-center gap-2"><span className="h-[2px] w-4 bg-[var(--theme-color-stress-a)]" />Portfolio B</div>
+          </div>
+        </div>
+      </section>
+    );
+  }
 
   if (points.length === 0) {
     return (

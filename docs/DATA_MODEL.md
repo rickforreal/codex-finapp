@@ -39,6 +39,13 @@ HistoricalEra =
   "oilCrisis" | "post1980BullRun" | "lostDecade" | "postGfcRecovery"
 ```
 
+Planned Phase 14 extension:
+
+```ts
+AppMode = "planning" | "tracking" | "compare"
+CompareSlotId = "left" | "right"
+```
+
 ## 3. SimulationConfig
 
 ```ts
@@ -517,6 +524,50 @@ PackedRows {
   - `simulationResults.reforecast.result.rows`
   - `stress.result.base.result.rows`
   - `stress.result.scenarios[*].result.rows`
+
+## 10. Planned Phase 14 Additions (Compare Portfolios)
+
+The following additions are planned for Phase 14 and document target behavior for implementation.
+
+### 10.1 Compare state model
+
+```ts
+CompareState {
+  activeInputSlot: CompareSlotId; // "left" | "right"
+  leftWorkspace: WorkspaceSnapshot;
+  rightWorkspace: WorkspaceSnapshot;
+  simulationResultsBySlot: {
+    left: WorkspaceSnapshot["simulationResults"];
+    right: WorkspaceSnapshot["simulationResults"];
+  };
+  stressBySlot: {
+    left: WorkspaceSnapshot["stress"];
+    right: WorkspaceSnapshot["stress"];
+  };
+}
+```
+
+Initialization rule (planned):
+- On first switch into Compare mode, `leftWorkspace` is seeded from the currently active Planning/Tracking workspace snapshot.
+- `rightWorkspace` is initialized as a clone of `leftWorkspace`.
+
+### 10.2 Planned snapshot compatibility in Compare mode
+
+1. Existing single snapshot files remain loadable in Compare mode.
+2. New pair snapshots can persist both compare slots in one envelope.
+3. Load targeting is explicit:
+   - `Left`
+   - `Right`
+   - `Replace both`
+4. If loading a pair snapshot into one side, user must choose source slot:
+   - `Pair A`
+   - `Pair B`
+
+### 10.3 Stochastic parity rule in Compare runs
+
+For fairness, Compare mode applies the same market randomness to both slots within a run:
+- Manual: one monthly stochastic return stream is shared across both slots.
+- Monte Carlo: one seed/sampling stream is shared so each simulation index/month index maps to identical sampled market conditions across both slots.
 
 ## 10. Notes
 
