@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 
-import { AppMode, AssetClass, type MonthlySimulationRow, SimulationMode } from '@finapp/shared';
+import { AppMode, AssetClass, type MonthlySimulationRow, type MonteCarloPercentileCurves, SimulationMode } from '@finapp/shared';
 
 import { formatCompactCurrency, formatCurrency, formatPeriodLabel } from '../../lib/format';
 import { useActiveSimulationResult, useAppStore, useCompareSimulationResults } from '../../store/useAppStore';
@@ -186,17 +186,17 @@ export const PortfolioChart = () => {
   }, [chartDisplayMode, inflationRate, result, simulationMode]);
 
   if (mode === AppMode.Compare) {
-    const resolveRows = (workspace: (typeof compareResults)['leftWorkspace']) => {
+    const resolveSlotResult = (workspace: (typeof compareResults)['leftWorkspace']) => {
       if (!workspace) {
-        return [] as MonthlySimulationRow[];
+        return null;
       }
       const preferred =
         simulationMode === SimulationMode.Manual
           ? workspace.simulationResults.manual
           : workspace.simulationResults.monteCarlo;
-      const fallback = workspace.simulationResults.manual ?? workspace.simulationResults.monteCarlo;
-      return (preferred ?? fallback)?.result.rows ?? [];
+      return preferred ?? workspace.simulationResults.manual ?? workspace.simulationResults.monteCarlo;
     };
+
     const buildTotals = (rows: MonthlySimulationRow[]) =>
       rows.map((row) => {
         const nominal = totalFromRow(row);
@@ -205,8 +205,28 @@ export const PortfolioChart = () => {
           : nominal;
       });
 
-    const leftRows = resolveRows(compareResults.leftWorkspace);
-    const rightRows = resolveRows(compareResults.rightWorkspace);
+    const toDisplayValue = (value: number, monthIndexOneBased: number) =>
+      chartDisplayMode === 'real' ? value / inflationFactor(inflationRate, monthIndexOneBased) : value;
+    const toDisplayBands = (curve: MonteCarloPercentileCurves | null): MonteCarloBands | null => {
+      if (!curve) {
+        return null;
+      }
+      return {
+        p10: curve.p10.map((value, index) => toDisplayValue(value, index + 1)),
+        p25: curve.p25.map((value, index) => toDisplayValue(value, index + 1)),
+        p50: curve.p50.map((value, index) => toDisplayValue(value, index + 1)),
+        p75: curve.p75.map((value, index) => toDisplayValue(value, index + 1)),
+        p90: curve.p90.map((value, index) => toDisplayValue(value, index + 1)),
+      };
+    };
+
+    const leftResult = resolveSlotResult(compareResults.leftWorkspace);
+    const rightResult = resolveSlotResult(compareResults.rightWorkspace);
+    const leftRows = leftResult?.result.rows ?? [];
+    const rightRows = rightResult?.result.rows ?? [];
+    const leftBands = simulationMode === SimulationMode.MonteCarlo ? toDisplayBands(leftResult?.monteCarlo?.percentileCurves.total ?? null) : null;
+    const rightBands = simulationMode === SimulationMode.MonteCarlo ? toDisplayBands(rightResult?.monteCarlo?.percentileCurves.total ?? null) : null;
+
     if (leftRows.length === 0 && rightRows.length === 0) {
       return (
         <section className="rounded-xl border border-brand-border bg-white p-4 shadow-panel">
@@ -219,14 +239,29 @@ export const PortfolioChart = () => {
 
     const leftTotals = buildTotals(leftRows);
     const rightTotals = buildTotals(rightRows);
-    const maxCount = Math.max(leftTotals.length, rightTotals.length, 1);
+    const maxCount = Math.max(
+      leftTotals.length,
+      rightTotals.length,
+      leftBands?.p50.length ?? 0,
+      rightBands?.p50.length ?? 0,
+      1,
+    );
     const width = chartWidth;
     const plotWidth = width - margin.left - margin.right;
     const xAt = (index: number): number => margin.left + (index / Math.max(maxCount - 1, 1)) * plotWidth;
-    const maxY = Math.max(1, ...leftTotals, ...rightTotals);
+    const maxY = Math.max(
+      1,
+      ...leftTotals,
+      ...rightTotals,
+      ...(leftBands?.p90 ?? []),
+      ...(rightBands?.p90 ?? []),
+    );
     const yAt = (value: number): number => margin.top + plotHeight - (value / maxY) * plotHeight;
     const leftPath = linePath(leftTotals.map((value, index) => ({ x: xAt(index), y: yAt(value) })));
     const rightPath = linePath(rightTotals.map((value, index) => ({ x: xAt(index), y: yAt(value) })));
+    const leftMedianPath = linePath((leftBands?.p50 ?? []).map((value, index) => ({ x: xAt(index), y: yAt(value) })));
+    const rightMedianPath = linePath((rightBands?.p50 ?? []).map((value, index) => ({ x: xAt(index), y: yAt(value) })));
+    const xValues = Array.from({ length: maxCount }, (_, index) => xAt(index));
     const yTicks = 6;
     const xTicks = Math.min(8, maxCount);
     const localCount = Math.max(maxCount - 1, 1);
@@ -238,21 +273,31 @@ export const PortfolioChart = () => {
     const toDisplay = (row: MonthlySimulationRow, value: number) =>
       chartDisplayMode === 'real' ? value / inflationFactor(inflationRate, row.monthIndex) : value;
     const tooltipPoints: CompareTooltipPoint[] = [
-      leftHoverRow
+      leftHoverRow || (activeHoverIndex !== null && leftBands?.p50[activeHoverIndex] !== undefined)
         ? {
             label: 'Portfolio A',
             color: 'var(--theme-chart-manual-line)',
-            portfolio: toDisplay(leftHoverRow, totalFromRow(leftHoverRow)),
-            withdrawal: toDisplay(leftHoverRow, leftHoverRow.withdrawals.actual),
+            portfolio:
+              activeHoverIndex !== null && leftBands?.p50[activeHoverIndex] !== undefined
+                ? (leftBands.p50[activeHoverIndex] ?? 0)
+                : leftHoverRow
+                  ? toDisplay(leftHoverRow, totalFromRow(leftHoverRow))
+                  : 0,
+            withdrawal: leftHoverRow ? toDisplay(leftHoverRow, leftHoverRow.withdrawals.actual) : 0,
           }
         : null,
-      rightHoverRow
+      rightHoverRow || (activeHoverIndex !== null && rightBands?.p50[activeHoverIndex] !== undefined)
         ? {
             label: 'Portfolio B',
             color: 'var(--theme-color-stress-a)',
             dashed: true,
-            portfolio: toDisplay(rightHoverRow, totalFromRow(rightHoverRow)),
-            withdrawal: toDisplay(rightHoverRow, rightHoverRow.withdrawals.actual),
+            portfolio:
+              activeHoverIndex !== null && rightBands?.p50[activeHoverIndex] !== undefined
+                ? (rightBands.p50[activeHoverIndex] ?? 0)
+                : rightHoverRow
+                  ? toDisplay(rightHoverRow, totalFromRow(rightHoverRow))
+                  : 0,
+            withdrawal: rightHoverRow ? toDisplay(rightHoverRow, rightHoverRow.withdrawals.actual) : 0,
           }
         : null,
     ].filter((entry): entry is CompareTooltipPoint => entry !== null);
@@ -329,16 +374,57 @@ export const PortfolioChart = () => {
               y2={margin.top + plotHeight}
               stroke="var(--theme-color-chart-axis)"
             />
-            <path d={rightPath} fill="none" stroke="var(--theme-color-stress-a)" strokeWidth={2.5} strokeDasharray="6 4" />
-            <path d={leftPath} fill="none" stroke="var(--theme-chart-manual-line)" strokeWidth={3} />
+            {simulationMode === SimulationMode.MonteCarlo ? (
+              <>
+                {leftBands ? (
+                  <>
+                    <path d={areaPath(xValues.slice(0, leftBands.p10.length), leftBands.p10.map(yAt), leftBands.p90.map(yAt))} fill="var(--theme-chart-mc-band-outer)" />
+                    <path d={areaPath(xValues.slice(0, leftBands.p25.length), leftBands.p25.map(yAt), leftBands.p75.map(yAt))} fill="var(--theme-chart-mc-band-inner)" />
+                    <path d={leftMedianPath} fill="none" stroke="var(--theme-chart-manual-line)" strokeWidth={2.5} />
+                  </>
+                ) : (
+                  <path d={leftPath} fill="none" stroke="var(--theme-chart-manual-line)" strokeWidth={3} />
+                )}
+                {rightBands ? (
+                  <>
+                    <path
+                      d={areaPath(
+                        xValues.slice(0, rightBands.p10.length),
+                        rightBands.p10.map(yAt),
+                        rightBands.p90.map(yAt),
+                      )}
+                      fill="var(--theme-color-stress-a)"
+                      fillOpacity={0.16}
+                    />
+                    <path
+                      d={areaPath(
+                        xValues.slice(0, rightBands.p25.length),
+                        rightBands.p25.map(yAt),
+                        rightBands.p75.map(yAt),
+                      )}
+                      fill="var(--theme-color-stress-a)"
+                      fillOpacity={0.26}
+                    />
+                    <path d={rightMedianPath} fill="none" stroke="var(--theme-color-stress-a)" strokeWidth={2.5} strokeDasharray="6 4" />
+                  </>
+                ) : (
+                  <path d={rightPath} fill="none" stroke="var(--theme-color-stress-a)" strokeWidth={2.5} strokeDasharray="6 4" />
+                )}
+              </>
+            ) : (
+              <>
+                <path d={rightPath} fill="none" stroke="var(--theme-color-stress-a)" strokeWidth={2.5} strokeDasharray="6 4" />
+                <path d={leftPath} fill="none" stroke="var(--theme-chart-manual-line)" strokeWidth={3} />
+              </>
+            )}
 
             {hoverX !== null ? (
               <line x1={hoverX} y1={margin.top} x2={hoverX} y2={margin.top + plotHeight} stroke="var(--theme-color-chart-text)" strokeDasharray="4 4" />
             ) : null}
           </svg>
           <div className="pointer-events-none absolute right-3 top-3 rounded-md border border-brand-border bg-white/95 px-3 py-2 text-xs text-slate-700">
-            <div className="flex items-center gap-2"><span className="h-[2px] w-4 bg-[var(--theme-chart-manual-line)]" />Portfolio A</div>
-            <div className="mt-1 flex items-center gap-2"><span className="h-[2px] w-4 bg-[var(--theme-color-stress-a)]" />Portfolio B</div>
+            <div className="flex items-center gap-2"><span className="h-[2px] w-4 bg-[var(--theme-chart-manual-line)]" />Portfolio A{simulationMode === SimulationMode.MonteCarlo ? ' (P50 + bands)' : ''}</div>
+            <div className="mt-1 flex items-center gap-2"><span className="h-[2px] w-4 bg-[var(--theme-color-stress-a)]" />Portfolio B{simulationMode === SimulationMode.MonteCarlo ? ' (P50 + bands)' : ''}</div>
           </div>
           {hoverX !== null && tooltipPoints.length > 0 ? (
             <div

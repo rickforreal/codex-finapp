@@ -69,16 +69,18 @@ export const SummaryStatsBar = () => {
       : `${formatPercent(terminalPctOfStarting)} of starting`;
 
   if (mode === AppMode.Compare) {
-    const leftResult = compareResults.leftWorkspace
-      ? compareResults.leftWorkspace.simulationMode === SimulationMode.Manual
-        ? compareResults.leftWorkspace.simulationResults.manual
-        : compareResults.leftWorkspace.simulationResults.monteCarlo
-      : null;
-    const rightResult = compareResults.rightWorkspace
-      ? compareResults.rightWorkspace.simulationMode === SimulationMode.Manual
-        ? compareResults.rightWorkspace.simulationResults.manual
-        : compareResults.rightWorkspace.simulationResults.monteCarlo
-      : null;
+    const resolveSlotResult = (workspace: (typeof compareResults)['leftWorkspace']) => {
+      if (!workspace) {
+        return null;
+      }
+      const preferred =
+        simulationMode === SimulationMode.Manual
+          ? workspace.simulationResults.manual
+          : workspace.simulationResults.monteCarlo;
+      return preferred ?? workspace.simulationResults.manual ?? workspace.simulationResults.monteCarlo;
+    };
+    const leftResult = resolveSlotResult(compareResults.leftWorkspace);
+    const rightResult = resolveSlotResult(compareResults.rightWorkspace);
     const leftRows = leftResult?.result.rows ?? [];
     const rightRows = rightResult?.result.rows ?? [];
     const leftStats = buildSummaryStats(leftRows, inflationRate);
@@ -110,9 +112,12 @@ export const SummaryStatsBar = () => {
           annotation={
             delta === null ? undefined : `Δ ${delta >= 0 ? '+' : '-'}${formatter(Math.abs(delta))}`
           }
-          annotationClassName={`font-mono text-[11px] ${
-            delta === null ? 'text-slate-500' : delta >= 0 ? 'text-emerald-700' : 'text-rose-700'
-          }`}
+          annotationClassName="font-mono text-[12px] font-semibold"
+          annotationStyle={
+            delta === null
+              ? { color: 'var(--theme-color-text-secondary)' }
+              : { color: delta >= 0 ? 'var(--theme-color-positive)' : 'var(--theme-color-negative)' }
+          }
         />
       );
     };

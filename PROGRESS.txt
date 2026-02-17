@@ -748,3 +748,13 @@ Verification run (all passing):
   - `npm run typecheck -w @finapp/client`
   - `npm run lint -w @finapp/client`
   - `npm run build -w @finapp/client`
+- Phase 14 bug-fix pass: Compare + Monte Carlo parity and rendering.
+  - Fixed compare slot result mode persistence by storing slot `simulationMode` when compare results are saved.
+  - Fixed compare output selectors (stats/table/chart) to resolve per-slot result by currently selected simulation mode with safe fallback.
+  - Implemented Compare-mode Monte Carlo chart overlays for both portfolios: P10-P90 and P25-P75 bands plus P50 median line per slot.
+  - Updated compare MC legend labels to indicate percentile band rendering.
+  - Verified compare stochastic fairness: both slots continue using shared seed per run invocation.
+- Validation (client):
+  - `npm run typecheck -w @finapp/client`
+  - `npm run lint -w @finapp/client`
+  - `npm run build -w @finapp/client`

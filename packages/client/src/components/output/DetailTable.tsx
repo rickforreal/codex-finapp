@@ -150,6 +150,7 @@ export const DetailTable = () => {
   const [editingCell, setEditingCell] = useState<{ rowId: string; column: keyof DetailRow } | null>(null);
   const [draftValue, setDraftValue] = useState('');
   const [selectedCell, setSelectedCell] = useState<{ rowId: string; column: keyof DetailRow } | null>(null);
+  const [compareHoveredRowId, setCompareHoveredRowId] = useState<string | null>(null);
 
   const rawRows = useMemo(() => {
     const rows = result?.result.rows ?? [];
@@ -515,16 +516,18 @@ export const DetailTable = () => {
   };
 
   if (mode === AppMode.Compare) {
-    const leftResult = compareResults.leftWorkspace
-      ? compareResults.leftWorkspace.simulationMode === SimulationMode.Manual
-        ? compareResults.leftWorkspace.simulationResults.manual
-        : compareResults.leftWorkspace.simulationResults.monteCarlo
-      : null;
-    const rightResult = compareResults.rightWorkspace
-      ? compareResults.rightWorkspace.simulationMode === SimulationMode.Manual
-        ? compareResults.rightWorkspace.simulationResults.manual
-        : compareResults.rightWorkspace.simulationResults.monteCarlo
-      : null;
+    const resolveSlotResult = (workspace: (typeof compareResults)['leftWorkspace']) => {
+      if (!workspace) {
+        return null;
+      }
+      const preferred =
+        simulationMode === SimulationMode.Manual
+          ? workspace.simulationResults.manual
+          : workspace.simulationResults.monteCarlo;
+      return preferred ?? workspace.simulationResults.manual ?? workspace.simulationResults.monteCarlo;
+    };
+    const leftResult = resolveSlotResult(compareResults.leftWorkspace);
+    const rightResult = resolveSlotResult(compareResults.rightWorkspace);
     const toRows = (
       slotRows: Array<{
         monthIndex: number;
@@ -579,9 +582,19 @@ export const DetailTable = () => {
                 </tr>
               ) : (
                 paneRows.map((row) => (
-                  <tr key={`${title}-${row.id}`} className="odd:bg-white even:bg-brand-surface">
+                  <tr
+                    key={`${title}-${row.id}`}
+                    className={`border-b border-slate-100 bg-brand-surface transition-colors hover:bg-brand-panel ${
+                      compareHoveredRowId === row.id ? 'bg-brand-panel' : ''
+                    }`}
+                    onMouseEnter={() => setCompareHoveredRowId(row.id)}
+                    onMouseLeave={() => setCompareHoveredRowId(null)}
+                  >
                     {columns.map((column) => (
-                      <td key={`${title}-${row.id}-${String(column.key)}`} className="border-b border-brand-border px-2 py-1.5 text-slate-700">
+                      <td
+                        key={`${title}-${row.id}-${String(column.key)}`}
+                        className={`whitespace-nowrap px-3 py-2 font-mono ${valueToneClass(row, column)}`}
+                      >
                         {formatCell(row[column.key] as string | number, column)}
                       </td>
                     ))}

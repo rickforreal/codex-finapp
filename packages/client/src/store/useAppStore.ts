@@ -1578,6 +1578,7 @@ export const useAppStore = create<AppStore>((set) => ({
         status: 'complete',
         errorMessage: null,
       };
+      workspace.simulationMode = mode;
 
       const activeWorkspace = compareWorkspace.activeSlot === slot;
       return activeWorkspace
