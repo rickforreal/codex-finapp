@@ -97,14 +97,22 @@ export const SummaryStatsBar = () => {
       return (
         <StatCard
           label={label}
-          value={leftValue === null ? 'A: —' : `A: ${formatter(leftValue)}`}
-          annotation={
-            rightValue === null
-              ? 'B: —'
-              : delta === null
-                ? `B: ${formatter(rightValue)}`
-                : `B: ${formatter(rightValue)}  |  Δ ${delta >= 0 ? '+' : '-'}${formatter(Math.abs(delta))}`
+          value={
+            <div className="space-y-1.5">
+              <p className="font-mono text-[18px] font-semibold leading-none" style={{ color: 'var(--theme-chart-manual-line)' }}>
+                {leftValue === null ? 'A: —' : `A: ${formatter(leftValue)}`}
+              </p>
+              <p className="font-mono text-[18px] font-semibold leading-none" style={{ color: 'var(--theme-color-stress-a)' }}>
+                {rightValue === null ? 'B: —' : `B: ${formatter(rightValue)}`}
+              </p>
+            </div>
           }
+          annotation={
+            delta === null ? undefined : `Δ ${delta >= 0 ? '+' : '-'}${formatter(Math.abs(delta))}`
+          }
+          annotationClassName={`font-mono text-[11px] ${
+            delta === null ? 'text-slate-500' : delta >= 0 ? 'text-emerald-700' : 'text-rose-700'
+          }`}
         />
       );
     };

@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 
-import { AppMode, AssetClass, SimulationMode } from '@finapp/shared';
+import { AppMode, AssetClass, type MonthlySimulationRow, SimulationMode } from '@finapp/shared';
 
 import { formatCompactCurrency, formatCurrency, formatPeriodLabel } from '../../lib/format';
 import { useActiveSimulationResult, useAppStore, useCompareSimulationResults } from '../../store/useAppStore';
@@ -31,6 +31,14 @@ type StressTooltipPoint = {
   scenarioId: string;
   scenarioLabel: string;
   color: string;
+  portfolio: number;
+  withdrawal: number;
+};
+
+type CompareTooltipPoint = {
+  label: string;
+  color: string;
+  dashed?: boolean;
   portfolio: number;
   withdrawal: number;
 };
@@ -72,6 +80,9 @@ const areaPath = (xValues: number[], upper: number[], lower: number[]): string =
     .join(' L ');
   return `M ${top} L ${bottom} Z`;
 };
+
+const totalFromRow = (row: MonthlySimulationRow): number =>
+  row.endBalances[AssetClass.Stocks] + row.endBalances[AssetClass.Bonds] + row.endBalances[AssetClass.Cash];
 
 export const PortfolioChart = () => {
   const containerRef = useRef<HTMLDivElement | null>(null);
@@ -175,28 +186,27 @@ export const PortfolioChart = () => {
   }, [chartDisplayMode, inflationRate, result, simulationMode]);
 
   if (mode === AppMode.Compare) {
-    const leftResult = compareResults.leftWorkspace
-      ? compareResults.leftWorkspace.simulationMode === SimulationMode.Manual
-        ? compareResults.leftWorkspace.simulationResults.manual
-        : compareResults.leftWorkspace.simulationResults.monteCarlo
-      : null;
-    const rightResult = compareResults.rightWorkspace
-      ? compareResults.rightWorkspace.simulationMode === SimulationMode.Manual
-        ? compareResults.rightWorkspace.simulationResults.manual
-        : compareResults.rightWorkspace.simulationResults.monteCarlo
-      : null;
-    const buildTotals = (
-      rows: Array<{ monthIndex: number; endBalances: { stocks: number; bonds: number; cash: number } }>,
-    ) =>
+    const resolveRows = (workspace: (typeof compareResults)['leftWorkspace']) => {
+      if (!workspace) {
+        return [] as MonthlySimulationRow[];
+      }
+      const preferred =
+        simulationMode === SimulationMode.Manual
+          ? workspace.simulationResults.manual
+          : workspace.simulationResults.monteCarlo;
+      const fallback = workspace.simulationResults.manual ?? workspace.simulationResults.monteCarlo;
+      return (preferred ?? fallback)?.result.rows ?? [];
+    };
+    const buildTotals = (rows: MonthlySimulationRow[]) =>
       rows.map((row) => {
-        const nominal = row.endBalances.stocks + row.endBalances.bonds + row.endBalances.cash;
+        const nominal = totalFromRow(row);
         return chartDisplayMode === 'real'
           ? nominal / inflationFactor(inflationRate, row.monthIndex)
           : nominal;
       });
 
-    const leftRows = leftResult?.result.rows ?? [];
-    const rightRows = rightResult?.result.rows ?? [];
+    const leftRows = resolveRows(compareResults.leftWorkspace);
+    const rightRows = resolveRows(compareResults.rightWorkspace);
     if (leftRows.length === 0 && rightRows.length === 0) {
       return (
         <section className="rounded-xl border border-brand-border bg-white p-4 shadow-panel">
@@ -217,6 +227,36 @@ export const PortfolioChart = () => {
     const yAt = (value: number): number => margin.top + plotHeight - (value / maxY) * plotHeight;
     const leftPath = linePath(leftTotals.map((value, index) => ({ x: xAt(index), y: yAt(value) })));
     const rightPath = linePath(rightTotals.map((value, index) => ({ x: xAt(index), y: yAt(value) })));
+    const yTicks = 6;
+    const xTicks = Math.min(8, maxCount);
+    const localCount = Math.max(maxCount - 1, 1);
+
+    const activeHoverIndex = hoverIndex === null ? null : Math.max(0, Math.min(hoverIndex, maxCount - 1));
+    const hoverX = activeHoverIndex === null ? null : xAt(activeHoverIndex);
+    const leftHoverRow = activeHoverIndex === null ? null : leftRows[activeHoverIndex];
+    const rightHoverRow = activeHoverIndex === null ? null : rightRows[activeHoverIndex];
+    const toDisplay = (row: MonthlySimulationRow, value: number) =>
+      chartDisplayMode === 'real' ? value / inflationFactor(inflationRate, row.monthIndex) : value;
+    const tooltipPoints: CompareTooltipPoint[] = [
+      leftHoverRow
+        ? {
+            label: 'Portfolio A',
+            color: 'var(--theme-chart-manual-line)',
+            portfolio: toDisplay(leftHoverRow, totalFromRow(leftHoverRow)),
+            withdrawal: toDisplay(leftHoverRow, leftHoverRow.withdrawals.actual),
+          }
+        : null,
+      rightHoverRow
+        ? {
+            label: 'Portfolio B',
+            color: 'var(--theme-color-stress-a)',
+            dashed: true,
+            portfolio: toDisplay(rightHoverRow, totalFromRow(rightHoverRow)),
+            withdrawal: toDisplay(rightHoverRow, rightHoverRow.withdrawals.actual),
+          }
+        : null,
+    ].filter((entry): entry is CompareTooltipPoint => entry !== null);
+    const hoverYear = activeHoverIndex === null ? null : Math.floor(activeHoverIndex / 12) + 1;
 
     return (
       <section className="rounded-xl border border-brand-border bg-white p-4 shadow-panel">
@@ -233,7 +273,54 @@ export const PortfolioChart = () => {
           </div>
         </div>
         <div ref={containerRef} className="relative overflow-visible rounded-lg border border-brand-border bg-brand-surface">
-          <svg width={width} height={height} className="block min-w-full">
+          <svg
+            viewBox={`0 0 ${width} ${height}`}
+            className="h-[360px] w-full bg-white"
+            onMouseLeave={() => setHoverIndex(null)}
+            onMouseMove={(event) => {
+              const rect = event.currentTarget.getBoundingClientRect();
+              const scaleX = width / Math.max(rect.width, 1);
+              const cursorX = (event.clientX - rect.left) * scaleX;
+              const bounded = Math.max(margin.left, Math.min(cursorX, width - margin.right));
+              const ratio = (bounded - margin.left) / Math.max(plotWidth, 1);
+              const index = Math.round(ratio * localCount);
+              setHoverIndex(index);
+            }}
+          >
+            {Array.from({ length: yTicks + 1 }, (_, index) => {
+              const value = (maxY / yTicks) * (yTicks - index);
+              const y = yAt(value);
+              return (
+                <g key={`compare-y-${index}`}>
+                  <line
+                    x1={margin.left}
+                    y1={y}
+                    x2={margin.left + plotWidth}
+                    y2={y}
+                    stroke="var(--theme-color-chart-grid)"
+                    strokeDasharray="4 4"
+                  />
+                  <text x={margin.left - 10} y={y + 4} textAnchor="end" fontSize="11" fill="var(--theme-color-chart-text)">
+                    {formatCompactCurrency(Math.round(value))}
+                  </text>
+                </g>
+              );
+            })}
+
+            {Array.from({ length: xTicks }, (_, index) => {
+              const ratio = xTicks <= 1 ? 0 : index / (xTicks - 1);
+              const localIndex = Math.round(ratio * (maxCount - 1));
+              const x = xAt(localIndex);
+              return (
+                <g key={`compare-x-${index}`}>
+                  <line x1={x} y1={margin.top + plotHeight} x2={x} y2={margin.top + plotHeight + 5} stroke="var(--theme-color-chart-axis)" />
+                  <text x={x} y={height - 12} textAnchor="middle" fontSize="11" fill="var(--theme-color-chart-text)">
+                    Y{Math.floor(localIndex / 12) + 1}
+                  </text>
+                </g>
+              );
+            })}
+
             <line x1={margin.left} x2={margin.left} y1={margin.top} y2={margin.top + plotHeight} stroke="var(--theme-color-chart-axis)" />
             <line
               x1={margin.left}
@@ -242,13 +329,49 @@ export const PortfolioChart = () => {
               y2={margin.top + plotHeight}
               stroke="var(--theme-color-chart-axis)"
             />
-            <path d={leftPath} fill="none" stroke="var(--theme-color-chart-manual-line)" strokeWidth={3} />
             <path d={rightPath} fill="none" stroke="var(--theme-color-stress-a)" strokeWidth={2.5} strokeDasharray="6 4" />
+            <path d={leftPath} fill="none" stroke="var(--theme-chart-manual-line)" strokeWidth={3} />
+
+            {hoverX !== null ? (
+              <line x1={hoverX} y1={margin.top} x2={hoverX} y2={margin.top + plotHeight} stroke="var(--theme-color-chart-text)" strokeDasharray="4 4" />
+            ) : null}
           </svg>
           <div className="pointer-events-none absolute right-3 top-3 rounded-md border border-brand-border bg-white/95 px-3 py-2 text-xs text-slate-700">
-            <div className="flex items-center gap-2"><span className="h-[2px] w-4 bg-[var(--theme-color-chart-manual-line)]" />Portfolio A</div>
+            <div className="flex items-center gap-2"><span className="h-[2px] w-4 bg-[var(--theme-chart-manual-line)]" />Portfolio A</div>
             <div className="mt-1 flex items-center gap-2"><span className="h-[2px] w-4 bg-[var(--theme-color-stress-a)]" />Portfolio B</div>
           </div>
+          {hoverX !== null && tooltipPoints.length > 0 ? (
+            <div
+              className="pointer-events-none absolute z-30 w-[280px] rounded-md border border-slate-200 bg-white p-3 text-xs shadow-lg"
+              style={{
+                left: `calc(${((hoverX - margin.left) / Math.max(plotWidth, 1)) * 100}% + ${hoverX > width * 0.72 ? -290 : 14}px)`,
+                top: 10,
+              }}
+            >
+              <p className="font-semibold text-slate-800">{hoverYear === null ? '—' : `Year ${hoverYear}`}</p>
+              <div className="mt-2 space-y-2 text-slate-600">
+                {tooltipPoints.map((entry) => (
+                  <div key={entry.label} className="rounded border border-slate-100 bg-slate-50 px-2 py-1">
+                    <p className="mb-1 flex items-center gap-1.5 font-medium text-slate-700">
+                      <span
+                        className={`inline-block h-[2px] w-4 ${entry.dashed ? 'border-t-2 border-dashed' : ''}`}
+                        style={entry.dashed ? { borderTopColor: entry.color } : { backgroundColor: entry.color }}
+                      />
+                      <span>{entry.label}</span>
+                    </p>
+                    <p className="flex items-center justify-between gap-2">
+                      <span>Portfolio</span>
+                      <span className="font-mono text-slate-800">{formatCurrency(Math.round(entry.portfolio))}</span>
+                    </p>
+                    <p className="flex items-center justify-between gap-2">
+                      <span>Withdrawal</span>
+                      <span className="font-mono text-slate-800">{formatCurrency(Math.round(entry.withdrawal))}</span>
+                    </p>
+                  </div>
+                ))}
+              </div>
+            </div>
+          ) : null}
         </div>
       </section>
     );

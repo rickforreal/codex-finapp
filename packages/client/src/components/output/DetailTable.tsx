@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState, type MutableRefObject, type UIEvent } from 'react';
 
 import { AppMode, SimulationMode, type ActualMonthOverride } from '@finapp/shared';
 
@@ -119,6 +119,9 @@ const computeStartBalanceDeltas = (
 export const DetailTable = () => {
   const viewportRef = useRef<HTMLDivElement | null>(null);
   const headerControlsRef = useRef<HTMLDivElement | null>(null);
+  const compareLeftViewportRef = useRef<HTMLDivElement | null>(null);
+  const compareRightViewportRef = useRef<HTMLDivElement | null>(null);
+  const compareScrollSyncingRef = useRef(false);
   const result = useActiveSimulationResult();
   const compareResults = useCompareSimulationResults();
   const startingAge = useAppStore((state) => state.coreParams.startingAge);
@@ -494,6 +497,23 @@ export const DetailTable = () => {
     setSelectedCell({ rowId: nextRow.id, column: nextColumn.key });
   };
 
+  const syncCompareScroll = (source: 'left' | 'right') => (event: UIEvent<HTMLDivElement>) => {
+    if (compareScrollSyncingRef.current) {
+      return;
+    }
+    const sourceNode = event.currentTarget;
+    const targetNode = source === 'left' ? compareRightViewportRef.current : compareLeftViewportRef.current;
+    if (!targetNode) {
+      return;
+    }
+    compareScrollSyncingRef.current = true;
+    targetNode.scrollTop = sourceNode.scrollTop;
+    targetNode.scrollLeft = sourceNode.scrollLeft;
+    requestAnimationFrame(() => {
+      compareScrollSyncingRef.current = false;
+    });
+  };
+
   if (mode === AppMode.Compare) {
     const leftResult = compareResults.leftWorkspace
       ? compareResults.leftWorkspace.simulationMode === SimulationMode.Manual
@@ -531,10 +551,15 @@ export const DetailTable = () => {
     const leftRows = sortDetailRows(toRows(leftResult?.result.rows ?? []), tableSort);
     const rightRows = sortDetailRows(toRows(rightResult?.result.rows ?? []), tableSort);
 
-    const renderPane = (title: string, paneRows: DetailRow[]) => (
+    const renderPane = (
+      title: string,
+      paneRows: DetailRow[],
+      viewportRefForPane: MutableRefObject<HTMLDivElement | null>,
+      onPaneScroll: (event: UIEvent<HTMLDivElement>) => void,
+    ) => (
       <div className="min-w-0 flex-1 rounded-lg border border-brand-border bg-white">
         <div className="border-b border-brand-border px-3 py-2 text-xs font-semibold text-slate-700">{title}</div>
-        <div className="max-h-[430px] overflow-auto">
+        <div ref={viewportRefForPane} className="max-h-[430px] overflow-auto" onScroll={onPaneScroll}>
           <table className={`${tableMinWidthClass} w-full border-collapse text-left text-xs`}>
             <thead className="sticky top-0 z-[1] bg-brand-surface text-slate-600">
               <tr>
@@ -595,8 +620,8 @@ export const DetailTable = () => {
           </div>
         </div>
         <div className="grid grid-cols-1 gap-3 p-3 xl:grid-cols-2">
-          {renderPane('Portfolio A', leftRows)}
-          {renderPane('Portfolio B', rightRows)}
+          {renderPane('Portfolio A', leftRows, compareLeftViewportRef, syncCompareScroll('left'))}
+          {renderPane('Portfolio B', rightRows, compareRightViewportRef, syncCompareScroll('right'))}
         </div>
       </section>
     );

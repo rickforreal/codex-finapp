@@ -739,3 +739,12 @@ Verification run (all passing):
   - `npm run build`
 - Remaining for Phase 14 completion:
   - Stress Test panel is not yet fully dual-slot compare-aware (currently core compare outputs are implemented for chart/stats/detail ledger).
+- Phase 14 bug-fix pass: compare chart and output UX corrections.
+  - Fixed Compare chart rendering to include robust axes/grid/ticks and hover tooltip for both slots.
+  - Resolved missing Portfolio A line by correcting chart stroke token to `--theme-chart-manual-line` and drawing A over B.
+  - Updated Compare stats cards so Portfolio A and B use same-size typography and chart-matching colors; delta is shown as annotation.
+  - Added synchronized vertical + horizontal scroll locking between Compare Detail Ledger panes.
+- Validation (client):
+  - `npm run typecheck -w @finapp/client`
+  - `npm run lint -w @finapp/client`
+  - `npm run build -w @finapp/client`
