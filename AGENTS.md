@@ -115,6 +115,28 @@ For each feature:
 
 If no canonical doc changes are needed, record that explicitly in `PROGRESS.txt`.
 
+### 7.4 Updating an existing feature
+
+When iterating on an existing feature after initial release:
+
+- Keep the original feature folder immutable as shipped baseline.
+- Create a new folder per approved change wave:
+  - `docs/features/<feature-slug>-v1-1/`
+  - `docs/features/<feature-slug>-v1-2/`
+  - ...
+- One approved change batch = one update folder.
+
+#### Versioning rule for update folders
+
+- Minor wave (`v1-x`): behavior/UX/extensions that preserve prior feature model assumptions.
+- Major wave (`v2-0`, `v3-0`, ...): contract/model break that invalidates prior feature assumptions (state shape, workflow semantics, or compatibility guarantees).
+
+#### Mandatory update-plan linkage
+
+Each update folder `PLAN.md` must include a `Delta From Baseline` section that:
+- references the original feature baseline folder path, and
+- explicitly lists what changes vs the baseline assumptions.
+
 ## 8. Defect Workflow (`docs/issues`)
 
 Defects are tracked using docs-first artifacts under:

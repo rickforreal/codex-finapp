@@ -891,3 +891,11 @@ Acceptance Criteria:
 [AC1] `docs/issues/INDEX.md` exists with status/severity vocabulary and backlog table.
 [AC2] `docs/issues/_TEMPLATE/` contains required issue lifecycle templates (`ISSUE.md`, `PLAN.md`, `ACCEPTANCE.md`) plus optional `NOTES.md`.
 [AC3] `AGENTS.md`, `README.md`, and `docs/ENGINEERING.md` document defect workflow, bug ID convention (`BUG-####-slug`), and canonical tracker linkage to root `TASKS.md` + `PROGRESS.txt`.
+
+- [x] PROC-FEATURE-UPDATES-T1: Define versioned workflow for updates to existing features
+Phase: Process (Documentation Workflow)
+Dependencies: PROC-ISSUES-T1
+Acceptance Criteria:
+[AC1] `AGENTS.md` defines existing-feature update policy: immutable baseline + versioned update folders (`<feature>-v1-1`, ...).
+[AC2] Version bump semantics are documented (`v1-x` for compatible updates, `v2-0+` for contract/model breaks).
+[AC3] `README.md`, `docs/ENGINEERING.md`, and `docs/features/CONVENTIONS.md` cross-reference the same conventions and tracking policy.

@@ -55,8 +55,9 @@ Read these first when extending the system:
   - `ACCEPTANCE.md`
 - Root `TASKS.md` and `PROGRESS.txt` are the only task/progress trackers.
 - Feature folders are for scoped planning/acceptance artifacts and should not have their own `TASKS.md`.
+- Updates to existing features should use a new versioned folder per approved batch (for example `docs/features/compare-portfolios-v1-1/`) while keeping the original folder as baseline history.
 - Canonical docs (`docs/PRD.md`, `docs/SPECS.md`, `docs/SCENARIOS.md`, `docs/ARCHITECTURE.md`, `docs/DATA_MODEL.md`, `docs/API.md`, `docs/ENGINEERING.md`) must be updated when a feature changes behavior, contracts, architecture, or workflow.
-- See `AGENTS.md` for the full feature lifecycle and canonical-doc impact matrix.
+- See `AGENTS.md` and `docs/features/CONVENTIONS.md` for lifecycle, versioning, and baseline-delta rules.
 
 ## Defect Workflow (Post-V1)
 

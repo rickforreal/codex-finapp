@@ -798,3 +798,12 @@ Verification run (all passing):
     - Mandatory `Canonical Docs Impact` section in bug plans
   - Updated `README.md` and `docs/ENGINEERING.md` to cross-reference defect workflow.
   - Updated root `TASKS.md` with completed process task `PROC-ISSUES-T1`.
+- Process docs update: existing-feature update/versioning convention.
+  - Added explicit rules in `AGENTS.md` for post-V1 updates to existing features:
+    - original feature folder remains immutable baseline,
+    - new versioned folder per approved batch (`<feature>-v1-1`, `<feature>-v1-2`, ...),
+    - major bump (`v2-0+`) only for contract/model breaks,
+    - required `Delta From Baseline` section in update `PLAN.md`.
+  - Added `docs/features/CONVENTIONS.md` as the canonical quick reference for feature-folder structure and versioning.
+  - Updated `README.md` and `docs/ENGINEERING.md` with cross-references to the new convention.
+  - Updated root `TASKS.md` with completed process task `PROC-FEATURE-UPDATES-T1`.

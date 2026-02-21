@@ -27,6 +27,8 @@ After V1 phase delivery, incremental work may be planned in scoped feature folde
 
 Execution tracking remains centralized in root `TASKS.md` and `PROGRESS.txt`. Feature docs do not replace canonical docs; when a feature changes behavior/contracts/architecture/process, update the corresponding root documents (`PRD.md`, `SPECS.md`, `SCENARIOS.md`, `DATA_MODEL.md`, `API.md`, `ARCHITECTURE.md`, `ENGINEERING.md`).
 
+When enhancing an existing feature, keep the original feature folder as immutable baseline and create a new versioned update folder per approved batch (for example `docs/features/compare-portfolios-v1-1/`). Use major version jumps (`v2-0`) only for contract/model breaks.
+
 Post-V1 defects follow the same docs-as-infra model under `docs/issues/BUG-####-<slug>/` with `ISSUE.md`, `PLAN.md`, and `ACCEPTANCE.md` (plus optional `NOTES.md`). Defect execution is still tracked in root `TASKS.md` and `PROGRESS.txt`, and canonical docs must be updated whenever bug fixes change behavior/contracts/architecture/process.
 
 ---
