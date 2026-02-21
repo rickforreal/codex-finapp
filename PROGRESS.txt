@@ -777,3 +777,10 @@ Verification run (all passing):
   - `npm run typecheck -w @finapp/client`
   - `npm run lint -w @finapp/client`
   - `npm run build -w @finapp/client`
+- Task tracking reconciliation pass (Phase 14 + feature docs).
+  - Reconciled root `TASKS.md` Phase 14 status: marked `P14-T5` complete to match implemented compare stress dual-slot output and manual QA coverage.
+  - Removed feature-local task checklists to eliminate split tracking sources:
+    - `docs/features/compare-portfolios/TASKS.md`
+    - `docs/features/themes/monokai/TASKS.md`
+    - `docs/features/themes/synthwave84/TASKS.md`
+  - Updated feature plan/acceptance docs that referenced local `TASKS.md` files to point to root `TASKS.md` as canonical.

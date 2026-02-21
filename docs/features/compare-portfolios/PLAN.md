@@ -152,9 +152,8 @@ Regression gate:
 ## Deliverables
 
 1. `docs/features/compare-portfolios/PLAN.md` (this file)
-2. `docs/features/compare-portfolios/TASKS.md`
-3. `docs/features/compare-portfolios/ACCEPTANCE.md`
-4. Canonical docs updates:
+2. `docs/features/compare-portfolios/ACCEPTANCE.md`
+3. Canonical docs updates:
   - `docs/SPECS.md`
   - `docs/DATA_MODEL.md`
   - `docs/API.md`

@@ -865,7 +865,7 @@ Acceptance Criteria:
 [AC2] In Compare mode, load flow prompts for target (`left`/`right`/`both`).
 [AC3] Pair snapshots loaded into one side prompt for source slot (`A`/`B`).
 
-- [ ] P14-T5: Apply stress test dual-slot compare output
+- [x] P14-T5: Apply stress test dual-slot compare output
 Phase: 14 (Compare Portfolios)
 Dependencies: P14-T2
 Acceptance Criteria:

@@ -103,4 +103,5 @@ Manual:
 - Shared enum update.
 - Server theme registry update with Synthwave '84 tokens.
 - Updated route tests for built-in theme set.
-- Feature planning docs in this folder: `TASKS.md`, `ACCEPTANCE.md`, `TOKENS.md`.
+- Feature planning docs in this folder: `ACCEPTANCE.md`, `TOKENS.md`.
+- Task status is tracked in root `TASKS.md`.

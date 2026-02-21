@@ -41,6 +41,6 @@
 
 ## Exit Criteria
 
-- All tasks in `TASKS.md` are complete.
+- Feature tasks are tracked in root `TASKS.md` and are complete.
 - Regression gate is green.
 - No blocking readability/usability issues in the visual checklist.

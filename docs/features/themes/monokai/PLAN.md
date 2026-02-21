@@ -111,6 +111,6 @@ Manual:
 - Updated shared enum and server theme registry.
 - Updated route test coverage for built-in theme list.
 - Feature docs in this folder:
-  - `TASKS.md`
+  - (task tracking is maintained in root `TASKS.md`)
   - `ACCEPTANCE.md`
   - `TOKENS.md`
