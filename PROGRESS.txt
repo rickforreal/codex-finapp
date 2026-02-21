@@ -784,3 +784,17 @@ Verification run (all passing):
     - `docs/features/themes/monokai/TASKS.md`
     - `docs/features/themes/synthwave84/TASKS.md`
   - Updated feature plan/acceptance docs that referenced local `TASKS.md` files to point to root `TASKS.md` as canonical.
+- Process docs update: post-V1 defect workflow standardized.
+  - Added docs-first defect backlog index at `docs/issues/INDEX.md`.
+  - Added per-bug template set under `docs/issues/_TEMPLATE/`:
+    - `ISSUE.md`
+    - `PLAN.md`
+    - `ACCEPTANCE.md`
+    - `NOTES.md` (optional investigation log template)
+  - Updated `AGENTS.md` with Section 8 defect workflow rules:
+    - Folder-per-bug policy at `docs/issues/BUG-####-<slug>/`
+    - Required files and optional `NOTES.md`
+    - ID assignment convention (`BUG-####`) and tracking linkage
+    - Mandatory `Canonical Docs Impact` section in bug plans
+  - Updated `README.md` and `docs/ENGINEERING.md` to cross-reference defect workflow.
+  - Updated root `TASKS.md` with completed process task `PROC-ISSUES-T1`.

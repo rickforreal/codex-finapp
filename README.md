@@ -58,6 +58,18 @@ Read these first when extending the system:
 - Canonical docs (`docs/PRD.md`, `docs/SPECS.md`, `docs/SCENARIOS.md`, `docs/ARCHITECTURE.md`, `docs/DATA_MODEL.md`, `docs/API.md`, `docs/ENGINEERING.md`) must be updated when a feature changes behavior, contracts, architecture, or workflow.
 - See `AGENTS.md` for the full feature lifecycle and canonical-doc impact matrix.
 
+## Defect Workflow (Post-V1)
+
+- Defects are tracked in `docs/issues/` as one folder per bug: `BUG-####-<slug>`.
+- Required per-bug docs:
+  - `ISSUE.md`
+  - `PLAN.md`
+  - `ACCEPTANCE.md`
+- `NOTES.md` is optional for debug traces.
+- `docs/issues/INDEX.md` is the defect backlog index.
+- Root `TASKS.md` and `PROGRESS.txt` remain the canonical execution trackers and must reference bug IDs.
+- See `AGENTS.md` for bug ID assignment and canonical-doc impact policy.
+
 ## Tech Stack
 
 - Node.js 20+, npm workspaces

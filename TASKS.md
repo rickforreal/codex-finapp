@@ -881,3 +881,13 @@ Acceptance Criteria:
 [AC2] `npm run lint` passes.
 [AC3] `npm test` passes.
 [AC4] `npm run build` passes.
+
+## Process Plan — Post-V1 Defect Workflow
+
+- [x] PROC-ISSUES-T1: Establish docs-first defect tracking framework under `docs/issues`
+Phase: Process (Documentation Workflow)
+Dependencies: none
+Acceptance Criteria:
+[AC1] `docs/issues/INDEX.md` exists with status/severity vocabulary and backlog table.
+[AC2] `docs/issues/_TEMPLATE/` contains required issue lifecycle templates (`ISSUE.md`, `PLAN.md`, `ACCEPTANCE.md`) plus optional `NOTES.md`.
+[AC3] `AGENTS.md`, `README.md`, and `docs/ENGINEERING.md` document defect workflow, bug ID convention (`BUG-####-slug`), and canonical tracker linkage to root `TASKS.md` + `PROGRESS.txt`.

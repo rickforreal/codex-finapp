@@ -114,3 +114,37 @@ For each feature:
 - Build workflow/process changes -> update `ENGINEERING.md`.
 
 If no canonical doc changes are needed, record that explicitly in `PROGRESS.txt`.
+
+## 8. Defect Workflow (`docs/issues`)
+
+Defects are tracked using docs-first artifacts under:
+
+`docs/issues/BUG-####-<slug>/`
+
+### 8.1 Required defect artifacts
+
+Each defect folder must contain:
+- `ISSUE.md` — reproducible problem statement (`expected` vs `actual`, scope, severity, environment).
+- `PLAN.md` — decision-complete fix plan.
+- `ACCEPTANCE.md` — verification checklist.
+
+`NOTES.md` is optional for debug logs, hypotheses, and investigation traces.
+
+### 8.2 Defect ID and folder naming
+
+- Defect IDs use `BUG-####` (zero-padded numeric sequence).
+- Folder format is `BUG-####-<slug>`.
+- If the user does not provide an ID, assign the next available ID by scanning `docs/issues/INDEX.md`.
+
+### 8.3 Defect tracking policy
+
+- Root `TASKS.md` and `PROGRESS.txt` remain the canonical execution trackers.
+- Every defect must be mirrored in root `TASKS.md` using its bug ID.
+- Every defect implementation update in `PROGRESS.txt` must include the bug ID.
+- `docs/issues/INDEX.md` is the canonical defect backlog index (status, severity, and links).
+
+### 8.4 Defect canonical-doc impact rule
+
+Each defect `PLAN.md` must include a `Canonical Docs Impact` section:
+- List all root docs that must be updated due to this fix, or
+- Explicitly state `No canonical doc impact` with rationale.
