@@ -47,6 +47,17 @@ Read these first when extending the system:
 6. `docs/SCENARIOS.md` - golden user journeys.
 7. `docs/WITHDRAWAL_STRATEGIES.md` - strategy math/intent.
 
+## Feature Workflow (Post-V1)
+
+- New work starts in `docs/features/<feature-slug>/` with:
+  - `FEATURE.md`
+  - `PLAN.md`
+  - `ACCEPTANCE.md`
+- Root `TASKS.md` and `PROGRESS.txt` are the only task/progress trackers.
+- Feature folders are for scoped planning/acceptance artifacts and should not have their own `TASKS.md`.
+- Canonical docs (`docs/PRD.md`, `docs/SPECS.md`, `docs/SCENARIOS.md`, `docs/ARCHITECTURE.md`, `docs/DATA_MODEL.md`, `docs/API.md`, `docs/ENGINEERING.md`) must be updated when a feature changes behavior, contracts, architecture, or workflow.
+- See `AGENTS.md` for the full feature lifecycle and canonical-doc impact matrix.
+
 ## Tech Stack
 
 - Node.js 20+, npm workspaces

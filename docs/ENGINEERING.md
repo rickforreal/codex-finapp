@@ -21,6 +21,12 @@ This document is the Engineering Manager's manifest. It defines **how** the appl
 | AGENTS.md | Ground rules for the AI implementer |
 | Historical-Returns.csv | Historical returns for Stocks, Bonds and Cash |
 
+### Post-V1 Feature Delivery Note
+
+After V1 phase delivery, incremental work may be planned in scoped feature folders under `docs/features/<feature-slug>/` using `FEATURE.md`, `PLAN.md`, and `ACCEPTANCE.md`.
+
+Execution tracking remains centralized in root `TASKS.md` and `PROGRESS.txt`. Feature docs do not replace canonical docs; when a feature changes behavior/contracts/architecture/process, update the corresponding root documents (`PRD.md`, `SPECS.md`, `SCENARIOS.md`, `DATA_MODEL.md`, `API.md`, `ARCHITECTURE.md`, `ENGINEERING.md`).
+
 ---
 
 ## 2. Development Environment

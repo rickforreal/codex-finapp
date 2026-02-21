@@ -75,3 +75,42 @@ You have access to and must use the following tools:
 - **Terminal**: To run `npm test`, `npm run build`, and `npm run lint`.
 - **File System**: To read/write all code and documentation artifacts.
 - **Linter**: Your code must pass `npm run typecheck` and `npm run lint` before completing a task.
+
+## 7. Post-V1 Feature Workflow (`docs/features`)
+
+After V1, all net-new work starts in a dedicated feature folder:
+
+`docs/features/<feature-slug>/`
+
+Required files:
+- `FEATURE.md` — problem statement, scope, and intent.
+- `PLAN.md` — decision-complete implementation plan.
+- `ACCEPTANCE.md` — explicit acceptance and QA checklist.
+
+Optional support files are allowed when useful (for example `TOKENS.md` for theme work).
+
+### 7.1 Source-of-truth policy
+
+- Root `TASKS.md` and `PROGRESS.txt` are the only execution trackers.
+- Feature folders must not maintain their own `TASKS.md`.
+- Feature docs guide implementation, but canonical product/system truth remains in root docs (`PRD.md`, `SPECS.md`, `SCENARIOS.md`, `ARCHITECTURE.md`, `DATA_MODEL.md`, `API.md`, `ENGINEERING.md`).
+
+### 7.2 Required feature lifecycle
+
+For each feature:
+1. Create/confirm `FEATURE.md`.
+2. Produce `PLAN.md` before implementation.
+3. Implement in vertical slices.
+4. Validate against `ACCEPTANCE.md`.
+5. Run canonical-doc impact pass and update affected root docs.
+6. Update root `TASKS.md` and `PROGRESS.txt`.
+
+### 7.3 Canonical-doc impact matrix
+
+- UX behavior changes -> update `SPECS.md` and `SCENARIOS.md`.
+- Product scope or intent changes -> update `PRD.md`.
+- Data shape/type/contract changes -> update `DATA_MODEL.md` and `API.md`.
+- Technical boundaries/architecture changes -> update `ARCHITECTURE.md`.
+- Build workflow/process changes -> update `ENGINEERING.md`.
+
+If no canonical doc changes are needed, record that explicitly in `PROGRESS.txt`.
