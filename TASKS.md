@@ -918,3 +918,14 @@ Acceptance Criteria:
 [AC2] A/B lines use same scenario hue with A solid and B dashed.
 [AC3] Compare chart legend + tooltip list stress entries separately for `(A)` and `(B)`.
 [AC4] Compare stress runs persist per-slot stress outputs; partial failure keeps successful slot overlays visible with slot-specific error text.
+
+## Minor Change Plan — Monte Carlo Detail Ledger Reference Column
+
+- [x] CHG-0002-T1: Add `Start Total (p50)` column for Monte Carlo detail ledger
+Phase: Change (Minor UX Refinement)
+Dependencies: none
+Acceptance Criteria:
+[AC1] Monte Carlo detail ledger includes `Start Total (p50)` between `Age` and `Start Total` in planning, tracking, and compare modes.
+[AC2] Column styling is subtly differentiated and includes a tooltip explainer.
+[AC3] Monthly and annual value mapping follows cross-run p50 start-of-period semantics.
+[AC4] `npm run typecheck`, `npm run lint`, `npm test`, and `npm run build` pass.

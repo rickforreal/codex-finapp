@@ -3752,9 +3752,13 @@ At 480 rows × ~20 columns (expanded view), the table contains ~9,600 cells. Mod
 
 In Monte Carlo mode, the table presents a unique challenge: there are 1,000+ simulation paths, but the table can only show one set of rows. The approach:
 
-- The table displays the **median (50th percentile) path**. Each row's values represent the median outcome at that point in time.
-- A small **banner** appears above the table (below the controls bar, above the column headers): _"Showing median (50th percentile) path from [X] simulations."_ — muted text, ~11px, with a small ℹ icon. This is important context so the user doesn't mistake the median path for a deterministic projection.
-- The percentile detail is available on the chart (confidence bands) and summary stats. The table's role in Monte Carlo mode is to provide the detailed month-by-month breakdown of the *most likely* outcome, not to show the distribution (that's the chart's job).
+- The table rows display the representative Monte Carlo path used elsewhere in output views.
+- A reference column named **Start Total (p50)** is inserted between **Age** and **Start Total** in Monte Carlo mode only.
+- **Start Total (p50)** is read-only and represents a cross-run percentile reference for the row:
+  - Monthly view: for month `m`, show `p50(startTotal[m])` with `m=1` anchored to the run baseline and `m>1` derived from prior-month p50 terminal value.
+  - Annual view: use the same rule evaluated at the first month of each year.
+- The **Start Total (p50)** header includes an info tooltip with concise explanatory text.
+- The percentile detail remains available on chart confidence bands and summary stats; this new column gives month-level context for comparing ledger values to the distribution center.
 
 ---
 

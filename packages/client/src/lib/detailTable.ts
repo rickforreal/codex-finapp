@@ -7,6 +7,7 @@ export type DetailRow = {
   monthIndex: number;
   period: string;
   age: number;
+  startTotalP50: number | null;
   startTotal: number;
   endTotal: number;
   marketMovement: number;
@@ -52,6 +53,7 @@ const toMonthlyRow = (
   startingAge: number,
   inflationRate: number,
   retirementStartDate: { month: number; year: number },
+  monteCarloTotalP50: number[] | null,
 ): DetailRow => {
   const startStocks = row.startBalances[AssetClass.Stocks];
   const startBonds = row.startBalances[AssetClass.Bonds];
@@ -75,6 +77,12 @@ const toMonthlyRow = (
     monthIndex: row.monthIndex,
     period: formatCalendarPeriod(retirementStartDate, row.monthIndex),
     age: startingAge + Math.floor((row.monthIndex - 1) / 12),
+    startTotalP50:
+      monteCarloTotalP50 === null
+        ? null
+        : row.monthIndex === 1
+          ? startTotal
+          : (monteCarloTotalP50[row.monthIndex - 2] ?? null),
     startTotal,
     endTotal,
     marketMovement,
@@ -103,15 +111,24 @@ export const buildMonthlyDetailRows = (
   startingAge: number,
   inflationRate: number,
   retirementStartDate: { month: number; year: number },
-): DetailRow[] => rows.map((row) => toMonthlyRow(row, startingAge, inflationRate, retirementStartDate));
+  monteCarloTotalP50: number[] | null = null,
+): DetailRow[] =>
+  rows.map((row) => toMonthlyRow(row, startingAge, inflationRate, retirementStartDate, monteCarloTotalP50));
 
 export const buildAnnualDetailRows = (
   rows: MonthlySimulationRow[],
   startingAge: number,
   inflationRate: number,
   retirementStartDate: { month: number; year: number },
+  monteCarloTotalP50: number[] | null = null,
 ): DetailRow[] => {
-  const monthly = buildMonthlyDetailRows(rows, startingAge, inflationRate, retirementStartDate);
+  const monthly = buildMonthlyDetailRows(
+    rows,
+    startingAge,
+    inflationRate,
+    retirementStartDate,
+    monteCarloTotalP50,
+  );
   const annual = new Map<number, DetailRow[]>();
 
   monthly.forEach((row, index) => {
@@ -130,6 +147,7 @@ export const buildAnnualDetailRows = (
         monthIndex: year * 12,
         period: `Year ${year}`,
         age: startingAge + year - 1,
+        startTotalP50: null,
         startTotal: 0,
         endTotal: 0,
         marketMovement: 0,
@@ -162,6 +180,7 @@ export const buildAnnualDetailRows = (
       monthIndex: year * 12,
       period: `${retirementStartDate.year + year - 1}`,
       age: startingAge + year - 1,
+      startTotalP50: first.startTotalP50,
       startTotal,
       endTotal: last.endTotal,
       marketMovement,

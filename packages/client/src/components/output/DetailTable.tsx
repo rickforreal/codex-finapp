@@ -15,9 +15,16 @@ type Column = {
   sortable?: boolean;
 };
 
-const baseColumns: Column[] = [
+const primaryColumns: Column[] = [
   { key: 'period', label: 'Period', type: 'text', sortable: true },
   { key: 'age', label: 'Age', type: 'number', sortable: true },
+];
+
+const monteCarloReferenceColumns: Column[] = [
+  { key: 'startTotalP50', label: 'Start Total (p50)', type: 'currency', sortable: true },
+];
+
+const baseColumns: Column[] = [
   { key: 'startTotal', label: 'Start Total', type: 'currency', sortable: true },
   { key: 'marketMovement', label: 'Market Move', type: 'currency', sortable: true },
   { key: 'returnPct', label: 'Return %', type: 'percent', sortable: true },
@@ -46,8 +53,15 @@ const assetColumns: Column[] = [
 const rowHeight = 36;
 const viewportHeight = 430;
 const overscan = 8;
+const monteCarloReferenceTooltip =
+  'Median start-of-period portfolio for this row across Monte Carlo simulations. For month m: p50(startTotal[m]).';
+const monteCarloReferenceColumnTint = 'var(--theme-color-interactive-secondary)';
+const monteCarloReferenceColumnText = 'var(--theme-color-text-secondary)';
 
-const formatCell = (value: string | number, column: Column): string | number => {
+const formatCell = (value: string | number | null, column: Column): string | number => {
+  if (value === null) {
+    return '—';
+  }
   if (column.type === 'currency') {
     return formatCurrency(Math.round(Number(value)));
   }
@@ -69,6 +83,9 @@ const editableColumnKeys = new Set<keyof DetailRow>([
 ]);
 
 const valueToneClass = (row: DetailRow, column: Column): string => {
+  if (column.key === 'startTotalP50') {
+    return 'text-slate-600';
+  }
   if (
     column.key !== 'marketMovement' &&
     column.key !== 'returnPct' &&
@@ -116,6 +133,8 @@ const computeStartBalanceDeltas = (
   return { stocks, bonds, cash, total: stocks + bonds + cash };
 };
 
+const isMonteCarloReferenceColumn = (column: Column): boolean => column.key === 'startTotalP50';
+
 export const DetailTable = () => {
   const viewportRef = useRef<HTMLDivElement | null>(null);
   const headerControlsRef = useRef<HTMLDivElement | null>(null);
@@ -157,14 +176,34 @@ export const DetailTable = () => {
     const runStartingAge = result?.configSnapshot?.coreParams.startingAge ?? startingAge;
     const runInflationRate = result?.configSnapshot?.coreParams.inflationRate ?? inflationRate;
     const runRetirementStartDate = result?.configSnapshot?.coreParams.retirementStartDate ?? retirementStartDate;
+    const runMonteCarloTotalP50 =
+      simulationMode === SimulationMode.MonteCarlo
+        ? (result?.monteCarlo?.percentileCurves.total.p50 ?? null)
+        : null;
     if (tableGranularity === 'annual') {
-      return buildAnnualDetailRows(rows, runStartingAge, runInflationRate, runRetirementStartDate);
+      return buildAnnualDetailRows(
+        rows,
+        runStartingAge,
+        runInflationRate,
+        runRetirementStartDate,
+        runMonteCarloTotalP50,
+      );
     }
-    return buildMonthlyDetailRows(rows, runStartingAge, runInflationRate, runRetirementStartDate);
-  }, [inflationRate, result, retirementStartDate, startingAge, tableGranularity]);
+    return buildMonthlyDetailRows(
+      rows,
+      runStartingAge,
+      runInflationRate,
+      runRetirementStartDate,
+      runMonteCarloTotalP50,
+    );
+  }, [inflationRate, result, retirementStartDate, simulationMode, startingAge, tableGranularity]);
 
   const rows = useMemo(() => sortDetailRows(rawRows, tableSort), [rawRows, tableSort]);
-  const columns = tableAssetColumnsEnabled ? [...baseColumns, ...assetColumns] : baseColumns;
+  const columns = useMemo(() => {
+    const modeColumns =
+      simulationMode === SimulationMode.MonteCarlo ? [...primaryColumns, ...monteCarloReferenceColumns, ...baseColumns] : [...primaryColumns, ...baseColumns];
+    return tableAssetColumnsEnabled ? [...modeColumns, ...assetColumns] : modeColumns;
+  }, [simulationMode, tableAssetColumnsEnabled]);
   const tableMinWidthClass = tableAssetColumnsEnabled ? 'min-w-[2300px]' : 'min-w-[1200px]';
 
   const isVirtualized = tableGranularity === 'monthly' && !tableSpreadsheetMode;
@@ -188,6 +227,40 @@ export const DetailTable = () => {
       return;
     }
     setTableSort(null);
+  };
+
+  const renderReferenceTooltip = () => (
+    <span className="group relative inline-flex">
+      <button
+        type="button"
+        className="grid h-4 w-4 place-items-center rounded-full border border-slate-300 text-[10px] font-bold leading-none text-slate-500 transition hover:text-slate-700"
+        aria-label="About Start Total (p50)"
+      >
+        i
+      </button>
+      <span className="pointer-events-none absolute left-1/2 top-[120%] z-20 hidden w-64 -translate-x-1/2 rounded-md border border-brand-border bg-white px-2 py-1.5 text-left text-[11px] font-normal leading-snug text-slate-600 shadow-panel group-hover:block group-focus-within:block">
+        {monteCarloReferenceTooltip}
+      </span>
+    </span>
+  );
+
+  const renderColumnLabel = (column: Column, indicator = '') => {
+    if (!isMonteCarloReferenceColumn(column)) {
+      return (
+        <>
+          {column.label}
+          <span className="text-slate-400">{indicator}</span>
+        </>
+      );
+    }
+
+    return (
+      <span className="inline-flex items-center gap-1.5">
+        <span>{column.label}</span>
+        {renderReferenceTooltip()}
+        <span className="text-slate-400">{indicator}</span>
+      </span>
+    );
   };
 
   useEffect(() => {
@@ -297,11 +370,11 @@ export const DetailTable = () => {
     }
   };
 
-  const displayCellValue = (row: DetailRow, column: Column): string | number => {
+  const displayCellValue = (row: DetailRow, column: Column): string | number | null => {
     const override = actualOverridesByMonth[row.monthIndex];
     const deltas = computeStartBalanceDeltas(row, override);
     if (!override) {
-      return row[column.key] as string | number;
+      return row[column.key] as string | number | null;
     }
     const startStocks = override.startBalances?.stocks ?? row.startStocks;
     const startBonds = override.startBalances?.bonds ?? row.startBonds;
@@ -356,7 +429,7 @@ export const DetailTable = () => {
       case 'expenses':
         return override.expenseTotal ?? row.expenses;
       default:
-        return row[column.key] as string | number;
+        return row[column.key] as string | number | null;
     }
   };
 
@@ -554,10 +627,26 @@ export const DetailTable = () => {
       const slotInflationRate = slotResult?.configSnapshot?.coreParams.inflationRate ?? inflationRate;
       const slotRetirementStartDate =
         slotResult?.configSnapshot?.coreParams.retirementStartDate ?? retirementStartDate;
+      const slotMonteCarloTotalP50 =
+        simulationMode === SimulationMode.MonteCarlo
+          ? (slotResult?.monteCarlo?.percentileCurves.total.p50 ?? null)
+          : null;
       if (tableGranularity === 'annual') {
-        return buildAnnualDetailRows(slotRows, slotStartingAge, slotInflationRate, slotRetirementStartDate);
+        return buildAnnualDetailRows(
+          slotRows,
+          slotStartingAge,
+          slotInflationRate,
+          slotRetirementStartDate,
+          slotMonteCarloTotalP50,
+        );
       }
-      return buildMonthlyDetailRows(slotRows, slotStartingAge, slotInflationRate, slotRetirementStartDate);
+      return buildMonthlyDetailRows(
+        slotRows,
+        slotStartingAge,
+        slotInflationRate,
+        slotRetirementStartDate,
+        slotMonteCarloTotalP50,
+      );
     };
     const leftRows = sortDetailRows(toRows(leftResult?.result.rows ?? [], leftResult), tableSort);
     const rightRows = sortDetailRows(toRows(rightResult?.result.rows ?? [], rightResult), tableSort);
@@ -575,8 +664,19 @@ export const DetailTable = () => {
             <thead className="sticky top-0 z-[1] bg-brand-surface text-slate-600">
               <tr>
                 {columns.map((column) => (
-                  <th key={String(column.key)} className="border-b border-brand-border px-2 py-2 font-semibold">
-                    {column.label}
+                  <th
+                    key={String(column.key)}
+                    className="border-b border-brand-border px-2 py-2 font-semibold"
+                    style={
+                      isMonteCarloReferenceColumn(column)
+                        ? {
+                            backgroundColor: monteCarloReferenceColumnTint,
+                            color: monteCarloReferenceColumnText,
+                          }
+                        : undefined
+                    }
+                  >
+                    {renderColumnLabel(column)}
                   </th>
                 ))}
               </tr>
@@ -602,8 +702,16 @@ export const DetailTable = () => {
                       <td
                         key={`${title}-${row.id}-${String(column.key)}`}
                         className={`whitespace-nowrap px-3 py-2 font-mono ${valueToneClass(row, column)}`}
+                        style={
+                          isMonteCarloReferenceColumn(column)
+                            ? {
+                                backgroundColor: monteCarloReferenceColumnTint,
+                                color: monteCarloReferenceColumnText,
+                              }
+                            : undefined
+                        }
                       >
-                        {formatCell(row[column.key] as string | number, column)}
+                        {formatCell(row[column.key] as string | number | null, column)}
                       </td>
                     ))}
                   </tr>
@@ -618,7 +726,12 @@ export const DetailTable = () => {
     return (
       <section className="rounded-xl border border-brand-border bg-white shadow-panel">
         <div className="flex items-center justify-between gap-3 border-b border-brand-border px-4 py-3">
-          <h3 className="text-base font-semibold text-slate-800">Detail Ledger</h3>
+          <div>
+            <h3 className="text-base font-semibold text-slate-800">Detail Ledger</h3>
+            {simulationMode === SimulationMode.MonteCarlo ? (
+              <p className="text-xs text-slate-500">Showing representative path values with Start Total (p50) reference.</p>
+            ) : null}
+          </div>
           <div className="flex items-center gap-2">
             <SegmentedToggle
               value={tableGranularity}
@@ -665,7 +778,7 @@ export const DetailTable = () => {
               <div>
                 <p className="text-sm font-semibold text-slate-800">Detail Ledger</p>
                 {simulationMode === SimulationMode.MonteCarlo ? (
-                  <p className="text-xs text-slate-500">Showing median path values.</p>
+                  <p className="text-xs text-slate-500">Showing representative path values with Start Total (p50) reference.</p>
                 ) : null}
               </div>
               <div className="flex flex-wrap items-center gap-3">
@@ -742,18 +855,39 @@ export const DetailTable = () => {
                       <th
                         key={column.key}
                         className="border-b border-brand-border bg-white px-3 py-2 text-left font-semibold text-slate-700"
+                        style={
+                          isMonteCarloReferenceColumn(column)
+                            ? {
+                                backgroundColor: monteCarloReferenceColumnTint,
+                                color: monteCarloReferenceColumnText,
+                              }
+                            : undefined
+                        }
                       >
                         {column.sortable ? (
-                          <button
-                            type="button"
-                            className="whitespace-nowrap"
-                            onClick={() => setSort(column.key)}
-                          >
-                            {column.label}
-                            <span className="text-slate-400">{indicator}</span>
-                          </button>
+                          isMonteCarloReferenceColumn(column) ? (
+                            <span className="inline-flex items-center gap-1.5 whitespace-nowrap">
+                              <button
+                                type="button"
+                                className="text-inherit"
+                                onClick={() => setSort(column.key)}
+                              >
+                                {column.label}
+                                <span className="text-slate-400">{indicator}</span>
+                              </button>
+                              {renderReferenceTooltip()}
+                            </span>
+                          ) : (
+                            <button
+                              type="button"
+                              className="whitespace-nowrap text-inherit"
+                              onClick={() => setSort(column.key)}
+                            >
+                              {renderColumnLabel(column, indicator)}
+                            </button>
+                          )
                         ) : (
-                          column.label
+                          renderColumnLabel(column)
                         )}
                       </th>
                     );
@@ -811,11 +945,14 @@ export const DetailTable = () => {
                               ? 'var(--theme-color-interactive-secondary)'
                               : isCellEdited(row, column)
                                 ? 'var(--theme-state-edited-cell-background)'
-                                : undefined,
+                                : isMonteCarloReferenceColumn(column)
+                                  ? monteCarloReferenceColumnTint
+                                  : undefined,
                           boxShadow:
                             selectedCell?.rowId === row.id && selectedCell.column === column.key
                               ? 'inset 0 0 0 2px var(--theme-state-selected-cell-outline)'
                               : undefined,
+                          color: isMonteCarloReferenceColumn(column) ? monteCarloReferenceColumnText : undefined,
                         }}
                         onClick={() => setSelectedCell({ rowId: row.id, column: column.key })}
                         onDoubleClick={() => beginCellEdit(row, column)}

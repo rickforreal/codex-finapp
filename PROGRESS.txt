@@ -859,3 +859,31 @@ Verification run (all passing):
 Validation run (client):
 - `npm run typecheck -w @finapp/client`
 - `npm run build -w @finapp/client`
+- CHG-0002 kickoff (docs-first).
+  - Created change folder and draft docs:
+    - `docs/changes/CHG-0002-mc-start-total-p50-column/CHANGE.md`
+    - `docs/changes/CHG-0002-mc-start-total-p50-column/ACCEPTANCE.md`
+  - Added backlog entry in `docs/changes/INDEX.md`.
+  - Mirrored active task in root `TASKS.md` as `CHG-0002-T1`.
+- CHG-0002 complete: Monte Carlo Detail Ledger `Start Total (p50)` reference column.
+  - Added docs-first minor-change artifacts and backlog tracking:
+    - `docs/changes/CHG-0002-mc-start-total-p50-column/{CHANGE.md,ACCEPTANCE.md}`
+    - `docs/changes/INDEX.md`
+    - Root `TASKS.md` (`CHG-0002-T1`)
+  - Implemented client data + UI changes:
+    - Extended `DetailRow` with `startTotalP50` in `packages/client/src/lib/detailTable.ts`.
+    - Added MC mapping rules: month 1 baseline start total; month N uses prior-month p50 terminal value; annual uses first month of year.
+    - Added `Start Total (p50)` column in MC mode only, positioned between `Age` and `Start Total`, with subtle reference-column tinting.
+    - Added header info tooltip explainer text in `packages/client/src/components/output/DetailTable.tsx`.
+    - Applied behavior in single and compare detail ledgers.
+  - Added tests:
+    - `packages/client/src/lib/detailTable.test.ts` covers monthly, annual, and null-series behavior for `startTotalP50`.
+  - Canonical docs updated for UX behavior change:
+    - `docs/SPECS.md`
+    - `docs/SCENARIOS.md`
+
+Validation run (all passing):
+- `npm run typecheck`
+- `npm run lint`
+- `npm test`
+- `npm run build`

@@ -30,4 +30,4 @@ A request belongs in:
 | Change ID | Title | Status | Created | Updated | Folder |
 |---|---|---|---|---|---|
 | CHG-0001 | Minor change workflow smoke entry | Done | 2026-02-22 | 2026-02-22 | `docs/changes/CHG-0001-minor-change-workflow-smoke/` |
-
+| CHG-0002 | Monte Carlo Detail Ledger Start Total (p50) column | Done | 2026-02-22 | 2026-02-22 | `docs/changes/CHG-0002-mc-start-total-p50-column/` |
