@@ -289,6 +289,13 @@ export type AppStore = SnapshotState & {
     mode: SimulationMode,
     result: SimulateResponse,
   ) => void;
+  setCompareSlotStressStatus: (
+    slot: CompareSlotId,
+    status: StressRunStatus,
+    errorMessage?: string | null,
+  ) => void;
+  setCompareSlotStressResult: (slot: CompareSlotId, result: StressTestResult) => void;
+  clearCompareSlotStressResult: (slot: CompareSlotId) => void;
   setReforecastResult: (result: SimulateResponse) => void;
   toggleStressPanel: () => void;
   addStressScenario: () => void;
@@ -1678,6 +1685,89 @@ export const useAppStore = create<AppStore>((set) => ({
           }
         : { compareWorkspace };
     }),
+  setCompareSlotStressStatus: (slot, status, errorMessage = null) =>
+    set((state) => {
+      const compareWorkspace = cloneCompareWorkspace(state.compareWorkspace);
+      const key = slot === 'left' ? 'leftWorkspace' : 'rightWorkspace';
+      const workspace = compareWorkspace[key];
+      if (!workspace) {
+        return state;
+      }
+      workspace.stress = {
+        ...workspace.stress,
+        status,
+        errorMessage,
+      };
+
+      const activeWorkspace = compareWorkspace.activeSlot === slot;
+      return activeWorkspace
+        ? {
+            compareWorkspace,
+            stress: {
+              ...state.stress,
+              status,
+              errorMessage,
+              result: workspace.stress.result,
+            },
+          }
+        : { compareWorkspace };
+    }),
+  setCompareSlotStressResult: (slot, result) =>
+    set((state) => {
+      const compareWorkspace = cloneCompareWorkspace(state.compareWorkspace);
+      const key = slot === 'left' ? 'leftWorkspace' : 'rightWorkspace';
+      const workspace = compareWorkspace[key];
+      if (!workspace) {
+        return state;
+      }
+      workspace.stress = {
+        ...workspace.stress,
+        result,
+        status: 'complete',
+        errorMessage: null,
+      };
+
+      const activeWorkspace = compareWorkspace.activeSlot === slot;
+      return activeWorkspace
+        ? {
+            compareWorkspace,
+            stress: {
+              ...state.stress,
+              result,
+              status: 'complete',
+              errorMessage: null,
+            },
+          }
+        : { compareWorkspace };
+    }),
+  clearCompareSlotStressResult: (slot) =>
+    set((state) => {
+      const compareWorkspace = cloneCompareWorkspace(state.compareWorkspace);
+      const key = slot === 'left' ? 'leftWorkspace' : 'rightWorkspace';
+      const workspace = compareWorkspace[key];
+      if (!workspace) {
+        return state;
+      }
+      workspace.stress = {
+        ...workspace.stress,
+        result: null,
+        status: 'idle',
+        errorMessage: null,
+      };
+
+      const activeWorkspace = compareWorkspace.activeSlot === slot;
+      return activeWorkspace
+        ? {
+            compareWorkspace,
+            stress: {
+              ...state.stress,
+              result: null,
+              status: 'idle',
+              errorMessage: null,
+            },
+          }
+        : { compareWorkspace };
+    }),
   setReforecastResult: (result) =>
     set((state) => ({
       simulationResults: {
@@ -1857,6 +1947,13 @@ export const useTrackingActuals = () =>
   }));
 
 export const useCompareSimulationResults = () => useAppStore((state) => state.compareWorkspace);
+
+export const useCompareStressResults = () =>
+  useAppStore((state) => ({
+    left: state.compareWorkspace.leftWorkspace?.stress ?? null,
+    right: state.compareWorkspace.rightWorkspace?.stress ?? null,
+    activeSlot: state.compareWorkspace.activeSlot,
+  }));
 
 const snapshotStateFromStore = (state: AppStore): SnapshotState => {
   const compareWorkspace = compareWorkspaceWithCurrentState(state);

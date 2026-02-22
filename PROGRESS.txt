@@ -823,3 +823,39 @@ Verification run (all passing):
     - `docs/ENGINEERING.md`
     - `docs/features/CONVENTIONS.md`
   - Updated root tracker with completed process task `PROC-CHANGES-T1` in `TASKS.md`.
+- BUG-0001 compare stress dual-plot fix implemented.
+  - Added defect artifacts:
+    - `docs/issues/BUG-0001-compare-stress-dual-plot/ISSUE.md`
+    - `docs/issues/BUG-0001-compare-stress-dual-plot/PLAN.md`
+    - `docs/issues/BUG-0001-compare-stress-dual-plot/ACCEPTANCE.md`
+  - Updated `docs/issues/INDEX.md` with BUG-0001 (status: Ready for QA).
+  - Updated root `TASKS.md` with completed task `BUG-0001-T1`.
+  - Store changes (`packages/client/src/store/useAppStore.ts`):
+    - Added compare-slot stress actions: `setCompareSlotStressStatus`, `setCompareSlotStressResult`, `clearCompareSlotStressResult`.
+    - Added selector `useCompareStressResults`.
+  - Stress panel changes (`packages/client/src/components/output/StressTestPanel.tsx`):
+    - Compare mode now runs stress test per slot (`left`, `right`) using slot-specific config/base/actual overrides.
+    - Persists stress result/status per compare slot.
+    - Preserves successful slot output when the other slot fails and surfaces slot-specific error text.
+  - Chart changes (`packages/client/src/components/output/PortfolioChart.tsx`):
+    - Compare mode stress overlays now render two lines per scenario when available: `<Scenario> (A)` and `<Scenario> (B)`.
+    - Same scenario hue is shared; `(A)` is solid and `(B)` is dashed.
+    - Compare legend now includes scenario `(A)/(B)` entries.
+    - Compare tooltip now includes stress scenario `(A)/(B)` portfolio + withdrawal values.
+  - Canonical docs impact: none (defect correction only; tracked in bug PLAN).
+
+Verification run (all passing):
+- `npm run typecheck`
+- `npm run lint`
+- `npm run build`
+- BUG-0001 closure update.
+  - Addressed follow-up compare-mode stress interaction defect causing scenario cards to disappear after `+ Add Scenario` due to active-slot stress state writes overwriting shared scenario definitions.
+  - Updated compare-slot stress actions in `packages/client/src/store/useAppStore.ts` to preserve global `stress.scenarios` while synchronizing only status/error/result.
+  - Marked BUG-0001 acceptance checklist complete and set issue status to `Done` in:
+    - `docs/issues/BUG-0001-compare-stress-dual-plot/ACCEPTANCE.md`
+    - `docs/issues/BUG-0001-compare-stress-dual-plot/ISSUE.md`
+    - `docs/issues/INDEX.md`
+
+Validation run (client):
+- `npm run typecheck -w @finapp/client`
+- `npm run build -w @finapp/client`

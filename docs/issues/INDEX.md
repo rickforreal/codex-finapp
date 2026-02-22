@@ -29,4 +29,4 @@ This index is the canonical defect backlog for docs-first bug tracking.
 
 | Bug ID | Title | Status | Severity | Created | Updated | Folder |
 |---|---|---|---|---|---|---|
-
+| BUG-0001 | Compare stress overlay missing A/B scenario lines | Done | S2 | 2026-02-22 | 2026-02-22 | `docs/issues/BUG-0001-compare-stress-dual-plot/` |

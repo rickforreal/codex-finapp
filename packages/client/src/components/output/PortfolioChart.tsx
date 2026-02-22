@@ -40,6 +40,7 @@ type CompareTooltipPoint = {
   color: string;
   portfolio: number;
   withdrawal: number;
+  dashed: boolean;
 };
 
 const height = 360;
@@ -270,18 +271,61 @@ export const PortfolioChart = () => {
     const rightPath = linePath(rightTotals.map((value, index) => ({ x: xAt(index), y: yAt(value) })));
     const leftMedianPath = linePath((leftBands?.p50 ?? []).map((value, index) => ({ x: xAt(index), y: yAt(value) })));
     const rightMedianPath = linePath((rightBands?.p50 ?? []).map((value, index) => ({ x: xAt(index), y: yAt(value) })));
-    const compareStressCurves = (stressResult?.scenarios ?? []).map((scenario) =>
-      scenario.result.rows.map((row) => {
-        const nominal = row.endBalances.stocks + row.endBalances.bonds + row.endBalances.cash;
-        if (chartDisplayMode === 'real') {
-          return nominal / inflationFactor(activeRunInflationRate, row.monthIndex);
-        }
-        return nominal;
-      }),
-    );
-    const compareStressPaths = compareStressCurves.map((curve) =>
-      linePath(curve.slice(0, maxCount).map((value, index) => ({ x: xAt(index), y: yAt(value) }))),
-    );
+    const leftStressScenarios = compareResults.leftWorkspace?.stress.result?.scenarios ?? [];
+    const rightStressScenarios = compareResults.rightWorkspace?.stress.result?.scenarios ?? [];
+    const compareStressEntries = Array.from({
+      length: Math.max(leftStressScenarios.length, rightStressScenarios.length),
+    }).flatMap((_, index) => {
+      const leftScenario = leftStressScenarios[index];
+      const rightScenario = rightStressScenarios[index];
+      const label = leftScenario?.scenarioLabel ?? rightScenario?.scenarioLabel ?? `Scenario ${index + 1}`;
+      const color = stressScenarioColors[index] ?? 'var(--theme-color-text-muted)';
+
+      const buildCurve = (
+        scenarioRows: MonthlySimulationRow[] | undefined,
+        slotInflationRate: number,
+      ) =>
+        (scenarioRows ?? []).map((row) => {
+          const nominal = row.endBalances.stocks + row.endBalances.bonds + row.endBalances.cash;
+          return chartDisplayMode === 'real'
+            ? nominal / inflationFactor(slotInflationRate, row.monthIndex)
+            : nominal;
+        });
+
+      const leftCurve = buildCurve(leftScenario?.result.rows, leftInflationRate);
+      const rightCurve = buildCurve(rightScenario?.result.rows, rightInflationRate);
+
+      return [
+        leftScenario
+          ? {
+              key: `${leftScenario.scenarioId}-A`,
+              label: `${label} (A)`,
+              scenarioId: leftScenario.scenarioId,
+              slot: 'A' as const,
+              color,
+              curve: leftCurve,
+              rows: leftScenario.result.rows,
+              inflationRate: leftInflationRate,
+              dashed: false,
+              path: linePath(leftCurve.slice(0, maxCount).map((value, localIndex) => ({ x: xAt(localIndex), y: yAt(value) }))),
+            }
+          : null,
+        rightScenario
+          ? {
+              key: `${rightScenario.scenarioId}-B`,
+              label: `${label} (B)`,
+              scenarioId: rightScenario.scenarioId,
+              slot: 'B' as const,
+              color,
+              curve: rightCurve,
+              rows: rightScenario.result.rows,
+              inflationRate: rightInflationRate,
+              dashed: true,
+              path: linePath(rightCurve.slice(0, maxCount).map((value, localIndex) => ({ x: xAt(localIndex), y: yAt(value) }))),
+            }
+          : null,
+      ].filter((entry): entry is NonNullable<typeof entry> => entry !== null);
+    });
     const xValues = Array.from({ length: maxCount }, (_, index) => xAt(index));
     const yTicks = 6;
     const xTicks = Math.min(8, maxCount);
@@ -305,6 +349,7 @@ export const PortfolioChart = () => {
                   ? toDisplay(leftHoverRow, totalFromRow(leftHoverRow), leftInflationRate)
                   : 0,
             withdrawal: leftHoverRow ? toDisplay(leftHoverRow, leftHoverRow.withdrawals.actual, leftInflationRate) : 0,
+            dashed: false,
           }
         : null,
       rightHoverRow || (activeHoverIndex !== null && rightBands?.p50[activeHoverIndex] !== undefined)
@@ -318,9 +363,37 @@ export const PortfolioChart = () => {
                   ? toDisplay(rightHoverRow, totalFromRow(rightHoverRow), rightInflationRate)
                   : 0,
             withdrawal: rightHoverRow ? toDisplay(rightHoverRow, rightHoverRow.withdrawals.actual, rightInflationRate) : 0,
+            dashed: false,
           }
         : null,
     ].filter((entry): entry is CompareTooltipPoint => entry !== null);
+    const compareStressTooltipPoints: CompareTooltipPoint[] =
+      activeHoverIndex === null
+        ? []
+        : compareStressEntries
+            .map((entry) => {
+              const row = entry.rows[activeHoverIndex];
+              if (!row) {
+                return null;
+              }
+              const nominal = row.endBalances.stocks + row.endBalances.bonds + row.endBalances.cash;
+              const portfolio =
+                chartDisplayMode === 'real'
+                  ? nominal / inflationFactor(entry.inflationRate, row.monthIndex)
+                  : nominal;
+              const withdrawal =
+                chartDisplayMode === 'real'
+                  ? row.withdrawals.actual / inflationFactor(entry.inflationRate, row.monthIndex)
+                  : row.withdrawals.actual;
+              return {
+                label: entry.label,
+                color: entry.color,
+                portfolio,
+                withdrawal,
+                dashed: entry.dashed,
+              } satisfies CompareTooltipPoint;
+            })
+            .filter((entry): entry is CompareTooltipPoint => entry !== null);
     const hoverYear = activeHoverIndex === null ? null : Math.floor(activeHoverIndex / 12) + 1;
 
     return (
@@ -438,14 +511,14 @@ export const PortfolioChart = () => {
               </>
             )}
             {!chartBreakdownEnabled
-              ? compareStressPaths.map((path, index) => (
+              ? compareStressEntries.map((entry) => (
                   <path
-                    key={`compare-stress-scenario-${index}`}
-                    d={path}
+                    key={`compare-stress-scenario-${entry.key}`}
+                    d={entry.path}
                     fill="none"
-                    stroke={stressScenarioColors[index] ?? 'var(--theme-color-text-muted)'}
+                    stroke={entry.color}
                     strokeWidth="2"
-                    strokeDasharray="2 4"
+                    strokeDasharray={entry.dashed ? '2 4' : undefined}
                     opacity={0.95}
                   />
                 ))
@@ -458,21 +531,24 @@ export const PortfolioChart = () => {
           <div className="pointer-events-none absolute right-3 top-3 rounded-md border border-brand-border bg-white/95 px-3 py-2 text-xs text-slate-700">
             <div className="flex items-center gap-2"><span className="h-[2px] w-4 bg-[var(--theme-chart-manual-line)]" />Portfolio A{simulationMode === SimulationMode.MonteCarlo ? ' (P50 + bands)' : ''}</div>
             <div className="mt-1 flex items-center gap-2"><span className="h-[2px] w-4" style={{ backgroundColor: comparePortfolioBColor }} />Portfolio B{simulationMode === SimulationMode.MonteCarlo ? ' (P50 + bands)' : ''}</div>
-            {compareStressPaths.length > 0 ? (
+            {compareStressEntries.length > 0 ? (
               <div className="mt-2 border-t border-brand-border pt-1.5">
-                {stressResult?.scenarios.map((scenario, index) => (
-                  <div key={scenario.scenarioId} className="mt-1 flex items-center gap-2">
+                {compareStressEntries.map((entry) => (
+                  <div key={entry.key} className="mt-1 flex items-center gap-2">
                     <span
                       className="inline-block w-4 border-t-2 border-dotted"
-                      style={{ borderTopColor: stressScenarioColors[index] ?? 'var(--theme-color-text-muted)' }}
+                      style={{
+                        borderTopColor: entry.color,
+                        borderTopStyle: entry.dashed ? 'dashed' : 'solid',
+                      }}
                     />
-                    <span className="max-w-[150px] truncate">{scenario.scenarioLabel}</span>
+                    <span className="max-w-[170px] truncate">{entry.label}</span>
                   </div>
                 ))}
               </div>
             ) : null}
           </div>
-          {hoverX !== null && tooltipPoints.length > 0 ? (
+          {hoverX !== null && (tooltipPoints.length > 0 || compareStressTooltipPoints.length > 0) ? (
             <div
               className="pointer-events-none absolute z-30 w-[280px] rounded-md border border-slate-200 bg-white p-3 text-xs shadow-lg"
               style={{
@@ -482,12 +558,15 @@ export const PortfolioChart = () => {
             >
               <p className="font-semibold text-slate-800">{hoverYear === null ? '—' : `Year ${hoverYear}`}</p>
               <div className="mt-2 space-y-2 text-slate-600">
-                {tooltipPoints.map((entry) => (
-                  <div key={entry.label} className="rounded border border-slate-100 bg-slate-50 px-2 py-1">
+                {[...tooltipPoints, ...compareStressTooltipPoints].map((entry, entryIndex) => (
+                  <div key={`${entry.label}-${entryIndex}`} className="rounded border border-slate-100 bg-slate-50 px-2 py-1">
                     <p className="mb-1 flex items-center gap-1.5 font-medium text-slate-700">
                       <span
-                        className="inline-block h-[2px] w-4"
-                        style={{ backgroundColor: entry.color }}
+                        className="inline-block h-[2px] w-4 border-t-2"
+                        style={{
+                          borderTopColor: entry.color,
+                          borderTopStyle: entry.dashed ? 'dashed' : 'solid',
+                        }}
                       />
                       <span>{entry.label}</span>
                     </p>

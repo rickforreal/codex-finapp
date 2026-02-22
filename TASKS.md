@@ -907,3 +907,14 @@ Acceptance Criteria:
 [AC1] `docs/changes/INDEX.md` and `docs/changes/_TEMPLATE/{CHANGE,ACCEPTANCE}.md` exist with `CHG-####` ID policy.
 [AC2] `AGENTS.md`, `README.md`, `docs/ENGINEERING.md`, and `docs/features/CONVENTIONS.md` define impact-based routing across `docs/features`, `docs/issues`, and `docs/changes`.
 [AC3] `docs/changes/CONVENTIONS.md` exists and a sample entry `docs/changes/CHG-0001-.../` demonstrates required file structure and traceability.
+
+## Defect Plan — Compare Stress Overlay
+
+- [x] BUG-0001-T1: Render compare stress overlays per portfolio (A/B) with dual legend + tooltip entries
+Phase: Defect (Compare / Stress)
+Dependencies: P14-T5
+Acceptance Criteria:
+[AC1] Compare-mode stress overlays draw two lines per scenario: `<Scenario> (A)` and `<Scenario> (B)`.
+[AC2] A/B lines use same scenario hue with A solid and B dashed.
+[AC3] Compare chart legend + tooltip list stress entries separately for `(A)` and `(B)`.
+[AC4] Compare stress runs persist per-slot stress outputs; partial failure keeps successful slot overlays visible with slot-specific error text.

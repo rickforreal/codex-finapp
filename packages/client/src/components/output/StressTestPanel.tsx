@@ -4,7 +4,14 @@ import { AppMode, SimulationMode, type StressScenario, type StressScenarioType }
 
 import { runStressTest } from '../../api/stressApi';
 import { formatCompactCurrency, formatCurrency, formatPercent } from '../../lib/format';
-import { getCurrentConfig, useActiveSimulationResult, useAppStore } from '../../store/useAppStore';
+import {
+  getCompareConfigForSlot,
+  getCompareWorkspaceState,
+  getCurrentConfig,
+  useActiveSimulationResult,
+  useAppStore,
+  useCompareSimulationResults,
+} from '../../store/useAppStore';
 
 const scenarioTypes: Array<{ value: StressScenarioType; label: string }> = [
   { value: 'stockCrash', label: 'Stock Crash' },
@@ -104,6 +111,7 @@ const deriveMonthlyReturnsFromRows = (
 
 export const StressTestPanel = () => {
   const mode = useAppStore((state) => state.mode);
+  const compareWorkspace = useCompareSimulationResults();
   const simulationMode = useAppStore((state) => state.simulationMode);
   const stress = useAppStore((state) => state.stress);
   const toggleStressPanel = useAppStore((state) => state.toggleStressPanel);
@@ -113,46 +121,183 @@ export const StressTestPanel = () => {
   const setStressStatus = useAppStore((state) => state.setStressStatus);
   const setStressResult = useAppStore((state) => state.setStressResult);
   const clearStressResult = useAppStore((state) => state.clearStressResult);
+  const setCompareSlotStressStatus = useAppStore((state) => state.setCompareSlotStressStatus);
+  const setCompareSlotStressResult = useAppStore((state) => state.setCompareSlotStressResult);
+  const clearCompareSlotStressResult = useAppStore((state) => state.clearCompareSlotStressResult);
   const actualOverridesByMonth = useAppStore((state) => state.actualOverridesByMonth);
   const activeResult = useActiveSimulationResult();
   const baseMonteCarlo = useAppStore((state) => state.simulationResults.monteCarlo?.monteCarlo);
   const inflationRate = useAppStore((state) => state.coreParams.inflationRate);
 
   useEffect(() => {
-    if (!activeResult || stress.scenarios.length === 0) {
-      clearStressResult();
+    const resolveSlotResult = (
+      workspace: (typeof compareWorkspace)['leftWorkspace'],
+    ) => {
+      if (!workspace) {
+        return null;
+      }
+      const preferred =
+        simulationMode === SimulationMode.Manual
+          ? workspace.simulationResults.manual
+          : workspace.simulationResults.monteCarlo;
+      return preferred ?? workspace.simulationResults.manual ?? workspace.simulationResults.monteCarlo;
+    };
+
+    const compareLeftResult = resolveSlotResult(compareWorkspace.leftWorkspace);
+    const compareRightResult = resolveSlotResult(compareWorkspace.rightWorkspace);
+    const compareBaseAvailable = Boolean(compareLeftResult || compareRightResult);
+    const baseAvailable = mode === AppMode.Compare ? compareBaseAvailable : Boolean(activeResult);
+
+    if (!baseAvailable || stress.scenarios.length === 0) {
+      const currentState = useAppStore.getState();
+      const globalStressNeedsClear =
+        currentState.stress.result !== null ||
+        currentState.stress.status !== 'idle' ||
+        currentState.stress.errorMessage !== null;
+      if (globalStressNeedsClear) {
+        clearStressResult();
+      }
+      if (mode === AppMode.Compare) {
+        const leftStress = currentState.compareWorkspace.leftWorkspace?.stress;
+        const rightStress = currentState.compareWorkspace.rightWorkspace?.stress;
+        const leftNeedsClear = Boolean(
+          leftStress &&
+            (leftStress.result !== null ||
+              leftStress.status !== 'idle' ||
+              leftStress.errorMessage !== null),
+        );
+        const rightNeedsClear = Boolean(
+          rightStress &&
+            (rightStress.result !== null ||
+              rightStress.status !== 'idle' ||
+              rightStress.errorMessage !== null),
+        );
+        if (leftNeedsClear) {
+          clearCompareSlotStressResult('left');
+        }
+        if (rightNeedsClear) {
+          clearCompareSlotStressResult('right');
+        }
+      }
       return;
     }
 
     const controller = new AbortController();
     const timeout = setTimeout(() => {
-      setStressStatus('running');
-      void runStressTest({
-        config: getCurrentConfig(),
-        scenarios: stress.scenarios,
-        actualOverridesByMonth,
-        seed: activeResult.seedUsed,
-        monthlyReturns: simulationMode === SimulationMode.Manual
-          ? deriveMonthlyReturnsFromRows(activeResult.result.rows)
-          : undefined,
-        base: {
-          result: activeResult.result,
-          monteCarlo: simulationMode === SimulationMode.MonteCarlo ? baseMonteCarlo : undefined,
-        },
-      })
-        .then((response) => {
-          if (controller.signal.aborted) {
-            return;
-          }
-          setStressResult(response.result);
+      if (mode !== AppMode.Compare) {
+        if (!activeResult) {
+          return;
+        }
+        setStressStatus('running');
+        void runStressTest({
+          config: getCurrentConfig(),
+          scenarios: stress.scenarios,
+          actualOverridesByMonth,
+          seed: activeResult.seedUsed,
+          monthlyReturns: simulationMode === SimulationMode.Manual
+            ? deriveMonthlyReturnsFromRows(activeResult.result.rows)
+            : undefined,
+          base: {
+            result: activeResult.result,
+            monteCarlo: simulationMode === SimulationMode.MonteCarlo ? baseMonteCarlo : undefined,
+          },
         })
-        .catch((error) => {
-          if (controller.signal.aborted) {
+          .then((response) => {
+            if (controller.signal.aborted) {
+              return;
+            }
+            setStressResult(response.result);
+          })
+          .catch((error) => {
+            if (controller.signal.aborted) {
+              return;
+            }
+            const message = error instanceof Error ? error.message : 'Stress test failed';
+            setStressStatus('error', message);
+          });
+        return;
+      }
+
+      setStressStatus('running');
+      setCompareSlotStressStatus('left', 'running');
+      setCompareSlotStressStatus('right', 'running');
+
+      const slots: Array<{ slot: 'left' | 'right'; result: typeof compareLeftResult }> = [
+        { slot: 'left', result: compareLeftResult },
+        { slot: 'right', result: compareRightResult },
+      ];
+      const currentCompareWorkspace = getCompareWorkspaceState();
+
+      void Promise.allSettled(
+        slots.map(async ({ slot, result }) => {
+          if (!result) {
+            throw new Error(`Portfolio ${slot === 'left' ? 'A' : 'B'} has no base simulation result.`);
+          }
+          const config = getCompareConfigForSlot(slot);
+          if (!config) {
+            throw new Error(`Portfolio ${slot === 'left' ? 'A' : 'B'} configuration unavailable.`);
+          }
+          const workspace = slot === 'left' ? currentCompareWorkspace.leftWorkspace : currentCompareWorkspace.rightWorkspace;
+          const response = await runStressTest({
+            config,
+            scenarios: stress.scenarios,
+            actualOverridesByMonth: workspace?.actualOverridesByMonth ?? {},
+            seed: result.seedUsed,
+            monthlyReturns:
+              simulationMode === SimulationMode.Manual
+                ? deriveMonthlyReturnsFromRows(result.result.rows)
+                : undefined,
+            base: {
+              result: result.result,
+              monteCarlo: simulationMode === SimulationMode.MonteCarlo ? result.monteCarlo : undefined,
+            },
+          });
+          return { slot, response };
+        }),
+      ).then((settled) => {
+        if (controller.signal.aborted) {
+          return;
+        }
+        const errors: string[] = [];
+        const activeSlot = compareWorkspace.activeSlot;
+        let activeSlotResultSet = false;
+
+        settled.forEach((entry, index) => {
+          const slot = slots[index]?.slot;
+          if (!slot) {
             return;
           }
-          const message = error instanceof Error ? error.message : 'Stress test failed';
-          setStressStatus('error', message);
+          if (entry.status === 'fulfilled') {
+            setCompareSlotStressResult(slot, entry.value.response.result);
+            if (slot === activeSlot) {
+              setStressResult(entry.value.response.result);
+              activeSlotResultSet = true;
+            }
+          } else {
+            const message = entry.reason instanceof Error ? entry.reason.message : 'Stress test failed';
+            setCompareSlotStressStatus(slot, 'error', message);
+            errors.push(`${slot === 'left' ? 'Portfolio A' : 'Portfolio B'}: ${message}`);
+          }
         });
+
+        if (!activeSlotResultSet) {
+          const fallbackSlot = activeSlot === 'left' ? 'right' : 'left';
+          const fallbackResult = settled.find(
+            (entry, index) =>
+              slots[index]?.slot === fallbackSlot && entry.status === 'fulfilled',
+          );
+          if (fallbackResult && fallbackResult.status === 'fulfilled') {
+            setStressResult(fallbackResult.value.response.result);
+            activeSlotResultSet = true;
+          }
+        }
+
+        if (errors.length > 0) {
+          setStressStatus('error', errors.join(' | '));
+        } else {
+          setStressStatus('complete');
+        }
+      });
     }, simulationMode === SimulationMode.MonteCarlo ? 500 : 250);
 
     return () => {
@@ -163,14 +308,29 @@ export const StressTestPanel = () => {
     activeResult,
     actualOverridesByMonth,
     baseMonteCarlo,
+    compareWorkspace.activeSlot,
+    compareWorkspace.leftWorkspace?.simulationResults.manual,
+    compareWorkspace.leftWorkspace?.simulationResults.monteCarlo,
+    compareWorkspace.rightWorkspace?.simulationResults.manual,
+    compareWorkspace.rightWorkspace?.simulationResults.monteCarlo,
+    clearCompareSlotStressResult,
     clearStressResult,
+    mode,
+    setCompareSlotStressResult,
+    setCompareSlotStressStatus,
     setStressResult,
     setStressStatus,
     simulationMode,
     stress.scenarios,
   ]);
 
-  const baseAvailable = Boolean(activeResult);
+  const compareBaseAvailable = Boolean(
+    compareWorkspace.leftWorkspace?.simulationResults.manual ||
+      compareWorkspace.leftWorkspace?.simulationResults.monteCarlo ||
+      compareWorkspace.rightWorkspace?.simulationResults.manual ||
+      compareWorkspace.rightWorkspace?.simulationResults.monteCarlo,
+  );
+  const baseAvailable = mode === AppMode.Compare ? compareBaseAvailable : Boolean(activeResult);
   const result = stress.result;
   const comparisonSet = result
     ? [
