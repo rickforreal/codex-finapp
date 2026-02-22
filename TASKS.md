@@ -899,3 +899,11 @@ Acceptance Criteria:
 [AC1] `AGENTS.md` defines existing-feature update policy: immutable baseline + versioned update folders (`<feature>-v1-1`, ...).
 [AC2] Version bump semantics are documented (`v1-x` for compatible updates, `v2-0+` for contract/model breaks).
 [AC3] `README.md`, `docs/ENGINEERING.md`, and `docs/features/CONVENTIONS.md` cross-reference the same conventions and tracking policy.
+
+- [x] PROC-CHANGES-T1: Establish docs/changes lightweight workflow
+Phase: Process (Documentation Workflow)
+Dependencies: PROC-FEATURE-UPDATES-T1
+Acceptance Criteria:
+[AC1] `docs/changes/INDEX.md` and `docs/changes/_TEMPLATE/{CHANGE,ACCEPTANCE}.md` exist with `CHG-####` ID policy.
+[AC2] `AGENTS.md`, `README.md`, `docs/ENGINEERING.md`, and `docs/features/CONVENTIONS.md` define impact-based routing across `docs/features`, `docs/issues`, and `docs/changes`.
+[AC3] `docs/changes/CONVENTIONS.md` exists and a sample entry `docs/changes/CHG-0001-.../` demonstrates required file structure and traceability.

@@ -31,6 +31,8 @@ When enhancing an existing feature, keep the original feature folder as immutabl
 
 Post-V1 defects follow the same docs-as-infra model under `docs/issues/BUG-####-<slug>/` with `ISSUE.md`, `PLAN.md`, and `ACCEPTANCE.md` (plus optional `NOTES.md`). Defect execution is still tracked in root `TASKS.md` and `PROGRESS.txt`, and canonical docs must be updated whenever bug fixes change behavior/contracts/architecture/process.
 
+Post-V1 minor refinements should use the lightweight lane under `docs/changes/CHG-####-<slug>/` with `CHANGE.md` and `ACCEPTANCE.md`. Classification is impact-based: route correctness/regression work to `docs/issues/`, capability-level expansion to `docs/features/`, and small polish/copy/token/label work to `docs/changes/`. Execution tracking remains in root `TASKS.md` and `PROGRESS.txt`.
+
 ---
 
 ## 2. Development Environment

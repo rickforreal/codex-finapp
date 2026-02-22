@@ -58,3 +58,13 @@ This section must:
 - If behavior/contracts/architecture/process changes, update canonical root docs (`PRD.md`, `SPECS.md`, `SCENARIOS.md`, `DATA_MODEL.md`, `API.md`, `ARCHITECTURE.md`, `ENGINEERING.md`) accordingly.
 - If no canonical docs change, explicitly record that rationale in `PROGRESS.txt`.
 
+## 6) When to use `docs/changes` instead
+
+Use the minor-change lane (`docs/changes/`) when work is a low-impact refinement and does not belong to defects or feature waves:
+
+- copy/label text updates,
+- minor theme token tweaks,
+- spacing/alignment polish,
+- low-impact UX cleanup with no meaningful model/contract shift.
+
+See `docs/changes/CONVENTIONS.md` for required files and ID policy.

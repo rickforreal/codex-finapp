@@ -71,6 +71,20 @@ Read these first when extending the system:
 - Root `TASKS.md` and `PROGRESS.txt` remain the canonical execution trackers and must reference bug IDs.
 - See `AGENTS.md` for bug ID assignment and canonical-doc impact policy.
 
+## Minor Change Workflow (Post-V1)
+
+- Lightweight refinements are tracked in `docs/changes/` as one folder per change: `CHG-####-<slug>`.
+- Required per-change docs:
+  - `CHANGE.md`
+  - `ACCEPTANCE.md`
+- `docs/changes/INDEX.md` is the minor-change backlog index.
+- Classification is impact-based:
+  - use `docs/issues/` for incorrect/regressed behavior,
+  - use `docs/features/` for capability-level changes,
+  - use `docs/changes/` for minor copy/label/token/spacing/polish refinements.
+- Root `TASKS.md` and `PROGRESS.txt` remain the canonical execution trackers and must reference change IDs.
+- See `AGENTS.md` and `docs/changes/CONVENTIONS.md` for full rules.
+
 ## Tech Stack
 
 - Node.js 20+, npm workspaces

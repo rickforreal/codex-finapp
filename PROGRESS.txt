@@ -807,3 +807,19 @@ Verification run (all passing):
   - Added `docs/features/CONVENTIONS.md` as the canonical quick reference for feature-folder structure and versioning.
   - Updated `README.md` and `docs/ENGINEERING.md` with cross-references to the new convention.
   - Updated root `TASKS.md` with completed process task `PROC-FEATURE-UPDATES-T1`.
+- [DECISION] Introduced a third post-V1 documentation lane for minor refinements under `docs/changes` to avoid overloading `docs/features` and `docs/issues`.
+- CHG-0001 workflow implementation (process/docs only):
+  - Added `docs/changes/INDEX.md` with impact-based classification rules and `CHG-####` ID policy.
+  - Added lightweight templates:
+    - `docs/changes/_TEMPLATE/CHANGE.md`
+    - `docs/changes/_TEMPLATE/ACCEPTANCE.md`
+  - Added `docs/changes/CONVENTIONS.md` to define required files, routing, and root-tracker linkage.
+  - Added sample entry:
+    - `docs/changes/CHG-0001-minor-change-workflow-smoke/CHANGE.md`
+    - `docs/changes/CHG-0001-minor-change-workflow-smoke/ACCEPTANCE.md`
+  - Updated canonical/process docs to include the new lane and decision tree:
+    - `AGENTS.md`
+    - `README.md`
+    - `docs/ENGINEERING.md`
+    - `docs/features/CONVENTIONS.md`
+  - Updated root tracker with completed process task `PROC-CHANGES-T1` in `TASKS.md`.

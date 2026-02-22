@@ -170,3 +170,42 @@ Each defect folder must contain:
 Each defect `PLAN.md` must include a `Canonical Docs Impact` section:
 - List all root docs that must be updated due to this fix, or
 - Explicitly state `No canonical doc impact` with rationale.
+
+## 9. Minor Change Workflow (`docs/changes`)
+
+Minor changes are tracked using lightweight docs-first artifacts under:
+
+`docs/changes/CHG-####-<slug>/`
+
+### 9.1 Required minor-change artifacts
+
+Each minor-change folder must contain:
+- `CHANGE.md`
+- `ACCEPTANCE.md`
+
+### 9.2 Classification decision tree
+
+Route requests by impact:
+
+1. Use `docs/issues/` when behavior is wrong, regressed, or a correctness defect.
+2. Use `docs/features/` when behavior/contracts/architecture meaningfully expand or change.
+3. Use `docs/changes/` for minor refinements (copy/label/token/spacing/small UX polish) with no meaningful model/contract change.
+
+### 9.3 Change ID and folder naming
+
+- Change IDs use `CHG-####` (zero-padded numeric sequence).
+- Folder format is `CHG-####-<slug>`.
+- If the user does not provide an ID, assign the next available ID by scanning `docs/changes/INDEX.md`.
+
+### 9.4 Minor-change tracking policy
+
+- Root `TASKS.md` and `PROGRESS.txt` remain canonical execution trackers.
+- Every minor change must be mirrored in root `TASKS.md` using its change ID.
+- Every implementation update in `PROGRESS.txt` for this lane must include the `CHG-####` ID.
+- `docs/changes/INDEX.md` is the canonical backlog index for the minor-change lane.
+
+### 9.5 Minor-change canonical-doc impact rule
+
+Each `CHANGE.md` must include a `Canonical Docs Impact` section:
+- list all root docs that must be updated due to this change, or
+- explicitly state `No canonical doc impact` with rationale.
