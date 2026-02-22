@@ -4,7 +4,7 @@ These sit at the very top of the page, acting as the global "command bar" for th
 
 ### Affordance #1: Mode Toggle (Planning / Tracking / Compare)
 
-**Purpose:**  Switches the output view between Planning, Tracking, and Compare workflows. Planning and Tracking retain separate workspaces after initial Tracking initialization. Compare uses two planning-style workspaces (A/B) for side-by-side analysis.
+**Purpose:**  Switches the output view between Planning, Tracking, and Compare workflows. Planning and Tracking retain separate workspaces after initial Tracking initialization. Compare uses 2..8 planning-style workspaces (`A`..`H`) for multi-portfolio analysis.
 
 **Control type:** Segmented toggle (three segments: "Planning", "Tracking", "Compare")
 
@@ -18,21 +18,21 @@ These sit at the very top of the page, acting as the global "command bar" for th
 **Behavior:**
 * Default state on app load: Planning
 * Planning and Tracking each retain their own inputs and result caches.
-* Compare retains its own side-by-side workspaces and result caches.
+* Compare retains its own slot-scoped workspaces and result caches.
 * First switch to Tracking clones the current Planning workspace once, then clears Tracking simulation caches (including stress results) so Tracking starts as a fresh branch.
 * Switching to Planning Mode: Displays the results of the last simulation run (Manual or Monte Carlo). If no simulation has been run yet, the output area shows an empty/initial state (see Affordance #3  for details). No automatic recalculation occurs on mode switch.
 * Switching to Tracking Mode: Displays Tracking workspace results. If no Tracking run has been performed yet, output remains empty until the user runs a simulation.
-* Switching to Compare Mode: Displays compare outputs for Portfolio A and B. If no Compare run has been performed yet, output remains empty until the user runs a simulation.
-* First switch into Compare Mode seeds Portfolio A from the currently open workspace (Planning or Tracking), then initializes Portfolio B as a clone of A.
+* Switching to Compare Mode: Displays compare outputs for all active compare slots. If no Compare run has been performed yet, output remains empty until the user runs a simulation.
+* First switch into Compare Mode seeds Portfolio A from the currently open workspace (Planning or Tracking), initializes Portfolio B as a clone of A, and starts with 2 active slots.
 
 **State:**
 * Stores active mode enum: "planning" | "tracking" | "compare"
-* Stores per-mode workspace snapshots (`planningWorkspace`, `trackingWorkspace`, compare workspaces) and `trackingInitialized`.
+* Stores per-mode workspace snapshots (`planningWorkspace`, `trackingWorkspace`, compare slot workspaces) and `trackingInitialized`.
 * Actual overrides are stored in the active workspace.
 
 **Edge cases:**
 * If Tracking has never been run, the detail table shows an initialization empty state and prompts the user to run a simulation.
-* Compare is Planning-only in V1 (no Tracking actuals behavior inside Compare).
+* Compare is Planning-only in current scope (no Tracking actuals behavior inside Compare).
 
 ### Affordance #2: Simulation Mode Selector
 **Purpose:** Selects which simulation engine powers the active projection workflow — Manual (user-defined parameters, single stochastic path) or Monte Carlo (historical data sampling, 1,000+ paths).
@@ -110,10 +110,10 @@ These sit at the very top of the page, acting as the global "command bar" for th
   - The summary stats for the projected portion reflect the Monte Carlo distribution.
   - Clears the "stale" indicator (if any).  
 * **On click in Compare Mode (Planning-only):**
-  - Runs simulations for both compare slots (Portfolio A and Portfolio B) using the same selected simulation type.
-  - Uses the same stochastic stream for both slots so market randomness is matched across A/B.
-  - Updates shared chart, shared stats cards (A/B values + delta), and side-by-side detail ledgers.
-  - If one slot errors, successful slot output remains visible and the failed slot shows an error state.
+  - Runs simulations for all active compare slots (`A`..`H`, max 8) using the same selected simulation type.
+  - Uses shared stochastic conditions across all active slots so market randomness is matched for fair comparison.
+  - Updates shared chart, shared stats cards (all slot values + baseline-relative deltas), and the compare detail ledger tab view.
+  - If one slot errors, successful slot outputs remain visible and failed slots show slot-specific error states.
 * Initial state (no simulation run yet):
   * When the app first loads, no simulation has been run. The output area (chart, table, summary stats) shows an empty initial state:
     * Chart: empty plot area with axes but no data lines. A centered message in muted text: "Configure your parameters and click Run Simulation to generate a projection."
@@ -198,7 +198,7 @@ Affordance index reserved for future use. No explicit app-level redo behavior is
 |---|---|
 | **Type** | Button with icon (💾 or download icon) labeled "Save Snapshot" |
 | **Location** | Application toolbar near Run Simulation |
-| **Behavior** | Prompts for a snapshot name, serializes the complete application state to JSON, and triggers a browser download. In Compare mode (planned), saves both compared portfolios in one pair snapshot file. |
+| **Behavior** | Prompts for a snapshot name, serializes the complete application state to JSON, and triggers a browser download. In Compare mode, saves the active multi-slot compare payload (2..8 slots) in one snapshot envelope. |
 | **State captured** | Inputs, spending phases, income/expense events, withdrawal + drawdown configuration, stress configuration, Tracking actuals, current app/simulation mode, and cached output payloads used by chart/stats/table/stress displays. |
 | **File format** | `.json` with a top-level schema version field. Cached monthly outputs are stored in compact packed arrays (`columns` + `data`) to reduce file size. |
 | **File name** | Derived from user-provided snapshot name, sanitized for filesystem safety (e.g., `My Retirement Plan.json`). |
@@ -212,7 +212,7 @@ Affordance index reserved for future use. No explicit app-level redo behavior is
 |---|---|
 | **Type** | Button with icon (📂 or upload icon) labeled "Load Snapshot" |
 | **Location** | Application toolbar, immediately right of Save Snapshot button |
-| **Behavior** | Opens the browser's native file picker filtered to `.json` files. On file selection, parses the JSON, validates against the expected schema, and replaces the application state with loaded values. In Compare mode (planned), user selects import target (`Left`, `Right`, or `Replace both`) and pair snapshots require explicit Pair A/B slot choice when importing to a single side. |
+| **Behavior** | Opens the browser's native file picker filtered to `.json` files. On file selection, parses the JSON, validates against the expected schema, and replaces the application state with loaded values. In Compare mode, import flow is deterministic and target-aware for multi-slot payloads. Legacy pair snapshots remain supported with explicit source-slot mapping prompts. |
 | **Confirmation** | Shows confirmation before replacing current state. |
 | **Post-load behavior** | Restores full app state, including cached outputs and active mode, exactly as saved in the snapshot. |
 | **Error handling** | If the file is invalid JSON or fails schema validation, show: *"This file doesn't appear to be a valid snapshot."* If `schemaVersion` does not exactly match the supported version, show: *"This snapshot version is not supported by this app."* |
@@ -246,64 +246,68 @@ Affordance index reserved for future use. No explicit app-level redo behavior is
 - Monokai
 - Synthwave '84
 
-## Phase 14 Planned Additions — Compare Portfolios (SxS)
+## Compare Mode Additions — Multi-Portfolio (v2.0)
 
-### Affordance #67 · Compare Slot Switcher (Sidebar)
+### Affordance #67 · Compare Slot Manager (Sidebar)
 
-**Purpose:** Selects which compare portfolio (A or B) the input panel is currently editing.
+**Purpose:** Selects which compare portfolio slot (`A`..`H`) the input panel is currently editing and manages slot add/remove lifecycle.
 
-**Control type:** Segmented toggle (`Portfolio A` / `Portfolio B`)
+**Control type:** Slot chip row with actions (`A`..`H`, add/remove, clone-source picker on add)
 
 **Behavior:**
 - Visible only in Compare mode.
 - All input sections bind to the active slot.
 - Switching slots does not copy values; each slot maintains independent inputs/results.
+- Slot count is bounded to 2..8.
+- Adding a slot clones from a user-selected source slot.
 
 ### Affordance #68 · Shared Compare Chart
 
-**Purpose:** Plot both portfolio outcomes in one chart for visual comparison.
+**Purpose:** Plot all active compare portfolio outcomes in one chart for visual comparison.
 
 **Behavior:**
-- Manual mode: two portfolio lines (A/B) with legend.
-- Monte Carlo mode: two median lines and confidence context for each portfolio.
-- Tooltip includes point-in-time values for both portfolios.
+- Manual mode: one line per active slot.
+- Monte Carlo mode: one median line and confidence context per active slot.
+- Tooltip includes point-in-time values for every active slot.
+- Active slots are all visible by default.
 
-### Affordance #69 · Dual-Value Summary Stats
+### Affordance #69 · Multi-Slot Summary Stats
 
-**Purpose:** Compare key metrics directly for A vs B.
+**Purpose:** Compare key metrics across all active slots with a baseline reference.
 
 **Behavior:**
 - Each metric card displays:
-  - Portfolio A value
-  - Portfolio B value
-  - Signed delta
+  - Value for each active slot (`A`..`H`)
+  - Signed delta for each slot versus the selected baseline slot
 - Formatting follows existing nominal/real conventions.
+- Baseline slot defaults to `A` and can be changed by the user.
 
-### Affordance #70 · Side-by-Side Detail Ledgers
+### Affordance #70 · Compare Detail Ledger Tabs
 
-**Purpose:** Compare monthly/annual ledger details for both portfolios simultaneously.
+**Purpose:** Inspect monthly/annual ledger details for any active compare slot in a shared table viewport.
 
 **Behavior:**
-- Render two ledger panes in one section (`A` and `B`).
-- Monthly/Annual and Breakdown controls are shared across both panes.
+- Render one ledger viewport with slot tabs (`A`..`H`) above the table.
+- Monthly/Annual and Breakdown controls are shared.
 - Spreadsheet expand is disabled in Compare mode; scrolling is required.
 
 ### Affordance #71 · Compare Stress Test
 
-**Purpose:** Apply the same stress scenarios to both compare portfolios.
+**Purpose:** Apply the same stress scenarios to all active compare portfolios.
 
 **Behavior:**
 - Scenario definitions are shared.
-- Running stress test executes both slots and displays per-slot outcomes.
+- Running stress test executes all active slots and displays slot-specific outcomes.
 
 ### Affordance #72 · Compare Snapshot Import Targeting
 
 **Purpose:** Remove ambiguity when loading snapshots in Compare mode.
 
 **Behavior:**
-- Load prompt requires target: `Left`, `Right`, or `Replace both`.
-- Single snapshot files can be loaded into a chosen side.
-- Pair snapshot files can replace both sides, or load one selected pair slot (`A` or `B`) into a chosen side.
+- Load prompt requires deterministic target mapping for slot imports.
+- Legacy single snapshot files can be loaded into a chosen slot.
+- Legacy pair snapshot files can replace initial slots (`A/B`) or import selected source slot into a chosen target slot.
+- Multi-slot compare snapshots can restore all included slots (up to 8) with explicit overwrite confirmation.
 
 ## Input Panel — Section: Core Parameters
 This is the first section within the input panel (sidebar). It's expanded by default on app load.

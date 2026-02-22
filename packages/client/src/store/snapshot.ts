@@ -2,7 +2,7 @@ import { z } from 'zod';
 
 import { AppMode, HistoricalEra, SimulationMode, ThemeId, type MonthlySimulationRow, type SimulateResponse, type SinglePathResult, type StressTestResult } from '@finapp/shared';
 
-import { getSnapshotState, type SnapshotState, type WorkspaceSnapshot, useAppStore } from './useAppStore';
+import { getSnapshotState, type CompareSlotId, type SnapshotState, type WorkspaceSnapshot, useAppStore } from './useAppStore';
 
 export const SNAPSHOT_SCHEMA_VERSION = 4;
 
@@ -69,9 +69,17 @@ type PackedWorkspaceSnapshot = Omit<WorkspaceSnapshot, 'simulationResults' | 'st
   stress: PackedStressState;
 };
 
-type PackedSnapshotState = Omit<SnapshotState, 'planningWorkspace' | 'trackingWorkspace' | 'simulationResults' | 'stress'> & {
+type PackedCompareWorkspace = {
+  activeSlotId: CompareSlotId;
+  baselineSlotId: CompareSlotId;
+  slotOrder: CompareSlotId[];
+  slots: Partial<Record<CompareSlotId, PackedWorkspaceSnapshot>>;
+};
+
+type PackedSnapshotState = Omit<SnapshotState, 'planningWorkspace' | 'trackingWorkspace' | 'compareWorkspace' | 'simulationResults' | 'stress'> & {
   planningWorkspace: PackedWorkspaceSnapshot | null;
   trackingWorkspace: PackedWorkspaceSnapshot | null;
+  compareWorkspace: PackedCompareWorkspace;
   simulationResults: PackedSimulationResults;
   stress: PackedStressState;
 };
@@ -115,14 +123,7 @@ const snapshotStateSchema = z
     trackingInitialized: z.boolean(),
     planningWorkspace: z.unknown().nullable(),
     trackingWorkspace: z.unknown().nullable(),
-    compareWorkspace: z
-      .object({
-        activeSlot: z.enum(['left', 'right']),
-        leftWorkspace: z.unknown().nullable(),
-        rightWorkspace: z.unknown().nullable(),
-      })
-      .strict()
-      .optional(),
+    compareWorkspace: z.unknown().optional(),
     simulationMode: z.nativeEnum(SimulationMode),
     selectedHistoricalEra: z.nativeEnum(HistoricalEra),
     coreParams: z
@@ -194,6 +195,16 @@ const makeDownloadFilename = (name: string): string => {
 
 const invalidSnapshot = (): SnapshotLoadError =>
   new SnapshotLoadError('invalid_snapshot', "This file doesn't appear to be a valid snapshot.");
+
+const isCompareSlotId = (value: unknown): value is CompareSlotId =>
+  value === 'A' ||
+  value === 'B' ||
+  value === 'C' ||
+  value === 'D' ||
+  value === 'E' ||
+  value === 'F' ||
+  value === 'G' ||
+  value === 'H';
 
 const asFiniteNumber = (value: unknown): number => {
   if (typeof value !== 'number' || !Number.isFinite(value)) {
@@ -541,6 +552,18 @@ const packWorkspace = (workspace: WorkspaceSnapshot | null): PackedWorkspaceSnap
   };
 };
 
+const packCompareWorkspace = (compareWorkspace: SnapshotState['compareWorkspace']): PackedCompareWorkspace => ({
+  activeSlotId: compareWorkspace.activeSlotId,
+  baselineSlotId: compareWorkspace.baselineSlotId,
+  slotOrder: [...compareWorkspace.slotOrder],
+  slots: Object.fromEntries(
+    Object.entries(compareWorkspace.slots).map(([slotId, workspace]) => [
+      slotId,
+      workspace ? packWorkspace(workspace) : workspace,
+    ]),
+  ),
+});
+
 const unpackWorkspace = (workspace: unknown): WorkspaceSnapshot | null => {
   if (workspace === null) {
     return null;
@@ -565,10 +588,101 @@ const unpackWorkspace = (workspace: unknown): WorkspaceSnapshot | null => {
   };
 };
 
+const defaultCompareWorkspace = (): SnapshotState['compareWorkspace'] => ({
+  activeSlotId: 'A',
+  baselineSlotId: 'A',
+  slotOrder: ['A', 'B'],
+  slots: {},
+});
+
+const unpackCompareWorkspace = (compareWorkspace: unknown): SnapshotState['compareWorkspace'] => {
+  if (compareWorkspace === null || compareWorkspace === undefined) {
+    return defaultCompareWorkspace();
+  }
+  if (!compareWorkspace || typeof compareWorkspace !== 'object') {
+    throw invalidSnapshot();
+  }
+
+  // Legacy pair snapshot shape support.
+  const legacy = compareWorkspace as {
+    activeSlot?: unknown;
+    leftWorkspace?: unknown;
+    rightWorkspace?: unknown;
+  };
+  if (
+    (legacy.activeSlot === 'left' || legacy.activeSlot === 'right') &&
+    ('leftWorkspace' in legacy || 'rightWorkspace' in legacy)
+  ) {
+    const left = unpackWorkspace(legacy.leftWorkspace ?? null);
+    const right = unpackWorkspace(legacy.rightWorkspace ?? null);
+    const slots: SnapshotState['compareWorkspace']['slots'] = {};
+    if (left) {
+      slots.A = left;
+    }
+    if (right) {
+      slots.B = right;
+    }
+    return {
+      activeSlotId: legacy.activeSlot === 'right' ? 'B' : 'A',
+      baselineSlotId: 'A',
+      slotOrder: ['A', 'B'],
+      slots,
+    };
+  }
+
+  const record = compareWorkspace as {
+    activeSlotId?: unknown;
+    baselineSlotId?: unknown;
+    slotOrder?: unknown;
+    slots?: unknown;
+  };
+
+  if (typeof record.activeSlotId !== 'string' || typeof record.baselineSlotId !== 'string') {
+    throw invalidSnapshot();
+  }
+  if (!Array.isArray(record.slotOrder)) {
+    throw invalidSnapshot();
+  }
+  if (!record.slots || typeof record.slots !== 'object') {
+    throw invalidSnapshot();
+  }
+
+  const slotOrder = record.slotOrder.filter((entry): entry is CompareSlotId => isCompareSlotId(entry));
+  if (slotOrder.length < 2 || slotOrder.length > 8) {
+    throw invalidSnapshot();
+  }
+
+  const slots = Object.fromEntries(
+    Object.entries(record.slots as Record<string, unknown>).map(([slotId, workspace]) => [slotId, unpackWorkspace(workspace)]),
+  ) as SnapshotState['compareWorkspace']['slots'];
+
+  const normalizedSlots = Object.fromEntries(
+    Object.entries(slots).filter(([, workspace]) => workspace !== null),
+  ) as SnapshotState['compareWorkspace']['slots'];
+  const normalizedOrder = slotOrder.filter((slotId) => normalizedSlots[slotId]);
+  const resolvedOrder: CompareSlotId[] = normalizedOrder.length >= 2 ? normalizedOrder : ['A', 'B'];
+  const recordActiveSlotId = isCompareSlotId(record.activeSlotId) ? record.activeSlotId : null;
+  const recordBaselineSlotId = isCompareSlotId(record.baselineSlotId) ? record.baselineSlotId : null;
+  const activeSlotId = recordActiveSlotId && resolvedOrder.includes(recordActiveSlotId)
+    ? recordActiveSlotId
+    : (resolvedOrder[0] ?? 'A');
+  const baselineSlotId = recordBaselineSlotId && resolvedOrder.includes(recordBaselineSlotId)
+    ? recordBaselineSlotId
+    : (resolvedOrder[0] ?? 'A');
+
+  return {
+    activeSlotId,
+    baselineSlotId,
+    slotOrder: resolvedOrder,
+    slots: normalizedSlots,
+  };
+};
+
 const packSnapshotState = (state: SnapshotState): PackedSnapshotState => ({
   ...state,
   planningWorkspace: packWorkspace(state.planningWorkspace),
   trackingWorkspace: packWorkspace(state.trackingWorkspace),
+  compareWorkspace: packCompareWorkspace(state.compareWorkspace),
   simulationResults: packSimulationResults(state.simulationResults),
   stress: packStressState(state.stress),
 });
@@ -582,17 +696,14 @@ const unpackSnapshotState = (packed: unknown): SnapshotState => {
   const data = baseValidation.data as SnapshotState & {
     planningWorkspace: unknown;
     trackingWorkspace: unknown;
+    compareWorkspace?: unknown;
     simulationResults: unknown;
     stress: unknown;
   };
 
   return {
     ...data,
-    compareWorkspace: data.compareWorkspace ?? {
-      activeSlot: 'left',
-      leftWorkspace: null,
-      rightWorkspace: null,
-    },
+    compareWorkspace: unpackCompareWorkspace(data.compareWorkspace),
     planningWorkspace: unpackWorkspace(data.planningWorkspace),
     trackingWorkspace: unpackWorkspace(data.trackingWorkspace),
     simulationResults: unpackSimulationResults(data.simulationResults),

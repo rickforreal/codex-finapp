@@ -6,9 +6,11 @@ import { fetchHistoricalSummary } from '../../api/historicalApi';
 import { runSimulation } from '../../api/simulationApi';
 import { SnapshotLoadError, parseSnapshot, serializeSnapshot } from '../../store/snapshot';
 import {
-  getCompareConfigForSlot,
+  COMPARE_SLOT_IDS,
+  getCompareConfigs,
   getCurrentConfig,
   getSnapshotState,
+  type CompareSlotId,
   type WorkspaceSnapshot,
   useAppStore,
 } from '../../store/useAppStore';
@@ -87,6 +89,7 @@ export const CommandBar = () => {
   const setSelectedThemeId = useAppStore((state) => state.setSelectedThemeId);
   const setThemeState = useAppStore((state) => state.setThemeState);
   const setStateFromSnapshot = useAppStore((state) => state.setStateFromSnapshot);
+  const compareWorkspace = useAppStore((state) => state.compareWorkspace);
   const canRunActiveWorkspace =
     drawdownType !== DrawdownStrategyType.Rebalancing ||
     Math.abs(targetAllocation.stocks + targetAllocation.bonds + targetAllocation.cash - 1) < 0.000001;
@@ -136,36 +139,44 @@ export const CommandBar = () => {
       const parsed = parseSnapshot(raw);
       let loaded = parsed;
       if (mode === AppMode.Compare) {
-        const targetRaw = window.prompt(
-          'Load into compare target: left, right, or both',
-          'both',
-        );
-        const target = targetRaw?.trim().toLowerCase();
-        if (!target || !['left', 'right', 'both'].includes(target)) {
+        const targetRaw = window.prompt('Load into compare target slot (A-H) or ALL', 'ALL');
+        const target = targetRaw?.trim().toUpperCase();
+        if (!target) {
           return;
         }
 
-        if (target === 'both') {
+        if (target === 'ALL') {
           setStateFromSnapshot(parsed.data);
         } else {
+          const compareTarget = target as CompareSlotId;
+          if (!compareWorkspace.slotOrder.includes(compareTarget)) {
+            window.alert('Target slot must be one of the active compare slots.');
+            return;
+          }
           const sourceCompare = parsed.data.compareWorkspace;
-          const sourceCandidates: Array<{ label: 'A' | 'B'; workspace: WorkspaceSnapshot | null }> = [
-            { label: 'A', workspace: sourceCompare.leftWorkspace },
-            { label: 'B', workspace: sourceCompare.rightWorkspace },
-          ];
+          const sourceCandidates: Array<{ label: CompareSlotId; workspace: WorkspaceSnapshot | null }> =
+            sourceCompare.slotOrder.map((slotId) => ({
+              label: slotId,
+              workspace: sourceCompare.slots[slotId] ?? null,
+            }));
           const hasPair = sourceCandidates.filter((entry) => entry.workspace !== null).length > 1;
           let sourceWorkspace: WorkspaceSnapshot | null = null;
           if (hasPair) {
-            const chosenSlotRaw = window.prompt('Select source pair slot: A or B', 'A');
+            const chosenSlotRaw = window.prompt(
+              `Select source slot: ${sourceCandidates.map((entry) => entry.label).join(', ')}`,
+              sourceCandidates[0]?.label ?? 'A',
+            );
             const chosenSlot = chosenSlotRaw?.trim().toUpperCase();
-            if (chosenSlot !== 'A' && chosenSlot !== 'B') {
+            if (!chosenSlot) {
               return;
             }
             sourceWorkspace = sourceCandidates.find((entry) => entry.label === chosenSlot)?.workspace ?? null;
           } else {
+            sourceWorkspace = sourceCandidates[0]?.workspace ?? null;
+          }
+
+          if (!sourceWorkspace) {
             sourceWorkspace =
-              sourceCompare.leftWorkspace ??
-              sourceCompare.rightWorkspace ??
               parsed.data.planningWorkspace ??
               parsed.data.trackingWorkspace ??
               workspaceFromTopLevelSnapshotState(parsed.data);
@@ -181,18 +192,17 @@ export const CommandBar = () => {
             ...current,
             compareWorkspace: {
               ...current.compareWorkspace,
-              leftWorkspace:
-                target === 'left' ? sourceWorkspace : current.compareWorkspace.leftWorkspace,
-              rightWorkspace:
-                target === 'right' ? sourceWorkspace : current.compareWorkspace.rightWorkspace,
+              slotOrder: [...current.compareWorkspace.slotOrder].sort(
+                (left, right) => COMPARE_SLOT_IDS.indexOf(left) - COMPARE_SLOT_IDS.indexOf(right),
+              ),
+              slots: {
+                ...current.compareWorkspace.slots,
+                [compareTarget]: sourceWorkspace,
+              },
             },
           };
           if (next.mode === AppMode.Compare) {
-            const activeSlot = next.compareWorkspace.activeSlot;
-            const activeWorkspace =
-              activeSlot === 'left'
-                ? next.compareWorkspace.leftWorkspace
-                : next.compareWorkspace.rightWorkspace;
+            const activeWorkspace = next.compareWorkspace.slots[next.compareWorkspace.activeSlotId];
             if (activeWorkspace) {
               next.simulationMode = activeWorkspace.simulationMode;
               next.selectedHistoricalEra = activeWorkspace.selectedHistoricalEra;
@@ -273,19 +283,16 @@ export const CommandBar = () => {
     }
     try {
       if (mode === AppMode.Compare) {
-        const leftConfig = getCompareConfigForSlot('left');
-        const rightConfig = getCompareConfigForSlot('right');
-        if (!leftConfig || !rightConfig) {
-          setSimulationStatus('error', 'Compare mode requires two configured portfolios.');
+        const compareConfigs = getCompareConfigs();
+        if (compareConfigs.length < 2) {
+          setSimulationStatus('error', 'Compare mode requires at least two configured portfolios.');
           return;
         }
-
-        leftConfig.simulationMode = simulationMode;
-        leftConfig.selectedHistoricalEra = selectedHistoricalEra;
-        rightConfig.simulationMode = simulationMode;
-        rightConfig.selectedHistoricalEra = selectedHistoricalEra;
-
-        const hasInvalidAllocation = [leftConfig, rightConfig].some((config) => {
+        compareConfigs.forEach((entry) => {
+          entry.config.simulationMode = simulationMode;
+          entry.config.selectedHistoricalEra = selectedHistoricalEra;
+        });
+        const hasInvalidAllocation = compareConfigs.some(({ config }) => {
           if (config.drawdownStrategy.type !== DrawdownStrategyType.Rebalancing) {
             return false;
           }
@@ -294,31 +301,35 @@ export const CommandBar = () => {
           return Math.abs(sum - 1) >= 0.000001;
         });
         if (hasInvalidAllocation) {
-          setSimulationStatus('error', 'Rebalancing target allocation must sum to 100% for both compare portfolios.');
+          setSimulationStatus('error', 'Rebalancing target allocation must sum to 100% for all compare portfolios.');
           return;
         }
 
         const seed = Math.floor(Math.random() * 2_147_483_000);
-        setCompareSlotSimulationStatus('left', 'running');
-        setCompareSlotSimulationStatus('right', 'running');
-
-        const [leftResult, rightResult] = await Promise.allSettled([
-          runSimulation({ config: leftConfig, seed }),
-          runSimulation({ config: rightConfig, seed }),
-        ]);
-
-        if (leftResult.status === 'fulfilled') {
-          setCompareSlotSimulationResult('left', simulationMode, leftResult.value);
-        } else {
-          const message = leftResult.reason instanceof Error ? leftResult.reason.message : 'Compare left simulation failed';
-          setCompareSlotSimulationStatus('left', 'error', message);
-        }
-
-        if (rightResult.status === 'fulfilled') {
-          setCompareSlotSimulationResult('right', simulationMode, rightResult.value);
-        } else {
-          const message = rightResult.reason instanceof Error ? rightResult.reason.message : 'Compare right simulation failed';
-          setCompareSlotSimulationStatus('right', 'error', message);
+        compareConfigs.forEach(({ slotId }) => setCompareSlotSimulationStatus(slotId, 'running'));
+        const queue = [...compareConfigs];
+        const maxParallel = 4;
+        const failures: string[] = [];
+        const workers = Array.from({ length: Math.min(maxParallel, queue.length) }, async () => {
+          while (queue.length > 0) {
+            const next = queue.shift();
+            if (!next) {
+              break;
+            }
+            const { slotId, config } = next;
+            try {
+              const response = await runSimulation({ config, seed });
+              setCompareSlotSimulationResult(slotId, simulationMode, response);
+            } catch (error) {
+              const message = error instanceof Error ? error.message : `Compare ${slotId} simulation failed`;
+              setCompareSlotSimulationStatus(slotId, 'error', message);
+              failures.push(`${slotId}: ${message}`);
+            }
+          }
+        });
+        await Promise.all(workers);
+        if (failures.length > 0) {
+          setSimulationStatus('error', failures.join(' | '));
         }
         return;
       }

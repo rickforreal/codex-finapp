@@ -887,3 +887,94 @@ Validation run (all passing):
 - `npm run lint`
 - `npm test`
 - `npm run build`
+
+- CPV2-T8 complete: Compare v2.0 post-feedback UX refinement pass implemented.
+  - Sidebar compare slot UX (`/Users/ricknayar/Development/codex/finapp/packages/client/src/components/layout/Sidebar.tsx`):
+    - removed clone-source dropdown and remove button flow.
+    - added slot-chip interactions: single-click active, double-click baseline, hover red `X` remove (hidden at 2 slots).
+    - baseline chip now shows gold ring + `Base` badge.
+    - `+` now clones the active slot only.
+  - Compare ordering + fallback determinism (`/Users/ricknayar/Development/codex/finapp/packages/client/src/store/useAppStore.ts`):
+    - enforced alphabetic `slotOrder` normalization after add/remove and snapshot normalization paths.
+    - kept fill-first ID reuse behavior while rendering remains sorted.
+    - baseline/active fallback on removal remains first sorted slot.
+  - Targeted compare import ordering (`/Users/ricknayar/Development/codex/finapp/packages/client/src/components/layout/CommandBar.tsx`):
+    - compare targeted slot import now explicitly re-sorts `slotOrder` after mutation.
+  - Compare chart MC density policy (`/Users/ricknayar/Development/codex/finapp/packages/client/src/components/output/PortfolioChart.tsx`):
+    - baseline-only percentile bands (p10/p90 + p25/p75) with p50 lines for all slots.
+    - tooltip + legend now attribute percentile-band context to the baseline slot.
+  - Compare detail ledger tab styling (`/Users/ricknayar/Development/codex/finapp/packages/client/src/components/output/DetailTable.tsx`):
+    - compare tabs switched from pills to circular chips with baseline affordance parity.
+  - Added compare store regression tests (`/Users/ricknayar/Development/codex/finapp/packages/client/src/store/useAppStore.compare.test.ts`):
+    - clone-source behavior, alphabetical order normalization, active/baseline fallback, and ID reuse ordering.
+  - Canonical docs impact: no additional root canonical doc deltas required beyond existing compare v2.0 updates; this wave is behavioral/UI refinement inside approved v2.0 scope.
+
+Validation run (all passing):
+- `npm run typecheck`
+- `npm run lint`
+- `npm test`
+- `npm run build`
+- Compare Portfolios v2.0 docs-first wave started (2..8 compare slots).
+  - Added new feature update folder:
+    - `docs/features/compare-portfolios-v2-0/FEATURE.md`
+    - `docs/features/compare-portfolios-v2-0/PLAN.md`
+    - `docs/features/compare-portfolios-v2-0/ACCEPTANCE.md`
+  - Added root tracker section in `TASKS.md`:
+    - `CPV2-T1` completed (docs baseline)
+    - `CPV2-T2`..`CPV2-T7` queued for implementation
+  - Updated canonical docs for compare v2.0 model:
+    - `docs/SPECS.md`
+      - Compare affordances updated from fixed A/B to variable slots (`A`..`H`, 2..8).
+      - Run behavior updated to all-slot compare execution with shared stochastic parity.
+      - Stats cards updated to multi-slot values + baseline-relative deltas.
+      - Detail ledger updated to tabbed single-viewport compare model.
+      - Snapshot affordances updated for multi-slot compare payload and deterministic legacy import mapping.
+    - `docs/SCENARIOS.md`
+      - Scenario #25 updated from A/B flow to multi-slot compare workflow.
+    - `docs/DATA_MODEL.md`
+      - Compare model updated from `left/right` pair to slot collection with `activeSlotId`, `baselineSlotId`, `slotOrder`, and `slots` map.
+      - Slot bounds and baseline fallback behavior documented.
+      - Snapshot compatibility model updated to support legacy single/pair + new multi-slot compare payload.
+    - `docs/API.md`
+      - Compare orchestration updated to per-slot calls (2..8) with bounded parallelism, no new endpoints.
+    - `docs/ARCHITECTURE.md`
+      - Compare state alignment and compare run pipeline updated for slot collection and bounded queue execution.
+  - Canonical docs impact statement: compare v2.0 required updates to SPECS/SCENARIOS/DATA_MODEL/API/ARCHITECTURE; no PRD or ENGINEERING changes required for this batch.
+- Compare Portfolios v2.0 implementation complete for root tasks `CPV2-T2`..`CPV2-T7`.
+  - Store/model refactor (`packages/client/src/store/useAppStore.ts`):
+    - Replaced fixed compare pair (`left/right`) with slot collection model (`A..H`) using:
+      - `compareWorkspace.slotOrder` (2..8 active)
+      - `compareWorkspace.slots` (slot-scoped workspaces)
+      - `compareWorkspace.activeSlotId`
+      - `compareWorkspace.baselineSlotId`
+    - Added compare actions:
+      - `setCompareBaselineSlot`
+      - `addCompareSlotFromSource`
+      - `removeCompareSlot`
+      - generalized slot-scoped simulation/stress setters.
+    - Added multi-slot config selector `getCompareConfigs()`.
+  - Snapshot compatibility update (`packages/client/src/store/snapshot.ts`):
+    - Snapshot packing now includes compare slot workspaces in packed-row form.
+    - Added multi-slot compare unpack support.
+    - Preserved backward compatibility for legacy pair shape (`activeSlot`, `leftWorkspace`, `rightWorkspace`) by mapping to slots `A/B`.
+  - Command bar compare orchestration (`packages/client/src/components/layout/CommandBar.tsx`):
+    - Compare run now executes active slots (2..8) via bounded parallel queue (`maxParallel = 4`) with shared seed parity.
+    - Compare snapshot targeted import now supports slot target (`A..H`) or `ALL`, with deterministic source-slot mapping.
+  - Compare slot manager UI (`packages/client/src/components/layout/Sidebar.tsx`):
+    - Added slot chip selector, add/clone control, remove control, and baseline selector.
+    - Applied visual direction inspired by provided mockup (chip/pill style + compact action row).
+  - Output compare rendering updates:
+    - `packages/client/src/components/output/SummaryStatsBar.tsx`
+      - cards now render all active slot values and baseline-relative deltas.
+    - `packages/client/src/components/output/PortfolioChart.tsx`
+      - chart now renders all active slot forecast lines with shared tooltip and legend entries.
+    - `packages/client/src/components/output/DetailTable.tsx`
+      - replaced side-by-side pair panes with one shared ledger viewport + slot tabs.
+    - `packages/client/src/components/output/StressTestPanel.tsx`
+      - compare stress execution generalized to active slots with bounded parallel queue and slot-scoped error handling.
+
+Validation run (all passing):
+- `npm run typecheck`
+- `npm run lint`
+- `npm test`
+- `npm run build`

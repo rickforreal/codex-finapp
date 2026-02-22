@@ -542,7 +542,7 @@ The application uses a single Zustand store divided into logical slices. Each sl
 
 ```
 AppStore
-├── mode: "planning" | "tracking"   # Phase 14 planned: add "compare"
+├── mode: "planning" | "tracking" | "compare"
 ├── simulationMode: "manual" | "monteCarlo"
 ├── selectedHistoricalEra: HistoricalEra
 │
@@ -611,11 +611,12 @@ AppStore
 - Table/UI controls include `tableSpreadsheetMode` in addition to `tableGranularity` and `tableAssetColumnsEnabled`.
 - Stress state is workspace-local and includes scenario config plus latest stress result payload.
 
-**Phase 14 planned alignment (Compare Portfolios):**
+**Compare alignment (v2.0):**
 
-- Add a compare workspace branch with `left` and `right` slots.
-- First switch into Compare seeds `left` from the currently open Planning/Tracking workspace.
-- `right` initializes as a clone of `left` on first Compare entry.
+- Compare workspace uses slot collection model (`A`..`H`) with 2..8 active slots.
+- First switch into Compare seeds `A` from the currently open Planning/Tracking workspace.
+- `B` initializes as a clone of `A` on first Compare entry.
+- Additional slots clone from user-selected source slot.
 - Compare simulation/stress caches remain isolated from Planning/Tracking caches.
 
 **Slice isolation.** Each slice exposes its own action creators. Components subscribe to the minimal slice they need via Zustand's selector pattern, preventing unnecessary re-renders.
@@ -950,17 +951,17 @@ User clicks Run Simulation
                 → SummaryStats, Chart, Table re-render with new data
 ```
 
-Phase 14 planned Compare behavior:
+Compare behavior (v2.0):
 
 ```
 User clicks Run Simulation in Compare mode
-  → Client builds two SimulationConfig payloads (left + right)
-    → For fairness, both requests share identical stochastic inputs
+  → Client builds one SimulationConfig payload per active slot (2..8)
+    → For fairness, all slot requests share identical stochastic inputs
       → Manual: shared monthly return stream
       → Monte Carlo: shared seed/sampling stream
-        → Sends POST /api/v1/simulate for left and right
+        → Sends POST /api/v1/simulate per active slot via bounded-parallel queue
           → Store updates compare outputs per slot
-            → Shared compare chart/stats/ledgers re-render
+            → Shared compare chart/stats/ledger tabs re-render
 ```
 
 ### 9.3 Tracking Mode — Actual Edit and Input Changes (Server-Side Reforecast)

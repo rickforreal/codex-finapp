@@ -1,9 +1,9 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 
-import { AppMode, AssetClass, type MonthlySimulationRow, type MonteCarloPercentileCurves, SimulationMode } from '@finapp/shared';
+import { AppMode, AssetClass, type MonthlySimulationRow, SimulationMode } from '@finapp/shared';
 
 import { formatCompactCurrency, formatCurrency, formatPeriodLabel } from '../../lib/format';
-import { useActiveSimulationResult, useAppStore, useCompareSimulationResults } from '../../store/useAppStore';
+import { type WorkspaceSnapshot, useActiveSimulationResult, useAppStore, useCompareSimulationResults } from '../../store/useAppStore';
 import { SegmentedToggle } from '../shared/SegmentedToggle';
 
 type ChartPoint = {
@@ -52,7 +52,6 @@ const stressScenarioColors = [
   'var(--theme-color-stress-c)',
   'var(--theme-color-stress-d)',
 ];
-const comparePortfolioBColor = 'var(--theme-color-info)';
 
 const inflationFactor = (inflationRate: number, monthIndex: number): number => (1 + inflationRate) ** (monthIndex / 12);
 
@@ -189,7 +188,17 @@ export const PortfolioChart = () => {
   }, [activeRunInflationRate, chartDisplayMode, result, simulationMode]);
 
   if (mode === AppMode.Compare) {
-    const resolveSlotResult = (workspace: (typeof compareResults)['leftWorkspace']) => {
+    const slotPalette = [
+      'var(--theme-chart-manual-line)',
+      'var(--theme-color-info)',
+      'var(--theme-color-positive)',
+      'var(--theme-color-warning)',
+      '#7c3aed',
+      '#0f766e',
+      '#c2410c',
+      '#475569',
+    ];
+    const resolveSlotResult = (workspace: WorkspaceSnapshot | undefined) => {
       if (!workspace) {
         return null;
       }
@@ -199,206 +208,181 @@ export const PortfolioChart = () => {
           : workspace.simulationResults.monteCarlo;
       return preferred ?? workspace.simulationResults.manual ?? workspace.simulationResults.monteCarlo;
     };
-
-    const buildTotals = (rows: MonthlySimulationRow[], slotInflationRate: number) =>
-      rows.map((row) => {
-        const nominal = totalFromRow(row);
-        return chartDisplayMode === 'real'
-          ? nominal / inflationFactor(slotInflationRate, row.monthIndex)
-          : nominal;
-      });
-
-    const leftResult = resolveSlotResult(compareResults.leftWorkspace);
-    const rightResult = resolveSlotResult(compareResults.rightWorkspace);
-    const leftInflationRate = leftResult?.configSnapshot?.coreParams.inflationRate ?? inflationRate;
-    const rightInflationRate = rightResult?.configSnapshot?.coreParams.inflationRate ?? inflationRate;
-    const toDisplayValue = (value: number, monthIndexOneBased: number, slotInflationRate: number) =>
-      chartDisplayMode === 'real' ? value / inflationFactor(slotInflationRate, monthIndexOneBased) : value;
-    const toDisplayBands = (curve: MonteCarloPercentileCurves | null, slotInflationRate: number): MonteCarloBands | null => {
-      if (!curve) {
-        return null;
-      }
+    const slotSeries = compareResults.slotOrder.map((slotId, index) => {
+      const resultForSlot = resolveSlotResult(compareResults.slots[slotId]);
+      const rows = resultForSlot?.result.rows ?? [];
+      const slotInflationRate = resultForSlot?.configSnapshot?.coreParams.inflationRate ?? inflationRate;
+      const totals =
+        simulationMode === SimulationMode.MonteCarlo && resultForSlot?.monteCarlo
+          ? resultForSlot.monteCarlo.percentileCurves.total.p50.map((value: number, curveIndex: number) =>
+              chartDisplayMode === 'real'
+                ? value / inflationFactor(slotInflationRate, curveIndex + 1)
+                : value,
+            )
+          : rows.map((row: MonthlySimulationRow) => {
+              const nominal = totalFromRow(row);
+              return chartDisplayMode === 'real'
+                ? nominal / inflationFactor(slotInflationRate, row.monthIndex)
+                : nominal;
+            });
       return {
-        p10: curve.p10.map((value, index) => toDisplayValue(value, index + 1, slotInflationRate)),
-        p25: curve.p25.map((value, index) => toDisplayValue(value, index + 1, slotInflationRate)),
-        p50: curve.p50.map((value, index) => toDisplayValue(value, index + 1, slotInflationRate)),
-        p75: curve.p75.map((value, index) => toDisplayValue(value, index + 1, slotInflationRate)),
-        p90: curve.p90.map((value, index) => toDisplayValue(value, index + 1, slotInflationRate)),
+        slotId,
+        color: slotPalette[index] ?? slotPalette[slotPalette.length - 1]!,
+        rows,
+        totals,
+        inflationRate: slotInflationRate,
+        result: resultForSlot,
       };
-    };
-    const leftRows = leftResult?.result.rows ?? [];
-    const rightRows = rightResult?.result.rows ?? [];
-    const leftBands =
-      simulationMode === SimulationMode.MonteCarlo
-        ? toDisplayBands(leftResult?.monteCarlo?.percentileCurves.total ?? null, leftInflationRate)
-        : null;
-    const rightBands =
-      simulationMode === SimulationMode.MonteCarlo
-        ? toDisplayBands(rightResult?.monteCarlo?.percentileCurves.total ?? null, rightInflationRate)
+    });
+    const baselineSlotId = compareResults.slotOrder.includes(compareResults.baselineSlotId)
+      ? compareResults.baselineSlotId
+      : (compareResults.slotOrder[0] ?? 'A');
+    const baselineSeries = slotSeries.find((entry) => entry.slotId === baselineSlotId) ?? slotSeries[0] ?? null;
+    const baselinePercentiles =
+      simulationMode === SimulationMode.MonteCarlo && baselineSeries?.result?.monteCarlo
+        ? baselineSeries.result.monteCarlo.percentileCurves.total
         : null;
 
-    if (leftRows.length === 0 && rightRows.length === 0) {
+    if (slotSeries.every((entry) => entry.totals.length === 0)) {
       return (
         <section className="rounded-xl border border-brand-border bg-white p-4 shadow-panel">
           <div className="flex h-[360px] items-center justify-center rounded-lg border border-dashed border-brand-border bg-brand-surface">
-            <p className="text-sm text-slate-500">Run compare simulation to see both portfolio projections.</p>
+            <p className="text-sm text-slate-500">Run compare simulation to see active portfolio projections.</p>
           </div>
         </section>
       );
     }
 
-    const leftTotals = buildTotals(leftRows, leftInflationRate);
-    const rightTotals = buildTotals(rightRows, rightInflationRate);
-    const maxCount = Math.max(
-      leftTotals.length,
-      rightTotals.length,
-      leftBands?.p50.length ?? 0,
-      rightBands?.p50.length ?? 0,
-      1,
-    );
     const width = chartWidth;
+    const maxCount = Math.max(1, ...slotSeries.map((entry) => entry.totals.length));
     const plotWidth = width - margin.left - margin.right;
     const xAt = (index: number): number => margin.left + (index / Math.max(maxCount - 1, 1)) * plotWidth;
+    const baselineBands =
+      baselinePercentiles === null
+        ? null
+        : {
+            p10: baselinePercentiles.p10.map((value, index) =>
+              chartDisplayMode === 'real'
+                ? value / inflationFactor(baselineSeries?.inflationRate ?? inflationRate, index + 1)
+                : value,
+            ),
+            p25: baselinePercentiles.p25.map((value, index) =>
+              chartDisplayMode === 'real'
+                ? value / inflationFactor(baselineSeries?.inflationRate ?? inflationRate, index + 1)
+                : value,
+            ),
+            p50: baselinePercentiles.p50.map((value, index) =>
+              chartDisplayMode === 'real'
+                ? value / inflationFactor(baselineSeries?.inflationRate ?? inflationRate, index + 1)
+                : value,
+            ),
+            p75: baselinePercentiles.p75.map((value, index) =>
+              chartDisplayMode === 'real'
+                ? value / inflationFactor(baselineSeries?.inflationRate ?? inflationRate, index + 1)
+                : value,
+            ),
+            p90: baselinePercentiles.p90.map((value, index) =>
+              chartDisplayMode === 'real'
+                ? value / inflationFactor(baselineSeries?.inflationRate ?? inflationRate, index + 1)
+                : value,
+            ),
+          };
     const maxY = Math.max(
       1,
-      ...leftTotals,
-      ...rightTotals,
-      ...(leftBands?.p90 ?? []),
-      ...(rightBands?.p90 ?? []),
+      ...slotSeries.flatMap((entry) => entry.totals),
+      ...(baselineBands?.p90 ?? []),
     );
     const yAt = (value: number): number => margin.top + plotHeight - (value / maxY) * plotHeight;
-    const leftPath = linePath(leftTotals.map((value, index) => ({ x: xAt(index), y: yAt(value) })));
-    const rightPath = linePath(rightTotals.map((value, index) => ({ x: xAt(index), y: yAt(value) })));
-    const leftMedianPath = linePath((leftBands?.p50 ?? []).map((value, index) => ({ x: xAt(index), y: yAt(value) })));
-    const rightMedianPath = linePath((rightBands?.p50 ?? []).map((value, index) => ({ x: xAt(index), y: yAt(value) })));
-    const leftStressScenarios = compareResults.leftWorkspace?.stress.result?.scenarios ?? [];
-    const rightStressScenarios = compareResults.rightWorkspace?.stress.result?.scenarios ?? [];
-    const compareStressEntries = Array.from({
-      length: Math.max(leftStressScenarios.length, rightStressScenarios.length),
-    }).flatMap((_, index) => {
-      const leftScenario = leftStressScenarios[index];
-      const rightScenario = rightStressScenarios[index];
-      const label = leftScenario?.scenarioLabel ?? rightScenario?.scenarioLabel ?? `Scenario ${index + 1}`;
-      const color = stressScenarioColors[index] ?? 'var(--theme-color-text-muted)';
-
-      const buildCurve = (
-        scenarioRows: MonthlySimulationRow[] | undefined,
-        slotInflationRate: number,
-      ) =>
-        (scenarioRows ?? []).map((row) => {
+    const compareStressEntries = slotSeries.flatMap((entry, slotIndex) => {
+      const slotStressScenarios = compareResults.slots[entry.slotId]?.stress.result?.scenarios ?? [];
+      return slotStressScenarios.map((scenario, scenarioIndex) => {
+        const curve = scenario.result.rows.map((row) => {
           const nominal = row.endBalances.stocks + row.endBalances.bonds + row.endBalances.cash;
           return chartDisplayMode === 'real'
-            ? nominal / inflationFactor(slotInflationRate, row.monthIndex)
+            ? nominal / inflationFactor(entry.inflationRate, row.monthIndex)
             : nominal;
         });
-
-      const leftCurve = buildCurve(leftScenario?.result.rows, leftInflationRate);
-      const rightCurve = buildCurve(rightScenario?.result.rows, rightInflationRate);
-
-      return [
-        leftScenario
-          ? {
-              key: `${leftScenario.scenarioId}-A`,
-              label: `${label} (A)`,
-              scenarioId: leftScenario.scenarioId,
-              slot: 'A' as const,
-              color,
-              curve: leftCurve,
-              rows: leftScenario.result.rows,
-              inflationRate: leftInflationRate,
-              dashed: false,
-              path: linePath(leftCurve.slice(0, maxCount).map((value, localIndex) => ({ x: xAt(localIndex), y: yAt(value) }))),
-            }
-          : null,
-        rightScenario
-          ? {
-              key: `${rightScenario.scenarioId}-B`,
-              label: `${label} (B)`,
-              scenarioId: rightScenario.scenarioId,
-              slot: 'B' as const,
-              color,
-              curve: rightCurve,
-              rows: rightScenario.result.rows,
-              inflationRate: rightInflationRate,
-              dashed: true,
-              path: linePath(rightCurve.slice(0, maxCount).map((value, localIndex) => ({ x: xAt(localIndex), y: yAt(value) }))),
-            }
-          : null,
-      ].filter((entry): entry is NonNullable<typeof entry> => entry !== null);
+        return {
+          key: `${scenario.scenarioId}-${entry.slotId}`,
+          label: `${scenario.scenarioLabel} (${entry.slotId})`,
+          color: stressScenarioColors[scenarioIndex] ?? 'var(--theme-color-text-muted)',
+          slotIndex,
+          curve,
+          rows: scenario.result.rows,
+          inflationRate: entry.inflationRate,
+        };
+      });
     });
-    const xValues = Array.from({ length: maxCount }, (_, index) => xAt(index));
     const yTicks = 6;
     const xTicks = Math.min(8, maxCount);
     const localCount = Math.max(maxCount - 1, 1);
-
     const activeHoverIndex = hoverIndex === null ? null : Math.max(0, Math.min(hoverIndex, maxCount - 1));
     const hoverX = activeHoverIndex === null ? null : xAt(activeHoverIndex);
-    const leftHoverRow = activeHoverIndex === null ? null : leftRows[activeHoverIndex];
-    const rightHoverRow = activeHoverIndex === null ? null : rightRows[activeHoverIndex];
-    const toDisplay = (row: MonthlySimulationRow, value: number, slotInflationRate: number) =>
-      chartDisplayMode === 'real' ? value / inflationFactor(slotInflationRate, row.monthIndex) : value;
-    const tooltipPoints: CompareTooltipPoint[] = [
-      leftHoverRow || (activeHoverIndex !== null && leftBands?.p50[activeHoverIndex] !== undefined)
-        ? {
-            label: 'Portfolio A',
-            color: 'var(--theme-chart-manual-line)',
-            portfolio:
-              activeHoverIndex !== null && leftBands?.p50[activeHoverIndex] !== undefined
-                ? (leftBands.p50[activeHoverIndex] ?? 0)
-                : leftHoverRow
-                  ? toDisplay(leftHoverRow, totalFromRow(leftHoverRow), leftInflationRate)
-                  : 0,
-            withdrawal: leftHoverRow ? toDisplay(leftHoverRow, leftHoverRow.withdrawals.actual, leftInflationRate) : 0,
-            dashed: false,
-          }
-        : null,
-      rightHoverRow || (activeHoverIndex !== null && rightBands?.p50[activeHoverIndex] !== undefined)
-        ? {
-            label: 'Portfolio B',
-            color: comparePortfolioBColor,
-            portfolio:
-              activeHoverIndex !== null && rightBands?.p50[activeHoverIndex] !== undefined
-                ? (rightBands.p50[activeHoverIndex] ?? 0)
-                : rightHoverRow
-                  ? toDisplay(rightHoverRow, totalFromRow(rightHoverRow), rightInflationRate)
-                  : 0,
-            withdrawal: rightHoverRow ? toDisplay(rightHoverRow, rightHoverRow.withdrawals.actual, rightInflationRate) : 0,
-            dashed: false,
-          }
-        : null,
-    ].filter((entry): entry is CompareTooltipPoint => entry !== null);
-    const compareStressTooltipPoints: CompareTooltipPoint[] =
+    const hoverYear = activeHoverIndex === null ? null : Math.floor(activeHoverIndex / 12) + 1;
+    const tooltipPoints: CompareTooltipPoint[] =
       activeHoverIndex === null
         ? []
-        : compareStressEntries
-            .map((entry) => {
-              const row = entry.rows[activeHoverIndex];
-              if (!row) {
-                return null;
-              }
-              const nominal = row.endBalances.stocks + row.endBalances.bonds + row.endBalances.cash;
-              const portfolio =
-                chartDisplayMode === 'real'
-                  ? nominal / inflationFactor(entry.inflationRate, row.monthIndex)
-                  : nominal;
-              const withdrawal =
-                chartDisplayMode === 'real'
-                  ? row.withdrawals.actual / inflationFactor(entry.inflationRate, row.monthIndex)
-                  : row.withdrawals.actual;
-              return {
-                label: entry.label,
-                color: entry.color,
-                portfolio,
-                withdrawal,
-                dashed: entry.dashed,
-              } satisfies CompareTooltipPoint;
-            })
-            .filter((entry): entry is CompareTooltipPoint => entry !== null);
-    const hoverYear = activeHoverIndex === null ? null : Math.floor(activeHoverIndex / 12) + 1;
+        : slotSeries.reduce<CompareTooltipPoint[]>((acc, entry) => {
+            const total = entry.totals[activeHoverIndex];
+            if (total === undefined) {
+              return acc;
+            }
+            const row = entry.rows[activeHoverIndex] ?? null;
+            const withdrawal = row
+              ? chartDisplayMode === 'real'
+                ? row.withdrawals.actual / inflationFactor(entry.inflationRate, row.monthIndex)
+                : row.withdrawals.actual
+              : 0;
+            acc.push({
+              label: `Portfolio ${entry.slotId}`,
+              color: entry.color,
+              portfolio: total,
+              withdrawal,
+              dashed: false,
+            });
+            return acc;
+          }, []);
+    const stressTooltipPoints: CompareTooltipPoint[] =
+      activeHoverIndex === null
+        ? []
+        : compareStressEntries.reduce<CompareTooltipPoint[]>((acc, entry) => {
+            const row = entry.rows[activeHoverIndex];
+            if (!row) {
+              return acc;
+            }
+            const nominal = row.endBalances.stocks + row.endBalances.bonds + row.endBalances.cash;
+            const portfolio =
+              chartDisplayMode === 'real'
+                ? nominal / inflationFactor(entry.inflationRate, row.monthIndex)
+                : nominal;
+            const withdrawal =
+              chartDisplayMode === 'real'
+                ? row.withdrawals.actual / inflationFactor(entry.inflationRate, row.monthIndex)
+                : row.withdrawals.actual;
+            acc.push({
+              label: entry.label,
+              color: entry.color,
+              portfolio,
+              withdrawal,
+              dashed: entry.slotIndex > 0,
+            });
+            return acc;
+          }, []);
+    const baselinePercentileTooltip =
+      activeHoverIndex === null || !baselineBands
+        ? null
+        : {
+            p10: baselineBands.p10[activeHoverIndex] ?? null,
+            p25: baselineBands.p25[activeHoverIndex] ?? null,
+            p50: baselineBands.p50[activeHoverIndex] ?? null,
+            p75: baselineBands.p75[activeHoverIndex] ?? null,
+            p90: baselineBands.p90[activeHoverIndex] ?? null,
+          };
 
     return (
       <section className="rounded-xl border border-brand-border bg-white p-4 shadow-panel">
         <div className="mb-3 flex flex-wrap items-center justify-between gap-3">
+          <div className="text-xs text-slate-500">Showing {slotSeries.length} active portfolios.</div>
           <div className="ml-auto flex items-center gap-4">
             <SegmentedToggle
               value={chartDisplayMode}
@@ -430,21 +414,13 @@ export const PortfolioChart = () => {
               const y = yAt(value);
               return (
                 <g key={`compare-y-${index}`}>
-                  <line
-                    x1={margin.left}
-                    y1={y}
-                    x2={margin.left + plotWidth}
-                    y2={y}
-                    stroke="var(--theme-color-chart-grid)"
-                    strokeDasharray="4 4"
-                  />
+                  <line x1={margin.left} y1={y} x2={margin.left + plotWidth} y2={y} stroke="var(--theme-color-chart-grid)" strokeDasharray="4 4" />
                   <text x={margin.left - 10} y={y + 4} textAnchor="end" fontSize="11" fill="var(--theme-color-chart-text)">
                     {formatCompactCurrency(Math.round(value))}
                   </text>
                 </g>
               );
             })}
-
             {Array.from({ length: xTicks }, (_, index) => {
               const ratio = xTicks <= 1 ? 0 : index / (xTicks - 1);
               const localIndex = Math.round(ratio * (maxCount - 1));
@@ -458,88 +434,72 @@ export const PortfolioChart = () => {
                 </g>
               );
             })}
-
             <line x1={margin.left} x2={margin.left} y1={margin.top} y2={margin.top + plotHeight} stroke="var(--theme-color-chart-axis)" />
-            <line
-              x1={margin.left}
-              x2={margin.left + plotWidth}
-              y1={margin.top + plotHeight}
-              y2={margin.top + plotHeight}
-              stroke="var(--theme-color-chart-axis)"
-            />
-            {simulationMode === SimulationMode.MonteCarlo ? (
+            <line x1={margin.left} x2={margin.left + plotWidth} y1={margin.top + plotHeight} y2={margin.top + plotHeight} stroke="var(--theme-color-chart-axis)" />
+            {baselineBands && baselineSeries ? (
               <>
-                {leftBands ? (
-                  <>
-                    <path d={areaPath(xValues.slice(0, leftBands.p10.length), leftBands.p10.map(yAt), leftBands.p90.map(yAt))} fill="var(--theme-chart-mc-band-outer)" />
-                    <path d={areaPath(xValues.slice(0, leftBands.p25.length), leftBands.p25.map(yAt), leftBands.p75.map(yAt))} fill="var(--theme-chart-mc-band-inner)" />
-                    <path d={leftMedianPath} fill="none" stroke="var(--theme-chart-manual-line)" strokeWidth={2.5} />
-                  </>
-                ) : (
-                  <path d={leftPath} fill="none" stroke="var(--theme-chart-manual-line)" strokeWidth={3} />
-                )}
-                {rightBands ? (
-                  <>
-                    <path
-                      d={areaPath(
-                        xValues.slice(0, rightBands.p10.length),
-                        rightBands.p10.map(yAt),
-                        rightBands.p90.map(yAt),
-                      )}
-                      fill={comparePortfolioBColor}
-                      fillOpacity={0.16}
-                    />
-                    <path
-                      d={areaPath(
-                        xValues.slice(0, rightBands.p25.length),
-                        rightBands.p25.map(yAt),
-                        rightBands.p75.map(yAt),
-                      )}
-                      fill={comparePortfolioBColor}
-                      fillOpacity={0.26}
-                    />
-                    <path d={rightMedianPath} fill="none" stroke={comparePortfolioBColor} strokeWidth={2.5} />
-                  </>
-                ) : (
-                  <path d={rightPath} fill="none" stroke={comparePortfolioBColor} strokeWidth={2.5} />
-                )}
+                <path
+                  d={areaPath(
+                    Array.from({ length: baselineBands.p10.length }, (_, index) => xAt(index)),
+                    baselineBands.p90.map(yAt),
+                    baselineBands.p10.map(yAt),
+                  )}
+                  fill={baselineSeries.color}
+                  fillOpacity={0.12}
+                />
+                <path
+                  d={areaPath(
+                    Array.from({ length: baselineBands.p25.length }, (_, index) => xAt(index)),
+                    baselineBands.p75.map(yAt),
+                    baselineBands.p25.map(yAt),
+                  )}
+                  fill={baselineSeries.color}
+                  fillOpacity={0.2}
+                />
               </>
-            ) : (
-              <>
-                <path d={rightPath} fill="none" stroke={comparePortfolioBColor} strokeWidth={2.5} />
-                <path d={leftPath} fill="none" stroke="var(--theme-chart-manual-line)" strokeWidth={3} />
-              </>
-            )}
+            ) : null}
+            {slotSeries.map((entry, index) => (
+              <path
+                key={`compare-slot-${entry.slotId}`}
+                d={linePath(entry.totals.map((value: number, valueIndex: number) => ({ x: xAt(valueIndex), y: yAt(value) })))}
+                fill="none"
+                stroke={entry.color}
+                strokeWidth={index === 0 ? 2.8 : 2.2}
+              />
+            ))}
             {!chartBreakdownEnabled
               ? compareStressEntries.map((entry) => (
                   <path
-                    key={`compare-stress-scenario-${entry.key}`}
-                    d={entry.path}
+                    key={`compare-stress-${entry.key}`}
+                    d={linePath(entry.curve.map((value, valueIndex) => ({ x: xAt(valueIndex), y: yAt(value) })))}
                     fill="none"
                     stroke={entry.color}
-                    strokeWidth="2"
-                    strokeDasharray={entry.dashed ? '2 4' : undefined}
-                    opacity={0.95}
+                    strokeWidth={2}
+                    strokeDasharray={entry.slotIndex > 0 ? '2 4' : undefined}
+                    opacity={0.92}
                   />
                 ))
               : null}
-
             {hoverX !== null ? (
               <line x1={hoverX} y1={margin.top} x2={hoverX} y2={margin.top + plotHeight} stroke="var(--theme-color-chart-text)" strokeDasharray="4 4" />
             ) : null}
           </svg>
-          <div className="pointer-events-none absolute right-3 top-3 rounded-md border border-brand-border bg-white/95 px-3 py-2 text-xs text-slate-700">
-            <div className="flex items-center gap-2"><span className="h-[2px] w-4 bg-[var(--theme-chart-manual-line)]" />Portfolio A{simulationMode === SimulationMode.MonteCarlo ? ' (P50 + bands)' : ''}</div>
-            <div className="mt-1 flex items-center gap-2"><span className="h-[2px] w-4" style={{ backgroundColor: comparePortfolioBColor }} />Portfolio B{simulationMode === SimulationMode.MonteCarlo ? ' (P50 + bands)' : ''}</div>
+          <div className="pointer-events-none absolute right-3 top-3 max-w-[220px] rounded-md border border-brand-border bg-white/95 px-3 py-2 text-xs text-slate-700">
+            {slotSeries.map((entry) => (
+              <div key={`legend-${entry.slotId}`} className="mt-1 flex items-center gap-2 first:mt-0">
+                <span className="h-[2px] w-4" style={{ backgroundColor: entry.color }} />
+                Portfolio {entry.slotId}
+              </div>
+            ))}
             {compareStressEntries.length > 0 ? (
               <div className="mt-2 border-t border-brand-border pt-1.5">
                 {compareStressEntries.map((entry) => (
-                  <div key={entry.key} className="mt-1 flex items-center gap-2">
+                  <div key={`legend-stress-${entry.key}`} className="mt-1 flex items-center gap-2">
                     <span
-                      className="inline-block w-4 border-t-2 border-dotted"
+                      className="inline-block w-4 border-t-2"
                       style={{
                         borderTopColor: entry.color,
-                        borderTopStyle: entry.dashed ? 'dashed' : 'solid',
+                        borderTopStyle: entry.slotIndex > 0 ? 'dashed' : 'solid',
                       }}
                     />
                     <span className="max-w-[170px] truncate">{entry.label}</span>
@@ -547,19 +507,42 @@ export const PortfolioChart = () => {
                 ))}
               </div>
             ) : null}
+            {baselineSeries && baselineBands ? (
+              <div className="mt-2 border-t border-brand-border pt-1.5">
+                <div className="text-[10px] font-semibold text-slate-500">Baseline Bands ({baselineSeries.slotId})</div>
+                <div className="mt-1 flex items-center gap-2">
+                  <span className="inline-block h-2 w-4 rounded" style={{ backgroundColor: baselineSeries.color, opacity: 0.2 }} />
+                  25-75
+                </div>
+                <div className="mt-1 flex items-center gap-2">
+                  <span className="inline-block h-2 w-4 rounded" style={{ backgroundColor: baselineSeries.color, opacity: 0.12 }} />
+                  10-90
+                </div>
+              </div>
+            ) : null}
           </div>
-          {hoverX !== null && (tooltipPoints.length > 0 || compareStressTooltipPoints.length > 0) ? (
+          {hoverX !== null && (tooltipPoints.length > 0 || stressTooltipPoints.length > 0) ? (
             <div
-              className="pointer-events-none absolute z-30 w-[280px] rounded-md border border-slate-200 bg-white p-3 text-xs shadow-lg"
+              className="pointer-events-none absolute z-30 w-[300px] rounded-md border border-slate-200 bg-white p-3 text-xs shadow-lg"
               style={{
-                left: `calc(${((hoverX - margin.left) / Math.max(plotWidth, 1)) * 100}% + ${hoverX > width * 0.72 ? -290 : 14}px)`,
+                left: `calc(${((hoverX - margin.left) / Math.max(plotWidth, 1)) * 100}% + ${hoverX > width * 0.72 ? -310 : 14}px)`,
                 top: 10,
               }}
             >
               <p className="font-semibold text-slate-800">{hoverYear === null ? '—' : `Year ${hoverYear}`}</p>
+              {baselinePercentileTooltip && baselineSeries ? (
+                <div className="mt-2 rounded border border-slate-100 bg-slate-50 px-2 py-1">
+                  <p className="font-medium text-slate-700">Baseline {baselineSeries.slotId} Percentiles</p>
+                  <p className="mt-1 flex items-center justify-between gap-2"><span>p10</span><span className="font-mono text-slate-800">{formatCurrency(Math.round(baselinePercentileTooltip.p10 ?? 0))}</span></p>
+                  <p className="flex items-center justify-between gap-2"><span>p25</span><span className="font-mono text-slate-800">{formatCurrency(Math.round(baselinePercentileTooltip.p25 ?? 0))}</span></p>
+                  <p className="flex items-center justify-between gap-2"><span>p50</span><span className="font-mono text-slate-800">{formatCurrency(Math.round(baselinePercentileTooltip.p50 ?? 0))}</span></p>
+                  <p className="flex items-center justify-between gap-2"><span>p75</span><span className="font-mono text-slate-800">{formatCurrency(Math.round(baselinePercentileTooltip.p75 ?? 0))}</span></p>
+                  <p className="flex items-center justify-between gap-2"><span>p90</span><span className="font-mono text-slate-800">{formatCurrency(Math.round(baselinePercentileTooltip.p90 ?? 0))}</span></p>
+                </div>
+              ) : null}
               <div className="mt-2 space-y-2 text-slate-600">
-                {[...tooltipPoints, ...compareStressTooltipPoints].map((entry, entryIndex) => (
-                  <div key={`${entry.label}-${entryIndex}`} className="rounded border border-slate-100 bg-slate-50 px-2 py-1">
+                {[...tooltipPoints, ...stressTooltipPoints].map((entry) => (
+                  <div key={entry.label} className="rounded border border-slate-100 bg-slate-50 px-2 py-1">
                     <p className="mb-1 flex items-center gap-1.5 font-medium text-slate-700">
                       <span
                         className="inline-block h-[2px] w-4 border-t-2"

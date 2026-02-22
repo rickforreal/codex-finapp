@@ -61,7 +61,8 @@ type RunStatus = 'idle' | 'running' | 'complete' | 'error';
 type ReforecastStatus = 'idle' | 'pending' | 'complete';
 type StressRunStatus = 'idle' | 'running' | 'complete' | 'error';
 type ThemeStatus = 'idle' | 'loading' | 'ready' | 'error';
-export type CompareSlotId = 'left' | 'right';
+export const COMPARE_SLOT_IDS = ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H'] as const;
+export type CompareSlotId = (typeof COMPARE_SLOT_IDS)[number];
 
 type WithdrawalParamKey =
   | 'initialWithdrawalRate'
@@ -156,9 +157,10 @@ export type SnapshotState = {
   planningWorkspace: WorkspaceSnapshot | null;
   trackingWorkspace: WorkspaceSnapshot | null;
   compareWorkspace: {
-    activeSlot: CompareSlotId;
-    leftWorkspace: WorkspaceSnapshot | null;
-    rightWorkspace: WorkspaceSnapshot | null;
+    activeSlotId: CompareSlotId;
+    baselineSlotId: CompareSlotId;
+    slotOrder: CompareSlotId[];
+    slots: Partial<Record<CompareSlotId, WorkspaceSnapshot>>;
   };
   simulationMode: SimulationMode;
   selectedHistoricalEra: HistoricalEra;
@@ -242,6 +244,9 @@ export type SnapshotState = {
 export type AppStore = SnapshotState & {
   setMode: (mode: AppMode) => void;
   setCompareActiveSlot: (slot: CompareSlotId) => void;
+  setCompareBaselineSlot: (slot: CompareSlotId) => void;
+  addCompareSlotFromSource: (sourceSlotId: CompareSlotId) => void;
+  removeCompareSlot: (slot: CompareSlotId) => void;
   upsertActualOverride: (monthIndex: number, patch: Partial<ActualMonthOverride>) => void;
   clearActualRowOverrides: (monthIndex: number) => void;
   clearAllActualOverrides: () => void;
@@ -675,10 +680,45 @@ const cloneWorkspace = (workspace: WorkspaceSnapshot): WorkspaceSnapshot => ({
 });
 
 const cloneCompareWorkspace = (compareWorkspace: SnapshotState['compareWorkspace']): SnapshotState['compareWorkspace'] => ({
-  activeSlot: compareWorkspace.activeSlot,
-  leftWorkspace: compareWorkspace.leftWorkspace ? cloneWorkspace(compareWorkspace.leftWorkspace) : null,
-  rightWorkspace: compareWorkspace.rightWorkspace ? cloneWorkspace(compareWorkspace.rightWorkspace) : null,
+  activeSlotId: compareWorkspace.activeSlotId,
+  baselineSlotId: compareWorkspace.baselineSlotId,
+  slotOrder: [...compareWorkspace.slotOrder],
+  slots: Object.fromEntries(
+    Object.entries(compareWorkspace.slots).map(([slotId, workspace]) => [
+      slotId,
+      workspace ? cloneWorkspace(workspace) : workspace,
+    ]),
+  ),
 });
+
+const sortCompareSlotOrder = (slotOrder: CompareSlotId[]): CompareSlotId[] =>
+  [...slotOrder].sort(
+    (left, right) => COMPARE_SLOT_IDS.indexOf(left) - COMPARE_SLOT_IDS.indexOf(right),
+  );
+
+const normalizeCompareWorkspace = (
+  compareWorkspace: SnapshotState['compareWorkspace'],
+): SnapshotState['compareWorkspace'] => {
+  const normalizedSlots = Object.fromEntries(
+    Object.entries(compareWorkspace.slots).filter(([, workspace]) => workspace),
+  ) as SnapshotState['compareWorkspace']['slots'];
+  const normalizedOrder = sortCompareSlotOrder(
+    compareWorkspace.slotOrder.filter((slotId) => Boolean(normalizedSlots[slotId])),
+  );
+  const fallbackOrder: CompareSlotId[] = normalizedOrder.length >= 2 ? normalizedOrder : ['A', 'B'];
+  const activeSlotId = fallbackOrder.includes(compareWorkspace.activeSlotId)
+    ? compareWorkspace.activeSlotId
+    : (fallbackOrder[0] ?? 'A');
+  const baselineSlotId = fallbackOrder.includes(compareWorkspace.baselineSlotId)
+    ? compareWorkspace.baselineSlotId
+    : (fallbackOrder[0] ?? 'A');
+  return {
+    activeSlotId,
+    baselineSlotId,
+    slotOrder: fallbackOrder,
+    slots: normalizedSlots,
+  };
+};
 
 const compareWorkspaceWithCurrentState = (state: AppStore): SnapshotState['compareWorkspace'] => {
   const compareWorkspace = cloneCompareWorkspace(state.compareWorkspace);
@@ -686,12 +726,11 @@ const compareWorkspaceWithCurrentState = (state: AppStore): SnapshotState['compa
     return compareWorkspace;
   }
   const currentWorkspace = cloneWorkspace(workspaceFromState(state));
-  if (compareWorkspace.activeSlot === 'left') {
-    compareWorkspace.leftWorkspace = currentWorkspace;
-  } else {
-    compareWorkspace.rightWorkspace = currentWorkspace;
+  compareWorkspace.slots[compareWorkspace.activeSlotId] = currentWorkspace;
+  if (!compareWorkspace.slotOrder.includes(compareWorkspace.activeSlotId)) {
+    compareWorkspace.slotOrder = [...compareWorkspace.slotOrder, compareWorkspace.activeSlotId];
   }
-  return compareWorkspace;
+  return normalizeCompareWorkspace(compareWorkspace);
 };
 
 const workspaceFromState = (state: AppStore): WorkspaceSnapshot => ({
@@ -847,7 +886,7 @@ const cloneSnapshotState = (snapshot: SnapshotState): SnapshotState => ({
   trackingInitialized: snapshot.trackingInitialized,
   planningWorkspace: snapshot.planningWorkspace ? cloneWorkspace(snapshot.planningWorkspace) : null,
   trackingWorkspace: snapshot.trackingWorkspace ? cloneWorkspace(snapshot.trackingWorkspace) : null,
-  compareWorkspace: cloneCompareWorkspace(snapshot.compareWorkspace),
+  compareWorkspace: normalizeCompareWorkspace(cloneCompareWorkspace(snapshot.compareWorkspace)),
   simulationMode: snapshot.simulationMode,
   selectedHistoricalEra: snapshot.selectedHistoricalEra,
   coreParams: {
@@ -1045,9 +1084,10 @@ export const useAppStore = create<AppStore>((set) => ({
   planningWorkspace: null,
   trackingWorkspace: null,
   compareWorkspace: {
-    activeSlot: 'left',
-    leftWorkspace: null,
-    rightWorkspace: null,
+    activeSlotId: 'A',
+    baselineSlotId: 'A',
+    slotOrder: ['A', 'B'],
+    slots: {},
   },
   simulationMode: SimulationMode.Manual,
   selectedHistoricalEra: HistoricalEra.FullHistory,
@@ -1141,11 +1181,7 @@ export const useAppStore = create<AppStore>((set) => ({
       const persistedCompareWorkspace = (() => {
         const nextCompare = cloneCompareWorkspace(state.compareWorkspace);
         if (state.mode === AppMode.Compare) {
-          if (nextCompare.activeSlot === 'left') {
-            nextCompare.leftWorkspace = currentWorkspace;
-          } else {
-            nextCompare.rightWorkspace = currentWorkspace;
-          }
+          nextCompare.slots[nextCompare.activeSlotId] = currentWorkspace;
         }
         return nextCompare;
       })();
@@ -1153,23 +1189,28 @@ export const useAppStore = create<AppStore>((set) => ({
       if (mode === AppMode.Compare) {
         const seededCompareWorkspace = (() => {
           const next = cloneCompareWorkspace(persistedCompareWorkspace);
-          if (!next.leftWorkspace) {
-            next.leftWorkspace = cloneWorkspace(currentWorkspace);
+          if (!next.slots.A) {
+            next.slots.A = cloneWorkspace(currentWorkspace);
           }
-          if (!next.rightWorkspace) {
-            next.rightWorkspace = cloneWorkspace(next.leftWorkspace ?? currentWorkspace);
+          if (!next.slots.B) {
+            next.slots.B = cloneWorkspace(next.slots.A ?? currentWorkspace);
+          }
+          if (next.slotOrder.length < 2) {
+            next.slotOrder = ['A', 'B'];
+          }
+          if (!next.slotOrder.includes(next.activeSlotId)) {
+            next.activeSlotId = next.slotOrder[0] ?? 'A';
+          }
+          if (!next.slotOrder.includes(next.baselineSlotId)) {
+            next.baselineSlotId = next.slotOrder[0] ?? 'A';
           }
           return next;
         })();
 
-        const activeWorkspace =
-          seededCompareWorkspace.activeSlot === 'left'
-            ? seededCompareWorkspace.leftWorkspace
-            : seededCompareWorkspace.rightWorkspace;
+        const activeWorkspace = seededCompareWorkspace.slots[seededCompareWorkspace.activeSlotId];
         const workspaceToShow = cloneWorkspace(
           activeWorkspace ??
-            seededCompareWorkspace.leftWorkspace ??
-            seededCompareWorkspace.rightWorkspace ??
+            seededCompareWorkspace.slots[seededCompareWorkspace.slotOrder[0] ?? 'A'] ??
             currentWorkspace,
         );
 
@@ -1229,30 +1270,26 @@ export const useAppStore = create<AppStore>((set) => ({
     }),
   setCompareActiveSlot: (slot) =>
     set((state) => {
-      if (state.compareWorkspace.activeSlot === slot) {
+      if (state.compareWorkspace.activeSlotId === slot) {
         return state;
       }
       const nextCompareWorkspace = cloneCompareWorkspace(state.compareWorkspace);
       const currentInputs = currentInputFieldsFromState(state);
+      const activeSlotId = nextCompareWorkspace.activeSlotId;
+      const activeWorkspace = nextCompareWorkspace.slots[activeSlotId];
 
-      if (nextCompareWorkspace.activeSlot === 'left') {
-        nextCompareWorkspace.leftWorkspace = nextCompareWorkspace.leftWorkspace
-          ? cloneWorkspace({
-              ...nextCompareWorkspace.leftWorkspace,
-              ...currentInputs,
-            })
-          : cloneWorkspace(workspaceFromState(state));
-      } else {
-        nextCompareWorkspace.rightWorkspace = nextCompareWorkspace.rightWorkspace
-          ? cloneWorkspace({
-              ...nextCompareWorkspace.rightWorkspace,
-              ...currentInputs,
-            })
-          : cloneWorkspace(workspaceFromState(state));
+      nextCompareWorkspace.slots[activeSlotId] = activeWorkspace
+        ? cloneWorkspace({
+            ...activeWorkspace,
+            ...currentInputs,
+          })
+        : cloneWorkspace(workspaceFromState(state));
+      if (!nextCompareWorkspace.slotOrder.includes(slot)) {
+        return state;
       }
-      nextCompareWorkspace.activeSlot = slot;
+      nextCompareWorkspace.activeSlotId = slot;
 
-      const targetWorkspace = slot === 'left' ? nextCompareWorkspace.leftWorkspace : nextCompareWorkspace.rightWorkspace;
+      const targetWorkspace = nextCompareWorkspace.slots[slot];
       if (!targetWorkspace) {
         return { compareWorkspace: nextCompareWorkspace };
       }
@@ -1260,6 +1297,74 @@ export const useAppStore = create<AppStore>((set) => ({
       return {
         compareWorkspace: nextCompareWorkspace,
         ...inputFieldsFromWorkspace(cloneWorkspace(targetWorkspace)),
+      };
+    }),
+  setCompareBaselineSlot: (slot) =>
+    set((state) => {
+      if (!state.compareWorkspace.slotOrder.includes(slot)) {
+        return state;
+      }
+      if (state.compareWorkspace.baselineSlotId === slot) {
+        return state;
+      }
+      return {
+        compareWorkspace: {
+          ...state.compareWorkspace,
+          baselineSlotId: slot,
+        },
+      };
+    }),
+  addCompareSlotFromSource: (sourceSlotId) =>
+    set((state) => {
+      const nextCompareWorkspace = cloneCompareWorkspace(state.compareWorkspace);
+      if (nextCompareWorkspace.slotOrder.length >= COMPARE_SLOT_IDS.length) {
+        return state;
+      }
+      if (!nextCompareWorkspace.slotOrder.includes(sourceSlotId)) {
+        return state;
+      }
+      const nextSlotId = COMPARE_SLOT_IDS.find((slotId) => !nextCompareWorkspace.slotOrder.includes(slotId));
+      if (!nextSlotId) {
+        return state;
+      }
+      const sourceWorkspace = nextCompareWorkspace.slots[sourceSlotId];
+      if (!sourceWorkspace) {
+        return state;
+      }
+      nextCompareWorkspace.slotOrder = [...nextCompareWorkspace.slotOrder, nextSlotId];
+      nextCompareWorkspace.slots[nextSlotId] = cloneWorkspace(sourceWorkspace);
+      nextCompareWorkspace.slotOrder = sortCompareSlotOrder(nextCompareWorkspace.slotOrder);
+      return {
+        compareWorkspace: nextCompareWorkspace,
+      };
+    }),
+  removeCompareSlot: (slot) =>
+    set((state) => {
+      const nextCompareWorkspace = cloneCompareWorkspace(state.compareWorkspace);
+      if (nextCompareWorkspace.slotOrder.length <= 2) {
+        return state;
+      }
+      if (!nextCompareWorkspace.slotOrder.includes(slot)) {
+        return state;
+      }
+      nextCompareWorkspace.slotOrder = nextCompareWorkspace.slotOrder.filter((slotId) => slotId !== slot);
+      nextCompareWorkspace.slotOrder = sortCompareSlotOrder(nextCompareWorkspace.slotOrder);
+      delete nextCompareWorkspace.slots[slot];
+
+      if (nextCompareWorkspace.activeSlotId === slot) {
+        nextCompareWorkspace.activeSlotId = nextCompareWorkspace.slotOrder[0] ?? 'A';
+      }
+      if (nextCompareWorkspace.baselineSlotId === slot) {
+        nextCompareWorkspace.baselineSlotId = nextCompareWorkspace.slotOrder[0] ?? 'A';
+      }
+
+      const nextActiveWorkspace = nextCompareWorkspace.slots[nextCompareWorkspace.activeSlotId];
+      if (!nextActiveWorkspace || state.mode !== AppMode.Compare) {
+        return { compareWorkspace: nextCompareWorkspace };
+      }
+      return {
+        compareWorkspace: nextCompareWorkspace,
+        ...inputFieldsFromWorkspace(cloneWorkspace(nextActiveWorkspace)),
       };
     }),
   upsertActualOverride: (monthIndex, patch) =>
@@ -1641,8 +1746,7 @@ export const useAppStore = create<AppStore>((set) => ({
   setCompareSlotSimulationStatus: (slot, status, errorMessage = null) =>
     set((state) => {
       const compareWorkspace = cloneCompareWorkspace(state.compareWorkspace);
-      const key = slot === 'left' ? 'leftWorkspace' : 'rightWorkspace';
-      const workspace = compareWorkspace[key];
+      const workspace = compareWorkspace.slots[slot];
       if (!workspace) {
         return state;
       }
@@ -1652,7 +1756,7 @@ export const useAppStore = create<AppStore>((set) => ({
         errorMessage,
       };
 
-      const activeWorkspace = compareWorkspace.activeSlot === slot;
+      const activeWorkspace = compareWorkspace.activeSlotId === slot;
       return activeWorkspace
         ? {
             compareWorkspace,
@@ -1663,8 +1767,7 @@ export const useAppStore = create<AppStore>((set) => ({
   setCompareSlotSimulationResult: (slot, mode, result) =>
     set((state) => {
       const compareWorkspace = cloneCompareWorkspace(state.compareWorkspace);
-      const key = slot === 'left' ? 'leftWorkspace' : 'rightWorkspace';
-      const workspace = compareWorkspace[key];
+      const workspace = compareWorkspace.slots[slot];
       if (!workspace) {
         return state;
       }
@@ -1677,7 +1780,7 @@ export const useAppStore = create<AppStore>((set) => ({
       };
       workspace.simulationMode = mode;
 
-      const activeWorkspace = compareWorkspace.activeSlot === slot;
+      const activeWorkspace = compareWorkspace.activeSlotId === slot;
       return activeWorkspace
         ? {
             compareWorkspace,
@@ -1688,8 +1791,7 @@ export const useAppStore = create<AppStore>((set) => ({
   setCompareSlotStressStatus: (slot, status, errorMessage = null) =>
     set((state) => {
       const compareWorkspace = cloneCompareWorkspace(state.compareWorkspace);
-      const key = slot === 'left' ? 'leftWorkspace' : 'rightWorkspace';
-      const workspace = compareWorkspace[key];
+      const workspace = compareWorkspace.slots[slot];
       if (!workspace) {
         return state;
       }
@@ -1699,7 +1801,7 @@ export const useAppStore = create<AppStore>((set) => ({
         errorMessage,
       };
 
-      const activeWorkspace = compareWorkspace.activeSlot === slot;
+      const activeWorkspace = compareWorkspace.activeSlotId === slot;
       return activeWorkspace
         ? {
             compareWorkspace,
@@ -1715,8 +1817,7 @@ export const useAppStore = create<AppStore>((set) => ({
   setCompareSlotStressResult: (slot, result) =>
     set((state) => {
       const compareWorkspace = cloneCompareWorkspace(state.compareWorkspace);
-      const key = slot === 'left' ? 'leftWorkspace' : 'rightWorkspace';
-      const workspace = compareWorkspace[key];
+      const workspace = compareWorkspace.slots[slot];
       if (!workspace) {
         return state;
       }
@@ -1727,7 +1828,7 @@ export const useAppStore = create<AppStore>((set) => ({
         errorMessage: null,
       };
 
-      const activeWorkspace = compareWorkspace.activeSlot === slot;
+      const activeWorkspace = compareWorkspace.activeSlotId === slot;
       return activeWorkspace
         ? {
             compareWorkspace,
@@ -1743,8 +1844,7 @@ export const useAppStore = create<AppStore>((set) => ({
   clearCompareSlotStressResult: (slot) =>
     set((state) => {
       const compareWorkspace = cloneCompareWorkspace(state.compareWorkspace);
-      const key = slot === 'left' ? 'leftWorkspace' : 'rightWorkspace';
-      const workspace = compareWorkspace[key];
+      const workspace = compareWorkspace.slots[slot];
       if (!workspace) {
         return state;
       }
@@ -1755,7 +1855,7 @@ export const useAppStore = create<AppStore>((set) => ({
         errorMessage: null,
       };
 
-      const activeWorkspace = compareWorkspace.activeSlot === slot;
+      const activeWorkspace = compareWorkspace.activeSlotId === slot;
       return activeWorkspace
         ? {
             compareWorkspace,
@@ -1950,9 +2050,10 @@ export const useCompareSimulationResults = () => useAppStore((state) => state.co
 
 export const useCompareStressResults = () =>
   useAppStore((state) => ({
-    left: state.compareWorkspace.leftWorkspace?.stress ?? null,
-    right: state.compareWorkspace.rightWorkspace?.stress ?? null,
-    activeSlot: state.compareWorkspace.activeSlot,
+    bySlot: Object.fromEntries(
+      state.compareWorkspace.slotOrder.map((slotId) => [slotId, state.compareWorkspace.slots[slotId]?.stress ?? null]),
+    ) as Partial<Record<CompareSlotId, WorkspaceSnapshot['stress'] | null>>,
+    activeSlotId: state.compareWorkspace.activeSlotId,
   }));
 
 const snapshotStateFromStore = (state: AppStore): SnapshotState => {
@@ -2094,11 +2195,27 @@ const configFromWorkspace = (workspace: WorkspaceSnapshot, mode: AppMode): Simul
 
 export const getCompareConfigForSlot = (slot: CompareSlotId): SimulationConfig | null => {
   const compareWorkspace = getCompareWorkspaceState();
-  const workspace = slot === 'left' ? compareWorkspace.leftWorkspace : compareWorkspace.rightWorkspace;
+  const workspace = compareWorkspace.slots[slot];
   if (!workspace) {
     return null;
   }
   return configFromWorkspace(workspace, AppMode.Compare);
+};
+
+export const getCompareConfigs = (): Array<{ slotId: CompareSlotId; config: SimulationConfig }> => {
+  const compareWorkspace = getCompareWorkspaceState();
+  return compareWorkspace.slotOrder
+    .map((slotId) => {
+      const workspace = compareWorkspace.slots[slotId];
+      if (!workspace) {
+        return null;
+      }
+      return {
+        slotId,
+        config: configFromWorkspace(workspace, AppMode.Compare),
+      };
+    })
+    .filter((entry): entry is { slotId: CompareSlotId; config: SimulationConfig } => entry !== null);
 };
 
 export const getCurrentConfig = (): SimulationConfig => {

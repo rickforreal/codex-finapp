@@ -33,17 +33,16 @@ WithdrawalStrategyType =
   "hebelerAutopilot" | "capeBased"
 DrawdownStrategyType = "bucket" | "rebalancing"
 SimulationMode = "manual" | "monteCarlo"
-AppMode = "planning" | "tracking"
+AppMode = "planning" | "tracking" | "compare"
 HistoricalEra =
   "fullHistory" | "depressionEra" | "postWarBoom" | "stagflationEra" |
   "oilCrisis" | "post1980BullRun" | "lostDecade" | "postGfcRecovery"
 ```
 
-Planned Phase 14 extension:
+Current compare extension:
 
 ```ts
-AppMode = "planning" | "tracking" | "compare"
-CompareSlotId = "left" | "right"
+CompareSlotId = "A" | "B" | "C" | "D" | "E" | "F" | "G" | "H"
 ```
 
 ## 3. SimulationConfig
@@ -525,49 +524,48 @@ PackedRows {
   - `stress.result.base.result.rows`
   - `stress.result.scenarios[*].result.rows`
 
-## 10. Planned Phase 14 Additions (Compare Portfolios)
-
-The following additions are planned for Phase 14 and document target behavior for implementation.
+## 10. Compare Mode Model (v2.0)
 
 ### 10.1 Compare state model
 
 ```ts
 CompareState {
-  activeInputSlot: CompareSlotId; // "left" | "right"
-  leftWorkspace: WorkspaceSnapshot;
-  rightWorkspace: WorkspaceSnapshot;
-  simulationResultsBySlot: {
-    left: WorkspaceSnapshot["simulationResults"];
-    right: WorkspaceSnapshot["simulationResults"];
-  };
-  stressBySlot: {
-    left: WorkspaceSnapshot["stress"];
-    right: WorkspaceSnapshot["stress"];
-  };
+  activeSlotId: CompareSlotId;   // currently edited slot in sidebar
+  baselineSlotId: CompareSlotId; // stats-card delta reference
+  slotOrder: CompareSlotId[];    // active slots in UI order, length 2..8
+  slots: Partial<Record<CompareSlotId, WorkspaceSnapshot>>;
 }
 ```
 
-Initialization rule (planned):
-- On first switch into Compare mode, `leftWorkspace` is seeded from the currently active Planning/Tracking workspace snapshot.
-- `rightWorkspace` is initialized as a clone of `leftWorkspace`.
+Slot constraints:
+- Minimum active slots: `2`
+- Maximum active slots: `8`
 
-### 10.2 Planned snapshot compatibility in Compare mode
+Initialization rule:
+- On first switch into Compare mode:
+  - seed slot `A` from the currently active Planning/Tracking workspace snapshot
+  - initialize slot `B` as clone of `A`
+  - set `slotOrder = ["A", "B"]`
+  - set `activeSlotId = "A"`
+  - set `baselineSlotId = "A"`
+
+Lifecycle rules:
+- Add slot: user selects clone source slot; new slot receives cloned workspace.
+- Remove slot: allowed only when active slot count is greater than 2.
+- Baseline fallback: if baseline slot is removed, baseline reassigns to first slot in `slotOrder`.
+
+### 10.2 Snapshot compatibility in Compare mode
 
 1. Existing single snapshot files remain loadable in Compare mode.
-2. New pair snapshots can persist both compare slots in one envelope.
-3. Load targeting is explicit:
-   - `Left`
-   - `Right`
-   - `Replace both`
-4. If loading a pair snapshot into one side, user must choose source slot:
-   - `Pair A`
-   - `Pair B`
+2. Existing pair compare snapshots (`left/right`) remain loadable via source-target mapping prompts.
+3. New compare snapshots persist variable-slot payloads (`slotOrder` + `slots` + compare metadata).
+4. Load targeting is deterministic and explicit for source and destination slot mapping.
 
 ### 10.3 Stochastic parity rule in Compare runs
 
-For fairness, Compare mode applies the same market randomness to both slots within a run:
-- Manual: one monthly stochastic return stream is shared across both slots.
-- Monte Carlo: one seed/sampling stream is shared so each simulation index/month index maps to identical sampled market conditions across both slots.
+For fairness, Compare mode applies the same market randomness to all active slots within a run:
+- Manual: one monthly stochastic return stream is shared across all active slots.
+- Monte Carlo: one seed/sampling stream is shared so each simulation index/month index maps to identical sampled market conditions across all active slots.
 
 ## 10. Notes
 

@@ -6,7 +6,7 @@ The API is stateless for user data: clients send full configuration and optional
 
 Note: CSV export is not part of the current release scope and there is no CSV export endpoint.
 
-Phase 14 (Compare Portfolios) is planned to use existing endpoints (`/simulate` and `/stress-test`) with client-side dual-call orchestration. No dedicated compare endpoint is planned for V1.
+Compare mode uses existing endpoints (`/simulate` and `/stress-test`) with client-side multi-slot orchestration. No dedicated compare endpoint is required.
 
 ## Base URL
 
@@ -165,12 +165,13 @@ Request/response contract source of truth is:
 - `packages/shared/src/contracts/api.ts`
 - `packages/shared/src/contracts/schemas.ts`
 
-## Planned Phase 14 Compare Orchestration
+## Compare Orchestration (v2.0)
 
-No new backend API route is required in V1 Compare mode.
+No new backend API route is required.
 
-Planned client behavior:
-1. Compare run calls `POST /simulate` twice (left slot and right slot).
-2. Compare stress run calls `POST /stress-test` twice using shared scenario definitions.
-3. Partial failures are surfaced per slot while preserving successful slot results.
-4. Compare run parity rule: both slot requests are supplied shared stochastic inputs (shared monthly returns in Manual, shared seed/sampling stream in Monte Carlo) so differences reflect configuration, not randomness.
+Client behavior:
+1. Compare run calls `POST /simulate` once per active slot (`A`..`H`, 2..8 slots).
+2. Compare stress run calls `POST /stress-test` once per active slot using shared scenario definitions.
+3. Calls are executed with bounded parallelism (queue-based concurrency), not unbounded fan-out.
+4. Partial failures are surfaced per slot while preserving successful slot results.
+5. Compare run parity rule: all slot requests are supplied shared stochastic inputs (shared monthly returns in Manual, shared seed/sampling stream in Monte Carlo) so differences reflect configuration, not randomness.

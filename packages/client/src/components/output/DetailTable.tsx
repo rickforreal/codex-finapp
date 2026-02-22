@@ -1,11 +1,11 @@
-import { useEffect, useMemo, useRef, useState, type MutableRefObject, type UIEvent } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 
 import { AppMode, SimulationMode, type ActualMonthOverride } from '@finapp/shared';
 
 import { runSimulation } from '../../api/simulationApi';
 import { formatCurrency, formatPercent } from '../../lib/format';
 import { buildAnnualDetailRows, buildMonthlyDetailRows, sortDetailRows, type DetailRow } from '../../lib/detailTable';
-import { getCurrentConfig, useActiveSimulationResult, useAppStore, useCompareSimulationResults } from '../../store/useAppStore';
+import { type WorkspaceSnapshot, getCurrentConfig, useActiveSimulationResult, useAppStore, useCompareSimulationResults } from '../../store/useAppStore';
 import { SegmentedToggle } from '../shared/SegmentedToggle';
 
 type Column = {
@@ -138,9 +138,6 @@ const isMonteCarloReferenceColumn = (column: Column): boolean => column.key === 
 export const DetailTable = () => {
   const viewportRef = useRef<HTMLDivElement | null>(null);
   const headerControlsRef = useRef<HTMLDivElement | null>(null);
-  const compareLeftViewportRef = useRef<HTMLDivElement | null>(null);
-  const compareRightViewportRef = useRef<HTMLDivElement | null>(null);
-  const compareScrollSyncingRef = useRef(false);
   const result = useActiveSimulationResult();
   const compareResults = useCompareSimulationResults();
   const startingAge = useAppStore((state) => state.coreParams.startingAge);
@@ -169,7 +166,9 @@ export const DetailTable = () => {
   const [editingCell, setEditingCell] = useState<{ rowId: string; column: keyof DetailRow } | null>(null);
   const [draftValue, setDraftValue] = useState('');
   const [selectedCell, setSelectedCell] = useState<{ rowId: string; column: keyof DetailRow } | null>(null);
-  const [compareHoveredRowId, setCompareHoveredRowId] = useState<string | null>(null);
+  const compareActiveSlotId = useAppStore((state) => state.compareWorkspace.activeSlotId);
+  const compareBaselineSlotId = useAppStore((state) => state.compareWorkspace.baselineSlotId);
+  const setCompareActiveSlot = useAppStore((state) => state.setCompareActiveSlot);
 
   const rawRows = useMemo(() => {
     const rows = result?.result.rows ?? [];
@@ -238,7 +237,7 @@ export const DetailTable = () => {
       >
         i
       </button>
-      <span className="pointer-events-none absolute left-1/2 top-[120%] z-20 hidden w-64 -translate-x-1/2 rounded-md border border-brand-border bg-white px-2 py-1.5 text-left text-[11px] font-normal leading-snug text-slate-600 shadow-panel group-hover:block group-focus-within:block">
+      <span className="pointer-events-none absolute left-1/2 top-[120%] z-20 hidden w-64 -translate-x-1/2 whitespace-normal rounded-md border border-brand-border bg-white px-2 py-1.5 text-left text-[11px] font-normal leading-snug text-slate-600 shadow-panel group-hover:block group-focus-within:block">
         {monteCarloReferenceTooltip}
       </span>
     </span>
@@ -574,25 +573,8 @@ export const DetailTable = () => {
     setSelectedCell({ rowId: nextRow.id, column: nextColumn.key });
   };
 
-  const syncCompareScroll = (source: 'left' | 'right') => (event: UIEvent<HTMLDivElement>) => {
-    if (compareScrollSyncingRef.current) {
-      return;
-    }
-    const sourceNode = event.currentTarget;
-    const targetNode = source === 'left' ? compareRightViewportRef.current : compareLeftViewportRef.current;
-    if (!targetNode) {
-      return;
-    }
-    compareScrollSyncingRef.current = true;
-    targetNode.scrollTop = sourceNode.scrollTop;
-    targetNode.scrollLeft = sourceNode.scrollLeft;
-    requestAnimationFrame(() => {
-      compareScrollSyncingRef.current = false;
-    });
-  };
-
   if (mode === AppMode.Compare) {
-    const resolveSlotResult = (workspace: (typeof compareResults)['leftWorkspace']) => {
+    const resolveSlotResult = (workspace: WorkspaceSnapshot | undefined) => {
       if (!workspace) {
         return null;
       }
@@ -602,127 +584,41 @@ export const DetailTable = () => {
           : workspace.simulationResults.monteCarlo;
       return preferred ?? workspace.simulationResults.manual ?? workspace.simulationResults.monteCarlo;
     };
-    const leftResult = resolveSlotResult(compareResults.leftWorkspace);
-    const rightResult = resolveSlotResult(compareResults.rightWorkspace);
-    const toRows = (
-      slotRows: Array<{
-        monthIndex: number;
-        year: number;
-        monthInYear: number;
-        startBalances: { stocks: number; bonds: number; cash: number };
-        marketChange: { stocks: number; bonds: number; cash: number };
-        withdrawals: {
-          byAsset: { stocks: number; bonds: number; cash: number };
-          requested: number;
-          actual: number;
-          shortfall: number;
-        };
-        incomeTotal: number;
-        expenseTotal: number;
-        endBalances: { stocks: number; bonds: number; cash: number };
-      }>,
-      slotResult: ReturnType<typeof resolveSlotResult>,
-    ) => {
-      const slotStartingAge = slotResult?.configSnapshot?.coreParams.startingAge ?? startingAge;
-      const slotInflationRate = slotResult?.configSnapshot?.coreParams.inflationRate ?? inflationRate;
-      const slotRetirementStartDate =
-        slotResult?.configSnapshot?.coreParams.retirementStartDate ?? retirementStartDate;
-      const slotMonteCarloTotalP50 =
-        simulationMode === SimulationMode.MonteCarlo
-          ? (slotResult?.monteCarlo?.percentileCurves.total.p50 ?? null)
-          : null;
-      if (tableGranularity === 'annual') {
-        return buildAnnualDetailRows(
-          slotRows,
-          slotStartingAge,
-          slotInflationRate,
-          slotRetirementStartDate,
-          slotMonteCarloTotalP50,
-        );
-      }
-      return buildMonthlyDetailRows(
-        slotRows,
-        slotStartingAge,
-        slotInflationRate,
-        slotRetirementStartDate,
-        slotMonteCarloTotalP50,
-      );
-    };
-    const leftRows = sortDetailRows(toRows(leftResult?.result.rows ?? [], leftResult), tableSort);
-    const rightRows = sortDetailRows(toRows(rightResult?.result.rows ?? [], rightResult), tableSort);
-
-    const renderPane = (
-      title: string,
-      paneRows: DetailRow[],
-      viewportRefForPane: MutableRefObject<HTMLDivElement | null>,
-      onPaneScroll: (event: UIEvent<HTMLDivElement>) => void,
-    ) => (
-      <div className="min-w-0 flex-1 rounded-lg border border-brand-border bg-white">
-        <div className="border-b border-brand-border px-3 py-2 text-xs font-semibold text-slate-700">{title}</div>
-        <div ref={viewportRefForPane} className="max-h-[430px] overflow-auto" onScroll={onPaneScroll}>
-          <table className={`${tableMinWidthClass} w-full border-collapse text-left text-xs`}>
-            <thead className="sticky top-0 z-[1] bg-brand-surface text-slate-600">
-              <tr>
-                {columns.map((column) => (
-                  <th
-                    key={String(column.key)}
-                    className="border-b border-brand-border px-2 py-2 font-semibold"
-                    style={
-                      isMonteCarloReferenceColumn(column)
-                        ? {
-                            backgroundColor: monteCarloReferenceColumnTint,
-                            color: monteCarloReferenceColumnText,
-                          }
-                        : undefined
-                    }
-                  >
-                    {renderColumnLabel(column)}
-                  </th>
-                ))}
-              </tr>
-            </thead>
-            <tbody>
-              {paneRows.length === 0 ? (
-                <tr>
-                  <td colSpan={columns.length} className="px-2 py-6 text-center text-slate-500">
-                    Run compare simulation to populate this ledger.
-                  </td>
-                </tr>
-              ) : (
-                paneRows.map((row) => (
-                  <tr
-                    key={`${title}-${row.id}`}
-                    className={`border-b border-slate-100 bg-brand-surface transition-colors hover:bg-brand-panel ${
-                      compareHoveredRowId === row.id ? 'bg-brand-panel' : ''
-                    }`}
-                    onMouseEnter={() => setCompareHoveredRowId(row.id)}
-                    onMouseLeave={() => setCompareHoveredRowId(null)}
-                  >
-                    {columns.map((column) => (
-                      <td
-                        key={`${title}-${row.id}-${String(column.key)}`}
-                        className={`whitespace-nowrap px-3 py-2 font-mono ${valueToneClass(row, column)}`}
-                        style={
-                          isMonteCarloReferenceColumn(column)
-                            ? {
-                                backgroundColor: monteCarloReferenceColumnTint,
-                                color: monteCarloReferenceColumnText,
-                              }
-                            : undefined
-                        }
-                      >
-                        {formatCell(row[column.key] as string | number | null, column)}
-                      </td>
-                    ))}
-                  </tr>
-                ))
-              )}
-            </tbody>
-          </table>
-        </div>
-      </div>
-    );
-
+    const slotRowsById = Object.fromEntries(
+      compareResults.slotOrder.map((slotId) => {
+        const slotResult = resolveSlotResult(compareResults.slots[slotId]);
+        const slotRows = slotResult?.result.rows ?? [];
+        const slotStartingAge = slotResult?.configSnapshot?.coreParams.startingAge ?? startingAge;
+        const slotInflationRate = slotResult?.configSnapshot?.coreParams.inflationRate ?? inflationRate;
+        const slotRetirementStartDate =
+          slotResult?.configSnapshot?.coreParams.retirementStartDate ?? retirementStartDate;
+        const slotMonteCarloTotalP50 =
+          simulationMode === SimulationMode.MonteCarlo
+            ? (slotResult?.monteCarlo?.percentileCurves.total.p50 ?? null)
+            : null;
+        const detailRows =
+          tableGranularity === 'annual'
+            ? buildAnnualDetailRows(
+                slotRows,
+                slotStartingAge,
+                slotInflationRate,
+                slotRetirementStartDate,
+                slotMonteCarloTotalP50,
+              )
+            : buildMonthlyDetailRows(
+                slotRows,
+                slotStartingAge,
+                slotInflationRate,
+                slotRetirementStartDate,
+                slotMonteCarloTotalP50,
+              );
+        return [slotId, sortDetailRows(detailRows, tableSort)];
+      }),
+    ) as Record<string, DetailRow[]>;
+    const activeLedgerSlotId = compareResults.slotOrder.includes(compareActiveSlotId)
+      ? compareActiveSlotId
+      : (compareResults.slotOrder[0] ?? 'A');
+    const activeRows = slotRowsById[activeLedgerSlotId] ?? [];
     return (
       <section className="rounded-xl border border-brand-border bg-white shadow-panel">
         <div className="flex items-center justify-between gap-3 border-b border-brand-border px-4 py-3">
@@ -753,10 +649,98 @@ export const DetailTable = () => {
             </button>
           </div>
         </div>
-        <div className="grid grid-cols-1 gap-3 p-3 xl:grid-cols-2">
-          {renderPane('Portfolio A', leftRows, compareLeftViewportRef, syncCompareScroll('left'))}
-          {renderPane('Portfolio B', rightRows, compareRightViewportRef, syncCompareScroll('right'))}
+        <div className="border-b border-brand-border px-3 py-2">
+          <div className="flex flex-wrap items-center gap-2">
+            {compareResults.slotOrder.map((slotId) => (
+              <div key={`ledger-tab-${slotId}`} className="relative">
+                <button
+                  type="button"
+                  onClick={() => setCompareActiveSlot(slotId)}
+                  className={`inline-flex h-9 w-9 items-center justify-center rounded-full border text-xs font-semibold transition ${
+                    activeLedgerSlotId === slotId
+                      ? 'border-brand-navy bg-brand-navy text-white'
+                      : 'border-brand-border bg-white text-slate-700 hover:border-brand-blue'
+                  } ${
+                    compareBaselineSlotId === slotId
+                      ? 'ring-2 ring-amber-400 ring-offset-1 ring-offset-white'
+                      : ''
+                  }`}
+                >
+                  {slotId}
+                </button>
+                {compareBaselineSlotId === slotId ? (
+                  <span className="pointer-events-none absolute -bottom-1 left-1/2 -translate-x-1/2 rounded bg-amber-100 px-1 text-[9px] font-semibold uppercase tracking-wide text-amber-800">
+                    Base
+                  </span>
+                ) : null}
+              </div>
+            ))}
+          </div>
         </div>
+        <div className="p-3">
+          <div className="rounded-lg border border-brand-border bg-white">
+            <div className="border-b border-brand-border px-3 py-2 text-xs font-semibold text-slate-700">
+              Portfolio {activeLedgerSlotId}
+            </div>
+            <div className="max-h-[430px] overflow-auto">
+          <table className={`${tableMinWidthClass} w-full border-collapse text-left text-xs`}>
+            <thead className="sticky top-0 z-[1] bg-brand-surface text-slate-600">
+              <tr>
+                {columns.map((column) => (
+                  <th
+                    key={String(column.key)}
+                    className="border-b border-brand-border px-2 py-2 font-semibold"
+                    style={
+                      isMonteCarloReferenceColumn(column)
+                        ? {
+                            backgroundColor: monteCarloReferenceColumnTint,
+                            color: monteCarloReferenceColumnText,
+                          }
+                        : undefined
+                    }
+                  >
+                    {renderColumnLabel(column)}
+                  </th>
+                ))}
+              </tr>
+            </thead>
+            <tbody>
+              {activeRows.length === 0 ? (
+                <tr>
+                  <td colSpan={columns.length} className="px-2 py-6 text-center text-slate-500">
+                    Run compare simulation to populate this ledger.
+                  </td>
+                </tr>
+              ) : (
+                activeRows.map((row) => (
+                  <tr
+                    key={`compare-${activeLedgerSlotId}-${row.id}`}
+                    className="border-b border-slate-100 bg-brand-surface transition-colors hover:bg-brand-panel"
+                  >
+                    {columns.map((column) => (
+                      <td
+                        key={`compare-${activeLedgerSlotId}-${row.id}-${String(column.key)}`}
+                        className={`whitespace-nowrap px-3 py-2 font-mono ${valueToneClass(row, column)}`}
+                        style={
+                          isMonteCarloReferenceColumn(column)
+                            ? {
+                                backgroundColor: monteCarloReferenceColumnTint,
+                                color: monteCarloReferenceColumnText,
+                              }
+                            : undefined
+                        }
+                      >
+                        {formatCell(row[column.key] as string | number | null, column)}
+                      </td>
+                    ))}
+                  </tr>
+                ))
+              )}
+            </tbody>
+          </table>
+        </div>
+            </div>
+          </div>
       </section>
     );
   }

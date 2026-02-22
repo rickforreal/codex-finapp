@@ -929,3 +929,70 @@ Acceptance Criteria:
 [AC2] Column styling is subtly differentiated and includes a tooltip explainer.
 [AC3] Monthly and annual value mapping follows cross-run p50 start-of-period semantics.
 [AC4] `npm run typecheck`, `npm run lint`, `npm test`, and `npm run build` pass.
+
+## Feature Plan — Compare Portfolios v2.0 (2..8)
+
+- [x] CPV2-T1: Create v2.0 feature-doc wave and decision-complete baseline
+Phase: Feature/ComparePortfolios-v2.0
+Dependencies: P14-T6
+Acceptance Criteria:
+[AC1] `docs/features/compare-portfolios-v2-0/{FEATURE,PLAN,ACCEPTANCE}.md` exist.
+[AC2] `PLAN.md` includes `Delta From Baseline` referencing `docs/features/compare-portfolios/`.
+[AC3] Scope decisions are locked for 2..8 slot compare, baseline stats, tabbed ledger, bounded parallel execution, and backward-compatible snapshots.
+
+- [x] CPV2-T2: Generalize compare store model from fixed pair to slot collection (2..8)
+Phase: Feature/ComparePortfolios-v2.0
+Dependencies: CPV2-T1
+Acceptance Criteria:
+[AC1] Compare state supports `A..H` slot IDs with min 2/max 8 active slots.
+[AC2] Add/remove/clone slot actions exist with deterministic baseline fallback behavior.
+[AC3] Mode switch seeding initializes A from current workspace and B as clone of A.
+
+- [x] CPV2-T3: Implement bounded-parallel compare run orchestration for simulation/stress
+Phase: Feature/ComparePortfolios-v2.0
+Dependencies: CPV2-T2
+Acceptance Criteria:
+[AC1] Compare run executes active slots via bounded parallel queue.
+[AC2] Shared stochastic parity is preserved across all active slots.
+[AC3] Partial failures remain slot-scoped while successful outputs persist.
+
+- [x] CPV2-T4: Build compare slot manager, all-slot chart rendering, and baseline stats cards
+Phase: Feature/ComparePortfolios-v2.0
+Dependencies: CPV2-T2, CPV2-T3
+Acceptance Criteria:
+[AC1] Sidebar supports slot chips (`A..H`) and add/remove UI.
+[AC2] Compare chart always renders all active slots with stable slot identity.
+[AC3] Summary cards render all active slot values plus baseline-relative deltas.
+
+- [x] CPV2-T5: Replace compare side-by-side ledger with single tabbed compare ledger
+Phase: Feature/ComparePortfolios-v2.0
+Dependencies: CPV2-T4
+Acceptance Criteria:
+[AC1] Compare detail section renders one shared ledger viewport with slot tabs.
+[AC2] Monthly/annual and breakdown controls remain shared.
+[AC3] Spreadsheet expand remains unavailable in compare mode.
+
+- [x] CPV2-T6: Add snapshot v2 compare payload + legacy single/pair compatibility adapters
+Phase: Feature/ComparePortfolios-v2.0
+Dependencies: CPV2-T2
+Acceptance Criteria:
+[AC1] Snapshot save supports variable-slot compare payloads.
+[AC2] Legacy single snapshot import and legacy pair snapshot import both remain supported.
+[AC3] Compare import targeting is deterministic and explicit.
+
+- [x] CPV2-T7: Run regression gate and close v2.0 implementation
+Phase: Feature/ComparePortfolios-v2.0
+Dependencies: CPV2-T3, CPV2-T4, CPV2-T5, CPV2-T6
+Acceptance Criteria:
+[AC1] `npm run typecheck`, `npm run lint`, `npm test`, and `npm run build` pass.
+[AC2] Acceptance checklist in `docs/features/compare-portfolios-v2-0/ACCEPTANCE.md` passes.
+[AC3] `PROGRESS.txt` records implementation summary and canonical-doc impact.
+
+- [x] CPV2-T8: Apply post-feedback UX refinement pass for compare v2.0
+Phase: Feature/ComparePortfolios-v2.0
+Dependencies: CPV2-T7
+Acceptance Criteria:
+[AC1] Compare chips support single-click active select, double-click baseline select, and hover `X` remove (when slot count > 2).
+[AC2] Compare ordering remains alphabetically normalized (`A..H`) after add/remove and targeted compare import mutations.
+[AC3] Compare `+` clones active slot, detail ledger tabs use circular chips, and MC compare chart shows baseline-only percentile bands.
+[AC4] `npm run typecheck`, `npm run lint`, `npm test`, and `npm run build` pass.

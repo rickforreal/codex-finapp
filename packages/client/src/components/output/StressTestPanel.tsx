@@ -8,6 +8,8 @@ import {
   getCompareConfigForSlot,
   getCompareWorkspaceState,
   getCurrentConfig,
+  type CompareSlotId,
+  type WorkspaceSnapshot,
   useActiveSimulationResult,
   useAppStore,
   useCompareSimulationResults,
@@ -130,9 +132,7 @@ export const StressTestPanel = () => {
   const inflationRate = useAppStore((state) => state.coreParams.inflationRate);
 
   useEffect(() => {
-    const resolveSlotResult = (
-      workspace: (typeof compareWorkspace)['leftWorkspace'],
-    ) => {
+    const resolveSlotResult = (workspace: WorkspaceSnapshot | undefined) => {
       if (!workspace) {
         return null;
       }
@@ -143,9 +143,9 @@ export const StressTestPanel = () => {
       return preferred ?? workspace.simulationResults.manual ?? workspace.simulationResults.monteCarlo;
     };
 
-    const compareLeftResult = resolveSlotResult(compareWorkspace.leftWorkspace);
-    const compareRightResult = resolveSlotResult(compareWorkspace.rightWorkspace);
-    const compareBaseAvailable = Boolean(compareLeftResult || compareRightResult);
+    const compareBaseAvailable = compareWorkspace.slotOrder.some((slotId) =>
+      Boolean(resolveSlotResult(compareWorkspace.slots[slotId])),
+    );
     const baseAvailable = mode === AppMode.Compare ? compareBaseAvailable : Boolean(activeResult);
 
     if (!baseAvailable || stress.scenarios.length === 0) {
@@ -158,26 +158,18 @@ export const StressTestPanel = () => {
         clearStressResult();
       }
       if (mode === AppMode.Compare) {
-        const leftStress = currentState.compareWorkspace.leftWorkspace?.stress;
-        const rightStress = currentState.compareWorkspace.rightWorkspace?.stress;
-        const leftNeedsClear = Boolean(
-          leftStress &&
-            (leftStress.result !== null ||
-              leftStress.status !== 'idle' ||
-              leftStress.errorMessage !== null),
-        );
-        const rightNeedsClear = Boolean(
-          rightStress &&
-            (rightStress.result !== null ||
-              rightStress.status !== 'idle' ||
-              rightStress.errorMessage !== null),
-        );
-        if (leftNeedsClear) {
-          clearCompareSlotStressResult('left');
-        }
-        if (rightNeedsClear) {
-          clearCompareSlotStressResult('right');
-        }
+        currentState.compareWorkspace.slotOrder.forEach((slotId) => {
+          const slotStress = currentState.compareWorkspace.slots[slotId]?.stress;
+          const needsClear = Boolean(
+            slotStress &&
+              (slotStress.result !== null ||
+                slotStress.status !== 'idle' ||
+                slotStress.errorMessage !== null),
+          );
+          if (needsClear) {
+            clearCompareSlotStressResult(slotId);
+          }
+        });
       }
       return;
     }
@@ -219,75 +211,85 @@ export const StressTestPanel = () => {
       }
 
       setStressStatus('running');
-      setCompareSlotStressStatus('left', 'running');
-      setCompareSlotStressStatus('right', 'running');
-
-      const slots: Array<{ slot: 'left' | 'right'; result: typeof compareLeftResult }> = [
-        { slot: 'left', result: compareLeftResult },
-        { slot: 'right', result: compareRightResult },
-      ];
+      const slots = compareWorkspace.slotOrder.map((slotId) => ({
+        slotId,
+        result: resolveSlotResult(compareWorkspace.slots[slotId]),
+      }));
+      slots.forEach(({ slotId }) => setCompareSlotStressStatus(slotId, 'running'));
       const currentCompareWorkspace = getCompareWorkspaceState();
 
-      void Promise.allSettled(
-        slots.map(async ({ slot, result }) => {
-          if (!result) {
-            throw new Error(`Portfolio ${slot === 'left' ? 'A' : 'B'} has no base simulation result.`);
+      void (async () => {
+        const queue = [...slots];
+        const settled: Array<
+          | { status: 'fulfilled'; slotId: CompareSlotId; response: Awaited<ReturnType<typeof runStressTest>> }
+          | { status: 'rejected'; slotId: CompareSlotId; reason: unknown }
+        > = [];
+        const maxParallel = 4;
+        const workers = Array.from({ length: Math.min(maxParallel, queue.length) }, async () => {
+          while (queue.length > 0) {
+            const next = queue.shift();
+            if (!next) {
+              break;
+            }
+            const { slotId, result } = next;
+            try {
+              if (!result) {
+                throw new Error(`Portfolio ${slotId} has no base simulation result.`);
+              }
+              const config = getCompareConfigForSlot(slotId);
+              if (!config) {
+                throw new Error(`Portfolio ${slotId} configuration unavailable.`);
+              }
+              const workspace = currentCompareWorkspace.slots[slotId];
+              const response = await runStressTest({
+                config,
+                scenarios: stress.scenarios,
+                actualOverridesByMonth: workspace?.actualOverridesByMonth ?? {},
+                seed: result.seedUsed,
+                monthlyReturns:
+                  simulationMode === SimulationMode.Manual
+                    ? deriveMonthlyReturnsFromRows(result.result.rows)
+                    : undefined,
+                base: {
+                  result: result.result,
+                  monteCarlo: simulationMode === SimulationMode.MonteCarlo ? result.monteCarlo : undefined,
+                },
+              });
+              settled.push({ status: 'fulfilled', slotId, response });
+            } catch (reason) {
+              settled.push({ status: 'rejected', slotId, reason });
+            }
           }
-          const config = getCompareConfigForSlot(slot);
-          if (!config) {
-            throw new Error(`Portfolio ${slot === 'left' ? 'A' : 'B'} configuration unavailable.`);
-          }
-          const workspace = slot === 'left' ? currentCompareWorkspace.leftWorkspace : currentCompareWorkspace.rightWorkspace;
-          const response = await runStressTest({
-            config,
-            scenarios: stress.scenarios,
-            actualOverridesByMonth: workspace?.actualOverridesByMonth ?? {},
-            seed: result.seedUsed,
-            monthlyReturns:
-              simulationMode === SimulationMode.Manual
-                ? deriveMonthlyReturnsFromRows(result.result.rows)
-                : undefined,
-            base: {
-              result: result.result,
-              monteCarlo: simulationMode === SimulationMode.MonteCarlo ? result.monteCarlo : undefined,
-            },
-          });
-          return { slot, response };
-        }),
-      ).then((settled) => {
+        });
+        await Promise.all(workers);
         if (controller.signal.aborted) {
           return;
         }
         const errors: string[] = [];
-        const activeSlot = compareWorkspace.activeSlot;
+        const activeSlot = compareWorkspace.activeSlotId;
         let activeSlotResultSet = false;
 
-        settled.forEach((entry, index) => {
-          const slot = slots[index]?.slot;
-          if (!slot) {
-            return;
-          }
+        settled.forEach((entry) => {
           if (entry.status === 'fulfilled') {
-            setCompareSlotStressResult(slot, entry.value.response.result);
-            if (slot === activeSlot) {
-              setStressResult(entry.value.response.result);
+            setCompareSlotStressResult(entry.slotId, entry.response.result);
+            if (entry.slotId === activeSlot) {
+              setStressResult(entry.response.result);
               activeSlotResultSet = true;
             }
           } else {
             const message = entry.reason instanceof Error ? entry.reason.message : 'Stress test failed';
-            setCompareSlotStressStatus(slot, 'error', message);
-            errors.push(`${slot === 'left' ? 'Portfolio A' : 'Portfolio B'}: ${message}`);
+            setCompareSlotStressStatus(entry.slotId, 'error', message);
+            errors.push(`Portfolio ${entry.slotId}: ${message}`);
           }
         });
 
         if (!activeSlotResultSet) {
-          const fallbackSlot = activeSlot === 'left' ? 'right' : 'left';
+          const fallbackSlots = compareWorkspace.slotOrder.filter((slotId) => slotId !== activeSlot);
           const fallbackResult = settled.find(
-            (entry, index) =>
-              slots[index]?.slot === fallbackSlot && entry.status === 'fulfilled',
+            (entry) => fallbackSlots.includes(entry.slotId) && entry.status === 'fulfilled',
           );
           if (fallbackResult && fallbackResult.status === 'fulfilled') {
-            setStressResult(fallbackResult.value.response.result);
+            setStressResult(fallbackResult.response.result);
             activeSlotResultSet = true;
           }
         }
@@ -297,7 +299,7 @@ export const StressTestPanel = () => {
         } else {
           setStressStatus('complete');
         }
-      });
+      })();
     }, simulationMode === SimulationMode.MonteCarlo ? 500 : 250);
 
     return () => {
@@ -308,11 +310,9 @@ export const StressTestPanel = () => {
     activeResult,
     actualOverridesByMonth,
     baseMonteCarlo,
-    compareWorkspace.activeSlot,
-    compareWorkspace.leftWorkspace?.simulationResults.manual,
-    compareWorkspace.leftWorkspace?.simulationResults.monteCarlo,
-    compareWorkspace.rightWorkspace?.simulationResults.manual,
-    compareWorkspace.rightWorkspace?.simulationResults.monteCarlo,
+    compareWorkspace.activeSlotId,
+    compareWorkspace.slotOrder,
+    compareWorkspace.slots,
     clearCompareSlotStressResult,
     clearStressResult,
     mode,
@@ -324,12 +324,10 @@ export const StressTestPanel = () => {
     stress.scenarios,
   ]);
 
-  const compareBaseAvailable = Boolean(
-    compareWorkspace.leftWorkspace?.simulationResults.manual ||
-      compareWorkspace.leftWorkspace?.simulationResults.monteCarlo ||
-      compareWorkspace.rightWorkspace?.simulationResults.manual ||
-      compareWorkspace.rightWorkspace?.simulationResults.monteCarlo,
-  );
+  const compareBaseAvailable = compareWorkspace.slotOrder.some((slotId) => {
+    const slotWorkspace = compareWorkspace.slots[slotId];
+    return Boolean(slotWorkspace?.simulationResults.manual || slotWorkspace?.simulationResults.monteCarlo);
+  });
   const baseAvailable = mode === AppMode.Compare ? compareBaseAvailable : Boolean(activeResult);
   const result = stress.result;
   const comparisonSet = result

@@ -2,7 +2,7 @@ import { useMemo } from 'react';
 
 import { AppMode, SimulationMode } from '@finapp/shared';
 
-import { useActiveSimulationResult, useAppStore, useCompareSimulationResults } from '../../store/useAppStore';
+import { type WorkspaceSnapshot, useActiveSimulationResult, useAppStore, useCompareSimulationResults } from '../../store/useAppStore';
 import { formatCompactCurrency, formatCurrency, formatPercent } from '../../lib/format';
 import { buildSummaryStats } from '../../lib/statistics';
 import { StatCard } from './StatCard';
@@ -72,7 +72,7 @@ export const SummaryStatsBar = () => {
       : `${formatPercent(terminalPctOfStarting)} of starting`;
 
   if (mode === AppMode.Compare) {
-    const resolveSlotResult = (workspace: (typeof compareResults)['leftWorkspace']) => {
+    const resolveSlotResult = (workspace: WorkspaceSnapshot | undefined) => {
       if (!workspace) {
         return null;
       }
@@ -82,128 +82,123 @@ export const SummaryStatsBar = () => {
           : workspace.simulationResults.monteCarlo;
       return preferred ?? workspace.simulationResults.manual ?? workspace.simulationResults.monteCarlo;
     };
-    const leftResult = resolveSlotResult(compareResults.leftWorkspace);
-    const rightResult = resolveSlotResult(compareResults.rightWorkspace);
-    const leftRows = leftResult?.result.rows ?? [];
-    const rightRows = rightResult?.result.rows ?? [];
-    const leftInflationRate = leftResult?.configSnapshot?.coreParams.inflationRate ?? inflationRate;
-    const rightInflationRate = rightResult?.configSnapshot?.coreParams.inflationRate ?? inflationRate;
-    const leftStats = buildSummaryStats(leftRows, leftInflationRate);
-    const rightStats = buildSummaryStats(rightRows, rightInflationRate);
-    const leftHas = leftRows.length > 0;
-    const rightHas = rightRows.length > 0;
+    const slotEntries = compareResults.slotOrder.map((slotId) => {
+      const resultForSlot = resolveSlotResult(compareResults.slots[slotId]);
+      const rows = resultForSlot?.result.rows ?? [];
+      const slotInflationRate = resultForSlot?.configSnapshot?.coreParams.inflationRate ?? inflationRate;
+      const statsForSlot = buildSummaryStats(rows, slotInflationRate);
+      const terminalNominal =
+        rows.length > 0
+          ? rows[rows.length - 1]!.endBalances.stocks +
+            rows[rows.length - 1]!.endBalances.bonds +
+            rows[rows.length - 1]!.endBalances.cash
+          : null;
+      const slotDuration = resultForSlot?.configSnapshot?.coreParams.retirementDuration ?? retirementDuration;
+      const terminalReal =
+        terminalNominal === null || slotDuration <= 0
+          ? terminalNominal
+          : terminalNominal / inflationFactor(slotInflationRate, slotDuration * 12);
+      return {
+        slotId,
+        result: resultForSlot,
+        rows,
+        hasRows: rows.length > 0,
+        stats: statsForSlot,
+        terminalReal,
+        pos: resultForSlot?.monteCarlo?.probabilityOfSuccess ?? null,
+      };
+    });
+    const baselineSlotId = compareResults.slotOrder.includes(compareResults.baselineSlotId)
+      ? compareResults.baselineSlotId
+      : (compareResults.slotOrder[0] ?? 'A');
+    const baselineEntry = slotEntries.find((entry) => entry.slotId === baselineSlotId) ?? null;
 
     const compareCard = (
       label: string,
-      leftValue: number | null,
-      rightValue: number | null,
+      valueForSlot: (entry: (typeof slotEntries)[number]) => number | null,
       formatter: (value: number) => string,
     ) => {
-      const delta =
-        leftValue !== null && rightValue !== null ? rightValue - leftValue : null;
       return (
         <StatCard
           label={label}
           value={
-            <div className="space-y-1.5">
-              <p className="font-mono text-[18px] font-semibold leading-none" style={{ color: 'var(--theme-chart-manual-line)' }}>
-                {leftValue === null ? 'A: —' : `A: ${formatter(leftValue)}`}
-              </p>
-              <p className="font-mono text-[18px] font-semibold leading-none" style={{ color: 'var(--theme-color-info)' }}>
-                {rightValue === null ? 'B: —' : `B: ${formatter(rightValue)}`}
-              </p>
+            <div className="space-y-1">
+              {slotEntries.map((entry) => {
+                const value = valueForSlot(entry);
+                const baselineValue = baselineEntry ? valueForSlot(baselineEntry) : null;
+                const delta = value !== null && baselineValue !== null ? value - baselineValue : null;
+                return (
+                  <p key={`${label}-${entry.slotId}`} className="font-mono text-[14px] font-semibold leading-none text-slate-700">
+                    {entry.slotId}: {value === null ? '—' : formatter(value)}
+                    <span
+                      className="ml-1 text-[11px]"
+                      style={{
+                        color:
+                          delta === null
+                            ? 'var(--theme-color-text-secondary)'
+                            : delta >= 0
+                              ? 'var(--theme-color-positive)'
+                              : 'var(--theme-color-negative)',
+                      }}
+                    >
+                      {delta === null ? '' : `(${delta >= 0 ? '+' : '-'}${formatter(Math.abs(delta))})`}
+                    </span>
+                  </p>
+                );
+              })}
             </div>
           }
-          annotation={
-            delta === null ? undefined : `Δ ${delta >= 0 ? '+' : '-'}${formatter(Math.abs(delta))}`
-          }
-          annotationClassName="font-mono text-[12px] font-semibold"
-          annotationStyle={
-            delta === null
-              ? { color: 'var(--theme-color-text-secondary)' }
-              : { color: delta >= 0 ? 'var(--theme-color-positive)' : 'var(--theme-color-negative)' }
-          }
+          annotation={`Baseline: ${baselineSlotId}`}
+          annotationClassName="font-mono text-[11px]"
         />
       );
     };
 
-    const leftTerminal = leftHas
-      ? leftRows[leftRows.length - 1]!.endBalances.stocks +
-        leftRows[leftRows.length - 1]!.endBalances.bonds +
-        leftRows[leftRows.length - 1]!.endBalances.cash
-      : null;
-    const rightTerminal = rightHas
-      ? rightRows[rightRows.length - 1]!.endBalances.stocks +
-        rightRows[rightRows.length - 1]!.endBalances.bonds +
-        rightRows[rightRows.length - 1]!.endBalances.cash
-      : null;
-    const leftDuration = leftResult?.configSnapshot?.coreParams.retirementDuration ?? retirementDuration;
-    const rightDuration = rightResult?.configSnapshot?.coreParams.retirementDuration ?? retirementDuration;
-    const leftInflation = leftResult?.configSnapshot?.coreParams.inflationRate ?? inflationRate;
-    const rightInflation = rightResult?.configSnapshot?.coreParams.inflationRate ?? inflationRate;
-    const leftTerminalReal =
-      leftTerminal === null || leftDuration <= 0
-        ? leftTerminal
-        : leftTerminal / inflationFactor(leftInflation, leftDuration * 12);
-    const rightTerminalReal =
-      rightTerminal === null || rightDuration <= 0
-        ? rightTerminal
-        : rightTerminal / inflationFactor(rightInflation, rightDuration * 12);
-    const leftMcPos = leftResult?.monteCarlo?.probabilityOfSuccess ?? null;
-    const rightMcPos = rightResult?.monteCarlo?.probabilityOfSuccess ?? null;
-
     return (
       <section className="rounded-xl bg-brand-surface p-4">
-        <div className="grid grid-cols-[repeat(auto-fit,minmax(190px,1fr))] gap-3">
+        <div className="mb-2 text-xs text-slate-500">Compare metrics across {slotEntries.length} active portfolios.</div>
+        <div className="grid grid-cols-[repeat(auto-fit,minmax(260px,1fr))] gap-3">
           {simulationMode === SimulationMode.MonteCarlo
-            ? compareCard('Probability of Success', leftMcPos, rightMcPos, (value) => formatPercent(value))
+            ? compareCard('Probability of Success', (entry) => entry.pos, (value) => formatPercent(value))
             : null}
           {compareCard(
             'Total Drawdown (Nominal)',
-            leftHas ? leftStats.totalDrawdownNominal : null,
-            rightHas ? rightStats.totalDrawdownNominal : null,
+            (entry) => (entry.hasRows ? entry.stats.totalDrawdownNominal : null),
             (value) => formatCompactCurrency(value),
           )}
           {compareCard(
             'Total Drawdown (Real)',
-            leftHas ? leftStats.totalDrawdownReal : null,
-            rightHas ? rightStats.totalDrawdownReal : null,
+            (entry) => (entry.hasRows ? entry.stats.totalDrawdownReal : null),
             (value) => formatCompactCurrency(value),
           )}
           {compareCard(
             'Median Monthly (Real)',
-            leftHas ? leftStats.medianMonthlyReal : null,
-            rightHas ? rightStats.medianMonthlyReal : null,
+            (entry) => (entry.hasRows ? entry.stats.medianMonthlyReal : null),
             (value) => formatCurrency(Math.round(value)),
           )}
           {compareCard(
             'Mean Monthly (Real)',
-            leftHas ? leftStats.meanMonthlyReal : null,
-            rightHas ? rightStats.meanMonthlyReal : null,
+            (entry) => (entry.hasRows ? entry.stats.meanMonthlyReal : null),
             (value) => formatCurrency(Math.round(value)),
           )}
           {compareCard(
             'Std. Deviation (Real)',
-            leftHas ? leftStats.stdDevMonthlyReal : null,
-            rightHas ? rightStats.stdDevMonthlyReal : null,
+            (entry) => (entry.hasRows ? entry.stats.stdDevMonthlyReal : null),
             (value) => formatCurrency(Math.round(value)),
           )}
           {compareCard(
             '25th Percentile (Real)',
-            leftHas ? leftStats.p25MonthlyReal : null,
-            rightHas ? rightStats.p25MonthlyReal : null,
+            (entry) => (entry.hasRows ? entry.stats.p25MonthlyReal : null),
             (value) => formatCurrency(Math.round(value)),
           )}
           {compareCard(
             '75th Percentile (Real)',
-            leftHas ? leftStats.p75MonthlyReal : null,
-            rightHas ? rightStats.p75MonthlyReal : null,
+            (entry) => (entry.hasRows ? entry.stats.p75MonthlyReal : null),
             (value) => formatCurrency(Math.round(value)),
           )}
           {compareCard(
             'Portfolio End (Real)',
-            leftTerminalReal,
-            rightTerminalReal,
+            (entry) => entry.terminalReal,
             (value) => formatCompactCurrency(Math.round(value)),
           )}
         </div>
