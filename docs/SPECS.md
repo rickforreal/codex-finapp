@@ -260,6 +260,7 @@ Affordance index reserved for future use. No explicit app-level redo behavior is
 - Switching slots does not copy values; each slot maintains independent inputs/results.
 - Slot count is bounded to 2..8.
 - Clicking `+` clones from the currently active slot.
+- Slot `A` is required and cannot be removed.
 - Single-click on a slot chip sets active slot.
 - Double-click on a slot chip sets baseline slot.
 - Remove affordance is a hover-only circular icon shown per chip only when slot count > 2.

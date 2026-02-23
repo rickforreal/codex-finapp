@@ -1341,6 +1341,9 @@ export const useAppStore = create<AppStore>((set) => ({
   removeCompareSlot: (slot) =>
     set((state) => {
       const nextCompareWorkspace = cloneCompareWorkspace(state.compareWorkspace);
+      if (slot === 'A') {
+        return state;
+      }
       if (nextCompareWorkspace.slotOrder.length <= 2) {
         return state;
       }

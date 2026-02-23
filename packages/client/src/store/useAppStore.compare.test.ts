@@ -72,17 +72,34 @@ describe('useAppStore compare slot behavior', () => {
     expect(state.compareWorkspace.baselineSlotId).toBe('A');
   });
 
-  it('re-adding after deleting A reuses A and keeps sorted A.. order', () => {
+  it('removeCompareSlot keeps A non-deletable even when there are more than two slots', () => {
     resetStore();
     enterCompareMode();
 
     const store = useAppStore.getState();
     store.addCompareSlotFromSource('A');
-    store.addCompareSlotFromSource('A');
-    store.removeCompareSlot('A');
-    expect(useAppStore.getState().compareWorkspace.slotOrder).toEqual(['B', 'C', 'D']);
+    store.setCompareActiveSlot('A');
+    store.setCompareBaselineSlot('A');
+    const before = useAppStore.getState().compareWorkspace;
 
-    store.addCompareSlotFromSource('B');
-    expect(useAppStore.getState().compareWorkspace.slotOrder).toEqual(['A', 'B', 'C', 'D']);
+    store.removeCompareSlot('A');
+
+    const after = useAppStore.getState().compareWorkspace;
+    expect(after.slotOrder).toEqual(before.slotOrder);
+    expect(after.activeSlotId).toBe(before.activeSlotId);
+    expect(after.baselineSlotId).toBe(before.baselineSlotId);
+    expect(after.slots.A).toEqual(before.slots.A);
+  });
+
+  it('removeCompareSlot still removes non-A slots when A is present', () => {
+    resetStore();
+    enterCompareMode();
+
+    const store = useAppStore.getState();
+    store.addCompareSlotFromSource('A');
+    expect(useAppStore.getState().compareWorkspace.slotOrder).toEqual(['A', 'B', 'C']);
+
+    store.removeCompareSlot('C');
+    expect(useAppStore.getState().compareWorkspace.slotOrder).toEqual(['A', 'B']);
   });
 });

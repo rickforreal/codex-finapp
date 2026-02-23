@@ -82,7 +82,7 @@ export const Sidebar = () => {
                     >
                       {slotId}
                     </button>
-                    {canRemoveCompareSlot ? (
+                    {canRemoveCompareSlot && slotId !== 'A' ? (
                       <button
                         type="button"
                         onClick={(event) => {

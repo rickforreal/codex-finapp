@@ -1014,3 +1014,20 @@ Validation run (all passing):
   - Updated baseline marker text in compare slot chips and compare ledger tabs to lightweight `Base` text below the circle with no overlap.
   - Files: `packages/client/src/components/layout/Sidebar.tsx`, `packages/client/src/components/output/DetailTable.tsx`.
   - Verified: `npm run typecheck -w @finapp/client`, `npm run lint -w @finapp/client`.
+- CHG-0004 started: enforce compare slot `A` as non-deletable invariant.
+  - Created docs lane: `docs/changes/CHG-0004-compare-slot-a-non-deletable/{CHANGE,ACCEPTANCE}.md`.
+  - Updated `docs/changes/INDEX.md` with CHG-0004 (`In Progress`).
+  - Appended `CHG-0004-T1` to `TASKS.md`.
+  - Canonical docs impact expected: `docs/SPECS.md` (Affordance #67).
+- CHG-0004 complete: compare slot `A` non-deletable invariant enforced.
+  - Store guard (`packages/client/src/store/useAppStore.ts`): `removeCompareSlot('A')` now returns unchanged state.
+  - Sidebar UX (`packages/client/src/components/layout/Sidebar.tsx`): remove affordance hidden for slot `A` (`canRemoveCompareSlot && slotId !== 'A'`).
+  - Tests (`packages/client/src/store/useAppStore.compare.test.ts`): added coverage for `A` no-op removal, non-`A` removal with `A` present, and min-2 guard preservation.
+  - Canonical doc update: `docs/SPECS.md` Affordance #67 now states slot `A` is required and non-removable.
+  - Change lane closure: `docs/changes/CHG-0004-compare-slot-a-non-deletable/{CHANGE,ACCEPTANCE}.md` and `docs/changes/INDEX.md` marked Done.
+
+Validation run (all passing):
+- `npm run typecheck`
+- `npm run lint`
+- `npm test`
+- `npm run build`

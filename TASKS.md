@@ -1008,3 +1008,14 @@ Acceptance Criteria:
 [AC2] Compare ordering remains alphabetically normalized (`A..H`) after add/remove and targeted compare import mutations.
 [AC3] Compare `+` clones active slot, detail ledger tabs use circular chips, and MC compare chart shows baseline-only percentile bands.
 [AC4] `npm run typecheck`, `npm run lint`, `npm test`, and `npm run build` pass.
+
+## Minor Change Plan — Compare Slot A Non-Deletable
+
+- [x] CHG-0004-T1: Enforce non-deletable compare slot `A` across store and sidebar affordance
+Phase: Change (Minor UX Invariant)
+Dependencies: CHG-0003-T1
+Acceptance Criteria:
+[AC1] Store `removeCompareSlot('A')` is a no-op regardless of slot count.
+[AC2] Sidebar remove affordance is hidden for slot `A` and unchanged for `B..H` when removable.
+[AC3] Store tests cover `A` no-op deletion, non-`A` removal path, and min-2 guard preservation.
+[AC4] `npm run typecheck`, `npm run lint`, `npm test`, and `npm run build` pass.
