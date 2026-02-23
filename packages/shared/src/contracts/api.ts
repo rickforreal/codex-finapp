@@ -25,7 +25,7 @@ export interface SimulateRequest {
 export interface SimulateResponse {
   simulationMode: SimulationMode;
   seedUsed?: number;
-  configSnapshot?: Pick<SimulationConfig, 'coreParams' | 'selectedHistoricalEra'>;
+  configSnapshot?: SimulationConfig;
   result: SinglePathResult;
   monteCarlo?: MonteCarloResult;
 }

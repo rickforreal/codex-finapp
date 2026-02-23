@@ -1019,3 +1019,47 @@ Acceptance Criteria:
 [AC2] Sidebar remove affordance is hidden for slot `A` and unchanged for `B..H` when removable.
 [AC3] Store tests cover `A` no-op deletion, non-`A` removal path, and min-2 guard preservation.
 [AC4] `npm run typecheck`, `npm run lint`, `npm test`, and `npm run build` pass.
+
+## Feature Plan — Compare Portfolios v2.1 (Differences-Only Parameter Table)
+
+- [x] CPV21-T1: Create v2.1 feature docs and lock delta scope
+Phase: Feature/ComparePortfolios-v2.1
+Dependencies: CPV2-T8
+Acceptance Criteria:
+[AC1] `docs/features/compare-portfolios-v2-1/{FEATURE,PLAN,ACCEPTANCE}.md` exist.
+[AC2] `PLAN.md` includes `Delta From Baseline` referencing `docs/features/compare-portfolios-v2-0/`.
+[AC3] Scope decisions are locked for differences-only, run-gated compare parameter table behavior.
+
+- [x] CPV21-T2: Implement compare parameter diff engine and test coverage
+Phase: Feature/ComparePortfolios-v2.1
+Dependencies: CPV21-T1
+Acceptance Criteria:
+[AC1] `compareParameterDiffs` covers all editable input families and only returns differing rows.
+[AC2] Normalization logic ignores ids for phases/events and uses deterministic list ordering.
+[AC3] Unit tests cover identical configs, scalar deltas, strategy mismatch, id-insensitive lists, baseline flags, and mixed multi-slot counts.
+
+- [x] CPV21-T3: Build CompareParameterDiffTable panel and integrate into AppShell
+Phase: Feature/ComparePortfolios-v2.1
+Dependencies: CPV21-T2
+Acceptance Criteria:
+[AC1] Panel renders between SummaryStatsBar and PortfolioChart in Compare mode.
+[AC2] Panel reads current-mode slot `configSnapshot` values and is hidden if snapshots are incomplete.
+[AC3] Panel is hidden when no differences are present and highlights non-baseline differing cells when visible.
+
+- [x] CPV21-T4: Update canonical docs and complete regression gate
+Phase: Feature/ComparePortfolios-v2.1
+Dependencies: CPV21-T3
+Acceptance Criteria:
+[AC1] `docs/SPECS.md` and `docs/SCENARIOS.md` reflect the new compare differences panel behavior.
+[AC2] `npm run typecheck`, `npm run lint`, `npm test`, and `npm run build` pass.
+[AC3] `PROGRESS.txt` records completion summary and canonical-doc impact statement.
+
+## Feature Plan — Compare Portfolios v2.1 Follow-up UX
+
+- [x] CPV21-T5: Apply readability + collapsible UX refinement for differences panel
+Phase: Feature/ComparePortfolios-v2.1
+Dependencies: CPV21-T4
+Acceptance Criteria:
+[AC1] Differences table shows plain-English labels for withdrawal and drawdown strategy types.
+[AC2] Differences panel supports collapse/expand interaction with Stress Test-style header affordance.
+[AC3] `packages/client/src/lib/compareParameterDiffs.test.ts` covers label behavior and passes.

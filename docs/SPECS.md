@@ -317,6 +317,30 @@ Affordance index reserved for future use. No explicit app-level redo behavior is
 - Legacy pair snapshot files can replace initial slots (`A/B`) or import selected source slot into a chosen target slot.
 - Multi-slot compare snapshots can restore all included slots (up to 8) with explicit overwrite confirmation.
 
+### Affordance #73 · Compare Parameter Differences Table
+
+**Purpose:** Surface configuration deltas across active compare portfolios without requiring slot-by-slot input-panel switching.
+
+**Behavior:**
+- Rendered in Compare mode between Summary Stats and Portfolio Chart.
+- Table columns are `Parameter` + active slot columns (`A`..`H`) with baseline indicator in header.
+- Shows only rows where normalized values differ across active slots.
+- Includes all editable input families:
+  - Core parameters
+  - Starting portfolio
+  - Return assumptions
+  - Withdrawal strategy (type + unified parameter rows with `N/A` when a parameter is not applicable)
+  - Drawdown strategy (type + bucket/rebalancing/glide-path rows)
+  - Spending phases (deterministic summary row)
+  - Income events (deterministic summary row)
+  - Expense events (deterministic summary row)
+- Complex/list fields use deterministic summary-string rows and ignore local ids for comparison.
+- Panel is run-gated:
+  - values are sourced from each active slot’s current-mode run `configSnapshot`.
+  - panel remains hidden until all active slots have current-mode snapshots.
+- Panel is hidden when there are no differences.
+- Non-baseline cells that differ from baseline are visually highlighted.
+
 ## Input Panel — Section: Core Parameters
 This is the first section within the input panel (sidebar). It's expanded by default on app load.
 

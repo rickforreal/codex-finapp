@@ -887,7 +887,6 @@ Validation run (all passing):
 - `npm run lint`
 - `npm test`
 - `npm run build`
-
 - CHG-0003 started: compare slot theme-adaptive visual refinement.
   - Created docs lane: `docs/changes/CHG-0003-compare-slot-theme-adaptive-visuals/{CHANGE,ACCEPTANCE}.md`.
   - Updated `docs/changes/INDEX.md` with CHG-0003 (`In Progress`).
@@ -1031,3 +1030,40 @@ Validation run (all passing):
 - `npm run lint`
 - `npm test`
 - `npm run build`
+- Compare Portfolios v2.1 docs-first wave started (differences-only parameter table).
+  - Created `docs/features/compare-portfolios-v2-1/{FEATURE,PLAN,ACCEPTANCE}.md`.
+  - Appended root tasks `CPV21-T1`..`CPV21-T4` in `TASKS.md`.
+  - Canonical docs impact set: `docs/SPECS.md`, `docs/SCENARIOS.md`.
+- Compare Portfolios v2.1 implementation complete for root tasks `CPV21-T1`..`CPV21-T4`.
+  - New compare differences engine + tests:
+    - `packages/client/src/lib/compareParameterDiffs.ts`
+    - `packages/client/src/lib/compareParameterDiffs.test.ts`
+    - Supports all editable input families and only emits cross-slot deltas.
+    - Uses deterministic normalization/summaries for structured lists (spending phases, income events, expense events, glide path) and ignores ids where required.
+  - New compare output panel:
+    - `packages/client/src/components/output/CompareParameterDiffTable.tsx`
+    - Rendered between SummaryStatsBar and PortfolioChart in compare mode via `packages/client/src/components/layout/AppShell.tsx`.
+    - Run-gated behavior: panel shows only when active slots have current-mode complete run snapshots and at least one difference row.
+    - Panel hides when no differences are present.
+  - Simulation response snapshot expansion:
+    - `packages/shared/src/contracts/api.ts` updates `SimulateResponse.configSnapshot` to full `SimulationConfig`.
+    - `packages/server/src/routes/simulation.ts` now returns full run `configSnapshot: body.config` for manual and Monte Carlo.
+    - Enables run-gated, non-live-edit compare parameter diffs across all editable families.
+  - Canonical docs updated:
+    - `docs/SPECS.md` (Affordance #73)
+    - `docs/SCENARIOS.md` (compare workflow includes differences panel)
+    - `docs/API.md` and `docs/DATA_MODEL.md` (SimulateResponse configSnapshot contract update)
+    - feature wave docs in `docs/features/compare-portfolios-v2-1/`
+
+Validation run (all passing):
+- `npm run typecheck`
+- `npm run lint`
+- `npm test`
+- `npm run build`
+- CPV21-T5 started: follow-up UX refinement for Compare differences panel.
+  - Scope: replace raw strategy enum strings with plain-English labels and add collapsible panel container behavior.
+- CPV21-T5 complete.
+  - Diff engine update (`packages/client/src/lib/compareParameterDiffs.ts`): strategy/drawdown type rows now render human-friendly labels (`Constant Dollar`, `1/N`, `Bucket`, `Rebalancing`, etc.).
+  - Compare panel update (`packages/client/src/components/output/CompareParameterDiffTable.tsx`): added Stress Test-style collapsible header with chevron and preserved difference badge.
+  - Tests updated (`packages/client/src/lib/compareParameterDiffs.test.ts`): strategy label assertions now target plain-English output and include drawdown label coverage.
+  - Canonical docs impact: none (behavior remains within existing v2.1 affordance and semantics).

@@ -1,4 +1,5 @@
 import { useAppStore } from '../../store/useAppStore';
+import { CompareParameterDiffTable } from '../output/CompareParameterDiffTable';
 import { DetailTable } from '../output/DetailTable';
 import { PortfolioChart } from '../output/PortfolioChart';
 import { StressTestPanel } from '../output/StressTestPanel';
@@ -20,6 +21,7 @@ export const AppShell = () => {
         <section className="min-w-0 flex-1 p-6">
           <div className="space-y-4">
             <SummaryStatsBar />
+            <CompareParameterDiffTable />
             <PortfolioChart />
             <DetailTable />
             <StressTestPanel />

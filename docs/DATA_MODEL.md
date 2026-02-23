@@ -344,6 +344,7 @@ SimulateRequest {
 SimulateResponse {
   simulationMode: SimulationMode;
   seedUsed?: number;
+  configSnapshot?: SimulationConfig;
   result: SinglePathResult;
   monteCarlo?: MonteCarloResult;
 }

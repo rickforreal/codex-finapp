@@ -28,10 +28,7 @@ export const simulationRoutes: FastifyPluginAsync = async (app) => {
           return {
             simulationMode: SimulationMode.MonteCarlo,
             seedUsed: mc.seedUsed,
-            configSnapshot: {
-              coreParams: body.config.coreParams,
-              selectedHistoricalEra: body.config.selectedHistoricalEra,
-            },
+            configSnapshot: body.config,
             result: mc.representativePath,
             monteCarlo: mc.monteCarlo,
           };
@@ -43,10 +40,7 @@ export const simulationRoutes: FastifyPluginAsync = async (app) => {
         return {
           simulationMode: SimulationMode.Manual,
           seedUsed: body.seed,
-          configSnapshot: {
-            coreParams: body.config.coreParams,
-            selectedHistoricalEra: body.config.selectedHistoricalEra,
-          },
+          configSnapshot: body.config,
           result,
         };
       } catch (error) {

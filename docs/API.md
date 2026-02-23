@@ -71,6 +71,7 @@ Response:
 {
   simulationMode: SimulationMode;
   seedUsed?: number;
+  configSnapshot?: SimulationConfig;          // full run config snapshot for compare/analysis surfaces
   result: SinglePathResult;
   monteCarlo?: MonteCarloResult;              // present for Monte Carlo mode
 }
