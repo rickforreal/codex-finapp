@@ -648,6 +648,14 @@ const themeChartSchema = z
     mcMedianLine: z.string().min(1),
     mcBandOuter: z.string().min(1),
     mcBandInner: z.string().min(1),
+    compareSlotA: z.string().min(1),
+    compareSlotB: z.string().min(1),
+    compareSlotC: z.string().min(1),
+    compareSlotD: z.string().min(1),
+    compareSlotE: z.string().min(1),
+    compareSlotF: z.string().min(1),
+    compareSlotG: z.string().min(1),
+    compareSlotH: z.string().min(1),
   })
   .strict();
 

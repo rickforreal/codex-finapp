@@ -117,6 +117,14 @@ export const applyTheme = (theme: ThemeDefinition): void => {
   setVar('--theme-chart-mc-median-line', chart.mcMedianLine);
   setVar('--theme-chart-mc-band-outer', chart.mcBandOuter);
   setVar('--theme-chart-mc-band-inner', chart.mcBandInner);
+  setVar('--theme-chart-compare-slot-a', chart.compareSlotA);
+  setVar('--theme-chart-compare-slot-b', chart.compareSlotB);
+  setVar('--theme-chart-compare-slot-c', chart.compareSlotC);
+  setVar('--theme-chart-compare-slot-d', chart.compareSlotD);
+  setVar('--theme-chart-compare-slot-e', chart.compareSlotE);
+  setVar('--theme-chart-compare-slot-f', chart.compareSlotF);
+  setVar('--theme-chart-compare-slot-g', chart.compareSlotG);
+  setVar('--theme-chart-compare-slot-h', chart.compareSlotH);
 
   document.documentElement.setAttribute('data-theme-id', theme.id);
 };

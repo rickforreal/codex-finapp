@@ -2,6 +2,7 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 
 import { AppMode, AssetClass, type MonthlySimulationRow, SimulationMode } from '@finapp/shared';
 
+import { getCompareSlotColorVar } from '../../lib/compareSlotColors';
 import { formatCompactCurrency, formatCurrency, formatPeriodLabel } from '../../lib/format';
 import { type WorkspaceSnapshot, useActiveSimulationResult, useAppStore, useCompareSimulationResults } from '../../store/useAppStore';
 import { SegmentedToggle } from '../shared/SegmentedToggle';
@@ -188,16 +189,6 @@ export const PortfolioChart = () => {
   }, [activeRunInflationRate, chartDisplayMode, result, simulationMode]);
 
   if (mode === AppMode.Compare) {
-    const slotPalette = [
-      'var(--theme-chart-manual-line)',
-      'var(--theme-color-info)',
-      'var(--theme-color-positive)',
-      'var(--theme-color-warning)',
-      '#7c3aed',
-      '#0f766e',
-      '#c2410c',
-      '#475569',
-    ];
     const resolveSlotResult = (workspace: WorkspaceSnapshot | undefined) => {
       if (!workspace) {
         return null;
@@ -208,7 +199,7 @@ export const PortfolioChart = () => {
           : workspace.simulationResults.monteCarlo;
       return preferred ?? workspace.simulationResults.manual ?? workspace.simulationResults.monteCarlo;
     };
-    const slotSeries = compareResults.slotOrder.map((slotId, index) => {
+    const slotSeries = compareResults.slotOrder.map((slotId) => {
       const resultForSlot = resolveSlotResult(compareResults.slots[slotId]);
       const rows = resultForSlot?.result.rows ?? [];
       const slotInflationRate = resultForSlot?.configSnapshot?.coreParams.inflationRate ?? inflationRate;
@@ -227,7 +218,7 @@ export const PortfolioChart = () => {
             });
       return {
         slotId,
-        color: slotPalette[index] ?? slotPalette[slotPalette.length - 1]!,
+        color: getCompareSlotColorVar(slotId),
         rows,
         totals,
         inflationRate: slotInflationRate,

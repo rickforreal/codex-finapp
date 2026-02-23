@@ -121,6 +121,14 @@ const theme: ThemeDefinition = {
       mcMedianLine: '#998877',
       mcBandOuter: '#aa9988',
       mcBandInner: '#bbaa99',
+      compareSlotA: '#1010aa',
+      compareSlotB: '#2020aa',
+      compareSlotC: '#3030aa',
+      compareSlotD: '#4040aa',
+      compareSlotE: '#5050aa',
+      compareSlotF: '#6060aa',
+      compareSlotG: '#7070aa',
+      compareSlotH: '#8080aa',
     },
   },
 };
@@ -150,6 +158,7 @@ describe('themeEngine', () => {
 
     expect(styleState.get('--theme-color-brand-navy')).toBe('#555555');
     expect(styleState.get('--theme-chart-mc-median-line')).toBe('#998877');
+    expect(styleState.get('--theme-chart-compare-slot-c')).toBe('#3030aa');
     expect(attrs.get('data-theme-id')).toBe(ThemeId.Dark);
   });
 });

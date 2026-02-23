@@ -252,14 +252,19 @@ Affordance index reserved for future use. No explicit app-level redo behavior is
 
 **Purpose:** Selects which compare portfolio slot (`A`..`H`) the input panel is currently editing and manages slot add/remove lifecycle.
 
-**Control type:** Slot chip row with actions (`A`..`H`, add/remove, clone-source picker on add)
+**Control type:** Slot chip row with actions (`A`..`H`, add/remove, clone-active on add)
 
 **Behavior:**
 - Visible only in Compare mode.
 - All input sections bind to the active slot.
 - Switching slots does not copy values; each slot maintains independent inputs/results.
 - Slot count is bounded to 2..8.
-- Adding a slot clones from a user-selected source slot.
+- Clicking `+` clones from the currently active slot.
+- Single-click on a slot chip sets active slot.
+- Double-click on a slot chip sets baseline slot.
+- Remove affordance is a hover-only circular icon shown per chip only when slot count > 2.
+- Compare chips are color-linked to slot ID (`A`..`H`) and use the same slot color identity as compare chart lines.
+- Baseline visual indicator is theme-adaptive and slot-color-based (no fixed gold-only dependency).
 
 ### Affordance #68 · Shared Compare Chart
 
@@ -267,9 +272,10 @@ Affordance index reserved for future use. No explicit app-level redo behavior is
 
 **Behavior:**
 - Manual mode: one line per active slot.
-- Monte Carlo mode: one median line and confidence context per active slot.
+- Monte Carlo mode: one median line per active slot; confidence bands are shown only for the selected baseline slot.
 - Tooltip includes point-in-time values for every active slot.
 - Active slots are all visible by default.
+- Each slot line color is tied to its stable theme token (`compareSlotA`..`compareSlotH`) and matches compare chips/tabs.
 
 ### Affordance #69 · Multi-Slot Summary Stats
 
@@ -287,9 +293,10 @@ Affordance index reserved for future use. No explicit app-level redo behavior is
 **Purpose:** Inspect monthly/annual ledger details for any active compare slot in a shared table viewport.
 
 **Behavior:**
-- Render one ledger viewport with slot tabs (`A`..`H`) above the table.
+- Render one ledger viewport with circular slot tabs (`A`..`H`) above the table.
 - Monthly/Annual and Breakdown controls are shared.
 - Spreadsheet expand is disabled in Compare mode; scrolling is required.
+- Compare tab colors are slot-ID stable and match compare chips/chart lines.
 
 ### Affordance #71 · Compare Stress Test
 

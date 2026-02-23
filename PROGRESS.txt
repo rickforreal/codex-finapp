@@ -888,6 +888,38 @@ Validation run (all passing):
 - `npm test`
 - `npm run build`
 
+- CHG-0003 started: compare slot theme-adaptive visual refinement.
+  - Created docs lane: `docs/changes/CHG-0003-compare-slot-theme-adaptive-visuals/{CHANGE,ACCEPTANCE}.md`.
+  - Updated `docs/changes/INDEX.md` with CHG-0003 (`In Progress`).
+  - Added root tracker entry `CHG-0003-T1` to `TASKS.md`.
+  - Canonical docs update wave opened for token/API + compare visual spec alignment: `docs/API.md`, `docs/DATA_MODEL.md`, `docs/SPECS.md`, `docs/SCENARIOS.md`.
+
+- CHG-0003 complete: compare slot theme-adaptive visual refinement implemented and validated.
+  - Theme contract surface expanded for compare slots:
+    - `packages/shared/src/domain/theme.ts` (`ThemeChartTokens.compareSlotA..compareSlotH`)
+    - `packages/shared/src/contracts/schemas.ts` (`themeChartSchema` includes `compareSlotA..H`)
+  - Theme plumbing and registry updates:
+    - `packages/server/src/themes/registry.ts` populated compare slot chart tokens for Light, Dark, Monokai, Synthwave '84, and High Contrast.
+    - `packages/client/src/styles/themeEngine.ts` now exports CSS vars `--theme-chart-compare-slot-a..h`.
+    - `packages/client/src/styles/themeEngine.test.ts` updated for new token mapping assertions.
+  - Compare slot color alignment implementation:
+    - Added `packages/client/src/lib/compareSlotColors.ts` for canonical slot-ID to CSS var mapping.
+    - `packages/client/src/components/output/PortfolioChart.tsx` now uses slot-ID token colors for all compare slot lines/legend entries.
+    - `packages/client/src/components/layout/Sidebar.tsx` now uses slot-color backgrounds, slot-color baseline ring/badge, and solid red hover remove icon with high-contrast glyph.
+    - `packages/client/src/components/output/DetailTable.tsx` compare tabs now use slot-color backgrounds and matching baseline ring/badge.
+  - Canonical docs updated for this change:
+    - `docs/API.md`, `docs/DATA_MODEL.md`, `docs/SPECS.md`, `docs/SCENARIOS.md`.
+  - Change lane closed:
+    - `docs/changes/CHG-0003-compare-slot-theme-adaptive-visuals/{CHANGE,ACCEPTANCE}.md` updated to Done.
+    - `docs/changes/INDEX.md` status set to Done.
+    - `TASKS.md` `CHG-0003-T1` marked complete.
+
+Validation run (all passing):
+- `npm run typecheck`
+- `npm run lint`
+- `npm test`
+- `npm run build`
+
 - CPV2-T8 complete: Compare v2.0 post-feedback UX refinement pass implemented.
   - Sidebar compare slot UX (`/Users/ricknayar/Development/codex/finapp/packages/client/src/components/layout/Sidebar.tsx`):
     - removed clone-source dropdown and remove button flow.
@@ -978,3 +1010,7 @@ Validation run (all passing):
 - `npm run lint`
 - `npm test`
 - `npm run build`
+- CHG-0003 follow-up UX tweak (append-only log entry):
+  - Updated baseline marker text in compare slot chips and compare ledger tabs to lightweight `Base` text below the circle with no overlap.
+  - Files: `packages/client/src/components/layout/Sidebar.tsx`, `packages/client/src/components/output/DetailTable.tsx`.
+  - Verified: `npm run typecheck -w @finapp/client`, `npm run lint -w @finapp/client`.

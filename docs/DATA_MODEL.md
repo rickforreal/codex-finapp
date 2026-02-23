@@ -491,10 +491,33 @@ ThemeDefinition {
     shadow: ThemeShadowTokens;
     motion: ThemeMotionTokens;
     state: ThemeStateTokens;        // edited/preserved/stale/selection visuals
-    chart: ThemeChartTokens;        // manual line/fill + MC bands/median
+    chart: ThemeChartTokens;        // manual line/fill + MC bands/median + compare slot colors
   };
 }
 ```
+
+Theme chart token surface:
+
+```ts
+ThemeChartTokens {
+  manualLine: string;
+  manualAreaTop: string;
+  manualAreaBottom: string;
+  mcMedianLine: string;
+  mcBandOuter: string;
+  mcBandInner: string;
+  compareSlotA: string;
+  compareSlotB: string;
+  compareSlotC: string;
+  compareSlotD: string;
+  compareSlotE: string;
+  compareSlotF: string;
+  compareSlotG: string;
+  compareSlotH: string;
+}
+```
+
+Compare slot color tokens provide a slot-ID-stable visual identity (`A`..`H`) that is reused in compare chart lines, sidebar chips, and compare ledger tabs.
 
 Notes:
 - Snapshot load validates envelope + payload using Zod.

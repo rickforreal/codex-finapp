@@ -124,6 +124,14 @@ export type ThemeChartTokens = {
   mcMedianLine: string;
   mcBandOuter: string;
   mcBandInner: string;
+  compareSlotA: string;
+  compareSlotB: string;
+  compareSlotC: string;
+  compareSlotD: string;
+  compareSlotE: string;
+  compareSlotF: string;
+  compareSlotG: string;
+  compareSlotH: string;
 };
 
 export type ThemeTokenBundle = {

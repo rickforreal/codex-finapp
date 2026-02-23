@@ -930,6 +930,18 @@ Acceptance Criteria:
 [AC3] Monthly and annual value mapping follows cross-run p50 start-of-period semantics.
 [AC4] `npm run typecheck`, `npm run lint`, `npm test`, and `npm run build` pass.
 
+## Minor Change Plan — Compare Slot Theme-Adaptive Visuals
+
+- [x] CHG-0003-T1: Implement compare slot theme-adaptive visual alignment (chips/tabs/chart + baseline/remove affordances)
+Phase: Change (Minor UX/Theming Refinement)
+Dependencies: CPV2-T8
+Acceptance Criteria:
+[AC1] Compare slot visuals avoid hardcoded baseline gold and use theme-adaptive slot-color-based baseline indicators.
+[AC2] Hover remove control is a solid red circle with a high-contrast, theme-compatible `X`.
+[AC3] Slot color identity is consistent across sidebar chips, compare detail tabs, and compare chart lines for `A..H`.
+[AC4] Theme token contracts and `/api/v1/themes` payload validation support explicit compare slot colors.
+[AC5] `npm run typecheck`, `npm run lint`, `npm test`, and `npm run build` pass.
+
 ## Feature Plan — Compare Portfolios v2.0 (2..8)
 
 - [x] CPV2-T1: Create v2.0 feature-doc wave and decision-complete baseline
