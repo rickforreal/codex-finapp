@@ -8,8 +8,8 @@ const resetStore = () => {
   useAppStore.setState(useAppStore.getInitialState(), true);
 };
 
-const enterCompareMode = () => {
-  useAppStore.getState().setMode(AppMode.Compare);
+const activateCompare = () => {
+  useAppStore.getState().addCompareSlotFromSource('A');
 };
 
 describe('useAppStore compare slot behavior', () => {
@@ -19,7 +19,7 @@ describe('useAppStore compare slot behavior', () => {
 
   it('addCompareSlotFromSource clones source slot data and keeps slotOrder sorted', () => {
     resetStore();
-    enterCompareMode();
+    activateCompare();
 
     const store = useAppStore.getState();
     store.setCompareActiveSlot('B');
@@ -35,9 +35,20 @@ describe('useAppStore compare slot behavior', () => {
     expect(state.compareWorkspace.slots.A?.portfolio.stocks).not.toBe(1_234_567);
   });
 
+  it('initializes compare workspace with A-only and activates compare at 2+ slots', () => {
+    resetStore();
+    expect(useAppStore.getState().compareWorkspace.slotOrder).toEqual(['A']);
+
+    activateCompare();
+    const state = useAppStore.getState();
+    expect(state.compareWorkspace.slotOrder).toEqual(['A', 'B']);
+    expect(state.compareWorkspace.slots.A).toBeDefined();
+    expect(state.compareWorkspace.slots.B).toBeDefined();
+  });
+
   it('removeCompareSlot enforces min-2 guard and normalizes slot order alphabetically', () => {
     resetStore();
-    enterCompareMode();
+    activateCompare();
 
     const store = useAppStore.getState();
     store.addCompareSlotFromSource('A');
@@ -52,12 +63,12 @@ describe('useAppStore compare slot behavior', () => {
     expect(useAppStore.getState().compareWorkspace.slotOrder).toEqual(['A', 'C']);
 
     useAppStore.getState().removeCompareSlot('C');
-    expect(useAppStore.getState().compareWorkspace.slotOrder).toEqual(['A', 'C']);
+    expect(useAppStore.getState().compareWorkspace.slotOrder).toEqual(['A']);
   });
 
   it('removing an active baseline slot falls back to first sorted slot for both', () => {
     resetStore();
-    enterCompareMode();
+    activateCompare();
 
     const store = useAppStore.getState();
     store.addCompareSlotFromSource('A');
@@ -74,7 +85,7 @@ describe('useAppStore compare slot behavior', () => {
 
   it('removeCompareSlot keeps A non-deletable even when there are more than two slots', () => {
     resetStore();
-    enterCompareMode();
+    activateCompare();
 
     const store = useAppStore.getState();
     store.addCompareSlotFromSource('A');
@@ -93,7 +104,7 @@ describe('useAppStore compare slot behavior', () => {
 
   it('removeCompareSlot still removes non-A slots when A is present', () => {
     resetStore();
-    enterCompareMode();
+    activateCompare();
 
     const store = useAppStore.getState();
     store.addCompareSlotFromSource('A');
@@ -101,5 +112,24 @@ describe('useAppStore compare slot behavior', () => {
 
     store.removeCompareSlot('C');
     expect(useAppStore.getState().compareWorkspace.slotOrder).toEqual(['A', 'B']);
+  });
+
+  it('propagates A actual override clears to non-A canonical-floor slots', () => {
+    resetStore();
+    activateCompare();
+
+    const store = useAppStore.getState();
+    store.setMode(AppMode.Tracking);
+    store.setCompareActiveSlot('A');
+    store.upsertActualOverride(5, { incomeTotal: 12_345 });
+
+    store.setCompareActiveSlot('B');
+    expect(useAppStore.getState().actualOverridesByMonth[5]?.incomeTotal).toBe(12_345);
+
+    store.setCompareActiveSlot('A');
+    store.clearActualRowOverrides(5);
+
+    store.setCompareActiveSlot('B');
+    expect(useAppStore.getState().actualOverridesByMonth[5]).toBeUndefined();
   });
 });

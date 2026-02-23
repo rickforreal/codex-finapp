@@ -13,6 +13,7 @@ import {
   useActiveSimulationResult,
   useAppStore,
   useCompareSimulationResults,
+  useIsCompareActive,
 } from '../../store/useAppStore';
 
 const scenarioTypes: Array<{ value: StressScenarioType; label: string }> = [
@@ -113,6 +114,7 @@ const deriveMonthlyReturnsFromRows = (
 
 export const StressTestPanel = () => {
   const mode = useAppStore((state) => state.mode);
+  const isCompareActive = useIsCompareActive();
   const compareWorkspace = useCompareSimulationResults();
   const simulationMode = useAppStore((state) => state.simulationMode);
   const stress = useAppStore((state) => state.stress);
@@ -146,7 +148,7 @@ export const StressTestPanel = () => {
     const compareBaseAvailable = compareWorkspace.slotOrder.some((slotId) =>
       Boolean(resolveSlotResult(compareWorkspace.slots[slotId])),
     );
-    const baseAvailable = mode === AppMode.Compare ? compareBaseAvailable : Boolean(activeResult);
+    const baseAvailable = isCompareActive ? compareBaseAvailable : Boolean(activeResult);
 
     if (!baseAvailable || stress.scenarios.length === 0) {
       const currentState = useAppStore.getState();
@@ -157,7 +159,7 @@ export const StressTestPanel = () => {
       if (globalStressNeedsClear) {
         clearStressResult();
       }
-      if (mode === AppMode.Compare) {
+      if (isCompareActive) {
         currentState.compareWorkspace.slotOrder.forEach((slotId) => {
           const slotStress = currentState.compareWorkspace.slots[slotId]?.stress;
           const needsClear = Boolean(
@@ -176,7 +178,7 @@ export const StressTestPanel = () => {
 
     const controller = new AbortController();
     const timeout = setTimeout(() => {
-      if (mode !== AppMode.Compare) {
+      if (!isCompareActive) {
         if (!activeResult) {
           return;
         }
@@ -328,7 +330,7 @@ export const StressTestPanel = () => {
     const slotWorkspace = compareWorkspace.slots[slotId];
     return Boolean(slotWorkspace?.simulationResults.manual || slotWorkspace?.simulationResults.monteCarlo);
   });
-  const baseAvailable = mode === AppMode.Compare ? compareBaseAvailable : Boolean(activeResult);
+  const baseAvailable = isCompareActive ? compareBaseAvailable : Boolean(activeResult);
   const result = stress.result;
   const comparisonSet = result
     ? [

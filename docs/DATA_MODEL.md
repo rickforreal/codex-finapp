@@ -33,7 +33,7 @@ WithdrawalStrategyType =
   "hebelerAutopilot" | "capeBased"
 DrawdownStrategyType = "bucket" | "rebalancing"
 SimulationMode = "manual" | "monteCarlo"
-AppMode = "planning" | "tracking" | "compare"
+AppMode = "planning" | "tracking"
 HistoricalEra =
   "fullHistory" | "depressionEra" | "postWarBoom" | "stagflationEra" |
   "oilCrisis" | "post1980BullRun" | "lostDecade" | "postGfcRecovery"
@@ -548,7 +548,7 @@ PackedRows {
   - `stress.result.base.result.rows`
   - `stress.result.scenarios[*].result.rows`
 
-## 10. Compare Mode Model (v2.0)
+## 10. Compare Workspace Model (v3.0)
 
 ### 10.1 Compare state model
 
@@ -556,38 +556,37 @@ PackedRows {
 CompareState {
   activeSlotId: CompareSlotId;   // currently edited slot in sidebar
   baselineSlotId: CompareSlotId; // stats-card delta reference
-  slotOrder: CompareSlotId[];    // active slots in UI order, length 2..8
+  slotOrder: CompareSlotId[];    // active slots in UI order, length 1..8
   slots: Partial<Record<CompareSlotId, WorkspaceSnapshot>>;
 }
 ```
 
 Slot constraints:
-- Minimum active slots: `2`
+- Minimum active slots: `1`
 - Maximum active slots: `8`
 
 Initialization rule:
-- On first switch into Compare mode:
-  - seed slot `A` from the currently active Planning/Tracking workspace snapshot
-  - initialize slot `B` as clone of `A`
-  - set `slotOrder = ["A", "B"]`
+- On app initialization:
+  - set `slotOrder = ["A"]`
   - set `activeSlotId = "A"`
   - set `baselineSlotId = "A"`
 
 Lifecycle rules:
-- Add slot: user selects clone source slot; new slot receives cloned workspace.
-- Remove slot: allowed only when active slot count is greater than 2.
+- Add slot: user clones from currently active slot; new slot receives cloned workspace.
+- Remove slot: allowed only when active slot count is greater than 1, except `A` which is non-removable.
 - Baseline fallback: if baseline slot is removed, baseline reassigns to first slot in `slotOrder`.
+- Compare activation: compare output surfaces render when `slotOrder.length > 1`; single-portfolio surfaces render when `slotOrder.length === 1`.
+- Tracking canonical floor: slot `A.lastEditedMonthIndex` defines immutable floor for non-`A` slots. Non-`A` overrides at/before this boundary are replaced by `A` overrides.
 
-### 10.2 Snapshot compatibility in Compare mode
+### 10.2 Snapshot compatibility for compare workspace
 
-1. Existing single snapshot files remain loadable in Compare mode.
-2. Existing pair compare snapshots (`left/right`) remain loadable via source-target mapping prompts.
-3. New compare snapshots persist variable-slot payloads (`slotOrder` + `slots` + compare metadata).
-4. Load targeting is deterministic and explicit for source and destination slot mapping.
+1. Valid snapshots persist compare workspace payload (`slotOrder` + `slots` + compare metadata) for 1..8 slots.
+2. Snapshot load is full-state replace (no per-slot targeting prompt).
+3. Legacy snapshots containing `mode: "compare"` are rejected in v3.0.
 
-### 10.3 Stochastic parity rule in Compare runs
+### 10.3 Stochastic parity rule in multi-slot runs
 
-For fairness, Compare mode applies the same market randomness to all active slots within a run:
+For fairness, multi-slot compare applies the same market randomness to all active slots within a run:
 - Manual: one monthly stochastic return stream is shared across all active slots.
 - Monte Carlo: one seed/sampling stream is shared so each simulation index/month index maps to identical sampled market conditions across all active slots.
 

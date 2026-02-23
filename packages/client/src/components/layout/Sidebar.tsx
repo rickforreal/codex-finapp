@@ -1,4 +1,4 @@
-import { AppMode, SimulationMode } from '@finapp/shared';
+import { SimulationMode } from '@finapp/shared';
 
 import { CoreParameters } from '../inputs/CoreParameters';
 import { StartingPortfolio } from '../inputs/StartingPortfolio';
@@ -28,7 +28,6 @@ export const Sidebar = () => {
   const collapsed = useAppStore((state) => state.ui.collapsedSections);
   const toggleSection = useAppStore((state) => state.toggleSection);
   const simulationMode = useAppStore((state) => state.simulationMode);
-  const mode = useAppStore((state) => state.mode);
   const compareActiveSlot = useAppStore((state) => state.compareWorkspace.activeSlotId);
   const compareSlotOrder = useAppStore((state) => state.compareWorkspace.slotOrder);
   const compareBaselineSlot = useAppStore((state) => state.compareWorkspace.baselineSlotId);
@@ -37,12 +36,11 @@ export const Sidebar = () => {
   const addCompareSlotFromSource = useAppStore((state) => state.addCompareSlotFromSource);
   const removeCompareSlot = useAppStore((state) => state.removeCompareSlot);
   const canAddCompareSlot = compareSlotOrder.length < 8;
-  const canRemoveCompareSlot = compareSlotOrder.length > 2;
+  const canRemoveCompareSlot = compareSlotOrder.length > 1;
 
   return (
     <div className="space-y-3">
-      {mode === AppMode.Compare ? (
-        <div className="rounded-xl border border-brand-border bg-brand-surface p-3 shadow-[0_1px_0_rgba(15,23,42,0.03)]">
+      <div className="rounded-xl border border-brand-border bg-brand-surface p-3 shadow-[0_1px_0_rgba(15,23,42,0.03)]">
           <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-slate-500">Compare Slot</p>
           <p className="mt-1 text-sm text-slate-500">Select portfolios to analyze performance.</p>
           <div className="mt-3 flex flex-wrap items-center gap-2">
@@ -128,8 +126,7 @@ export const Sidebar = () => {
               </span>
             </div>
           </div>
-        </div>
-      ) : null}
+      </div>
 
       <CollapsibleSection
         id={sectionIds.core}

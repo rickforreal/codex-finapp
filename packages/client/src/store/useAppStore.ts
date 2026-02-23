@@ -696,6 +696,91 @@ const sortCompareSlotOrder = (slotOrder: CompareSlotId[]): CompareSlotId[] =>
     (left, right) => COMPARE_SLOT_IDS.indexOf(left) - COMPARE_SLOT_IDS.indexOf(right),
   );
 
+const isCompareActiveFromWorkspace = (compareWorkspace: SnapshotState['compareWorkspace']): boolean =>
+  compareWorkspace.slotOrder.length > 1;
+
+const cloneActualOverride = (override: ActualMonthOverride): ActualMonthOverride => ({
+  startBalances: override.startBalances ? { ...override.startBalances } : undefined,
+  withdrawalsByAsset: override.withdrawalsByAsset ? { ...override.withdrawalsByAsset } : undefined,
+  incomeTotal: override.incomeTotal,
+  expenseTotal: override.expenseTotal,
+});
+
+const normalizeTrackingCompareCanonicalFloor = (
+  compareWorkspace: SnapshotState['compareWorkspace'],
+): SnapshotState['compareWorkspace'] => {
+  const boundary = compareWorkspace.slots.A?.lastEditedMonthIndex ?? null;
+  if (boundary === null || boundary <= 0) {
+    return compareWorkspace;
+  }
+
+  const canonicalOverrides = compareWorkspace.slots.A?.actualOverridesByMonth ?? {};
+  const canonicalLocked = Object.fromEntries(
+    Object.entries(canonicalOverrides)
+      .map(([month, override]) => [Number(month), override] as const)
+      .filter(([month, override]) => Number.isInteger(month) && month > 0 && month <= boundary && Boolean(override))
+      .map(([month, override]) => [month, cloneActualOverride(override as ActualMonthOverride)]),
+  ) as ActualOverridesByMonth;
+
+  const next = cloneCompareWorkspace(compareWorkspace);
+  next.slotOrder.forEach((slotId) => {
+    if (slotId === 'A') {
+      return;
+    }
+    const workspace = next.slots[slotId];
+    if (!workspace) {
+      return;
+    }
+    const unlocked = Object.fromEntries(
+      Object.entries(workspace.actualOverridesByMonth)
+        .map(([month, override]) => [Number(month), override] as const)
+        .filter(([month, override]) => Number.isInteger(month) && month > boundary && Boolean(override))
+        .map(([month, override]) => [month, cloneActualOverride(override as ActualMonthOverride)]),
+    ) as ActualOverridesByMonth;
+    const merged = { ...canonicalLocked, ...unlocked };
+    const maxMonth = Object.keys(merged)
+      .map((value) => Number(value))
+      .filter((value) => Number.isInteger(value) && value > 0)
+      .reduce((max, value) => Math.max(max, value), 0);
+    workspace.actualOverridesByMonth = merged;
+    workspace.lastEditedMonthIndex = maxMonth > 0 ? Math.max(boundary, maxMonth) : boundary;
+  });
+
+  return next;
+};
+
+const pruneCanonicalRangeFromNonASlots = (
+  compareWorkspace: SnapshotState['compareWorkspace'],
+  previousBoundary: number | null,
+): SnapshotState['compareWorkspace'] => {
+  if (previousBoundary === null || previousBoundary <= 0) {
+    return compareWorkspace;
+  }
+  const next = cloneCompareWorkspace(compareWorkspace);
+  next.slotOrder.forEach((slotId) => {
+    if (slotId === 'A') {
+      return;
+    }
+    const workspace = next.slots[slotId];
+    if (!workspace) {
+      return;
+    }
+    const remaining = Object.fromEntries(
+      Object.entries(workspace.actualOverridesByMonth)
+        .map(([month, override]) => [Number(month), override] as const)
+        .filter(([month, override]) => Number.isInteger(month) && month > previousBoundary && Boolean(override))
+        .map(([month, override]) => [month, cloneActualOverride(override as ActualMonthOverride)]),
+    ) as ActualOverridesByMonth;
+    const maxMonth = Object.keys(remaining)
+      .map((value) => Number(value))
+      .filter((value) => Number.isInteger(value) && value > 0)
+      .reduce((max, value) => Math.max(max, value), 0);
+    workspace.actualOverridesByMonth = remaining;
+    workspace.lastEditedMonthIndex = maxMonth > 0 ? maxMonth : null;
+  });
+  return next;
+};
+
 const normalizeCompareWorkspace = (
   compareWorkspace: SnapshotState['compareWorkspace'],
 ): SnapshotState['compareWorkspace'] => {
@@ -705,7 +790,7 @@ const normalizeCompareWorkspace = (
   const normalizedOrder = sortCompareSlotOrder(
     compareWorkspace.slotOrder.filter((slotId) => Boolean(normalizedSlots[slotId])),
   );
-  const fallbackOrder: CompareSlotId[] = normalizedOrder.length >= 2 ? normalizedOrder : ['A', 'B'];
+  const fallbackOrder: CompareSlotId[] = normalizedOrder.length >= 1 ? normalizedOrder : ['A'];
   const activeSlotId = fallbackOrder.includes(compareWorkspace.activeSlotId)
     ? compareWorkspace.activeSlotId
     : (fallbackOrder[0] ?? 'A');
@@ -722,7 +807,7 @@ const normalizeCompareWorkspace = (
 
 const compareWorkspaceWithCurrentState = (state: AppStore): SnapshotState['compareWorkspace'] => {
   const compareWorkspace = cloneCompareWorkspace(state.compareWorkspace);
-  if (state.mode !== AppMode.Compare) {
+  if (!isCompareActiveFromWorkspace(compareWorkspace)) {
     return compareWorkspace;
   }
   const currentWorkspace = cloneWorkspace(workspaceFromState(state));
@@ -730,7 +815,10 @@ const compareWorkspaceWithCurrentState = (state: AppStore): SnapshotState['compa
   if (!compareWorkspace.slotOrder.includes(compareWorkspace.activeSlotId)) {
     compareWorkspace.slotOrder = [...compareWorkspace.slotOrder, compareWorkspace.activeSlotId];
   }
-  return normalizeCompareWorkspace(compareWorkspace);
+  const normalized = normalizeCompareWorkspace(compareWorkspace);
+  return state.mode === AppMode.Tracking
+    ? normalizeTrackingCompareCanonicalFloor(normalized)
+    : normalized;
 };
 
 const workspaceFromState = (state: AppStore): WorkspaceSnapshot => ({
@@ -801,22 +889,7 @@ const snapshotFieldsFromWorkspace = (workspace: WorkspaceSnapshot) => ({
   stress: workspace.stress,
 });
 
-const inputFieldsFromWorkspace = (workspace: WorkspaceSnapshot) => ({
-  selectedHistoricalEra: workspace.selectedHistoricalEra,
-  coreParams: workspace.coreParams,
-  portfolio: workspace.portfolio,
-  returnAssumptions: workspace.returnAssumptions,
-  spendingPhases: workspace.spendingPhases,
-  withdrawalStrategy: workspace.withdrawalStrategy,
-  drawdownStrategy: workspace.drawdownStrategy,
-  historicalData: workspace.historicalData,
-  incomeEvents: workspace.incomeEvents,
-  expenseEvents: workspace.expenseEvents,
-  actualOverridesByMonth: workspace.actualOverridesByMonth,
-  lastEditedMonthIndex: workspace.lastEditedMonthIndex,
-});
-
-const currentInputFieldsFromState = (state: AppStore): ReturnType<typeof inputFieldsFromWorkspace> => ({
+const currentInputFieldsFromState = (state: AppStore) => ({
   selectedHistoricalEra: state.selectedHistoricalEra,
   coreParams: { ...state.coreParams, retirementStartDate: { ...state.coreParams.retirementStartDate } },
   portfolio: { ...state.portfolio },
@@ -886,7 +959,12 @@ const cloneSnapshotState = (snapshot: SnapshotState): SnapshotState => ({
   trackingInitialized: snapshot.trackingInitialized,
   planningWorkspace: snapshot.planningWorkspace ? cloneWorkspace(snapshot.planningWorkspace) : null,
   trackingWorkspace: snapshot.trackingWorkspace ? cloneWorkspace(snapshot.trackingWorkspace) : null,
-  compareWorkspace: normalizeCompareWorkspace(cloneCompareWorkspace(snapshot.compareWorkspace)),
+  compareWorkspace:
+    snapshot.mode === AppMode.Tracking
+      ? normalizeTrackingCompareCanonicalFloor(
+          normalizeCompareWorkspace(cloneCompareWorkspace(snapshot.compareWorkspace)),
+        )
+      : normalizeCompareWorkspace(cloneCompareWorkspace(snapshot.compareWorkspace)),
   simulationMode: snapshot.simulationMode,
   selectedHistoricalEra: snapshot.selectedHistoricalEra,
   coreParams: {
@@ -1086,7 +1164,7 @@ export const useAppStore = create<AppStore>((set) => ({
   compareWorkspace: {
     activeSlotId: 'A',
     baselineSlotId: 'A',
-    slotOrder: ['A', 'B'],
+    slotOrder: ['A'],
     slots: {},
   },
   simulationMode: SimulationMode.Manual,
@@ -1180,50 +1258,27 @@ export const useAppStore = create<AppStore>((set) => ({
 
       const persistedCompareWorkspace = (() => {
         const nextCompare = cloneCompareWorkspace(state.compareWorkspace);
-        if (state.mode === AppMode.Compare) {
+        if (isCompareActiveFromWorkspace(nextCompare)) {
           nextCompare.slots[nextCompare.activeSlotId] = currentWorkspace;
         }
-        return nextCompare;
+        return normalizeCompareWorkspace(nextCompare);
       })();
 
-      if (mode === AppMode.Compare) {
-        const seededCompareWorkspace = (() => {
-          const next = cloneCompareWorkspace(persistedCompareWorkspace);
-          if (!next.slots.A) {
-            next.slots.A = cloneWorkspace(currentWorkspace);
-          }
-          if (!next.slots.B) {
-            next.slots.B = cloneWorkspace(next.slots.A ?? currentWorkspace);
-          }
-          if (next.slotOrder.length < 2) {
-            next.slotOrder = ['A', 'B'];
-          }
-          if (!next.slotOrder.includes(next.activeSlotId)) {
-            next.activeSlotId = next.slotOrder[0] ?? 'A';
-          }
-          if (!next.slotOrder.includes(next.baselineSlotId)) {
-            next.baselineSlotId = next.slotOrder[0] ?? 'A';
-          }
-          return next;
-        })();
-
-        const activeWorkspace = seededCompareWorkspace.slots[seededCompareWorkspace.activeSlotId];
-        const workspaceToShow = cloneWorkspace(
-          activeWorkspace ??
-            seededCompareWorkspace.slots[seededCompareWorkspace.slotOrder[0] ?? 'A'] ??
-            currentWorkspace,
-        );
-
-        return {
-          mode,
-          planningWorkspace,
-          trackingWorkspace,
-          compareWorkspace: seededCompareWorkspace,
-          ...snapshotFieldsFromWorkspace(workspaceToShow),
-        };
-      }
-
       if (mode === AppMode.Tracking) {
+        if (isCompareActiveFromWorkspace(persistedCompareWorkspace)) {
+          const activeCompareWorkspace =
+            persistedCompareWorkspace.slots[persistedCompareWorkspace.activeSlotId] ??
+            persistedCompareWorkspace.slots[persistedCompareWorkspace.slotOrder[0] ?? 'A'] ??
+            currentWorkspace;
+          return {
+            mode,
+            trackingInitialized: true,
+            planningWorkspace,
+            trackingWorkspace: state.trackingWorkspace ?? cloneWorkspace(currentWorkspace),
+            compareWorkspace: persistedCompareWorkspace,
+            ...snapshotFieldsFromWorkspace(cloneWorkspace(activeCompareWorkspace)),
+          };
+        }
         if (!state.trackingInitialized) {
           const seededTracking = cloneWorkspace(currentWorkspace);
           seededTracking.simulationResults = trackingSimulationResultsCleared(seededTracking.simulationResults);
@@ -1260,6 +1315,19 @@ export const useAppStore = create<AppStore>((set) => ({
       const nextPlanning = state.planningWorkspace
         ? cloneWorkspace(state.planningWorkspace)
         : cloneWorkspace(currentWorkspace);
+      if (isCompareActiveFromWorkspace(persistedCompareWorkspace)) {
+        const activeCompareWorkspace =
+          persistedCompareWorkspace.slots[persistedCompareWorkspace.activeSlotId] ??
+          persistedCompareWorkspace.slots[persistedCompareWorkspace.slotOrder[0] ?? 'A'] ??
+          currentWorkspace;
+        return {
+          mode,
+          planningWorkspace: nextPlanning,
+          trackingWorkspace,
+          compareWorkspace: persistedCompareWorkspace,
+          ...snapshotFieldsFromWorkspace(cloneWorkspace(activeCompareWorkspace)),
+        };
+      }
       return {
         mode,
         planningWorkspace: nextPlanning,
@@ -1288,15 +1356,19 @@ export const useAppStore = create<AppStore>((set) => ({
         return state;
       }
       nextCompareWorkspace.activeSlotId = slot;
+      const normalizedWorkspace =
+        state.mode === AppMode.Tracking
+          ? normalizeTrackingCompareCanonicalFloor(nextCompareWorkspace)
+          : nextCompareWorkspace;
 
-      const targetWorkspace = nextCompareWorkspace.slots[slot];
+      const targetWorkspace = normalizedWorkspace.slots[slot];
       if (!targetWorkspace) {
-        return { compareWorkspace: nextCompareWorkspace };
+        return { compareWorkspace: normalizedWorkspace };
       }
 
       return {
-        compareWorkspace: nextCompareWorkspace,
-        ...inputFieldsFromWorkspace(cloneWorkspace(targetWorkspace)),
+        compareWorkspace: normalizedWorkspace,
+        ...snapshotFieldsFromWorkspace(cloneWorkspace(targetWorkspace)),
       };
     }),
   setCompareBaselineSlot: (slot) =>
@@ -1316,7 +1388,7 @@ export const useAppStore = create<AppStore>((set) => ({
     }),
   addCompareSlotFromSource: (sourceSlotId) =>
     set((state) => {
-      const nextCompareWorkspace = cloneCompareWorkspace(state.compareWorkspace);
+      const nextCompareWorkspace = compareWorkspaceWithCurrentState(state);
       if (nextCompareWorkspace.slotOrder.length >= COMPARE_SLOT_IDS.length) {
         return state;
       }
@@ -1327,15 +1399,22 @@ export const useAppStore = create<AppStore>((set) => ({
       if (!nextSlotId) {
         return state;
       }
-      const sourceWorkspace = nextCompareWorkspace.slots[sourceSlotId];
+      const sourceWorkspace = nextCompareWorkspace.slots[sourceSlotId] ?? cloneWorkspace(workspaceFromState(state));
       if (!sourceWorkspace) {
         return state;
+      }
+      if (!nextCompareWorkspace.slots[sourceSlotId]) {
+        nextCompareWorkspace.slots[sourceSlotId] = cloneWorkspace(sourceWorkspace);
       }
       nextCompareWorkspace.slotOrder = [...nextCompareWorkspace.slotOrder, nextSlotId];
       nextCompareWorkspace.slots[nextSlotId] = cloneWorkspace(sourceWorkspace);
       nextCompareWorkspace.slotOrder = sortCompareSlotOrder(nextCompareWorkspace.slotOrder);
+      const normalizedWorkspace =
+        state.mode === AppMode.Tracking
+          ? normalizeTrackingCompareCanonicalFloor(nextCompareWorkspace)
+          : nextCompareWorkspace;
       return {
-        compareWorkspace: nextCompareWorkspace,
+        compareWorkspace: normalizedWorkspace,
       };
     }),
   removeCompareSlot: (slot) =>
@@ -1344,7 +1423,7 @@ export const useAppStore = create<AppStore>((set) => ({
       if (slot === 'A') {
         return state;
       }
-      if (nextCompareWorkspace.slotOrder.length <= 2) {
+      if (nextCompareWorkspace.slotOrder.length <= 1) {
         return state;
       }
       if (!nextCompareWorkspace.slotOrder.includes(slot)) {
@@ -1360,14 +1439,18 @@ export const useAppStore = create<AppStore>((set) => ({
       if (nextCompareWorkspace.baselineSlotId === slot) {
         nextCompareWorkspace.baselineSlotId = nextCompareWorkspace.slotOrder[0] ?? 'A';
       }
+      const normalizedWorkspace =
+        state.mode === AppMode.Tracking
+          ? normalizeTrackingCompareCanonicalFloor(nextCompareWorkspace)
+          : nextCompareWorkspace;
 
-      const nextActiveWorkspace = nextCompareWorkspace.slots[nextCompareWorkspace.activeSlotId];
-      if (!nextActiveWorkspace || state.mode !== AppMode.Compare) {
-        return { compareWorkspace: nextCompareWorkspace };
+      const nextActiveWorkspace = normalizedWorkspace.slots[normalizedWorkspace.activeSlotId];
+      if (!nextActiveWorkspace) {
+        return { compareWorkspace: normalizedWorkspace };
       }
       return {
-        compareWorkspace: nextCompareWorkspace,
-        ...inputFieldsFromWorkspace(cloneWorkspace(nextActiveWorkspace)),
+        compareWorkspace: normalizedWorkspace,
+        ...snapshotFieldsFromWorkspace(cloneWorkspace(nextActiveWorkspace)),
       };
     }),
   upsertActualOverride: (monthIndex, patch) =>
@@ -1375,48 +1458,160 @@ export const useAppStore = create<AppStore>((set) => ({
       if (monthIndex <= 0) {
         return state;
       }
+      const compareActive = isCompareActiveFromWorkspace(state.compareWorkspace);
+      const activeSlotId = state.compareWorkspace.activeSlotId;
+      const canonicalBoundary = state.compareWorkspace.slots.A?.lastEditedMonthIndex ?? null;
+      if (
+        state.mode === AppMode.Tracking &&
+        compareActive &&
+        activeSlotId !== 'A' &&
+        canonicalBoundary !== null &&
+        monthIndex <= canonicalBoundary
+      ) {
+        return state;
+      }
       const existing = state.actualOverridesByMonth[monthIndex] ?? {};
       const next: ActualMonthOverride = {
         ...existing,
         ...patch,
       };
+      const nextActualOverridesByMonth: ActualOverridesByMonth = {
+        ...state.actualOverridesByMonth,
+        [monthIndex]: next,
+      };
+      const nextLastEditedMonthIndex = Math.max(state.lastEditedMonthIndex ?? 0, monthIndex);
+      const nextCompareWorkspace = (() => {
+        if (!(state.mode === AppMode.Tracking && compareActive)) {
+          return state.compareWorkspace;
+        }
+        const workspace = cloneCompareWorkspace(state.compareWorkspace);
+        const activeWorkspace =
+          workspace.slots[activeSlotId] ??
+          cloneWorkspace(workspaceFromState(state));
+        activeWorkspace.actualOverridesByMonth = nextActualOverridesByMonth;
+        activeWorkspace.lastEditedMonthIndex = nextLastEditedMonthIndex;
+        workspace.slots[activeSlotId] = activeWorkspace;
+        return normalizeTrackingCompareCanonicalFloor(workspace);
+      })();
       return {
-        actualOverridesByMonth: {
-          ...state.actualOverridesByMonth,
-          [monthIndex]: next,
-        },
-        lastEditedMonthIndex: Math.max(state.lastEditedMonthIndex ?? 0, monthIndex),
+        actualOverridesByMonth: nextActualOverridesByMonth,
+        lastEditedMonthIndex: nextLastEditedMonthIndex,
+        compareWorkspace: nextCompareWorkspace,
         simulationResults:
-          state.mode === AppMode.Tracking && state.simulationMode === SimulationMode.MonteCarlo
+          state.mode === AppMode.Tracking
             ? { ...state.simulationResults, mcStale: true }
             : state.simulationResults,
       };
     }),
   clearActualRowOverrides: (monthIndex) =>
     set((state) => {
+      const compareActive = isCompareActiveFromWorkspace(state.compareWorkspace);
+      const activeSlotId = state.compareWorkspace.activeSlotId;
+      const canonicalBoundary = state.compareWorkspace.slots.A?.lastEditedMonthIndex ?? null;
+      if (
+        state.mode === AppMode.Tracking &&
+        compareActive &&
+        activeSlotId !== 'A' &&
+        canonicalBoundary !== null &&
+        monthIndex <= canonicalBoundary
+      ) {
+        return state;
+      }
       const next = { ...state.actualOverridesByMonth };
       delete next[monthIndex];
       const editedMonths = Object.keys(next)
         .map((value) => Number(value))
         .filter((value) => Number.isInteger(value) && value > 0);
+      const hasAnyOverrides = editedMonths.length > 0;
+      const nextLastEditedMonthIndex = hasAnyOverrides ? Math.max(...editedMonths) : null;
+      const nextCompareWorkspace = (() => {
+        if (!(state.mode === AppMode.Tracking && compareActive)) {
+          return state.compareWorkspace;
+        }
+        const previousBoundary = state.compareWorkspace.slots.A?.lastEditedMonthIndex ?? null;
+        const workspace = cloneCompareWorkspace(state.compareWorkspace);
+        const activeWorkspace =
+          workspace.slots[activeSlotId] ??
+          cloneWorkspace(workspaceFromState(state));
+        activeWorkspace.actualOverridesByMonth = next;
+        activeWorkspace.lastEditedMonthIndex = nextLastEditedMonthIndex;
+        workspace.slots[activeSlotId] = activeWorkspace;
+        const prunedWorkspace =
+          activeSlotId === 'A'
+            ? pruneCanonicalRangeFromNonASlots(workspace, previousBoundary)
+            : workspace;
+        return normalizeTrackingCompareCanonicalFloor(prunedWorkspace);
+      })();
       return {
         actualOverridesByMonth: next,
-        lastEditedMonthIndex: editedMonths.length > 0 ? Math.max(...editedMonths) : null,
+        lastEditedMonthIndex: nextLastEditedMonthIndex,
+        compareWorkspace: nextCompareWorkspace,
         simulationResults:
-          state.mode === AppMode.Tracking && state.simulationMode === SimulationMode.MonteCarlo
-            ? { ...state.simulationResults, mcStale: true }
+          state.mode === AppMode.Tracking
+            ? {
+                ...state.simulationResults,
+                reforecast: hasAnyOverrides ? state.simulationResults.reforecast : null,
+                mcStale: hasAnyOverrides,
+              }
             : state.simulationResults,
       };
     }),
   clearAllActualOverrides: () =>
-    set((state) => ({
-      actualOverridesByMonth: {},
-      lastEditedMonthIndex: null,
-      simulationResults:
-        state.mode === AppMode.Tracking && state.simulationMode === SimulationMode.MonteCarlo
-          ? { ...state.simulationResults, mcStale: true }
-          : state.simulationResults,
-    })),
+    set((state) => {
+      const compareActive = isCompareActiveFromWorkspace(state.compareWorkspace);
+      const activeSlotId = state.compareWorkspace.activeSlotId;
+      const canonicalBoundary = state.compareWorkspace.slots.A?.lastEditedMonthIndex ?? null;
+      const canonicalOverrides = state.compareWorkspace.slots.A?.actualOverridesByMonth ?? {};
+      const keepCanonicalLocked =
+        state.mode === AppMode.Tracking &&
+        compareActive &&
+        activeSlotId !== 'A' &&
+        canonicalBoundary !== null &&
+        canonicalBoundary > 0;
+
+      const nextOverrides = keepCanonicalLocked
+        ? (Object.fromEntries(
+            Object.entries(canonicalOverrides)
+              .map(([month, override]) => [Number(month), override] as const)
+              .filter(([month, override]) => Number.isInteger(month) && month > 0 && month <= (canonicalBoundary ?? 0) && Boolean(override))
+              .map(([month, override]) => [month, cloneActualOverride(override as ActualMonthOverride)]),
+          ) as ActualOverridesByMonth)
+        : {};
+      const hasAnyOverrides = Object.keys(nextOverrides).length > 0;
+      const nextLastEditedMonthIndex = keepCanonicalLocked ? canonicalBoundary : null;
+      const nextCompareWorkspace = (() => {
+        if (!(state.mode === AppMode.Tracking && compareActive)) {
+          return state.compareWorkspace;
+        }
+        const previousBoundary = state.compareWorkspace.slots.A?.lastEditedMonthIndex ?? null;
+        const workspace = cloneCompareWorkspace(state.compareWorkspace);
+        const activeWorkspace =
+          workspace.slots[activeSlotId] ??
+          cloneWorkspace(workspaceFromState(state));
+        activeWorkspace.actualOverridesByMonth = nextOverrides;
+        activeWorkspace.lastEditedMonthIndex = nextLastEditedMonthIndex;
+        workspace.slots[activeSlotId] = activeWorkspace;
+        const prunedWorkspace =
+          activeSlotId === 'A'
+            ? pruneCanonicalRangeFromNonASlots(workspace, previousBoundary)
+            : workspace;
+        return normalizeTrackingCompareCanonicalFloor(prunedWorkspace);
+      })();
+
+      return {
+        actualOverridesByMonth: nextOverrides,
+        lastEditedMonthIndex: nextLastEditedMonthIndex,
+        compareWorkspace: nextCompareWorkspace,
+        simulationResults:
+          state.mode === AppMode.Tracking
+            ? {
+                ...state.simulationResults,
+                reforecast: hasAnyOverrides ? state.simulationResults.reforecast : null,
+                mcStale: hasAnyOverrides,
+              }
+            : state.simulationResults,
+      };
+    }),
   setSimulationMode: (simulationMode) => set({ simulationMode }),
   setSelectedHistoricalEra: (selectedHistoricalEra) => set({ selectedHistoricalEra }),
   setHistoricalSummaryStatus: (status, errorMessage = null) =>
@@ -1740,7 +1935,7 @@ export const useAppStore = create<AppStore>((set) => ({
             : state.simulationResults.reforecast,
         status: 'complete',
         mcStale:
-          state.mode === AppMode.Tracking && mode === SimulationMode.MonteCarlo
+          state.mode === AppMode.Tracking
             ? false
             : state.simulationResults.mcStale,
         errorMessage: null,
@@ -2038,9 +2233,17 @@ export const useActiveSimulationResult = () =>
       }
       return state.simulationResults.manual;
     }
-    return state.simulationMode === SimulationMode.Manual
-      ? state.simulationResults.manual
-      : state.simulationResults.monteCarlo;
+    if (state.mode === AppMode.Tracking && state.simulationMode === SimulationMode.MonteCarlo) {
+      return (
+        state.simulationResults.monteCarlo ??
+        state.simulationResults.reforecast ??
+        state.simulationResults.manual
+      );
+    }
+    if (state.simulationMode === SimulationMode.Manual) {
+      return state.simulationResults.manual;
+    }
+    return state.simulationResults.monteCarlo ?? state.simulationResults.manual;
   });
 
 export const useTrackingActuals = () =>
@@ -2050,6 +2253,9 @@ export const useTrackingActuals = () =>
   }));
 
 export const useCompareSimulationResults = () => useAppStore((state) => state.compareWorkspace);
+
+export const useIsCompareActive = () =>
+  useAppStore((state) => state.compareWorkspace.slotOrder.length > 1);
 
 export const useCompareStressResults = () =>
   useAppStore((state) => ({
@@ -2197,15 +2403,17 @@ const configFromWorkspace = (workspace: WorkspaceSnapshot, mode: AppMode): Simul
 };
 
 export const getCompareConfigForSlot = (slot: CompareSlotId): SimulationConfig | null => {
+  const state = useAppStore.getState();
   const compareWorkspace = getCompareWorkspaceState();
   const workspace = compareWorkspace.slots[slot];
   if (!workspace) {
     return null;
   }
-  return configFromWorkspace(workspace, AppMode.Compare);
+  return configFromWorkspace(workspace, state.mode);
 };
 
 export const getCompareConfigs = (): Array<{ slotId: CompareSlotId; config: SimulationConfig }> => {
+  const state = useAppStore.getState();
   const compareWorkspace = getCompareWorkspaceState();
   return compareWorkspace.slotOrder
     .map((slotId) => {
@@ -2215,7 +2423,7 @@ export const getCompareConfigs = (): Array<{ slotId: CompareSlotId; config: Simu
       }
       return {
         slotId,
-        config: configFromWorkspace(workspace, AppMode.Compare),
+        config: configFromWorkspace(workspace, state.mode),
       };
     })
     .filter((entry): entry is { slotId: CompareSlotId; config: SimulationConfig } => entry !== null);

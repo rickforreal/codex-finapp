@@ -2,37 +2,36 @@
 ## Page-Level Controls
 These sit at the very top of the page, acting as the global "command bar" for the app. They're always visible regardless of scroll position.
 
-### Affordance #1: Mode Toggle (Planning / Tracking / Compare)
+### Affordance #1: Mode Toggle (Planning / Tracking)
 
-**Purpose:**  Switches the output view between Planning, Tracking, and Compare workflows. Planning and Tracking retain separate workspaces after initial Tracking initialization. Compare uses 2..8 planning-style workspaces (`A`..`H`) for multi-portfolio analysis.
+**Purpose:**  Switches the output view between Planning and Tracking workflows. Compare is always available through sidebar compare slots and activates automatically when more than one slot is active.
 
-**Control type:** Segmented toggle (three segments: "Planning", "Tracking", "Compare")
+**Control type:** Segmented toggle (two segments: "Planning", "Tracking")
 
 **Appearance:**
-* Horizontal segmented control, pill-shaped, with three options: Planning, Tracking, and Compare
+* Horizontal segmented control, pill-shaped, with two options: Planning and Tracking
 * The active segment has a solid filled background (e.g., dark navy or the app's primary color) with white text. The inactive segment has a transparent background with muted text.
-* Width: fixed, roughly 330-360px total. Height: ~36px.
+* Width: fixed, roughly 240-280px total. Height: ~36px.
 * Positioned top-left of the command bar (or centered if the command bar has few other elements).
 * Transition: when switching, the filled background slides smoothly from one segment to the other (200ms ease-in-out).
 
 **Behavior:**
 * Default state on app load: Planning
 * Planning and Tracking each retain their own inputs and result caches.
-* Compare retains its own slot-scoped workspaces and result caches.
+* Compare slots retain their own slot-scoped workspaces and result caches.
 * First switch to Tracking clones the current Planning workspace once, then clears Tracking simulation caches (including stress results) so Tracking starts as a fresh branch.
 * Switching to Planning Mode: Displays the results of the last simulation run (Manual or Monte Carlo). If no simulation has been run yet, the output area shows an empty/initial state (see Affordance #3  for details). No automatic recalculation occurs on mode switch.
 * Switching to Tracking Mode: Displays Tracking workspace results. If no Tracking run has been performed yet, output remains empty until the user runs a simulation.
-* Switching to Compare Mode: Displays compare outputs for all active compare slots. If no Compare run has been performed yet, output remains empty until the user runs a simulation.
-* First switch into Compare Mode seeds Portfolio A from the currently open workspace (Planning or Tracking), initializes Portfolio B as a clone of A, and starts with 2 active slots.
+* Compare activation rule: when compare slot count is 1 (`A` only), single-portfolio output surfaces render; when slot count is greater than 1, compare output surfaces render.
 
 **State:**
-* Stores active mode enum: "planning" | "tracking" | "compare"
+* Stores active mode enum: "planning" | "tracking"
 * Stores per-mode workspace snapshots (`planningWorkspace`, `trackingWorkspace`, compare slot workspaces) and `trackingInitialized`.
 * Actual overrides are stored in the active workspace.
 
 **Edge cases:**
 * If Tracking has never been run, the detail table shows an initialization empty state and prompts the user to run a simulation.
-* Compare is Planning-only in current scope (no Tracking actuals behavior inside Compare).
+* Tracking supports compare slots; slot `A` is canonical and defines locked history floor for non-`A` slots.
 
 ### Affordance #2: Simulation Mode Selector
 **Purpose:** Selects which simulation engine powers the active projection workflow — Manual (user-defined parameters, single stochastic path) or Monte Carlo (historical data sampling, 1,000+ paths).
@@ -44,7 +43,7 @@ These sit at the very top of the page, acting as the global "command bar" for th
 * Active segment: solid filled background in a lighter or secondary shade of the app's primary color (distinguishing it from the Mode Toggle's darker fill). Inactive segment: transparent with muted text.
 * Positioned to the right of the Mode Toggle in the command bar, with ~20px gap.
 * Same slide animation as #1 (200ms ease-in-out).
-* Visibility: **Visible in Planning, Tracking, and Compare.** The selector is always present in the command bar when the app is active.
+* Visibility: **Visible in Planning and Tracking.** The selector is always present in the command bar when the app is active.
 * Label above or to the left (depending on space): "Simulation Type" in small muted text (~11px). Optional — can be omitted if the command bar is tight on space, since the segment labels are self-explanatory.
 
 **Behavior:**
@@ -72,7 +71,7 @@ These sit at the very top of the page, acting as the global "command bar" for th
 
 ### Affordance #3: Run Simulation Button
 
-**Purpose:**  Triggers a simulation run in either Manual or Monte Carlo mode. This is the universal "go" button for Planning, Tracking, and Compare workflows.
+**Purpose:**  Triggers a simulation run in either Manual or Monte Carlo mode. This is the universal "go" button for Planning and Tracking workflows (single or multi-slot).
 
 **Control type:** Primary action button
 
@@ -81,7 +80,7 @@ These sit at the very top of the page, acting as the global "command bar" for th
 * Uses the app's primary action color (e.g., solid navy or teal background, white text).
 * Positioned immediately to the right of the Monte Carlo toggle.
 * Size: auto-width based on label, ~36px height (matching the mode toggle height).
-* Visibility: **Visible in Planning, Tracking, and Compare.** The button is always present in the command bar as the universal "execute simulation" trigger. 
+* Visibility: **Visible in Planning and Tracking.** The button is always present in the command bar as the universal "execute simulation" trigger. 
 * The button label remains "Run Simulation" regardless of which simulation mode is selected. The icon (▶) remains the same.
 
 **Behavior:**
@@ -109,7 +108,7 @@ These sit at the very top of the page, acting as the global "command bar" for th
   - Updates chart with confidence bands and median path.
   - The summary stats for the projected portion reflect the Monte Carlo distribution.
   - Clears the "stale" indicator (if any).  
-* **On click in Compare Mode (Planning-only):**
+* **On click with multi-slot compare active (slot count > 1):**
   - Runs simulations for all active compare slots (`A`..`H`, max 8) using the same selected simulation type.
   - Uses shared stochastic conditions across all active slots so market randomness is matched for fair comparison.
   - Updates shared chart, shared stats cards (all slot values + baseline-relative deltas), and the compare detail ledger tab view.
@@ -198,7 +197,7 @@ Affordance index reserved for future use. No explicit app-level redo behavior is
 |---|---|
 | **Type** | Button with icon (💾 or download icon) labeled "Save Snapshot" |
 | **Location** | Application toolbar near Run Simulation |
-| **Behavior** | Prompts for a snapshot name, serializes the complete application state to JSON, and triggers a browser download. In Compare mode, saves the active multi-slot compare payload (2..8 slots) in one snapshot envelope. |
+| **Behavior** | Prompts for a snapshot name, serializes the complete application state to JSON, and triggers a browser download. Snapshot payload always includes compare workspace state (`A`..`H`, 1..8 active slots) in one envelope. |
 | **State captured** | Inputs, spending phases, income/expense events, withdrawal + drawdown configuration, stress configuration, Tracking actuals, current app/simulation mode, and cached output payloads used by chart/stats/table/stress displays. |
 | **File format** | `.json` with a top-level schema version field. Cached monthly outputs are stored in compact packed arrays (`columns` + `data`) to reduce file size. |
 | **File name** | Derived from user-provided snapshot name, sanitized for filesystem safety (e.g., `My Retirement Plan.json`). |
@@ -212,7 +211,7 @@ Affordance index reserved for future use. No explicit app-level redo behavior is
 |---|---|
 | **Type** | Button with icon (📂 or upload icon) labeled "Load Snapshot" |
 | **Location** | Application toolbar, immediately right of Save Snapshot button |
-| **Behavior** | Opens the browser's native file picker filtered to `.json` files. On file selection, parses the JSON, validates against the expected schema, and replaces the application state with loaded values. In Compare mode, import flow is deterministic and target-aware for multi-slot payloads. Legacy pair snapshots remain supported with explicit source-slot mapping prompts. |
+| **Behavior** | Opens the browser's native file picker filtered to `.json` files. On file selection, parses the JSON, validates against the expected schema, and replaces the application state with loaded values (silent full-state replace). Legacy snapshots containing `mode: "compare"` are unsupported in v3.0 and are rejected with explicit error. |
 | **Confirmation** | Shows confirmation before replacing current state. |
 | **Post-load behavior** | Restores full app state, including cached outputs and active mode, exactly as saved in the snapshot. |
 | **Error handling** | If the file is invalid JSON or fails schema validation, show: *"This file doesn't appear to be a valid snapshot."* If `schemaVersion` does not exactly match the supported version, show: *"This snapshot version is not supported by this app."* |
@@ -246,26 +245,27 @@ Affordance index reserved for future use. No explicit app-level redo behavior is
 - Monokai
 - Synthwave '84
 
-## Compare Mode Additions — Multi-Portfolio (v2.0)
+## Compare Slot Additions — Multi-Portfolio (v3.0)
 
 ### Affordance #67 · Compare Slot Manager (Sidebar)
 
-**Purpose:** Selects which compare portfolio slot (`A`..`H`) the input panel is currently editing and manages slot add/remove lifecycle.
+**Purpose:** Selects which portfolio slot (`A`..`H`) the input panel is currently editing and manages slot add/remove lifecycle.
 
 **Control type:** Slot chip row with actions (`A`..`H`, add/remove, clone-active on add)
 
 **Behavior:**
-- Visible only in Compare mode.
+- Visible in both Planning and Tracking modes.
 - All input sections bind to the active slot.
 - Switching slots does not copy values; each slot maintains independent inputs/results.
-- Slot count is bounded to 2..8.
+- Slot count is bounded to 1..8.
 - Clicking `+` clones from the currently active slot.
 - Slot `A` is required and cannot be removed.
 - Single-click on a slot chip sets active slot.
 - Double-click on a slot chip sets baseline slot.
-- Remove affordance is a hover-only circular icon shown per chip only when slot count > 2.
+- Remove affordance is a hover-only circular icon shown per chip only when slot count > 1.
 - Compare chips are color-linked to slot ID (`A`..`H`) and use the same slot color identity as compare chart lines.
 - Baseline visual indicator is theme-adaptive and slot-color-based (no fixed gold-only dependency).
+- In Tracking, slot `A` defines canonical history floor: non-`A` slots cannot edit months `<= A.lastEditedMonthIndex`.
 
 ### Affordance #68 · Shared Compare Chart
 
@@ -296,7 +296,7 @@ Affordance index reserved for future use. No explicit app-level redo behavior is
 **Behavior:**
 - Render one ledger viewport with circular slot tabs (`A`..`H`) above the table.
 - Monthly/Annual and Breakdown controls are shared.
-- Spreadsheet expand is disabled in Compare mode; scrolling is required.
+- Spreadsheet expand is disabled in multi-slot compare mode; scrolling is required.
 - Compare tab colors are slot-ID stable and match compare chips/chart lines.
 
 ### Affordance #71 · Compare Stress Test
@@ -309,20 +309,19 @@ Affordance index reserved for future use. No explicit app-level redo behavior is
 
 ### Affordance #72 · Compare Snapshot Import Targeting
 
-**Purpose:** Remove ambiguity when loading snapshots in Compare mode.
+**Purpose:** Define deterministic snapshot loading behavior with compare workspace state.
 
 **Behavior:**
-- Load prompt requires deterministic target mapping for slot imports.
-- Legacy single snapshot files can be loaded into a chosen slot.
-- Legacy pair snapshot files can replace initial slots (`A/B`) or import selected source slot into a chosen target slot.
-- Multi-slot compare snapshots can restore all included slots (up to 8) with explicit overwrite confirmation.
+- Load operation is silent full-state replace (no slot-target prompt).
+- Snapshot contains complete compare workspace state.
+- Legacy payloads with `mode: "compare"` are rejected in v3.0.
 
 ### Affordance #73 · Compare Parameter Differences Table
 
 **Purpose:** Surface configuration deltas across active compare portfolios without requiring slot-by-slot input-panel switching.
 
 **Behavior:**
-- Rendered in Compare mode between Summary Stats and Portfolio Chart.
+- Rendered when multi-slot compare is active (slot count > 1) between Summary Stats and Portfolio Chart.
 - Table columns are `Parameter` + active slot columns (`A`..`H`) with baseline indicator in header.
 - Shows only rows where normalized values differ across active slots.
 - Includes all editable input families:

@@ -1067,3 +1067,110 @@ Validation run (all passing):
   - Compare panel update (`packages/client/src/components/output/CompareParameterDiffTable.tsx`): added Stress Test-style collapsible header with chevron and preserved difference badge.
   - Tests updated (`packages/client/src/lib/compareParameterDiffs.test.ts`): strategy label assertions now target plain-English output and include drawdown label coverage.
   - Canonical docs impact: none (behavior remains within existing v2.1 affordance and semantics).
+- CPV30 started: Compare Portfolios v3.0 docs-first wave (always-on compare within Planning/Tracking).
+  - Created `docs/features/compare-portfolios-v3-0/{FEATURE,PLAN,ACCEPTANCE}.md`.
+  - Added root tracker tasks `CPV30-T1`..`CPV30-T6` in `TASKS.md`.
+  - Locked major-scope assumptions: remove Compare mode contract, slot-count-based compare activation, tracking canonical-floor from slot `A`, and snapshot hard-break for legacy compare mode payloads.
+- CPV30-T1 complete.
+  - v3.0 feature docs are decision-complete for implementation slices and acceptance.
+- CPV30 implementation complete for root tasks `CPV30-T2`..`CPV30-T6`.
+  - Breaking mode-contract update:
+    - Removed `AppMode.Compare` from `packages/shared/src/constants/enums.ts`.
+    - `SimulationConfig.mode` now effectively `planning|tracking` in shared schemas/contracts.
+  - Store/model refactor (`packages/client/src/store/useAppStore.ts`):
+    - Compare activation is slot-count-based (`slotOrder.length > 1`) via `useIsCompareActive`.
+    - Compare workspace minimum slot count is now 1 (`A` only default).
+    - Added tracking canonical-floor normalization: non-`A` overrides at/before `A.lastEditedMonthIndex` are replaced by canonical `A` overrides.
+    - Enforced `A` non-removability with min-1 guard and updated compare config mode mapping to current app mode.
+  - UI decoupling from mode:
+    - `packages/client/src/components/layout/CommandBar.tsx`: mode toggle is now Planning/Tracking only; multi-slot run path keyed off compare-active slot count; tracking compare run now sends slot-specific `actualOverridesByMonth`.
+    - `packages/client/src/components/layout/Sidebar.tsx`: compare slot manager always visible; remove affordance now shown only when slot count > 1 and slot != `A`.
+    - Output components now route single vs compare by slot count, not mode:
+      - `packages/client/src/components/output/SummaryStatsBar.tsx`
+      - `packages/client/src/components/output/PortfolioChart.tsx`
+      - `packages/client/src/components/output/DetailTable.tsx`
+      - `packages/client/src/components/output/StressTestPanel.tsx`
+      - `packages/client/src/components/output/CompareParameterDiffTable.tsx`
+    - Detail table compare tabs now support tracking edits for active non-`A` slots only after canonical boundary; pre-boundary cells are locked/read-only.
+  - Snapshot migration (`packages/client/src/store/snapshot.ts`):
+    - Bumped `SNAPSHOT_SCHEMA_VERSION` to `5`.
+    - Added explicit rejection of legacy snapshots containing `data.mode = "compare"`.
+    - Updated compare workspace unpack defaults/validation to allow 1..8 slot order.
+  - Test updates:
+    - `packages/client/src/store/useAppStore.compare.test.ts` updated for A-only initialization and min-1 behavior.
+    - `packages/client/src/store/snapshot.test.ts` added explicit legacy compare-mode rejection coverage.
+    - `packages/client/src/lib/compareParameterDiffs.test.ts` updated to use non-compare app mode value.
+  - Canonical docs updated:
+    - `docs/SPECS.md`
+    - `docs/SCENARIOS.md`
+    - `docs/DATA_MODEL.md`
+    - `docs/API.md`
+    - `docs/ARCHITECTURE.md`
+
+Validation run (all passing):
+- `npm run typecheck`
+- `npm run lint`
+- `npm test`
+- `npm run build`
+- CPV30 follow-up defect fix: tracking detail-ledger editability + expand control parity in compare-active view.
+  - Restored spreadsheet expand/compress button in compare-active `DetailTable` header.
+  - Added inline `Edit` affordances for editable cells in compare-active tracking monthly ledger.
+  - Added compare-active reset column parity (`↺`) with canonical-boundary lock behavior for non-`A` slots.
+  - Preserved keyboard Enter-to-edit flow for unlocked editable cells.
+
+Validation run (client passing):
+- `npm run typecheck -w @finapp/client`
+- `npm run lint -w @finapp/client`
+- `npm run test -w @finapp/client -- DetailTable`
+- CPV30 defect follow-up (tracking edit commit + stale-state UX + MC manual-fallback consistency).
+  - Fixed Tracking ledger edit commit behavior in `DetailTable` by preventing input key event bubbling and adding compare-active `Enter` guard (`editingCell === null`) to stop re-opening edit mode while committing.
+  - Added `Tab` commit-navigation parity and input focus-select behavior in compare-active edit cells.
+  - Broadened Tracking stale affordance visibility to both Manual and Monte Carlo in `DetailTable` and `PortfolioChart` (badge/message + chart dim state).
+  - Updated `useActiveSimulationResult` to fallback to manual cache when MC cache is absent, preventing partial-output blanks immediately after Manual -> MC mode switch prior to rerun.
+
+Validation run (client passing):
+- `npm run typecheck -w @finapp/client`
+- `npm run lint -w @finapp/client`
+- `npm test -w @finapp/client`
+- `npm run build -w @finapp/client`
+- CPV30 UX consistency pass: unified Detail Ledger edit affordance and interaction parity between single-slot and compare-active paths.
+  - Compare-active cells now use clickable `(edit)` affordance (pointer cursor) matching single-slot path.
+  - Clicking `(edit)` enters inline edit mode directly in both paths.
+  - Compare-active edited-cell indicator now uses same blue-dot token as single path.
+  - Reduced compare-active ledger compute scope to active slot rows only (instead of computing all slot row tables every render) to improve responsiveness.
+
+Validation run (client passing):
+- `npm run typecheck -w @finapp/client`
+- `npm run lint -w @finapp/client`
+- `npm test -w @finapp/client`
+- CPV30 compare diff-table flicker fix: kept `CompareParameterDiffTable` mounted during reruns by removing run-status gating (`simulationStatus === 'running'`) and per-slot `status === 'complete'` requirement; table now renders from latest available per-slot `configSnapshot` while simulation is in-flight.
+
+Validation run (client passing):
+- `npm run typecheck -w @finapp/client`
+- `npm run lint -w @finapp/client`
+- CPV30 defect fix: `Clear Actuals` now clears value effects (not just edited styling) in Tracking ledger.
+  - Fixed root cause where tracking reforecast updates were overwriting `simulationResults.manual`; manual baseline is now preserved and incremental tracking updates write to `simulationResults.reforecast`.
+  - Updated explicit run path in tracking-with-overrides: Manual writes merged result to `reforecast`; Monte Carlo remains mode cache update.
+  - Updated clear actions to drop `simulationResults.reforecast` when no overrides remain, preventing stale override-driven rows from persisting after clear.
+
+Validation run (client passing):
+- `npm run typecheck -w @finapp/client`
+- `npm run lint -w @finapp/client`
+- `npm test -w @finapp/client`
+- CPV30 defect fix: ensured source slot workspace is always persisted during `addCompareSlotFromSource` activation path.
+  - Fixed case where first compare activation could create slot `B` without materializing slot `A` in `compareWorkspace.slots`, causing Portfolio A to disappear from compare output rendering.
+  - Added store test assertion that both `slots.A` and `slots.B` are defined after first activation (`A` + `B`).
+
+Validation run (client passing):
+- `npm run typecheck -w @finapp/client`
+- `npm run lint -w @finapp/client`
+- `npm run test -w @finapp/client -- useAppStore.compare.test.ts`
+- CPV30 defect fix: canonical-floor propagation now handles A-boundary shrink/clear correctly.
+  - Added non-A canonical-range pruning when active slot `A` clears/shrinks overrides; this removes previously propagated A-locked months from `B..H` before re-normalization.
+  - Updated tracking override mutators to persist active-slot overrides into compare workspace and normalize canonical floor immediately.
+  - Added regression test: clearing an A override removes propagated value from B for the same locked month.
+
+Validation run (client passing):
+- `npm run test -w @finapp/client -- useAppStore.compare.test.ts`
+- `npm run typecheck -w @finapp/client`
+- `npm run lint -w @finapp/client`

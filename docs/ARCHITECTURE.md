@@ -611,13 +611,14 @@ AppStore
 - Table/UI controls include `tableSpreadsheetMode` in addition to `tableGranularity` and `tableAssetColumnsEnabled`.
 - Stress state is workspace-local and includes scenario config plus latest stress result payload.
 
-**Compare alignment (v2.0):**
+**Compare alignment (v3.0):**
 
-- Compare workspace uses slot collection model (`A`..`H`) with 2..8 active slots.
-- First switch into Compare seeds `A` from the currently open Planning/Tracking workspace.
-- `B` initializes as a clone of `A` on first Compare entry.
-- Additional slots clone from user-selected source slot.
-- Compare simulation/stress caches remain isolated from Planning/Tracking caches.
+- Compare workspace uses slot collection model (`A`..`H`) with 1..8 active slots.
+- Compare slot manager is always visible in Planning and Tracking.
+- Compare output surfaces activate when slot count is greater than 1.
+- Slot `A` is canonical and non-removable.
+- In Tracking, non-`A` slots are constrained by `A` boundary (`A.lastEditedMonthIndex`) for immutable historical months.
+- Compare simulation/stress caches remain slot-scoped and isolated from single-workspace caches.
 
 **Slice isolation.** Each slice exposes its own action creators. Components subscribe to the minimal slice they need via Zustand's selector pattern, preventing unnecessary re-renders.
 
@@ -937,7 +938,7 @@ No API call is made. The server is not contacted until the user clicks Run Simul
 
 **Exception: Tracking Mode.** When the user edits an input field (not an actual) while in Tracking Mode, the re-forecast flow (Section 9.3) is triggered in addition to the store update.
 
-### 9.2 Run Simulation (Planning / Compare Mode)
+### 9.2 Run Simulation (Planning / Tracking with optional multi-slot compare)
 
 ```
 User clicks Run Simulation
@@ -951,11 +952,11 @@ User clicks Run Simulation
                 → SummaryStats, Chart, Table re-render with new data
 ```
 
-Compare behavior (v2.0):
+Multi-slot behavior (v3.0):
 
 ```
-User clicks Run Simulation in Compare mode
-  → Client builds one SimulationConfig payload per active slot (2..8)
+User clicks Run Simulation with compare-active slot set (slot count > 1)
+  → Client builds one SimulationConfig payload per active slot (1..8; compare-active when >1)
     → For fairness, all slot requests share identical stochastic inputs
       → Manual: shared monthly return stream
       → Monte Carlo: shared seed/sampling stream

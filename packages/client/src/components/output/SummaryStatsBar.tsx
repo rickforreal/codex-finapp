@@ -1,8 +1,14 @@
 import { useMemo } from 'react';
 
-import { AppMode, SimulationMode } from '@finapp/shared';
+import { SimulationMode } from '@finapp/shared';
 
-import { type WorkspaceSnapshot, useActiveSimulationResult, useAppStore, useCompareSimulationResults } from '../../store/useAppStore';
+import {
+  type WorkspaceSnapshot,
+  useActiveSimulationResult,
+  useAppStore,
+  useCompareSimulationResults,
+  useIsCompareActive,
+} from '../../store/useAppStore';
 import { formatCompactCurrency, formatCurrency, formatPercent } from '../../lib/format';
 import { buildSummaryStats } from '../../lib/statistics';
 import { StatCard } from './StatCard';
@@ -13,7 +19,7 @@ const inflationFactor = (inflationRate: number, monthIndexOneBased: number): num
 export const SummaryStatsBar = () => {
   const result = useActiveSimulationResult();
   const compareResults = useCompareSimulationResults();
-  const mode = useAppStore((state) => state.mode);
+  const isCompareActive = useIsCompareActive();
   const simulationStatus = useAppStore((state) => state.simulationResults.status);
   const inflationRate = useAppStore((state) => state.coreParams.inflationRate);
   const startingAge = useAppStore((state) => state.coreParams.startingAge);
@@ -71,7 +77,7 @@ export const SummaryStatsBar = () => {
           : `Depleted in month ${stats.depletionMonthIndex + 1} (age ${activeRunStartingAge + Math.floor(stats.depletionMonthIndex / 12)})`
       : `${formatPercent(terminalPctOfStarting)} of starting`;
 
-  if (mode === AppMode.Compare) {
+  if (isCompareActive) {
     const resolveSlotResult = (workspace: WorkspaceSnapshot | undefined) => {
       if (!workspace) {
         return null;

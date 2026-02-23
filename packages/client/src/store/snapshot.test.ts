@@ -104,6 +104,16 @@ describe('snapshot', () => {
     expect(() => parseSnapshot(JSON.stringify(parsed))).toThrowError(/not supported/i);
   });
 
+  it('rejects legacy compare-mode snapshots explicitly', () => {
+    resetStore();
+    const { json } = serializeSnapshot('Legacy Compare Snapshot');
+    const parsed = JSON.parse(json) as { data: { mode: string } };
+    parsed.data.mode = 'compare';
+
+    expect(() => parseSnapshot(JSON.stringify(parsed))).toThrowError(SnapshotLoadError);
+    expect(() => parseSnapshot(JSON.stringify(parsed))).toThrowError(/compare mode.*not supported/i);
+  });
+
   it('rejects malformed packed row columns', () => {
     resetStore();
     useAppStore.setState((state) => ({

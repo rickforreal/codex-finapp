@@ -6,12 +6,9 @@ import { fetchHistoricalSummary } from '../../api/historicalApi';
 import { runSimulation } from '../../api/simulationApi';
 import { SnapshotLoadError, parseSnapshot, serializeSnapshot } from '../../store/snapshot';
 import {
-  COMPARE_SLOT_IDS,
   getCompareConfigs,
   getCurrentConfig,
-  getSnapshotState,
-  type CompareSlotId,
-  type WorkspaceSnapshot,
+  useIsCompareActive,
   useAppStore,
 } from '../../store/useAppStore';
 import { Dropdown } from '../shared/Dropdown';
@@ -40,31 +37,12 @@ const mergeRowsWithPreservedBoundary = <
   };
 };
 
-const workspaceFromTopLevelSnapshotState = (
-  data: ReturnType<typeof getSnapshotState>,
-): WorkspaceSnapshot => ({
-  simulationMode: data.simulationMode,
-  selectedHistoricalEra: data.selectedHistoricalEra,
-  coreParams: data.coreParams,
-  portfolio: data.portfolio,
-  returnAssumptions: data.returnAssumptions,
-  spendingPhases: data.spendingPhases,
-  withdrawalStrategy: data.withdrawalStrategy,
-  drawdownStrategy: data.drawdownStrategy,
-  historicalData: data.historicalData,
-  incomeEvents: data.incomeEvents,
-  expenseEvents: data.expenseEvents,
-  actualOverridesByMonth: data.actualOverridesByMonth,
-  lastEditedMonthIndex: data.lastEditedMonthIndex,
-  simulationResults: data.simulationResults,
-  stress: data.stress,
-});
-
 export const CommandBar = () => {
   const fileInputRef = useRef<HTMLInputElement | null>(null);
   const [themeMenuOpen, setThemeMenuOpen] = useState(false);
   const [snapshotMessage, setSnapshotMessage] = useState<string | null>(null);
   const mode = useAppStore((state) => state.mode);
+  const isCompareActive = useIsCompareActive();
   const simulationMode = useAppStore((state) => state.simulationMode);
   const status = useAppStore((state) => state.simulationResults.status);
   const setMode = useAppStore((state) => state.setMode);
@@ -77,6 +55,7 @@ export const CommandBar = () => {
   const setHistoricalSummary = useAppStore((state) => state.setHistoricalSummary);
   const setSimulationStatus = useAppStore((state) => state.setSimulationStatus);
   const setSimulationResult = useAppStore((state) => state.setSimulationResult);
+  const setReforecastResult = useAppStore((state) => state.setReforecastResult);
   const setCompareSlotSimulationStatus = useAppStore((state) => state.setCompareSlotSimulationStatus);
   const setCompareSlotSimulationResult = useAppStore((state) => state.setCompareSlotSimulationResult);
   const drawdownType = useAppStore((state) => state.drawdownStrategy.type);
@@ -137,96 +116,7 @@ export const CommandBar = () => {
     try {
       const raw = await file.text();
       const parsed = parseSnapshot(raw);
-      let loaded = parsed;
-      if (mode === AppMode.Compare) {
-        const targetRaw = window.prompt('Load into compare target slot (A-H) or ALL', 'ALL');
-        const target = targetRaw?.trim().toUpperCase();
-        if (!target) {
-          return;
-        }
-
-        if (target === 'ALL') {
-          setStateFromSnapshot(parsed.data);
-        } else {
-          const compareTarget = target as CompareSlotId;
-          if (!compareWorkspace.slotOrder.includes(compareTarget)) {
-            window.alert('Target slot must be one of the active compare slots.');
-            return;
-          }
-          const sourceCompare = parsed.data.compareWorkspace;
-          const sourceCandidates: Array<{ label: CompareSlotId; workspace: WorkspaceSnapshot | null }> =
-            sourceCompare.slotOrder.map((slotId) => ({
-              label: slotId,
-              workspace: sourceCompare.slots[slotId] ?? null,
-            }));
-          const hasPair = sourceCandidates.filter((entry) => entry.workspace !== null).length > 1;
-          let sourceWorkspace: WorkspaceSnapshot | null = null;
-          if (hasPair) {
-            const chosenSlotRaw = window.prompt(
-              `Select source slot: ${sourceCandidates.map((entry) => entry.label).join(', ')}`,
-              sourceCandidates[0]?.label ?? 'A',
-            );
-            const chosenSlot = chosenSlotRaw?.trim().toUpperCase();
-            if (!chosenSlot) {
-              return;
-            }
-            sourceWorkspace = sourceCandidates.find((entry) => entry.label === chosenSlot)?.workspace ?? null;
-          } else {
-            sourceWorkspace = sourceCandidates[0]?.workspace ?? null;
-          }
-
-          if (!sourceWorkspace) {
-            sourceWorkspace =
-              parsed.data.planningWorkspace ??
-              parsed.data.trackingWorkspace ??
-              workspaceFromTopLevelSnapshotState(parsed.data);
-          }
-
-          if (!sourceWorkspace) {
-            window.alert('Snapshot does not contain a loadable workspace.');
-            return;
-          }
-
-          const current = getSnapshotState();
-          const next = {
-            ...current,
-            compareWorkspace: {
-              ...current.compareWorkspace,
-              slotOrder: [...current.compareWorkspace.slotOrder].sort(
-                (left, right) => COMPARE_SLOT_IDS.indexOf(left) - COMPARE_SLOT_IDS.indexOf(right),
-              ),
-              slots: {
-                ...current.compareWorkspace.slots,
-                [compareTarget]: sourceWorkspace,
-              },
-            },
-          };
-          if (next.mode === AppMode.Compare) {
-            const activeWorkspace = next.compareWorkspace.slots[next.compareWorkspace.activeSlotId];
-            if (activeWorkspace) {
-              next.simulationMode = activeWorkspace.simulationMode;
-              next.selectedHistoricalEra = activeWorkspace.selectedHistoricalEra;
-              next.coreParams = activeWorkspace.coreParams;
-              next.portfolio = activeWorkspace.portfolio;
-              next.returnAssumptions = activeWorkspace.returnAssumptions;
-              next.spendingPhases = activeWorkspace.spendingPhases;
-              next.withdrawalStrategy = activeWorkspace.withdrawalStrategy;
-              next.drawdownStrategy = activeWorkspace.drawdownStrategy;
-              next.historicalData = activeWorkspace.historicalData;
-              next.incomeEvents = activeWorkspace.incomeEvents;
-              next.expenseEvents = activeWorkspace.expenseEvents;
-              next.actualOverridesByMonth = activeWorkspace.actualOverridesByMonth;
-              next.lastEditedMonthIndex = activeWorkspace.lastEditedMonthIndex;
-              next.simulationResults = activeWorkspace.simulationResults;
-              next.stress = activeWorkspace.stress;
-            }
-          }
-          setStateFromSnapshot(next);
-          loaded = { ...parsed, data: next };
-        }
-      } else {
-        setStateFromSnapshot(parsed.data);
-      }
+      setStateFromSnapshot(parsed.data);
       // Theme catalog is server-authoritative; force refresh so older snapshots
       // pick up newly added built-in themes while keeping selectedThemeId.
       setThemeState({
@@ -236,7 +126,7 @@ export const CommandBar = () => {
         status: 'idle',
         errorMessage: null,
       });
-      setSnapshotMessage(`Loaded snapshot: ${loaded.name}`);
+      setSnapshotMessage(`Loaded snapshot: ${parsed.name}`);
     } catch (error) {
       if (error instanceof SnapshotLoadError) {
         window.alert(error.message);
@@ -282,10 +172,10 @@ export const CommandBar = () => {
       return;
     }
     try {
-      if (mode === AppMode.Compare) {
+      if (isCompareActive) {
         const compareConfigs = getCompareConfigs();
-        if (compareConfigs.length < 2) {
-          setSimulationStatus('error', 'Compare mode requires at least two configured portfolios.');
+        if (compareConfigs.length <= 1) {
+          setSimulationStatus('error', 'Multi-portfolio run requires at least two configured portfolios.');
           return;
         }
         compareConfigs.forEach((entry) => {
@@ -318,7 +208,11 @@ export const CommandBar = () => {
             }
             const { slotId, config } = next;
             try {
-              const response = await runSimulation({ config, seed });
+              const actualOverridesByMonth =
+                mode === AppMode.Tracking
+                  ? (compareWorkspace.slots[slotId]?.actualOverridesByMonth ?? {})
+                  : undefined;
+              const response = await runSimulation({ config, seed, actualOverridesByMonth });
               setCompareSlotSimulationResult(slotId, simulationMode, response);
             } catch (error) {
               const message = error instanceof Error ? error.message : `Compare ${slotId} simulation failed`;
@@ -355,7 +249,7 @@ export const CommandBar = () => {
           lastEditedMonthIndex,
         );
 
-        setSimulationResult(simulationMode, {
+        const mergedResult = {
           ...result,
           result: {
             ...result.result,
@@ -366,7 +260,12 @@ export const CommandBar = () => {
                 merged.terminalPortfolioValue ?? result.result.summary.terminalPortfolioValue,
             },
           },
-        });
+        };
+        if (simulationMode === SimulationMode.Manual) {
+          setReforecastResult(mergedResult);
+        } else {
+          setSimulationResult(simulationMode, mergedResult);
+        }
         return;
       }
 
@@ -394,9 +293,8 @@ export const CommandBar = () => {
               value={mode}
               onChange={setMode}
               options={[
-                  { label: 'Planning', value: AppMode.Planning },
-                  { label: 'Tracking', value: AppMode.Tracking },
-                  { label: 'Compare', value: AppMode.Compare },
+                { label: 'Planning', value: AppMode.Planning },
+                { label: 'Tracking', value: AppMode.Tracking },
               ]}
             />
             </div>

@@ -1063,3 +1063,53 @@ Acceptance Criteria:
 [AC1] Differences table shows plain-English labels for withdrawal and drawdown strategy types.
 [AC2] Differences panel supports collapse/expand interaction with Stress Test-style header affordance.
 [AC3] `packages/client/src/lib/compareParameterDiffs.test.ts` covers label behavior and passes.
+
+## Feature Plan — Compare Portfolios v3.0 (Always-On Compare)
+
+- [x] CPV30-T1: Create v3.0 feature docs and lock delta scope
+Phase: Feature/ComparePortfolios-v3.0
+Dependencies: CPV21-T5
+Acceptance Criteria:
+[AC1] `docs/features/compare-portfolios-v3-0/{FEATURE,PLAN,ACCEPTANCE}.md` exist.
+[AC2] `PLAN.md` includes `Delta From Baseline` referencing `docs/features/compare-portfolios-v2-0/` and `docs/features/compare-portfolios-v2-1/`.
+[AC3] Scope decisions are locked for always-on compare, two-mode app model, and tracking canonical-floor behavior.
+
+- [x] CPV30-T2: Remove compare app mode contracts and update store invariants
+Phase: Feature/ComparePortfolios-v3.0
+Dependencies: CPV30-T1
+Acceptance Criteria:
+[AC1] Shared `AppMode` removes `Compare` and schemas/types compile with `planning|tracking` only.
+[AC2] Compare workspace min slot count is 1 (`A` only default) with `A` non-removable.
+[AC3] Store exposes slot-count-driven compare activation semantics (`slotOrder.length > 1`) and config mode mapping uses current app mode.
+
+- [x] CPV30-T3: Decouple UI routing from app mode and enable always-visible compare slots
+Phase: Feature/ComparePortfolios-v3.0
+Dependencies: CPV30-T2
+Acceptance Criteria:
+[AC1] Command bar mode toggle shows Planning/Tracking only.
+[AC2] Sidebar compare slot manager is visible in both modes.
+[AC3] Output components switch between single/compare layouts based on active slot count.
+
+- [x] CPV30-T4: Implement tracking canonical-floor enforcement across slots
+Phase: Feature/ComparePortfolios-v3.0
+Dependencies: CPV30-T2
+Acceptance Criteria:
+[AC1] Non-`A` overrides at/before `A.lastEditedMonthIndex` are discarded automatically.
+[AC2] Tracking edits in non-`A` slots are read-only at/before canonical boundary.
+[AC3] Multi-slot tracking run/stress paths apply effective slot overrides after canonical-floor normalization.
+
+- [x] CPV30-T5: Apply snapshot v5 migration policy and compare-mode rejection
+Phase: Feature/ComparePortfolios-v3.0
+Dependencies: CPV30-T2
+Acceptance Criteria:
+[AC1] Snapshot schema version is incremented.
+[AC2] Snapshot load rejects payloads with `data.mode === \"compare\"` using explicit unsupported error.
+[AC3] Silent full-state replace behavior remains for valid snapshots.
+
+- [x] CPV30-T6: Update canonical docs and run full regression gate
+Phase: Feature/ComparePortfolios-v3.0
+Dependencies: CPV30-T3, CPV30-T4, CPV30-T5
+Acceptance Criteria:
+[AC1] `docs/SPECS.md`, `docs/SCENARIOS.md`, `docs/DATA_MODEL.md`, `docs/API.md`, and `docs/ARCHITECTURE.md` reflect v3.0 behavior.
+[AC2] `npm run typecheck`, `npm run lint`, `npm test`, and `npm run build` pass.
+[AC3] `PROGRESS.txt` contains append-only completion summary and canonical-doc impact statement.

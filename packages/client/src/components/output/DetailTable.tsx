@@ -6,7 +6,14 @@ import { runSimulation } from '../../api/simulationApi';
 import { getCompareSlotColorVar } from '../../lib/compareSlotColors';
 import { formatCurrency, formatPercent } from '../../lib/format';
 import { buildAnnualDetailRows, buildMonthlyDetailRows, sortDetailRows, type DetailRow } from '../../lib/detailTable';
-import { type WorkspaceSnapshot, getCurrentConfig, useActiveSimulationResult, useAppStore, useCompareSimulationResults } from '../../store/useAppStore';
+import {
+  type WorkspaceSnapshot,
+  getCurrentConfig,
+  useActiveSimulationResult,
+  useAppStore,
+  useCompareSimulationResults,
+  useIsCompareActive,
+} from '../../store/useAppStore';
 import { SegmentedToggle } from '../shared/SegmentedToggle';
 
 type Column = {
@@ -141,6 +148,7 @@ export const DetailTable = () => {
   const headerControlsRef = useRef<HTMLDivElement | null>(null);
   const result = useActiveSimulationResult();
   const compareResults = useCompareSimulationResults();
+  const isCompareActive = useIsCompareActive();
   const startingAge = useAppStore((state) => state.coreParams.startingAge);
   const inflationRate = useAppStore((state) => state.coreParams.inflationRate);
   const retirementStartDate = useAppStore((state) => state.coreParams.retirementStartDate);
@@ -152,7 +160,7 @@ export const DetailTable = () => {
   const lastEditedMonthIndex = useAppStore((state) => state.lastEditedMonthIndex);
   const upsertActualOverride = useAppStore((state) => state.upsertActualOverride);
   const clearActualRowOverrides = useAppStore((state) => state.clearActualRowOverrides);
-  const setSimulationResult = useAppStore((state) => state.setSimulationResult);
+  const setReforecastResult = useAppStore((state) => state.setReforecastResult);
   const setSimulationStatus = useAppStore((state) => state.setSimulationStatus);
   const tableGranularity = useAppStore((state) => state.ui.tableGranularity);
   const tableAssetColumnsEnabled = useAppStore((state) => state.ui.tableAssetColumnsEnabled);
@@ -302,7 +310,7 @@ export const DetailTable = () => {
             ? terminal.stocks + terminal.bonds + terminal.cash
             : response.result.summary.terminalPortfolioValue;
 
-          setSimulationResult(SimulationMode.Manual, {
+          setReforecastResult({
             ...response,
             result: {
               ...response.result,
@@ -332,7 +340,7 @@ export const DetailTable = () => {
     lastEditedMonthIndex,
     mode,
     rows.length,
-    setSimulationResult,
+    setReforecastResult,
     setSimulationStatus,
     simulationMode,
   ]);
@@ -574,7 +582,7 @@ export const DetailTable = () => {
     setSelectedCell({ rowId: nextRow.id, column: nextColumn.key });
   };
 
-  if (mode === AppMode.Compare) {
+  if (isCompareActive) {
     const resolveSlotResult = (workspace: WorkspaceSnapshot | undefined) => {
       if (!workspace) {
         return null;
@@ -585,41 +593,45 @@ export const DetailTable = () => {
           : workspace.simulationResults.monteCarlo;
       return preferred ?? workspace.simulationResults.manual ?? workspace.simulationResults.monteCarlo;
     };
-    const slotRowsById = Object.fromEntries(
-      compareResults.slotOrder.map((slotId) => {
-        const slotResult = resolveSlotResult(compareResults.slots[slotId]);
-        const slotRows = slotResult?.result.rows ?? [];
-        const slotStartingAge = slotResult?.configSnapshot?.coreParams.startingAge ?? startingAge;
-        const slotInflationRate = slotResult?.configSnapshot?.coreParams.inflationRate ?? inflationRate;
-        const slotRetirementStartDate =
-          slotResult?.configSnapshot?.coreParams.retirementStartDate ?? retirementStartDate;
-        const slotMonteCarloTotalP50 =
-          simulationMode === SimulationMode.MonteCarlo
-            ? (slotResult?.monteCarlo?.percentileCurves.total.p50 ?? null)
-            : null;
-        const detailRows =
-          tableGranularity === 'annual'
-            ? buildAnnualDetailRows(
-                slotRows,
-                slotStartingAge,
-                slotInflationRate,
-                slotRetirementStartDate,
-                slotMonteCarloTotalP50,
-              )
-            : buildMonthlyDetailRows(
-                slotRows,
-                slotStartingAge,
-                slotInflationRate,
-                slotRetirementStartDate,
-                slotMonteCarloTotalP50,
-              );
-        return [slotId, sortDetailRows(detailRows, tableSort)];
-      }),
-    ) as Record<string, DetailRow[]>;
     const activeLedgerSlotId = compareResults.slotOrder.includes(compareActiveSlotId)
       ? compareActiveSlotId
       : (compareResults.slotOrder[0] ?? 'A');
-    const activeRows = slotRowsById[activeLedgerSlotId] ?? [];
+    const activeSlotResult = resolveSlotResult(compareResults.slots[activeLedgerSlotId]);
+    const activeSlotRows = activeSlotResult?.result.rows ?? [];
+    const activeSlotStartingAge = activeSlotResult?.configSnapshot?.coreParams.startingAge ?? startingAge;
+    const activeSlotInflationRate = activeSlotResult?.configSnapshot?.coreParams.inflationRate ?? inflationRate;
+    const activeSlotRetirementStartDate =
+      activeSlotResult?.configSnapshot?.coreParams.retirementStartDate ?? retirementStartDate;
+    const activeSlotMonteCarloTotalP50 =
+      simulationMode === SimulationMode.MonteCarlo
+        ? (activeSlotResult?.monteCarlo?.percentileCurves.total.p50 ?? null)
+        : null;
+    const activeRows = sortDetailRows(
+      tableGranularity === 'annual'
+        ? buildAnnualDetailRows(
+            activeSlotRows,
+            activeSlotStartingAge,
+            activeSlotInflationRate,
+            activeSlotRetirementStartDate,
+            activeSlotMonteCarloTotalP50,
+          )
+        : buildMonthlyDetailRows(
+            activeSlotRows,
+            activeSlotStartingAge,
+            activeSlotInflationRate,
+            activeSlotRetirementStartDate,
+            activeSlotMonteCarloTotalP50,
+          ),
+      tableSort,
+    );
+    const canonicalBoundary = compareResults.slots.A?.lastEditedMonthIndex ?? null;
+    const isLockedByCanonicalBoundary = (row: DetailRow, column: Column): boolean =>
+      mode === AppMode.Tracking &&
+      tableGranularity === 'monthly' &&
+      activeLedgerSlotId !== 'A' &&
+      canonicalBoundary !== null &&
+      row.monthIndex <= canonicalBoundary &&
+      isEditableCell(row, column);
     return (
       <section className="rounded-xl border border-brand-border bg-white shadow-panel">
         <div className="flex items-center justify-between gap-3 border-b border-brand-border px-4 py-3">
@@ -648,6 +660,46 @@ export const DetailTable = () => {
               <span className="text-base leading-none">◷</span>
               <span>Breakdown</span>
             </button>
+            <button
+              type="button"
+              onClick={() => setTableSpreadsheetMode(!tableSpreadsheetMode)}
+              className={`grid h-8 w-8 place-items-center rounded-md border transition ${
+                tableSpreadsheetMode
+                  ? 'border-blue-200 bg-blue-50 text-blue-500'
+                  : 'border-brand-border bg-white text-slate-500 hover:text-slate-700'
+              }`}
+              title={tableSpreadsheetMode ? 'Compress table view' : 'Expand table view'}
+              aria-label={tableSpreadsheetMode ? 'Compress table view' : 'Expand table view'}
+            >
+              <svg viewBox="0 0 24 24" className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth="2">
+                {tableSpreadsheetMode ? (
+                  <>
+                    <path d="M15 9l6-6" />
+                    <path d="M21 9V3h-6" />
+                    <path d="M9 15l-6 6" />
+                    <path d="M3 15v6h6" />
+                  </>
+                ) : (
+                  <>
+                    <path d="M9 3L3 9" />
+                    <path d="M3 3v6h6" />
+                    <path d="M15 21l6-6" />
+                    <path d="M21 21v-6h-6" />
+                  </>
+                )}
+              </svg>
+            </button>
+            {mode === AppMode.Tracking && mcStale ? (
+              <span
+                className="rounded-full px-2 py-1 text-xs font-semibold"
+                style={{
+                  backgroundColor: 'var(--theme-state-stale-background)',
+                  color: 'var(--theme-state-stale-text)',
+                }}
+              >
+                Stale
+              </span>
+            ) : null}
           </div>
         </div>
         <div className="border-b border-brand-border px-3 py-2">
@@ -704,7 +756,7 @@ export const DetailTable = () => {
             <div className="border-b border-brand-border px-3 py-2 text-xs font-semibold text-slate-700">
               Portfolio {activeLedgerSlotId}
             </div>
-            <div className="max-h-[430px] overflow-auto">
+            <div className={tableSpreadsheetMode ? 'overflow-visible' : 'max-h-[430px] overflow-auto'}>
           <table className={`${tableMinWidthClass} w-full border-collapse text-left text-xs`}>
             <thead className="sticky top-0 z-[1] bg-brand-surface text-slate-600">
               <tr>
@@ -724,13 +776,16 @@ export const DetailTable = () => {
                     {renderColumnLabel(column)}
                   </th>
                 ))}
+                {mode === AppMode.Tracking && tableGranularity === 'monthly' ? (
+                  <th className="border-b border-brand-border px-2 py-2 font-semibold">Reset</th>
+                ) : null}
               </tr>
             </thead>
             <tbody>
               {activeRows.length === 0 ? (
                 <tr>
                   <td colSpan={columns.length} className="px-2 py-6 text-center text-slate-500">
-                    Run compare simulation to populate this ledger.
+                    Run multi-portfolio simulation to populate this ledger.
                   </td>
                 </tr>
               ) : (
@@ -738,23 +793,161 @@ export const DetailTable = () => {
                   <tr
                     key={`compare-${activeLedgerSlotId}-${row.id}`}
                     className="border-b border-slate-100 bg-brand-surface transition-colors hover:bg-brand-panel"
+                    style={
+                      mode === AppMode.Tracking &&
+                      tableGranularity === 'monthly' &&
+                      canonicalBoundary !== null &&
+                      row.monthIndex <= canonicalBoundary
+                        ? { backgroundColor: 'var(--theme-state-preserved-row-background)' }
+                        : undefined
+                    }
                   >
                     {columns.map((column) => (
                       <td
                         key={`compare-${activeLedgerSlotId}-${row.id}-${String(column.key)}`}
-                        className={`whitespace-nowrap px-3 py-2 font-mono ${valueToneClass(row, column)}`}
-                        style={
-                          isMonteCarloReferenceColumn(column)
-                            ? {
-                                backgroundColor: monteCarloReferenceColumnTint,
-                                color: monteCarloReferenceColumnText,
-                              }
-                            : undefined
+                        data-cell-id={`${row.id}:${String(column.key)}`}
+                        tabIndex={
+                          selectedCell?.rowId === row.id && selectedCell.column === column.key ? 0 : -1
                         }
+                        className={`relative whitespace-nowrap px-3 py-2 font-mono outline-none ${valueToneClass(row, column)} ${
+                          isCellEdited(row, column) ? 'font-semibold' : ''
+                        } ${isLockedByCanonicalBoundary(row, column) ? 'cursor-not-allowed opacity-75' : ''}`}
+                        style={
+                          {
+                            backgroundColor:
+                              selectedCell?.rowId === row.id && selectedCell.column === column.key
+                                ? 'var(--theme-color-interactive-secondary)'
+                                : isCellEdited(row, column)
+                                  ? 'var(--theme-state-edited-cell-background)'
+                                  : isMonteCarloReferenceColumn(column)
+                                    ? monteCarloReferenceColumnTint
+                                    : undefined,
+                            boxShadow:
+                              selectedCell?.rowId === row.id && selectedCell.column === column.key
+                                ? 'inset 0 0 0 2px var(--theme-state-selected-cell-outline)'
+                                : undefined,
+                            color: isMonteCarloReferenceColumn(column) ? monteCarloReferenceColumnText : undefined,
+                          }
+                        }
+                        onClick={() => setSelectedCell({ rowId: row.id, column: column.key })}
+                        onDoubleClick={() => {
+                          if (isLockedByCanonicalBoundary(row, column)) {
+                            return;
+                          }
+                          beginCellEdit(row, column);
+                        }}
+                        onKeyDown={(event) => {
+                          if (event.key === 'Tab') {
+                            event.preventDefault();
+                            moveSelection(!event.shiftKey);
+                            return;
+                          }
+                          if (event.key === 'ArrowRight') {
+                            event.preventDefault();
+                            moveSelectionByArrow(0, 1);
+                            return;
+                          }
+                          if (event.key === 'ArrowLeft') {
+                            event.preventDefault();
+                            moveSelectionByArrow(0, -1);
+                            return;
+                          }
+                          if (event.key === 'ArrowDown') {
+                            event.preventDefault();
+                            moveSelectionByArrow(1, 0);
+                            return;
+                          }
+                          if (event.key === 'ArrowUp') {
+                            event.preventDefault();
+                            moveSelectionByArrow(-1, 0);
+                            return;
+                          }
+                          if (event.key === 'Enter') {
+                            if (isLockedByCanonicalBoundary(row, column)) {
+                              return;
+                            }
+                            if (editingCell !== null) {
+                              return;
+                            }
+                            event.preventDefault();
+                            beginCellEdit(row, column);
+                          }
+                        }}
                       >
-                        {formatCell(row[column.key] as string | number | null, column)}
+                        {editingCell?.rowId === row.id && editingCell.column === column.key ? (
+                          <input
+                            autoFocus
+                            value={draftValue}
+                            onChange={(event) => setDraftValue(event.target.value)}
+                            onBlur={() => commitCellEdit(row, column)}
+                            onFocus={(event) => event.currentTarget.select()}
+                            onKeyDown={(event) => {
+                              if (event.key === 'Enter') {
+                                event.preventDefault();
+                                event.stopPropagation();
+                                commitCellEdit(row, column);
+                                return;
+                              }
+                              if (event.key === 'Tab') {
+                                event.preventDefault();
+                                event.stopPropagation();
+                                commitCellEdit(row, column);
+                                moveSelection(!event.shiftKey);
+                                return;
+                              }
+                              if (event.key === 'Escape') {
+                                event.preventDefault();
+                                event.stopPropagation();
+                                setEditingCell(null);
+                              }
+                            }}
+                            className="w-24 rounded border border-blue-300 px-1 py-0.5 text-xs"
+                          />
+                        ) : (
+                          <>
+                            {formatCell(
+                              mode === AppMode.Tracking && tableGranularity === 'monthly'
+                                ? displayCellValue(row, column)
+                                : (row[column.key] as string | number | null),
+                              column,
+                            )}
+                            {isCellEdited(row, column) ? (
+                              <span
+                                className="absolute right-1 top-1 h-1.5 w-1.5 rounded-full"
+                                style={{
+                                  backgroundColor: 'var(--theme-state-selected-cell-outline)',
+                                }}
+                              />
+                            ) : null}
+                            {isEditableCell(row, column) && !isLockedByCanonicalBoundary(row, column) ? (
+                              <button
+                                type="button"
+                                onClick={(event) => {
+                                  event.stopPropagation();
+                                  beginCellEdit(row, column);
+                                }}
+                                className="ml-1 cursor-pointer text-[10px] text-slate-400 hover:text-slate-600"
+                              >
+                                (edit)
+                              </button>
+                            ) : null}
+                          </>
+                        )}
                       </td>
                     ))}
+                    {mode === AppMode.Tracking && tableGranularity === 'monthly' ? (
+                      <td className="px-2 py-2">
+                        <button
+                          type="button"
+                          onClick={() => clearActualRowOverrides(row.monthIndex)}
+                          className="rounded border border-brand-border px-1.5 py-0.5 text-[11px] text-slate-600 transition hover:bg-brand-surface disabled:cursor-not-allowed disabled:opacity-60"
+                          title="Reset row"
+                          disabled={activeLedgerSlotId !== 'A' && canonicalBoundary !== null && row.monthIndex <= canonicalBoundary}
+                        >
+                          ↺
+                        </button>
+                      </td>
+                    ) : null}
                   </tr>
                 ))
               )}
@@ -826,7 +1019,7 @@ export const DetailTable = () => {
                     )}
                   </svg>
                 </button>
-                {mode === AppMode.Tracking && simulationMode === SimulationMode.MonteCarlo && mcStale ? (
+                {mode === AppMode.Tracking && mcStale ? (
                   <span
                     className="rounded-full px-2 py-1 text-xs font-semibold"
                     style={{
@@ -1003,14 +1196,21 @@ export const DetailTable = () => {
                             onFocus={(event) => event.currentTarget.select()}
                             onKeyDown={(event) => {
                               if (event.key === 'Enter') {
+                                event.preventDefault();
+                                event.stopPropagation();
                                 commitCellEdit(row, column);
+                                return;
                               }
                               if (event.key === 'Tab') {
                                 event.preventDefault();
+                                event.stopPropagation();
                                 commitCellEdit(row, column);
                                 moveSelection(!event.shiftKey);
+                                return;
                               }
                               if (event.key === 'Escape') {
+                                event.preventDefault();
+                                event.stopPropagation();
                                 setEditingCell(null);
                               }
                             }}
@@ -1025,7 +1225,16 @@ export const DetailTable = () => {
                           <>
                             {formatCell(displayCellValue(row, column), column)}
                             {isEditableCell(row, column) ? (
-                              <span className="ml-1 text-[10px] text-slate-400">(edit)</span>
+                              <button
+                                type="button"
+                                onClick={(event) => {
+                                  event.stopPropagation();
+                                  beginCellEdit(row, column);
+                                }}
+                                className="ml-1 cursor-pointer text-[10px] text-slate-400 hover:text-slate-600"
+                              >
+                                (edit)
+                              </button>
                             ) : null}
                           </>
                         )}

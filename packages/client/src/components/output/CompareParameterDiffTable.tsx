@@ -1,25 +1,20 @@
 import { Fragment, useState } from 'react';
 
-import { AppMode, SimulationMode, type SimulationConfig } from '@finapp/shared';
+import { SimulationMode, type SimulationConfig } from '@finapp/shared';
 
 import { getCompareSlotColorVar } from '../../lib/compareSlotColors';
 import { buildCompareParameterDiffs } from '../../lib/compareParameterDiffs';
-import { useAppStore, useCompareSimulationResults } from '../../store/useAppStore';
+import { useAppStore, useCompareSimulationResults, useIsCompareActive } from '../../store/useAppStore';
 
 export const CompareParameterDiffTable = () => {
   const [isExpanded, setIsExpanded] = useState(true);
-  const mode = useAppStore((state) => state.mode);
+  const isCompareActive = useIsCompareActive();
   const simulationMode = useAppStore((state) => state.simulationMode);
-  const simulationStatus = useAppStore((state) => state.simulationResults.status);
   const compareResults = useCompareSimulationResults();
 
-  if (mode !== AppMode.Compare) {
+  if (!isCompareActive) {
     return null;
   }
-  if (simulationStatus === 'running') {
-    return null;
-  }
-
   const slotOrder = compareResults.slotOrder;
   if (slotOrder.length < 2) {
     return null;
@@ -33,7 +28,7 @@ export const CompareParameterDiffTable = () => {
   let hasCompleteContext = true;
   slotOrder.forEach((slotId) => {
     const workspace = compareResults.slots[slotId];
-    if (!workspace || workspace.simulationResults.status !== 'complete') {
+    if (!workspace) {
       hasCompleteContext = false;
       return;
     }

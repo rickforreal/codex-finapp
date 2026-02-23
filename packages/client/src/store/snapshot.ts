@@ -4,7 +4,7 @@ import { AppMode, HistoricalEra, SimulationMode, ThemeId, type MonthlySimulation
 
 import { getSnapshotState, type CompareSlotId, type SnapshotState, type WorkspaceSnapshot, useAppStore } from './useAppStore';
 
-export const SNAPSHOT_SCHEMA_VERSION = 4;
+export const SNAPSHOT_SCHEMA_VERSION = 5;
 
 export const PACKED_ROW_COLUMNS = [
   'monthIndex',
@@ -591,7 +591,7 @@ const unpackWorkspace = (workspace: unknown): WorkspaceSnapshot | null => {
 const defaultCompareWorkspace = (): SnapshotState['compareWorkspace'] => ({
   activeSlotId: 'A',
   baselineSlotId: 'A',
-  slotOrder: ['A', 'B'],
+  slotOrder: ['A'],
   slots: {},
 });
 
@@ -648,7 +648,7 @@ const unpackCompareWorkspace = (compareWorkspace: unknown): SnapshotState['compa
   }
 
   const slotOrder = record.slotOrder.filter((entry): entry is CompareSlotId => isCompareSlotId(entry));
-  if (slotOrder.length < 2 || slotOrder.length > 8) {
+  if (slotOrder.length < 1 || slotOrder.length > 8) {
     throw invalidSnapshot();
   }
 
@@ -660,7 +660,7 @@ const unpackCompareWorkspace = (compareWorkspace: unknown): SnapshotState['compa
     Object.entries(slots).filter(([, workspace]) => workspace !== null),
   ) as SnapshotState['compareWorkspace']['slots'];
   const normalizedOrder = slotOrder.filter((slotId) => normalizedSlots[slotId]);
-  const resolvedOrder: CompareSlotId[] = normalizedOrder.length >= 2 ? normalizedOrder : ['A', 'B'];
+  const resolvedOrder: CompareSlotId[] = normalizedOrder.length >= 1 ? normalizedOrder : ['A'];
   const recordActiveSlotId = isCompareSlotId(record.activeSlotId) ? record.activeSlotId : null;
   const recordBaselineSlotId = isCompareSlotId(record.baselineSlotId) ? record.baselineSlotId : null;
   const activeSlotId = recordActiveSlotId && resolvedOrder.includes(recordActiveSlotId)
@@ -732,6 +732,18 @@ export const parseSnapshot = (raw: string): SnapshotEnvelope => {
     parsed = JSON.parse(raw);
   } catch {
     throw invalidSnapshot();
+  }
+
+  if (
+    parsed &&
+    typeof parsed === 'object' &&
+    'data' in parsed &&
+    (parsed as { data?: { mode?: unknown } }).data?.mode === 'compare'
+  ) {
+    throw new SnapshotLoadError(
+      'version_mismatch',
+      'Legacy snapshots with Compare mode are not supported by this app version.',
+    );
   }
 
   const firstPass = snapshotEnvelopeSchema.safeParse(parsed);

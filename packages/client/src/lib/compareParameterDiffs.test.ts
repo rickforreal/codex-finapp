@@ -12,7 +12,7 @@ import { describe, expect, it } from 'vitest';
 import { buildCompareParameterDiffs } from './compareParameterDiffs';
 
 const baseConfig = (): SimulationConfig => ({
-  mode: AppMode.Compare,
+  mode: AppMode.Planning,
   simulationMode: SimulationMode.Manual,
   selectedHistoricalEra: HistoricalEra.FullHistory,
   coreParams: {

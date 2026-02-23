@@ -6,7 +6,7 @@ The API is stateless for user data: clients send full configuration and optional
 
 Note: CSV export is not part of the current release scope and there is no CSV export endpoint.
 
-Compare mode uses existing endpoints (`/simulate` and `/stress-test`) with client-side multi-slot orchestration. No dedicated compare endpoint is required.
+Multi-slot compare uses existing endpoints (`/simulate` and `/stress-test`) with client-side slot orchestration. No dedicated compare endpoint is required.
 
 ## Base URL
 
@@ -176,7 +176,7 @@ Request/response contract source of truth is:
 No new backend API route is required.
 
 Client behavior:
-1. Compare run calls `POST /simulate` once per active slot (`A`..`H`, 2..8 slots).
+1. Multi-slot run calls `POST /simulate` once per active slot (`A`..`H`, 1..8 slots; compare-active when >1).
 2. Compare stress run calls `POST /stress-test` once per active slot using shared scenario definitions.
 3. Calls are executed with bounded parallelism (queue-based concurrency), not unbounded fan-out.
 4. Partial failures are surfaced per slot while preserving successful slot results.
