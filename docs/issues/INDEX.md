@@ -30,3 +30,4 @@ This index is the canonical defect backlog for docs-first bug tracking.
 | Bug ID | Title | Status | Severity | Created | Updated | Folder |
 |---|---|---|---|---|---|---|
 | BUG-0001 | Compare stress overlay missing A/B scenario lines | Done | S2 | 2026-02-22 | 2026-02-22 | `docs/issues/BUG-0001-compare-stress-dual-plot/` |
+| BUG-0002 | Compare stress table missing spec-parity rows/sections in multi-slot compare | Done | S1 | 2026-02-23 | 2026-02-23 | `docs/issues/BUG-0002-compare-stress-table-spec-parity/` |

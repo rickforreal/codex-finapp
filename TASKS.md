@@ -1113,3 +1113,35 @@ Acceptance Criteria:
 [AC1] `docs/SPECS.md`, `docs/SCENARIOS.md`, `docs/DATA_MODEL.md`, `docs/API.md`, and `docs/ARCHITECTURE.md` reflect v3.0 behavior.
 [AC2] `npm run typecheck`, `npm run lint`, `npm test`, and `npm run build` pass.
 [AC3] `PROGRESS.txt` contains append-only completion summary and canonical-doc impact statement.
+
+- [ ] BUG-0002-T1: Restore compare stress table spec-parity with scenario-section model
+Phase: Defect/BUG-0002
+Dependencies: none
+Acceptance Criteria:
+[AC1] Compare stress table columns are slot-aware (`Portfolio A..H`).
+[AC2] Base and each scenario section include required core rows, including monthly median/mean.
+[AC3] Scenario rows are matched by `scenarioId` and handle sparse slot data with `—`.
+
+- [ ] BUG-0002-T2: Add compare stress table model unit tests and run regression gate
+Phase: Defect/BUG-0002
+Dependencies: BUG-0002-T1
+Acceptance Criteria:
+[AC1] Unit tests validate row completeness, MC/manual row conditions, and scenario-id matching.
+[AC2] `npm run typecheck`, `npm run lint`, `npm test`, and `npm run build` pass.
+[AC3] BUG-0002 docs and trackers are updated to `Done` append-only in `PROGRESS.txt`.
+
+- [x] BUG-0002-T1: Restore compare stress table spec-parity with scenario-section model
+Phase: Defect/BUG-0002
+Dependencies: none
+Acceptance Criteria:
+[AC1] Compare stress table columns are slot-aware (`Portfolio A..H`).
+[AC2] Base and each scenario section include required core rows, including monthly median/mean.
+[AC3] Scenario rows are matched by `scenarioId` and handle sparse slot data with `—`.
+
+- [x] BUG-0002-T2: Add compare stress table model unit tests and run regression gate
+Phase: Defect/BUG-0002
+Dependencies: BUG-0002-T1
+Acceptance Criteria:
+[AC1] Unit tests validate row completeness, MC/manual row conditions, and scenario-id matching.
+[AC2] `npm run typecheck`, `npm run lint`, `npm test`, and `npm run build` pass.
+[AC3] BUG-0002 docs and trackers are updated to `Done` append-only in `PROGRESS.txt`.

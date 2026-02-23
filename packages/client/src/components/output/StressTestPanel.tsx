@@ -3,6 +3,8 @@ import { useEffect } from 'react';
 import { AppMode, SimulationMode, type StressScenario, type StressScenarioType } from '@finapp/shared';
 
 import { runStressTest } from '../../api/stressApi';
+import { getCompareSlotColorVar } from '../../lib/compareSlotColors';
+import { buildCompareStressTableModel } from '../../lib/compareStressTableModel';
 import { formatCompactCurrency, formatCurrency, formatPercent } from '../../lib/format';
 import {
   getCompareConfigForSlot,
@@ -112,10 +114,22 @@ const deriveMonthlyReturnsFromRows = (
     cash: row.startBalances.cash === 0 ? 0 : row.marketChange.cash / row.startBalances.cash,
   }));
 
+const resolveSlotResult = (simulationMode: SimulationMode, workspace: WorkspaceSnapshot | undefined) => {
+  if (!workspace) {
+    return null;
+  }
+  const preferred =
+    simulationMode === SimulationMode.Manual
+      ? workspace.simulationResults.manual
+      : workspace.simulationResults.monteCarlo;
+  return preferred ?? workspace.simulationResults.manual ?? workspace.simulationResults.monteCarlo;
+};
+
 export const StressTestPanel = () => {
   const mode = useAppStore((state) => state.mode);
   const isCompareActive = useIsCompareActive();
   const compareWorkspace = useCompareSimulationResults();
+  const compareSlotOrderKey = compareWorkspace.slotOrder.join('|');
   const simulationMode = useAppStore((state) => state.simulationMode);
   const stress = useAppStore((state) => state.stress);
   const toggleStressPanel = useAppStore((state) => state.toggleStressPanel);
@@ -134,19 +148,8 @@ export const StressTestPanel = () => {
   const inflationRate = useAppStore((state) => state.coreParams.inflationRate);
 
   useEffect(() => {
-    const resolveSlotResult = (workspace: WorkspaceSnapshot | undefined) => {
-      if (!workspace) {
-        return null;
-      }
-      const preferred =
-        simulationMode === SimulationMode.Manual
-          ? workspace.simulationResults.manual
-          : workspace.simulationResults.monteCarlo;
-      return preferred ?? workspace.simulationResults.manual ?? workspace.simulationResults.monteCarlo;
-    };
-
     const compareBaseAvailable = compareWorkspace.slotOrder.some((slotId) =>
-      Boolean(resolveSlotResult(compareWorkspace.slots[slotId])),
+      Boolean(resolveSlotResult(simulationMode, compareWorkspace.slots[slotId])),
     );
     const baseAvailable = isCompareActive ? compareBaseAvailable : Boolean(activeResult);
 
@@ -215,7 +218,7 @@ export const StressTestPanel = () => {
       setStressStatus('running');
       const slots = compareWorkspace.slotOrder.map((slotId) => ({
         slotId,
-        result: resolveSlotResult(compareWorkspace.slots[slotId]),
+        result: resolveSlotResult(simulationMode, compareWorkspace.slots[slotId]),
       }));
       slots.forEach(({ slotId }) => setCompareSlotStressStatus(slotId, 'running'));
       const currentCompareWorkspace = getCompareWorkspaceState();
@@ -313,8 +316,7 @@ export const StressTestPanel = () => {
     actualOverridesByMonth,
     baseMonteCarlo,
     compareWorkspace.activeSlotId,
-    compareWorkspace.slotOrder,
-    compareWorkspace.slots,
+    compareSlotOrderKey,
     clearCompareSlotStressResult,
     clearStressResult,
     mode,
@@ -332,6 +334,27 @@ export const StressTestPanel = () => {
   });
   const baseAvailable = isCompareActive ? compareBaseAvailable : Boolean(activeResult);
   const result = stress.result;
+  const compareStressTableModel = isCompareActive
+    ? buildCompareStressTableModel({
+        slotOrder: compareWorkspace.slotOrder,
+        slotsById: Object.fromEntries(
+          compareWorkspace.slotOrder.map((slotId) => {
+            const workspace = compareWorkspace.slots[slotId];
+            const slotResult = resolveSlotResult(simulationMode, workspace);
+            const slotInflationRate = slotResult?.configSnapshot?.coreParams.inflationRate ?? inflationRate;
+            return [
+              slotId,
+              {
+                stressResult: workspace?.stress.result ?? null,
+                inflationRate: slotInflationRate,
+              },
+            ];
+          }),
+        ),
+        scenarios: stress.scenarios,
+        simulationMode,
+      })
+    : null;
   const comparisonSet = result
     ? [
         { label: 'Base', color: 'var(--theme-color-stress-base)', rows: result.base.result.rows, metrics: result.base.metrics },
@@ -665,88 +688,140 @@ export const StressTestPanel = () => {
                       : null}
                   </div>
 
-                  <div className="overflow-x-auto rounded-lg border border-brand-border">
-                    <table className="min-w-full text-[11px] leading-4">
-                      <thead className="bg-slate-50 text-slate-600">
-                        <tr>
-                          <th className="px-2 py-1.5 text-left">Metric</th>
-                          <th className="px-2 py-1.5 text-right">Base</th>
-                          {result.scenarios.map((scenario) => (
-                            <th key={scenario.scenarioId} className="px-2 py-1.5 text-right">
-                              {scenario.scenarioLabel}
-                            </th>
-                          ))}
-                        </tr>
-                      </thead>
-                      <tbody>
-                        <tr className="border-t border-brand-border">
-                          <td className="px-2 py-1.5">Terminal Value</td>
-                          <td className="px-2 py-1.5 text-right">{formatCurrency(Math.round(result.base.metrics.terminalValue))}</td>
-                          {result.scenarios.map((scenario) => (
-                            <td key={`${scenario.scenarioId}-terminal`} className="px-2 py-1.5 text-right">
-                              {formatCurrency(Math.round(scenario.metrics.terminalValue))}
-                            </td>
-                          ))}
-                        </tr>
-                        <tr className="border-t border-brand-border">
-                          <td className="px-2 py-1.5">Delta vs Base</td>
-                          <td className="px-2 py-1.5 text-right">$0</td>
-                          {result.scenarios.map((scenario) => (
-                            <td key={`${scenario.scenarioId}-delta`} className="px-2 py-1.5 text-right text-rose-700">
-                              {formatCurrency(Math.round(scenario.metrics.terminalDeltaVsBase))}
-                            </td>
-                          ))}
-                        </tr>
-                        <tr className="border-t border-brand-border">
-                          <td className="px-2 py-1.5">Total Drawdown (Real)</td>
-                          <td className="px-2 py-1.5 text-right">{formatCurrency(Math.round(result.base.metrics.totalDrawdownReal))}</td>
-                          {result.scenarios.map((scenario) => (
-                            <td key={`${scenario.scenarioId}-drawdown`} className="px-2 py-1.5 text-right">
-                              {formatCurrency(Math.round(scenario.metrics.totalDrawdownReal))}
-                            </td>
-                          ))}
-                        </tr>
-                        <tr className="border-t border-brand-border">
-                          <td className="px-2 py-1.5">Median Monthly Withdrawal (Real)</td>
-                          <td className="px-2 py-1.5 text-right">{formatCurrency(Math.round(withdrawalStats[0]?.median ?? 0))}</td>
-                          {result.scenarios.map((scenario, index) => (
-                            <td key={`${scenario.scenarioId}-median`} className="px-2 py-1.5 text-right">
-                              {formatCurrency(Math.round(withdrawalStats[index + 1]?.median ?? 0))}
-                            </td>
-                          ))}
-                        </tr>
-                        <tr className="border-t border-brand-border">
-                          <td className="px-2 py-1.5">Mean Monthly Withdrawal (Real)</td>
-                          <td className="px-2 py-1.5 text-right">{formatCurrency(Math.round(withdrawalStats[0]?.mean ?? 0))}</td>
-                          {result.scenarios.map((scenario, index) => (
-                            <td key={`${scenario.scenarioId}-mean`} className="px-2 py-1.5 text-right">
-                              {formatCurrency(Math.round(withdrawalStats[index + 1]?.mean ?? 0))}
-                            </td>
-                          ))}
-                        </tr>
-                        <tr className="border-t border-brand-border">
-                          <td className="px-2 py-1.5">Depletion Month</td>
-                          <td className="px-2 py-1.5 text-right">{result.base.metrics.depletionMonth ?? 'Never'}</td>
-                          {result.scenarios.map((scenario) => (
-                            <td key={`${scenario.scenarioId}-depletion`} className="px-2 py-1.5 text-right">
-                              {scenario.metrics.depletionMonth ?? 'Never'}
-                            </td>
-                          ))}
-                        </tr>
-                        {simulationMode === SimulationMode.MonteCarlo ? (
-                          <tr className="border-t border-brand-border">
-                            <td className="px-2 py-1.5">Probability of Success</td>
-                            <td className="px-2 py-1.5 text-right">{formatPercent(result.base.metrics.probabilityOfSuccess ?? 0, 1)}</td>
+                  {isCompareActive ? (
+                    <div className="overflow-x-auto rounded-lg border border-brand-border">
+                      <table className="min-w-full text-[11px] leading-4">
+                        <thead className="bg-slate-50 text-slate-600">
+                          <tr>
+                            <th className="px-2 py-1.5 text-left">Metric</th>
+                            {compareWorkspace.slotOrder.map((slotId) => (
+                              <th key={`stress-compare-head-${slotId}`} className="px-2 py-1.5 text-right">
+                                <span className="inline-flex items-center gap-1.5">
+                                  <span
+                                    className="inline-block h-2 w-2 rounded-full"
+                                    style={{ backgroundColor: getCompareSlotColorVar(slotId) }}
+                                  />
+                                  <span>Portfolio {slotId}</span>
+                                </span>
+                              </th>
+                            ))}
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {compareStressTableModel?.sections.flatMap((section) => [
+                            <tr key={`stress-compare-section-${section.key}`} className="border-t border-brand-border bg-slate-50/70">
+                              <td
+                                colSpan={compareWorkspace.slotOrder.length + 1}
+                                className="px-2 py-1.5 text-[10px] font-semibold uppercase tracking-[0.08em] text-slate-600"
+                              >
+                                {section.label}
+                              </td>
+                            </tr>,
+                            ...section.rows.map((row) => (
+                              <tr key={`stress-compare-row-${row.key}`} className="border-t border-brand-border">
+                                <td className={`px-2 py-1.5 ${row.isDelta ? 'text-[10px] text-slate-500' : ''}`}>
+                                  {row.label}
+                                </td>
+                                {compareWorkspace.slotOrder.map((slotId) => (
+                                  <td
+                                    key={`stress-compare-cell-${row.key}-${slotId}`}
+                                    className={`px-2 py-1.5 text-right ${
+                                      row.isDelta ? 'text-[10px] text-rose-700' : ''
+                                    }`}
+                                  >
+                                    {row.valuesBySlot[slotId] ?? '—'}
+                                  </td>
+                                ))}
+                              </tr>
+                            )),
+                          ])}
+                        </tbody>
+                      </table>
+                    </div>
+                  ) : (
+                    <div className="overflow-x-auto rounded-lg border border-brand-border">
+                      <table className="min-w-full text-[11px] leading-4">
+                        <thead className="bg-slate-50 text-slate-600">
+                          <tr>
+                            <th className="px-2 py-1.5 text-left">Metric</th>
+                            <th className="px-2 py-1.5 text-right">Base</th>
                             {result.scenarios.map((scenario) => (
-                              <td key={`${scenario.scenarioId}-pos`} className="px-2 py-1.5 text-right">
-                                {formatPercent(scenario.metrics.probabilityOfSuccess ?? 0, 1)}
+                              <th key={scenario.scenarioId} className="px-2 py-1.5 text-right">
+                                {scenario.scenarioLabel}
+                              </th>
+                            ))}
+                          </tr>
+                        </thead>
+                        <tbody>
+                          <tr className="border-t border-brand-border">
+                            <td className="px-2 py-1.5">Terminal Value</td>
+                            <td className="px-2 py-1.5 text-right">{formatCurrency(Math.round(result.base.metrics.terminalValue))}</td>
+                            {result.scenarios.map((scenario) => (
+                              <td key={`${scenario.scenarioId}-terminal`} className="px-2 py-1.5 text-right">
+                                {formatCurrency(Math.round(scenario.metrics.terminalValue))}
                               </td>
                             ))}
                           </tr>
-                        ) : null}
-                      </tbody>
-                    </table>
-                  </div>
+                          <tr className="border-t border-brand-border">
+                            <td className="px-2 py-1.5">Delta vs Base</td>
+                            <td className="px-2 py-1.5 text-right">$0</td>
+                            {result.scenarios.map((scenario) => (
+                              <td key={`${scenario.scenarioId}-delta`} className="px-2 py-1.5 text-right text-rose-700">
+                                {formatCurrency(Math.round(scenario.metrics.terminalDeltaVsBase))}
+                              </td>
+                            ))}
+                          </tr>
+                          <tr className="border-t border-brand-border">
+                            <td className="px-2 py-1.5">Total Drawdown (Real)</td>
+                            <td className="px-2 py-1.5 text-right">{formatCurrency(Math.round(result.base.metrics.totalDrawdownReal))}</td>
+                            {result.scenarios.map((scenario) => (
+                              <td key={`${scenario.scenarioId}-drawdown`} className="px-2 py-1.5 text-right">
+                                {formatCurrency(Math.round(scenario.metrics.totalDrawdownReal))}
+                              </td>
+                            ))}
+                          </tr>
+                          <tr className="border-t border-brand-border">
+                            <td className="px-2 py-1.5">Median Monthly Withdrawal (Real)</td>
+                            <td className="px-2 py-1.5 text-right">{formatCurrency(Math.round(withdrawalStats[0]?.median ?? 0))}</td>
+                            {result.scenarios.map((scenario, index) => (
+                              <td key={`${scenario.scenarioId}-median`} className="px-2 py-1.5 text-right">
+                                {formatCurrency(Math.round(withdrawalStats[index + 1]?.median ?? 0))}
+                              </td>
+                            ))}
+                          </tr>
+                          <tr className="border-t border-brand-border">
+                            <td className="px-2 py-1.5">Mean Monthly Withdrawal (Real)</td>
+                            <td className="px-2 py-1.5 text-right">{formatCurrency(Math.round(withdrawalStats[0]?.mean ?? 0))}</td>
+                            {result.scenarios.map((scenario, index) => (
+                              <td key={`${scenario.scenarioId}-mean`} className="px-2 py-1.5 text-right">
+                                {formatCurrency(Math.round(withdrawalStats[index + 1]?.mean ?? 0))}
+                              </td>
+                            ))}
+                          </tr>
+                          <tr className="border-t border-brand-border">
+                            <td className="px-2 py-1.5">Depletion Month</td>
+                            <td className="px-2 py-1.5 text-right">{result.base.metrics.depletionMonth ?? 'Never'}</td>
+                            {result.scenarios.map((scenario) => (
+                              <td key={`${scenario.scenarioId}-depletion`} className="px-2 py-1.5 text-right">
+                                {scenario.metrics.depletionMonth ?? 'Never'}
+                              </td>
+                            ))}
+                          </tr>
+                          {simulationMode === SimulationMode.MonteCarlo ? (
+                            <tr className="border-t border-brand-border">
+                              <td className="px-2 py-1.5">Probability of Success</td>
+                              <td className="px-2 py-1.5 text-right">{formatPercent(result.base.metrics.probabilityOfSuccess ?? 0, 1)}</td>
+                              {result.scenarios.map((scenario) => (
+                                <td key={`${scenario.scenarioId}-pos`} className="px-2 py-1.5 text-right">
+                                  {formatPercent(scenario.metrics.probabilityOfSuccess ?? 0, 1)}
+                                </td>
+                              ))}
+                            </tr>
+                          ) : null}
+                        </tbody>
+                      </table>
+                    </div>
+                  )}
 
                   {mode === AppMode.Tracking ? (
                     <p className="text-xs text-slate-500">Tracking mode: Year 1 refers to the first projected year after actuals.</p>

@@ -1174,3 +1174,48 @@ Validation run (client passing):
 - `npm run test -w @finapp/client -- useAppStore.compare.test.ts`
 - `npm run typecheck -w @finapp/client`
 - `npm run lint -w @finapp/client`
+- CPV30 regression fix: Stress Test effect no longer self-restarts on compare stress status updates.
+  - Root cause: `StressTestPanel` effect depended on cloned `compareWorkspace.slotOrder`/`slots` objects; stress status/result writes clone compare workspace, retriggering effect and aborting in-flight stress runs repeatedly.
+  - Fix: replaced dependency on cloned compare workspace structures with stable `compareSlotOrderKey` + existing primitive deps, preventing infinite rerun/abort loop.
+
+Validation run (client passing):
+- `npm run typecheck -w @finapp/client`
+- `npm run lint -w @finapp/client`
+- CPV30 compare-stress UX fix: Stress Test metrics table is now compare-aware.
+  - In compare-active mode, table columns now map to `Portfolio A/B/...` instead of generic single-run columns (`Base`, `Scenario A`, etc.).
+  - Added compare rows for base metrics per slot and scenario deltas per slot, so users can compare stress impact across portfolios directly.
+  - Single-portfolio stress table behavior remains unchanged.
+
+Validation run (client passing):
+- `npm run typecheck -w @finapp/client`
+- `npm run lint -w @finapp/client`
+- [BUG-0002] Started defect lane: compare stress table spec-parity restoration.
+  - Created docs/issues artifacts:
+    - `docs/issues/BUG-0002-compare-stress-table-spec-parity/ISSUE.md`
+    - `docs/issues/BUG-0002-compare-stress-table-spec-parity/PLAN.md`
+    - `docs/issues/BUG-0002-compare-stress-table-spec-parity/ACCEPTANCE.md`
+  - Appended BUG-0002 index/tracker entries in `docs/issues/INDEX.md` and `TASKS.md`.
+  - Canonical docs impact assumption: none (implementation correction to existing specs #59/#71).
+- [BUG-0002] Completed: compare stress table spec-parity restoration.
+  - Added pure compare stress table model builder: `packages/client/src/lib/compareStressTableModel.ts`.
+  - Added unit coverage: `packages/client/src/lib/compareStressTableModel.test.ts`.
+  - Refactored compare table rendering in `packages/client/src/components/output/StressTestPanel.tsx` to sectioned model:
+    - sections: Base + Scenario labels from shared scenario config
+    - per-slot columns (`Portfolio A..H`) with slot color dots
+    - full base and scenario metric rows, including Median/Mean Monthly Withdrawal (Real)
+    - MC-only rows (`Probability of Success`, `Δ Success vs. Base`) in both base/scenario sections
+    - scenario resolution by `scenarioId` with `—` fallback for sparse/missing slot results
+  - Single-slot stress table branch left intact (no behavior change).
+  - Defect docs/tracking updated:
+    - `docs/issues/BUG-0002-compare-stress-table-spec-parity/{ISSUE.md,PLAN.md,ACCEPTANCE.md}`
+    - `docs/issues/INDEX.md`
+    - `TASKS.md`
+
+Validation run (all passing):
+- `npm run typecheck`
+- `npm run lint`
+- `npm test`
+- `npm run build`
+
+Canonical docs impact:
+- None. Implementation correction to existing stress specs (#59, #71).
