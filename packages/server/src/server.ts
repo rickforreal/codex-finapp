@@ -1,4 +1,12 @@
+import { existsSync } from 'node:fs';
+import { resolve } from 'node:path';
+
 import { createApp } from './app';
+
+const workspaceEnvPath = resolve(process.cwd(), '.env');
+if (existsSync(workspaceEnvPath)) {
+  process.loadEnvFile(workspaceEnvPath);
+}
 
 const port = Number(process.env.PORT ?? 3001);
 const host = process.env.HOST ?? '0.0.0.0';
