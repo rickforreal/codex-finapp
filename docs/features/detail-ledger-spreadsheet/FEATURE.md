@@ -13,14 +13,13 @@ Users expect spreadsheet-like interactions — snappy navigation, type-to-edit, 
 
 ## Scope
 
-Replace the monolithic `DetailTable.tsx` with a decomposed component tree using TanStack Table + TanStack Virtual:
+Replace the monolithic `DetailTable.tsx` with a decomposed component tree using TanStack Virtual:
 
 1. **Unified code path** — normal mode = single-slot compare, eliminating the `if (isCompareActive)` branch
 2. **Keyboard navigation** — arrow keys, Tab/Shift-Tab, Enter, Escape, type-to-edit, Cmd+C/V
 3. **Cell-level memoization** — `React.memo` with custom comparator so editing one cell doesn't re-render others
 4. **Snappy reforecast** — remove blocking overlay, increase debounce, optimistic display
-5. **TanStack Table** — replace manual sorting, column visibility, and column definitions
-6. **TanStack Virtual** — replace hand-rolled scroll virtualization
+5. **TanStack Virtual** — replace hand-rolled scroll virtualization
 
 ## Intent
 

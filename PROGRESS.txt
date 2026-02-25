@@ -1242,3 +1242,12 @@ Validation passed: `npm run typecheck && npm run lint && npm run test && npm run
 [DECISION] TanStack Table + Virtual now canonical table library (was "prescribed but not installed")
 [DECISION] Keyboard navigation uses coordinate-based state machine, not DOM queries
 
+
+## 2026-02-25 12:10 — DOC-HYGIENE-TANSTACK-DRIFT | COMPLETE
+
+Removed phantom `@tanstack/react-table` dependency from client package and synchronized root lockfile via `npm install`.
+Corrected TanStack Table doc drift across architecture/engineering/detail-ledger feature docs; Detail Ledger is now documented as TanStack Virtual + hand-rolled sorting/column visibility.
+
+Validation run (client):
+- `npm run typecheck -w @finapp/client`
+- `npm run lint -w @finapp/client`

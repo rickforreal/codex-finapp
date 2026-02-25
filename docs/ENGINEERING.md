@@ -260,7 +260,7 @@ The application is built in **12 phases**, ordered so that each phase produces a
 **Goal:** Simulation results are browsable in a detailed table with monthly and annual views, column toggling, and sorting.
 
 **Client:**
-- `DetailTable` with TanStack Table + TanStack Virtual.
+- `DetailTable` with TanStack Virtual.
 - Monthly/Annual toggle (#49).
 - Asset class columns toggle (#50).
 - Sticky header row (#51).

@@ -121,7 +121,7 @@ TypeScript strict mode is non-negotiable. The simulation engine handles financia
 | State management | Zustand | Lightweight single-store with middleware support. Middleware enables snapshot serialization cleanly. Simpler than Redux for this scale. |
 | Styling | Tailwind CSS | ≥ 3.x. Utility-first, aligns with SPECS.md's precise spacing/sizing values. Custom theme for the app's color palette. |
 | Charting | Recharts | React-native charting library built on D3. Supports line, area, stacked area, and bar charts — all chart types required by SPECS.md. Good animation support. See Section 6.6 for details. |
-| Table virtualization | TanStack Table (React Table v8) + TanStack Virtual | Headless table with sorting, column toggling, and row virtualization for 480+ row monthly views. |
+| Table virtualization | TanStack Virtual | Row virtualization for 480+ row monthly views. Sorting and column visibility are hand-rolled. |
 | HTTP client | Fetch API (native) | No library needed. A thin typed wrapper around fetch using shared API types provides type-safe requests. |
 | Build tool | Vite | Fast dev server with HMR. Native TypeScript and Tailwind support. |
 
@@ -522,7 +522,7 @@ App
     │   │   └── ChartTooltip (#47) [hover]
     │   └── ZoomPanControls (#48) [deferred/disabled]
     │
-    ├── DetailLedgerContainer (TanStack Table + TanStack Virtual)
+    ├── DetailLedgerContainer (TanStack Virtual)
     │   ├── DetailLedgerToolbar
     │   │   ├── MonthlyAnnualToggle (#49)
     │   │   ├── BreakdownLabelControl (#50)
@@ -704,7 +704,7 @@ The detail table in monthly view can have up to 480 rows (40 years × 12 months)
 
 **Strategy: TanStack Virtual.**
 
-TanStack Virtual provides row virtualization — only rows visible in the viewport (plus a small overscan buffer) are rendered. Combined with TanStack Table for column definitions, sorting, and header management, this provides the full feature set needed:
+TanStack Virtual provides row virtualization — only rows visible in the viewport (plus a small overscan buffer) are rendered. Sorting and column visibility remain hand-rolled in the Detail Ledger layer.
 
 - Virtual row rendering with smooth scroll.
 - Sticky header rows (column headers stay fixed).

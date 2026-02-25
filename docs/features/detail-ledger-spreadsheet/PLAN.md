@@ -6,7 +6,7 @@ Refactors `packages/client/src/components/output/DetailTable.tsx` (1287 lines, s
 
 ## Approach
 
-**TanStack Table + TanStack Virtual** with a unified code path (normal = single-slot compare). Decompose the monolith into focused components with cell-level `React.memo` for surgical re-renders.
+**TanStack Virtual** with a unified code path (normal = single-slot compare). Decompose the monolith into focused components with cell-level `React.memo` for surgical re-renders.
 
 ## New File Structure
 
@@ -15,10 +15,10 @@ All under `packages/client/src/components/output/DetailLedger/`:
 | File | Purpose |
 |---|---|
 | `index.ts` | Re-exports `DetailLedgerContainer` as `DetailTable` |
-| `DetailLedgerContainer.tsx` | Orchestrator: store subs, TanStack Table instance, layout |
+| `DetailLedgerContainer.tsx` | Orchestrator: store subscriptions, layout, and event wiring |
 | `DetailLedgerToolbar.tsx` | Controls bar (granularity, breakdown, spreadsheet toggles) |
 | `CompareSlotTabs.tsx` | Circular slot tab picker (hidden when single slot) |
-| `useDetailColumns.ts` | TanStack `ColumnDef[]` from current column arrays |
+| `useDetailColumns.ts` | Column definitions from current column arrays |
 | `useDetailRows.ts` | Unified data pipeline (abstracts normal vs compare data source) |
 | `useGridNavigation.ts` | Keyboard nav: arrow keys, Tab, Enter, Escape, type-to-edit, copy/paste |
 | `useReforecast.ts` | Extracted reforecast effect with longer debounce, no overlay |
@@ -47,10 +47,7 @@ Normal mode = compare with only slot A active. `useDetailRows` abstracts the dat
 ### 4. Snappy Reforecast
 Remove blocking overlay, increase debounce from 250ms to 500ms, optimistic display via `displayCellValue`.
 
-### 5. TanStack Table
-`getSortedRowModel()` replaces manual `sortDetailRows`. `columnVisibility` replaces conditional column construction. `table.meta` carries editing context.
-
-### 6. TanStack Virtual
+### 5. TanStack Virtual
 `useVirtualizer` with `estimateSize: 36px`, `overscan: 8`. Disabled in spreadsheet mode.
 
 ## Implementation Slices
@@ -64,4 +61,4 @@ Remove blocking overlay, increase debounce from 250ms to 500ms, optimistic displ
 ## Canonical Docs Impact
 
 - `SPECS.md` — keyboard navigation for affordance #52, new affordance numbers if needed
-- `ARCHITECTURE.md` — TanStack Table + Virtual now in use
+- `ARCHITECTURE.md` — TanStack Virtual now in use for Detail Ledger row virtualization
