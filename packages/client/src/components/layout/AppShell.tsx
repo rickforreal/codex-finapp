@@ -1,6 +1,6 @@
 import { useAppStore } from '../../store/useAppStore';
 import { CompareParameterDiffTable } from '../output/CompareParameterDiffTable';
-import { DetailTable } from '../output/DetailTable';
+import { DetailTable } from '../output/DetailLedger';
 import { PortfolioChart } from '../output/PortfolioChart';
 import { StressTestPanel } from '../output/StressTestPanel';
 import { SummaryStatsBar } from '../output/SummaryStatsBar';

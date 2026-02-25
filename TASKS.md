@@ -1145,3 +1145,11 @@ Acceptance Criteria:
 [AC1] Unit tests validate row completeness, MC/manual row conditions, and scenario-id matching.
 [AC2] `npm run typecheck`, `npm run lint`, `npm test`, and `npm run build` pass.
 [AC3] BUG-0002 docs and trackers are updated to `Done` append-only in `PROGRESS.txt`.
+
+## Feature Plan — Detail Ledger Spreadsheet Refactor
+
+- [x] DLS-T1: Extract helpers into cellHelpers.ts and install TanStack packages
+- [x] DLS-T2: Build useDetailRows and useDetailColumns hooks
+- [x] DLS-T3: Build useGridNavigation keyboard navigation hook
+- [x] DLS-T4: Build new component tree behind feature flag
+- [x] DLS-T5: Parity testing and cutover

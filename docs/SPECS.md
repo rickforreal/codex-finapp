@@ -3698,6 +3698,22 @@ When Breakdown is off (compact view), asset-specific start/withdrawal cells are 
   - Rows up to and including the boundary are preserved on subsequent runs; months after the boundary are recalculated.
   - If Monte Carlo results exist, they become stale (see #3 revision).
 
+### Keyboard Navigation
+
+The detail ledger supports spreadsheet-style keyboard navigation for efficient data entry:
+
+- **Arrow keys** — move the focus ring between cells (up/down/left/right), clamped to table bounds
+- **Tab / Shift-Tab** — jump to the next/previous editable cell, wrapping across rows
+- **Enter** (not editing) — start editing the focused editable cell
+- **Enter** (editing) — commit the edit and move focus down to the same column in the next row
+- **Escape** — cancel the current edit and revert the draft value
+- **Type alphanumeric** (not editing, on an editable cell) — start editing with the typed character as initial value
+- **Backspace / Delete** (not editing, on an editable cell) — start editing with an empty value
+- **Cmd/Ctrl+C** — copy the formatted cell value to clipboard
+- **Cmd/Ctrl+V** (on an editable cell) — paste from clipboard into the cell
+
+Focus is indicated by a visible focus ring (2px outline in the app's primary color) and a subtle background tint. The focus ring appears on any cell (editable or not), but editing can only start on editable cells.
+
 ### Clearing an Actual
 
 - If the user selects the value in an edited cell and deletes it entirely (leaving it blank) and then blurs, the cell reverts to a **computed value** (the simulation fills it in). The dot indicator disappears. The cell is no longer treated as an actual.
