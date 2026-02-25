@@ -300,10 +300,20 @@ retirement-forecaster/
 │       │   │   │   ├── PortfolioChart/
 │       │   │   │   │   ├── PortfolioChart.tsx
 │       │   │   │   │   └── ChartTooltip.tsx
-│       │   │   │   ├── DetailTable/
-│       │   │   │   │   ├── DetailTable.tsx
-│       │   │   │   │   ├── TableRow.tsx
-│       │   │   │   │   └── EditableCell.tsx
+│       │   │   │   ├── DetailLedger/
+│       │   │   │   │   ├── index.ts
+│       │   │   │   │   ├── DetailLedgerContainer.tsx
+│       │   │   │   │   ├── DetailLedgerToolbar.tsx
+│       │   │   │   │   ├── CompareSlotTabs.tsx
+│       │   │   │   │   ├── VirtualizedBody.tsx
+│       │   │   │   │   ├── DetailRow.tsx
+│       │   │   │   │   ├── DetailCell.tsx
+│       │   │   │   │   ├── CellEditor.tsx
+│       │   │   │   │   ├── cellHelpers.ts
+│       │   │   │   │   ├── useDetailColumns.ts
+│       │   │   │   │   ├── useDetailRows.ts
+│       │   │   │   │   ├── useGridNavigation.ts
+│       │   │   │   │   └── useReforecast.ts
 │       │   │   │   └── StressTest/
 │       │   │   │       ├── StressTestPanel.tsx
 │       │   │   │       ├── ScenarioCard.tsx
@@ -512,16 +522,20 @@ App
     │   │   └── ChartTooltip (#47) [hover]
     │   └── ZoomPanControls (#48) [deferred/disabled]
     │
-    ├── DetailTable
-    │   ├── TableControlsBar
+    ├── DetailLedgerContainer (TanStack Table + TanStack Virtual)
+    │   ├── DetailLedgerToolbar
     │   │   ├── MonthlyAnnualToggle (#49)
     │   │   ├── BreakdownLabelControl (#50)
     │   │   └── SpreadsheetIconButton (#55 behavior)
-    │   ├── StickyHeaders (#51)
-    │   ├── VirtualizedRows
-    │   │   ├── TableRow [standard]
-    │   │   └── TableRow [editable] → EditableCell (#52) [Tracking mode]
-    │   └── SortByColumn (#53) [click handlers on headers]
+    │   ├── CompareSlotTabs (#70) [visible: multi-slot compare]
+    │   ├── StickyHeaders (#51) + SortByColumn (#53) [click handlers]
+    │   ├── VirtualizedBody (TanStack Virtual)
+    │   │   ├── DetailRow [React.memo]
+    │   │   │   └── DetailCell [React.memo] → CellEditor (#52) [Tracking mode]
+    │   ├── useDetailColumns (column definitions)
+    │   ├── useDetailRows (unified data pipeline)
+    │   ├── useGridNavigation (keyboard nav: arrows, Tab, Enter, Escape, type-to-edit)
+    │   └── useReforecast (500ms debounce, non-blocking)
     │
     └── StressTestPanel (collapsible)
         ├── ScenarioCard × N (#57) [1–4]

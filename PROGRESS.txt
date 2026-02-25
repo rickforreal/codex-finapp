@@ -1,133 +1,3 @@
-## 2026-02-16 03:41 — FEATURE-SYNTHWAVE84-BUILD | COMPLETE
-
-Implemented Synthwave '84 as a new built-in server-defined theme: added `ThemeId.Synthwave84`, added a full Synthwave token bundle in `packages/server/src/themes/registry.ts`, and extended `/api/v1/themes` route tests to include Synthwave in built-in IDs.
-
-Validation passed: `npm test`, `npm run typecheck`, `npm run lint`, and `npm run build`.
-[QUESTION] Manual visual/persistence acceptance in `docs/features/themes/synthwave84/ACCEPTANCE.md` is still pending user verification.
-## 2026-02-16 03:39 — FEATURE-SYNTHWAVE84-PLAN | COMPLETE
-
-Created a decision-complete planning pack for Synthwave '84 under `docs/features/themes/synthwave84/` with implementation plan, task breakdown, acceptance criteria, and token-direction guidance.
-
-[DECISION] Canonical docs were not updated at planning time because this feature is additive within existing server-defined themes architecture.
-## 2026-02-16 02:34 — PHASE13-BUGFIXES | COMPLETE
-
-Fixed two post-Phase-13 UX defects in client UI state/layout:
-1) `CollapsibleSection` no longer clips long Additional Income / Large Expenses lists (replaced fixed max-height with measured animated height via `scrollHeight` + `ResizeObserver`).
-2) Snapshot Load file picker no longer restricts file names via `accept` filter; loader now relies strictly on JSON/schema validation.
-
-Validation passed: `npm run test -w @finapp/client`, `npm run typecheck -w @finapp/client`, and `npm run lint -w @finapp/client`.
-## 2026-02-16 01:56 — FEATURE-MONOKAI-FOLLOWUP | COMPLETE
-
-Fixed theme dropdown getting stuck on "Loading..." after snapshot load. Root cause: theme hydration fetch ran only on initial mount, so snapshot-restored empty/loading theme state had no refetch path.
-
-Updated `packages/client/src/App.tsx` to rehydrate themes whenever catalog/definitions are missing, with an in-flight guard to prevent duplicate fetches. Client `test`, `typecheck`, and `lint` all pass.
-## 2026-02-16 01:38 — FEATURE-MONOKAI-BUILD | COMPLETE
-
-Implemented Monokai as a new built-in server-defined theme: added `ThemeId.Monokai`, added a full Monokai token bundle in `packages/server/src/themes/registry.ts`, and updated `/api/v1/themes` route tests to assert Monokai is included in built-in IDs.
-
-Validation passed: `npm test`, `npm run typecheck`, `npm run lint`, and `npm run build`.
-[QUESTION] Manual visual acceptance (`docs/features/themes/monokai/ACCEPTANCE.md`) is still pending user review, including live picker rendering and persistence smoke checks.
-## 2026-02-16 01:34 — FEATURE-MONOKAI-PLAN | COMPLETE
-
-Created a decision-complete feature planning pack under `docs/features/themes/monokai/` with implementation plan, task breakdown, acceptance checklist, and token-direction guidance.
-
-[DECISION] No canonical doc updates were made in planning because Monokai is additive within the existing Phase 13 server-defined theming architecture.
-## 2026-02-15 20:30 — SESSION START | Resuming from P12Z-T1. Last completed: Phase 12 closeout + doc reconciliation. Next: new Phase 13 theming foundation.
-
-## 2026-02-15 20:30 — P13-T6 | COMPLETE
-
-Implemented Phase 13 server-defined theming end-to-end: shared theme contracts/schemas, server theme registry + `/api/v1/themes`, client theme state + precedence resolution (`Snapshot > local preference > server default`), CSS-token theme engine, command-bar theme selector, and tokenized chart/stress/detail-table state colors.
-
-[DECISION] Theme definitions are server-authored and client-selected by `ThemeId` only; no client-authored custom themes in Phase 13.
-[DECISION] Built-in themes shipped: Light, Dark, High Contrast.
-[ASSUMPTION] Color accessibility checks emit warnings (`ThemeValidationIssue`) rather than hard-failing startup to preserve intended visual identity while exposing contrast risk.
-
-Validation passed: `npm run typecheck`, `npm run lint`, `npm test`, and `npm run build`.
-## 2026-02-15 19:47 — P12Z-T1 | COMPLETE
-
-Completed Phase 12 pragmatic closeout verification and documentation update.
-[DECISION] CSV export (#56) is intentionally out of scope for this release and documented as an accepted scope delta in `docs/ENGINEERING.md`.
-[DEFERRED] P12D-T4 (manual-mode Detail Ledger header whitespace) remains explicitly deferred and tracked in `TASKS.md`.
-
-Full regression gate passed: `npm test`, `npm run typecheck`, `npm run lint`, and `npm run build`.
-
-## 2026-02-15 19:40 — P12F-T1 | COMPLETE
-
-Implemented Phase 12F loading-state UX for running simulations:
-- Summary stats now shows a running-state loading indicator.
-- Portfolio chart and Detail Ledger table now show centered loading overlays while simulation status is `running`.
-- Existing cached content remains visible behind overlays for continuity during recomputation.
-
-Validation passed: `npm run typecheck -w @finapp/client` and `npm run lint -w @finapp/client`.
-
-## 2026-02-15 19:33 — P12E-T1 | COMPLETE
-
-Phase 12E Stress Test update: changed default panel state to expanded (`stress.isExpanded = true`) so Stress Test content is visible by default.
-Collapse/expand toggle behavior is unchanged.
-
-Validation passed: `npm run typecheck -w @finapp/client` and `npm run lint -w @finapp/client`.
-
-## 2026-02-15 19:27 — P12D-T4 | DEFERRED
-
-User-approved deferral of remaining manual-mode `Detail Ledger` header whitespace issue after multiple sticky-offset fixes (including dynamic measured offset and scroll-state sync) did not fully resolve observed behavior.
-[DEFERRED] Continue with next Phase 12 work and revisit this table-header spacing bug in a later focused pass.
-
-## 2026-02-15 18:54 — P12D-T3 | COMPLETE
-
-Implemented Phase 12D detail-table polish:
-- Header controls updated: `Detail Ledger` title, right-aligned Monthly/Annual toggle, `Breakdown` label-style control, and icon-only expand/compress table mode button.
-- Added keyboard-oriented cell interaction: click-to-select highlight, Tab/Shift+Tab traversal across cells, and Enter-to-edit for editable tracking cells with auto-selected value text.
-- Monthly period labels now render as calendar dates (`YYYY-Mon`) anchored to `coreParams.retirementStartDate`; annual period labels now show calendar year.
-- Added explicit Monte Carlo note that table values represent the median path.
-
-Validation passed: `npm run typecheck -w @finapp/client` and `npm run lint -w @finapp/client`.
-
-## 2026-02-15 18:47 — P12C-T3 | COMPLETE
-
-Applied final chart/input QA polish requested after Phase 12B/12C review:
-- Core Parameters copy/format updates (`Withdrawals Start`, inline `yrs`, revised labels).
-- Historical Data header rename (`Returns`, `Volatility`) and spacing/alignment fixes.
-- Breakdown control converted from switch to label-style toggle, then tuned to smaller non-bold text with brighter active blue.
-
-Validation passed during iteration: `npm run typecheck -w @finapp/client` and `npm run lint -w @finapp/client`.
-
-## 2026-02-15 18:37 — P12C-T3 | COMPLETE
-
-Implemented Phase 12C chart-panel polish:
-- Replaced `By Asset Class` wording with `Breakdown` and moved it to the right of the Nominal/Real toggle.
-- Switched default chart display mode to Real.
-- Removed the zoom slider container so chart shows full-horizon by default.
-- Added Monte Carlo y-axis focus scaling using median/IQR-oriented ceiling so P50 trajectory is more legible while upper percentile bands may clip above the chart.
-
-Validation passed: `npm run typecheck -w @finapp/client` and `npm run lint -w @finapp/client`.
-
-## 2026-02-15 17:02 — P12B-T3 | COMPLETE
-
-Implemented Phase 12B input-panel polish:
-- Core Parameters now uses two rows (`Starting Age`, `Withdrawals Start At`, `Expected Inflation Rate`) and (`Retirement Start Date`, `Retirement Duration`).
-- Withdrawal Strategy guidance now shows concise summary by default with an expand/collapse details panel covering parameter effects and strategy tradeoff commentary.
-- Historical Data summary table was compressed to four fixed columns without horizontal scroll and now includes era-specific commentary text below the table.
-
-Validation passed: `npm run typecheck -w @finapp/client` and `npm run lint -w @finapp/client`.
-
-## 2026-02-15 16:57 — P12A-T2 | COMPLETE
-
-Addressed navbar QA feedback: removed the visible gap in the Manual/Monte Carlo segmented toggle and added explicit hover tooltips to Save/Load snapshot icon buttons.
-Updated `SegmentedToggle` layout to equal-width grid pills and added tooltip UI wrappers in `CommandBar`.
-
-Validation passed: `npm run typecheck -w @finapp/client` and `npm run lint -w @finapp/client`.
-
-## 2026-02-15 16:44 — SESSION START | Resuming from Phase 12, Task P12A-T1. Last completed: P11-T6 (packed snapshot output format).
-
-Read startup context from `AGENTS.md`, `PROGRESS.txt`, and `TASKS.md`, then reviewed Phase 12 requirements in `docs/ENGINEERING.md` before implementation planning.
-
-## 2026-02-15 16:44 — P12A-T2 | COMPLETE
-
-Implemented Phase 12A navbar UX refresh in `packages/client/src/components/layout/CommandBar.tsx`: added fixed left FinApp brand block, compact command-group labels, right-aligned Run Simulation action cluster, and icon-only Save/Load snapshot controls with tooltip titles and accessibility labels.
-Tracking controls were kept near mode controls, Monte Carlo historical era remains conditional, and existing command behaviors were preserved.
-
-Verification passed: `npm run typecheck`, `npm run lint`, `npm test`, and `npm run build`.
-
 ## 2026-02-14 04:49 — P5-T6 | COMPLETE
 
 Manual Phase 5 verification accepted by user review; Phase 5 marked complete.
@@ -472,6 +342,102 @@ Verification run (all passing):
 - `npm run lint`
 - `npm test`
 
+## 2026-02-15 20:30 — SESSION START | Resuming from P12Z-T1. Last completed: Phase 12 closeout + doc reconciliation. Next: new Phase 13 theming foundation.
+
+## 2026-02-15 20:30 — P13-T6 | COMPLETE
+
+Implemented Phase 13 server-defined theming end-to-end: shared theme contracts/schemas, server theme registry + `/api/v1/themes`, client theme state + precedence resolution (`Snapshot > local preference > server default`), CSS-token theme engine, command-bar theme selector, and tokenized chart/stress/detail-table state colors.
+
+[DECISION] Theme definitions are server-authored and client-selected by `ThemeId` only; no client-authored custom themes in Phase 13.
+[DECISION] Built-in themes shipped: Light, Dark, High Contrast.
+[ASSUMPTION] Color accessibility checks emit warnings (`ThemeValidationIssue`) rather than hard-failing startup to preserve intended visual identity while exposing contrast risk.
+
+Validation passed: `npm run typecheck`, `npm run lint`, `npm test`, and `npm run build`.
+## 2026-02-15 19:47 — P12Z-T1 | COMPLETE
+
+Completed Phase 12 pragmatic closeout verification and documentation update.
+[DECISION] CSV export (#56) is intentionally out of scope for this release and documented as an accepted scope delta in `docs/ENGINEERING.md`.
+[DEFERRED] P12D-T4 (manual-mode Detail Ledger header whitespace) remains explicitly deferred and tracked in `TASKS.md`.
+
+Full regression gate passed: `npm test`, `npm run typecheck`, `npm run lint`, and `npm run build`.
+
+## 2026-02-15 19:40 — P12F-T1 | COMPLETE
+
+Implemented Phase 12F loading-state UX for running simulations:
+- Summary stats now shows a running-state loading indicator.
+- Portfolio chart and Detail Ledger table now show centered loading overlays while simulation status is `running`.
+- Existing cached content remains visible behind overlays for continuity during recomputation.
+
+Validation passed: `npm run typecheck -w @finapp/client` and `npm run lint -w @finapp/client`.
+
+## 2026-02-15 19:33 — P12E-T1 | COMPLETE
+
+Phase 12E Stress Test update: changed default panel state to expanded (`stress.isExpanded = true`) so Stress Test content is visible by default.
+Collapse/expand toggle behavior is unchanged.
+
+Validation passed: `npm run typecheck -w @finapp/client` and `npm run lint -w @finapp/client`.
+
+## 2026-02-15 19:27 — P12D-T4 | DEFERRED
+
+User-approved deferral of remaining manual-mode `Detail Ledger` header whitespace issue after multiple sticky-offset fixes (including dynamic measured offset and scroll-state sync) did not fully resolve observed behavior.
+[DEFERRED] Continue with next Phase 12 work and revisit this table-header spacing bug in a later focused pass.
+
+## 2026-02-15 18:54 — P12D-T3 | COMPLETE
+
+Implemented Phase 12D detail-table polish:
+- Header controls updated: `Detail Ledger` title, right-aligned Monthly/Annual toggle, `Breakdown` label-style control, and icon-only expand/compress table mode button.
+- Added keyboard-oriented cell interaction: click-to-select highlight, Tab/Shift+Tab traversal across cells, and Enter-to-edit for editable tracking cells with auto-selected value text.
+- Monthly period labels now render as calendar dates (`YYYY-Mon`) anchored to `coreParams.retirementStartDate`; annual period labels now show calendar year.
+- Added explicit Monte Carlo note that table values represent the median path.
+
+Validation passed: `npm run typecheck -w @finapp/client` and `npm run lint -w @finapp/client`.
+
+## 2026-02-15 18:47 — P12C-T3 | COMPLETE
+
+Applied final chart/input QA polish requested after Phase 12B/12C review:
+- Core Parameters copy/format updates (`Withdrawals Start`, inline `yrs`, revised labels).
+- Historical Data header rename (`Returns`, `Volatility`) and spacing/alignment fixes.
+- Breakdown control converted from switch to label-style toggle, then tuned to smaller non-bold text with brighter active blue.
+
+Validation passed during iteration: `npm run typecheck -w @finapp/client` and `npm run lint -w @finapp/client`.
+
+## 2026-02-15 18:37 — P12C-T3 | COMPLETE
+
+Implemented Phase 12C chart-panel polish:
+- Replaced `By Asset Class` wording with `Breakdown` and moved it to the right of the Nominal/Real toggle.
+- Switched default chart display mode to Real.
+- Removed the zoom slider container so chart shows full-horizon by default.
+- Added Monte Carlo y-axis focus scaling using median/IQR-oriented ceiling so P50 trajectory is more legible while upper percentile bands may clip above the chart.
+
+Validation passed: `npm run typecheck -w @finapp/client` and `npm run lint -w @finapp/client`.
+
+## 2026-02-15 17:02 — P12B-T3 | COMPLETE
+
+Implemented Phase 12B input-panel polish:
+- Core Parameters now uses two rows (`Starting Age`, `Withdrawals Start At`, `Expected Inflation Rate`) and (`Retirement Start Date`, `Retirement Duration`).
+- Withdrawal Strategy guidance now shows concise summary by default with an expand/collapse details panel covering parameter effects and strategy tradeoff commentary.
+- Historical Data summary table was compressed to four fixed columns without horizontal scroll and now includes era-specific commentary text below the table.
+
+Validation passed: `npm run typecheck -w @finapp/client` and `npm run lint -w @finapp/client`.
+
+## 2026-02-15 16:57 — P12A-T2 | COMPLETE
+
+Addressed navbar QA feedback: removed the visible gap in the Manual/Monte Carlo segmented toggle and added explicit hover tooltips to Save/Load snapshot icon buttons.
+Updated `SegmentedToggle` layout to equal-width grid pills and added tooltip UI wrappers in `CommandBar`.
+
+Validation passed: `npm run typecheck -w @finapp/client` and `npm run lint -w @finapp/client`.
+
+## 2026-02-15 16:44 — SESSION START | Resuming from Phase 12, Task P12A-T1. Last completed: P11-T6 (packed snapshot output format).
+
+Read startup context from `AGENTS.md`, `PROGRESS.txt`, and `TASKS.md`, then reviewed Phase 12 requirements in `docs/ENGINEERING.md` before implementation planning.
+
+## 2026-02-15 16:44 — P12A-T2 | COMPLETE
+
+Implemented Phase 12A navbar UX refresh in `packages/client/src/components/layout/CommandBar.tsx`: added fixed left FinApp brand block, compact command-group labels, right-aligned Run Simulation action cluster, and icon-only Save/Load snapshot controls with tooltip titles and accessibility labels.
+Tracking controls were kept near mode controls, Monte Carlo historical era remains conditional, and existing command behaviors were preserved.
+
+Verification passed: `npm run typecheck`, `npm run lint`, `npm test`, and `npm run build`.
+
 2026-02-15 — Phase 9 (Tracking Mode) implementation pass
 
 Completed:
@@ -712,6 +678,41 @@ Verification run (all passing):
 - `npm run typecheck`
 - `npm run lint`
 - `npm test`
+
+## 2026-02-16 03:41 — FEATURE-SYNTHWAVE84-BUILD | COMPLETE
+
+Implemented Synthwave '84 as a new built-in server-defined theme: added `ThemeId.Synthwave84`, added a full Synthwave token bundle in `packages/server/src/themes/registry.ts`, and extended `/api/v1/themes` route tests to include Synthwave in built-in IDs.
+
+Validation passed: `npm test`, `npm run typecheck`, `npm run lint`, and `npm run build`.
+[QUESTION] Manual visual/persistence acceptance in `docs/features/themes/synthwave84/ACCEPTANCE.md` is still pending user verification.
+## 2026-02-16 03:39 — FEATURE-SYNTHWAVE84-PLAN | COMPLETE
+
+Created a decision-complete planning pack for Synthwave '84 under `docs/features/themes/synthwave84/` with implementation plan, task breakdown, acceptance criteria, and token-direction guidance.
+
+[DECISION] Canonical docs were not updated at planning time because this feature is additive within existing server-defined themes architecture.
+## 2026-02-16 02:34 — PHASE13-BUGFIXES | COMPLETE
+
+Fixed two post-Phase-13 UX defects in client UI state/layout:
+1) `CollapsibleSection` no longer clips long Additional Income / Large Expenses lists (replaced fixed max-height with measured animated height via `scrollHeight` + `ResizeObserver`).
+2) Snapshot Load file picker no longer restricts file names via `accept` filter; loader now relies strictly on JSON/schema validation.
+
+Validation passed: `npm run test -w @finapp/client`, `npm run typecheck -w @finapp/client`, and `npm run lint -w @finapp/client`.
+## 2026-02-16 01:56 — FEATURE-MONOKAI-FOLLOWUP | COMPLETE
+
+Fixed theme dropdown getting stuck on "Loading..." after snapshot load. Root cause: theme hydration fetch ran only on initial mount, so snapshot-restored empty/loading theme state had no refetch path.
+
+Updated `packages/client/src/App.tsx` to rehydrate themes whenever catalog/definitions are missing, with an in-flight guard to prevent duplicate fetches. Client `test`, `typecheck`, and `lint` all pass.
+## 2026-02-16 01:38 — FEATURE-MONOKAI-BUILD | COMPLETE
+
+Implemented Monokai as a new built-in server-defined theme: added `ThemeId.Monokai`, added a full Monokai token bundle in `packages/server/src/themes/registry.ts`, and updated `/api/v1/themes` route tests to assert Monokai is included in built-in IDs.
+
+Validation passed: `npm test`, `npm run typecheck`, `npm run lint`, and `npm run build`.
+[QUESTION] Manual visual acceptance (`docs/features/themes/monokai/ACCEPTANCE.md`) is still pending user review, including live picker rendering and persistence smoke checks.
+## 2026-02-16 01:34 — FEATURE-MONOKAI-PLAN | COMPLETE
+
+Created a decision-complete feature planning pack under `docs/features/themes/monokai/` with implementation plan, task breakdown, acceptance checklist, and token-direction guidance.
+
+[DECISION] No canonical doc updates were made in planning because Monokai is additive within the existing Phase 13 server-defined theming architecture.
 
 2026-02-17 (Phase 14 Compare Portfolios — core implementation)
 - Implemented Compare mode foundations across shared and client store:
@@ -1219,3 +1220,25 @@ Validation run (all passing):
 
 Canonical docs impact:
 - None. Implementation correction to existing stress specs (#59, #71).
+
+## 2026-02-24 — DETAIL-LEDGER-SPREADSHEET | COMPLETE
+
+Decomposed 1287-line DetailTable.tsx monolith into 13 focused files under `DetailLedger/`:
+- TanStack Table + TanStack Virtual replaces hand-rolled virtualization
+- Cell-level React.memo with custom comparator for surgical re-renders
+- Keyboard navigation state machine: arrow keys, Tab, Enter, Escape, type-to-edit, Cmd+C/V
+- Coordinate-based focus management via ref registry
+- Unified code path (normal = single-slot compare)
+- Non-blocking reforecast with 500ms debounce (up from 250ms)
+- All editing rules preserved (Tracking Mode constraints, canonical boundary lock, validation)
+
+New files: cellHelpers.ts, useDetailRows.ts, useDetailColumns.ts, useGridNavigation.ts, useReforecast.ts, CellEditor.tsx, DetailCell.tsx, DetailRow.tsx, VirtualizedBody.tsx, CompareSlotTabs.tsx, DetailLedgerToolbar.tsx, DetailLedgerContainer.tsx, index.ts
+
+Deleted: DetailTable.tsx (old monolith)
+Bundle size reduced: 510KB → 489KB (gzip 137KB → 133KB)
+
+Validation passed: `npm run typecheck && npm run lint && npm run test && npm run build`
+
+[DECISION] TanStack Table + Virtual now canonical table library (was "prescribed but not installed")
+[DECISION] Keyboard navigation uses coordinate-based state machine, not DOM queries
+
