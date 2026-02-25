@@ -31,7 +31,7 @@ The app is intentionally stateless on the backend for user data. All planning/tr
 │   ├── server/              # Fastify API + simulation/stress engines
 │   └── client/              # React + Zustand + Tailwind UI
 ├── TASKS.md                 # phase/task checklist history
-├── PROGRESS.txt             # reverse-chronological build log
+├── PROGRESS.txt             # append-only build log
 └── AGENTS.md                # agent workflow/rules used during development
 ```
 

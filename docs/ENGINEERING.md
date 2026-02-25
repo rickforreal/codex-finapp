@@ -17,7 +17,7 @@ This document is the Engineering Manager's manifest. It defines **how** the appl
 | API.md | The HTTP endpoint contracts |
 | **ENGINEERING.md** | **How to build it (this document)** |
 | TASKS.md | The individual work items (derived from this document) |
-| PROGRESS.txt | Reverse-chronological build log |
+| PROGRESS.txt | Append-only build log |
 | AGENTS.md | Ground rules for the AI implementer |
 | Historical-Returns.csv | Historical returns for Stocks, Bonds and Cash |
 
@@ -923,11 +923,19 @@ Log an entry when:
 
 Do not log routine work-in-progress. The log is for completed states, decisions, and blockers — not a stream of consciousness.
 
-### 11.3 Context Reset Hygiene
+### 11.3 Append-Only Rule
+
+`PROGRESS.txt` is append-only.
+
+- Add every new entry at the bottom of the file.
+- Never insert new entries at the top.
+- Never reorder, backfill, or rewrite historical entries except for factual typo fixes that do not change meaning.
+
+### 11.4 Context Reset Hygiene
 
 PROGRESS.txt is the primary context recovery tool when starting a new session. To support this:
 
-- **Entries are reverse-chronological** (newest at top). The first 10–20 lines should tell a new session everything it needs to know about the current state.
+- **Entries are chronological and append-only** (newest at bottom). Read the last 10–20 lines to recover current state quickly.
 - **Every entry includes the Phase-Task ID.** This allows cross-referencing with TASKS.md to see what's done, what's next, and what's blocked.
 - **The first entry of each session** should be a brief orientation line: `## YYYY-MM-DD HH:MM — SESSION START | Resuming from P6-T4. Last completed: P6-T3 (VPW strategy). Next: P6-T4 (Dynamic SWR).` This costs almost nothing to write and saves significant context-reconstruction time.
 - **Assumptions and decisions are marked with prefixes** (`[ASSUMPTION]`, `[DECISION]`, `[QUESTION]`, `[DEFERRED]`) so they can be scanned quickly without reading every entry.
