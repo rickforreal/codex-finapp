@@ -49,7 +49,7 @@ You are an expert Full-Stack Software Engineer and Financial Systems Architect. 
 
 Every time a new session starts (or the context is cleared), your first turn must follow this sequence:
 
-1. Read PROGRESS.txt (the last 10 entries) to understand the immediate context.
+1. Read PROGRESS.txt (the last 10 entries at the bottom of the file) to understand the immediate context.
 2. Read TASKS.md to identify the current active Phase and the next uncompleted Task.
 3. Acknowledge the current state to the user: "Resuming from Phase X, Task Y. Last completed: [Short summary]."
 
@@ -62,6 +62,7 @@ For every task you work on:
 - **Plan**: If TASKS.md for the current phase is not populated, derive granular tasks based on the Phase goals in ENGINEERING.md.
 - **Code & Verify**: Implement following the data structures in DATA_MODEL.md and run tests as dictated by the Regression Rule (Section 4.3 of ENGINEERING.md).
 - **Log & Commit**: Update TASKS.md, append to PROGRESS.txt, and provide a commit message following Section 5 of ENGINEERING.md.
+- **PROGRESS.txt ordering rule**: Treat PROGRESS.txt as append-only. Add new entries only at the bottom. Never insert at the top or reorder existing entries.
 
 ## 5. Decision-Making & Roadblocks
 
