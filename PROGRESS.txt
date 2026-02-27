@@ -1291,3 +1291,20 @@ Validation run (all passing):
 Canonical docs impact:
 - Tracking edit contract is now explicit and aligned across product, scenario, architecture, and data-model docs.
 - No backend API contract changes.
+
+## 2026-02-27 14:42 — Detail Ledger UX Alignment (Tracking Monthly)
+
+Applied a focused UX pass for Tracking detail ledger consistency and readability.
+
+- Normalized Monthly virtualization sizing to shared constants (`rowHeight`/`overscan`) so density behavior is deterministic.
+- Added compact editable affordance for Slot `A` cells using theme-aware dotted underline (no inline `(edit)` text).
+- Updated non-`A` locked-cell presentation to mild desaturate + opacity while preserving red/green semantic value colors.
+- Neutralized stale-state presentation to theme-congruent dimming for chart/stats/table surfaces.
+- Fixed Slot `A` monthly row inflation by compacting the `Reset` column cell/button sizing so row height matches other slots after mode/slot switching.
+
+Validation run (passing):
+- `npm run typecheck -w @finapp/client`
+- `npm run lint -w @finapp/client`
+
+Canonical docs impact:
+- No canonical doc impact (implementation-level UX refinements only).

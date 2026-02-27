@@ -39,7 +39,6 @@ type DetailCellProps = {
   onCellKeyDown: (event: React.KeyboardEvent, rowIndex: number, colIndex: number) => void;
   onEditorKeyDown: (event: React.KeyboardEvent) => void;
   onEditorCommit: () => void;
-  onEditStart: (rowIndex: number, colIndex: number) => void;
   registerRef: (rowIndex: number, colIndex: number, el: HTMLElement | null) => void;
 };
 
@@ -66,7 +65,6 @@ const DetailCellInner = ({
   onCellKeyDown,
   onEditorKeyDown,
   onEditorCommit,
-  onEditStart,
   registerRef,
 }: DetailCellProps) => {
   const edited = (!isCompareActive || activeLedgerSlotId === 'A')
@@ -97,9 +95,9 @@ const DetailCellInner = ({
       ref={refCallback}
       data-cell-id={`${row.id}:${String(column.key)}`}
       tabIndex={isFocused ? 0 : -1}
-      className={`relative whitespace-nowrap px-3 py-2 font-mono outline-none ${valueToneClass(row, column)} ${
+      className={`relative whitespace-nowrap px-3 py-2 align-middle font-mono leading-4 outline-none ${valueToneClass(row, column)} ${
         edited ? 'font-semibold' : ''
-      } ${isLocked ? 'cursor-not-allowed opacity-75' : ''}`}
+      } ${isLocked ? 'cursor-not-allowed' : ''}`}
       style={{
         backgroundColor: isFocused
           ? 'var(--theme-color-interactive-secondary)'
@@ -112,6 +110,17 @@ const DetailCellInner = ({
           ? 'inset 0 0 0 2px var(--theme-state-selected-cell-outline)'
           : undefined,
         color: isMonteCarloReferenceColumn(column) ? monteCarloReferenceColumnText : undefined,
+        opacity: isLocked ? 0.91 : undefined,
+        filter: isLocked ? 'saturate(0.82)' : undefined,
+        textDecorationLine: editable && !isEditing ? 'underline' : undefined,
+        textDecorationStyle: editable && !isEditing ? 'dotted' : undefined,
+        textDecorationColor: editable
+          ? isFocused
+            ? 'var(--theme-color-info)'
+            : 'color-mix(in srgb, var(--theme-color-text-muted) 78%, transparent)'
+          : undefined,
+        textDecorationThickness: editable ? '1px' : undefined,
+        textUnderlineOffset: editable ? '0.17em' : undefined,
       }}
       onClick={() => onCellClick(rowIndex, colIndex)}
       onDoubleClick={() => {
@@ -136,18 +145,6 @@ const DetailCellInner = ({
               className="absolute right-1 top-1 h-1.5 w-1.5 rounded-full"
               style={{ backgroundColor: 'var(--theme-state-selected-cell-outline)' }}
             />
-          ) : null}
-          {editable && !isLocked ? (
-            <button
-              type="button"
-              onClick={(event) => {
-                event.stopPropagation();
-                onEditStart(rowIndex, colIndex);
-              }}
-              className="ml-1 cursor-pointer text-[10px] text-slate-400 hover:text-slate-600"
-            >
-              (edit)
-            </button>
           ) : null}
         </>
       )}

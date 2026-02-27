@@ -45,7 +45,7 @@ export const assetColumns: Column[] = [
   { key: 'endCash', label: 'End Cash', type: 'currency', sortable: true },
 ];
 
-export const rowHeight = 36;
+export const rowHeight = 32;
 export const viewportHeight = 430;
 export const overscan = 8;
 export const monteCarloReferenceTooltip =

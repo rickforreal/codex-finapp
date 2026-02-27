@@ -32,7 +32,6 @@ type DetailRowProps = {
   onCellKeyDown: (event: React.KeyboardEvent, rowIndex: number, colIndex: number) => void;
   onEditorKeyDown: (event: React.KeyboardEvent) => void;
   onEditorCommit: () => void;
-  onEditStart: (rowIndex: number, colIndex: number) => void;
   registerRef: (rowIndex: number, colIndex: number, el: HTMLElement | null) => void;
   onResetRow: (monthIndex: number) => void;
 };
@@ -62,7 +61,6 @@ const DetailRowInner = ({
   onCellKeyDown,
   onEditorKeyDown,
   onEditorCommit,
-  onEditStart,
   registerRef,
   onResetRow,
 }: DetailRowProps) => {
@@ -94,12 +92,16 @@ const DetailRowInner = ({
 
   return (
     <tr
-      className="border-b border-slate-100 hover:bg-brand-surface"
+      className={`border-b border-slate-100 ${isProjectionStaleRow ? '' : 'hover:bg-brand-surface'}`}
       style={
         isPreservedRow
           ? { backgroundColor: 'var(--theme-state-preserved-row-background)' }
           : isProjectionStaleRow
-            ? { backgroundColor: 'var(--theme-state-stale-background)' }
+            ? {
+                backgroundColor:
+                  'color-mix(in srgb, var(--theme-color-surface-secondary) 80%, var(--theme-color-text-primary) 20%)',
+                opacity: 0.62,
+              }
             : undefined
       }
     >
@@ -128,15 +130,14 @@ const DetailRowInner = ({
           onCellKeyDown={onCellKeyDown}
           onEditorKeyDown={onEditorKeyDown}
           onEditorCommit={onEditorCommit}
-          onEditStart={onEditStart}
           registerRef={registerRef}
         />
       ))}
       {showResetColumn ? (
-        <td className="px-2 py-2">
+        <td className="px-1 py-0 align-middle leading-none">
           <button
             type="button"
-            className="rounded p-1 text-slate-400 hover:bg-slate-100 hover:text-slate-700 disabled:cursor-not-allowed disabled:opacity-60"
+            className="inline-flex h-4 w-4 items-center justify-center rounded text-[11px] leading-none text-slate-400 hover:bg-slate-100 hover:text-slate-700 disabled:cursor-not-allowed disabled:opacity-60"
             title="Reset row"
             onClick={() => onResetRow(row.monthIndex)}
             disabled={isResetDisabled}

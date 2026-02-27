@@ -379,7 +379,14 @@ export const PortfolioChart = () => {
           };
 
     return (
-      <section className="rounded-xl border border-brand-border bg-white p-4 shadow-panel">
+      <section
+        className="rounded-xl border border-brand-border bg-white p-4 shadow-panel"
+        style={
+          mode === AppMode.Tracking && trackingOutputsStale
+            ? { opacity: 0.6, filter: 'saturate(0.82)' }
+            : undefined
+        }
+      >
         <div className="mb-3 flex flex-wrap items-center justify-between gap-3">
           <div className="text-xs text-slate-500">Showing {slotSeries.length} active portfolios.</div>
           <div className="ml-auto flex items-center gap-4">
@@ -567,7 +574,7 @@ export const PortfolioChart = () => {
           ) : null}
         </div>
         {mode === AppMode.Tracking && trackingOutputsStale ? (
-          <p className="mt-2 text-xs text-amber-700">
+          <p className="mt-2 text-xs" style={{ color: 'var(--theme-color-text-secondary)' }}>
             Results are stale after edits. Run Simulation to refresh projections.
           </p>
         ) : null}
@@ -746,7 +753,14 @@ export const PortfolioChart = () => {
         : null;
 
   return (
-    <section className="relative rounded-xl border border-brand-border bg-white p-4 shadow-panel">
+    <section
+      className="relative rounded-xl border border-brand-border bg-white p-4 shadow-panel"
+      style={
+        mode === AppMode.Tracking && trackingOutputsStale
+          ? { opacity: 0.6, filter: 'saturate(0.82)' }
+          : undefined
+      }
+    >
       <div className="mb-3 flex flex-wrap items-center justify-end gap-4">
         <SegmentedToggle
           value={chartDisplayMode}
@@ -1005,7 +1019,7 @@ export const PortfolioChart = () => {
         ) : null}
       </div>
       {mode === AppMode.Tracking && trackingOutputsStale ? (
-        <p className="mt-2 text-xs text-amber-700">
+        <p className="mt-2 text-xs" style={{ color: 'var(--theme-color-text-secondary)' }}>
           Results are stale after edits. Run Simulation to refresh projections.
         </p>
       ) : null}

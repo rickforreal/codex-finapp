@@ -1,6 +1,6 @@
 import { useMemo } from 'react';
 
-import { SimulationMode } from '@finapp/shared';
+import { AppMode, SimulationMode } from '@finapp/shared';
 
 import {
   type WorkspaceSnapshot,
@@ -8,6 +8,7 @@ import {
   useAppStore,
   useCompareSimulationResults,
   useIsCompareActive,
+  useTrackingOutputsStale,
 } from '../../store/useAppStore';
 import { formatCompactCurrency, formatCurrency, formatPercent } from '../../lib/format';
 import { buildSummaryStats } from '../../lib/statistics';
@@ -20,7 +21,9 @@ export const SummaryStatsBar = () => {
   const result = useActiveSimulationResult();
   const compareResults = useCompareSimulationResults();
   const isCompareActive = useIsCompareActive();
+  const trackingOutputsStale = useTrackingOutputsStale();
   const simulationStatus = useAppStore((state) => state.simulationResults.status);
+  const mode = useAppStore((state) => state.mode);
   const inflationRate = useAppStore((state) => state.coreParams.inflationRate);
   const startingAge = useAppStore((state) => state.coreParams.startingAge);
   const retirementDuration = useAppStore((state) => state.coreParams.retirementDuration);
@@ -161,7 +164,14 @@ export const SummaryStatsBar = () => {
     };
 
     return (
-      <section className="rounded-xl bg-brand-surface p-4">
+      <section
+        className="rounded-xl bg-brand-surface p-4"
+        style={
+          mode === AppMode.Tracking && trackingOutputsStale
+            ? { opacity: 0.58, filter: 'saturate(0.78)' }
+            : undefined
+        }
+      >
         <div className="mb-2 text-xs text-slate-500">Compare metrics across {slotEntries.length} active portfolios.</div>
         <div className="grid grid-cols-[repeat(auto-fit,minmax(260px,1fr))] gap-3">
           {simulationMode === SimulationMode.MonteCarlo
@@ -213,7 +223,14 @@ export const SummaryStatsBar = () => {
   }
 
   return (
-    <section className="rounded-xl bg-brand-surface p-4">
+    <section
+      className="rounded-xl bg-brand-surface p-4"
+      style={
+        mode === AppMode.Tracking && trackingOutputsStale
+          ? { opacity: 0.58, filter: 'saturate(0.78)' }
+          : undefined
+      }
+    >
       {simulationStatus === 'running' ? (
         <div className="mb-2 flex items-center gap-2 text-xs text-slate-600">
           <span className="inline-block h-3 w-3 animate-spin rounded-full border-2 border-slate-300 border-t-brand-blue" />

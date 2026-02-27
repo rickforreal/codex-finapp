@@ -221,8 +221,9 @@ export const DetailLedgerContainer = () => {
           <div
             className="border-b border-brand-border px-3 py-2 text-xs font-medium"
             style={{
-              backgroundColor: 'var(--theme-state-stale-background)',
-              color: 'var(--theme-state-stale-text)',
+              backgroundColor:
+                'color-mix(in srgb, var(--theme-color-surface-secondary) 84%, var(--theme-color-text-primary) 16%)',
+              color: 'var(--theme-color-text-secondary)',
             }}
           >
             Projection is stale. Run Simulation to refresh
@@ -257,7 +258,6 @@ export const DetailLedgerContainer = () => {
         onCellKeyDown={nav.handleCellKeyDown}
         onEditorKeyDown={nav.handleEditorKeyDown}
         onEditorCommit={nav.commitEdit}
-        onEditStart={(rowIndex, colIndex) => nav.beginEdit({ rowIndex, colIndex })}
         registerRef={nav.registerCellRef}
         onResetRow={clearActualRowOverrides}
         renderHeader={renderHeader}

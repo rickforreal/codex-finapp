@@ -4,7 +4,7 @@ import { useVirtualizer } from '@tanstack/react-virtual';
 import { AppMode, type ActualMonthOverride } from '@finapp/shared';
 
 import type { DetailRow as DetailRowType } from '../../../lib/detailTable';
-import type { Column } from './cellHelpers';
+import { overscan, rowHeight, type Column } from './cellHelpers';
 import { DetailRowComponent } from './DetailRow';
 import type { CellCoord } from './useGridNavigation';
 
@@ -34,7 +34,6 @@ type VirtualizedBodyProps = {
   onCellKeyDown: (event: React.KeyboardEvent, rowIndex: number, colIndex: number) => void;
   onEditorKeyDown: (event: React.KeyboardEvent) => void;
   onEditorCommit: () => void;
-  onEditStart: (rowIndex: number, colIndex: number) => void;
   registerRef: (rowIndex: number, colIndex: number, el: HTMLElement | null) => void;
   onResetRow: (monthIndex: number) => void;
   renderHeader: () => React.ReactNode;
@@ -66,7 +65,6 @@ export const VirtualizedBody = ({
   onCellKeyDown,
   onEditorKeyDown,
   onEditorCommit,
-  onEditStart,
   registerRef,
   onResetRow,
   renderHeader,
@@ -77,8 +75,8 @@ export const VirtualizedBody = ({
   const virtualizer = useVirtualizer({
     count: rows.length,
     getScrollElement: () => parentRef.current,
-    estimateSize: () => 36,
-    overscan: 8,
+    estimateSize: () => rowHeight,
+    overscan,
     enabled: isVirtualized,
   });
 
@@ -126,7 +124,6 @@ export const VirtualizedBody = ({
                 onCellKeyDown={onCellKeyDown}
                 onEditorKeyDown={onEditorKeyDown}
                 onEditorCommit={onEditorCommit}
-                onEditStart={onEditStart}
                 registerRef={registerRef}
                 onResetRow={onResetRow}
               />
@@ -186,7 +183,6 @@ export const VirtualizedBody = ({
                 onCellKeyDown={onCellKeyDown}
                 onEditorKeyDown={onEditorKeyDown}
                 onEditorCommit={onEditorCommit}
-                onEditStart={onEditStart}
                 registerRef={registerRef}
                 onResetRow={onResetRow}
               />

@@ -77,8 +77,9 @@ export const DetailLedgerToolbar = () => {
           <span
             className="rounded-full px-2 py-1 text-xs font-semibold"
             style={{
-              backgroundColor: 'var(--theme-state-stale-background)',
-              color: 'var(--theme-state-stale-text)',
+              backgroundColor:
+                'color-mix(in srgb, var(--theme-color-surface-secondary) 84%, var(--theme-color-text-primary) 16%)',
+              color: 'var(--theme-color-text-secondary)',
             }}
           >
             Stale
