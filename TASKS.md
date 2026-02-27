@@ -1153,3 +1153,69 @@ Acceptance Criteria:
 - [x] DLS-T3: Build useGridNavigation keyboard navigation hook
 - [x] DLS-T4: Build new component tree behind feature flag
 - [x] DLS-T5: Parity testing and cutover
+
+## Feature Plan — Tracking Detail Ledger Contract v1.0
+
+- [x] TLC-T1: Create tracking-ledger-contract feature docs and lock contract decisions
+Phase: Feature/TrackingLedgerContract
+Dependencies: none
+Acceptance Criteria:
+[AC1] `docs/features/tracking-ledger-contract/{FEATURE,PLAN,ACCEPTANCE}.md` exist.
+[AC2] Contract decisions are explicit: Slot A canonical actuals, six editable ledger fields, non-A read-only, stale-first rerun model.
+[AC3] Plan includes canonical-doc impact and no API contract change.
+
+- [x] TLC-T2: Restrict Tracking ledger editability to Slot A + six fields
+Phase: Feature/TrackingLedgerContract
+Dependencies: TLC-T1
+Acceptance Criteria:
+[AC1] Editable columns limited to `startStocks|startBonds|startCash|withdrawalStocks|withdrawalBonds|withdrawalCash`.
+[AC2] `Income`, `Expenses`, and withdrawal total are non-editable.
+[AC3] Non-A compare ledgers are read-only and do not expose edit affordances.
+
+- [x] TLC-T3: Enforce Tracking month edit window (past/current/next)
+Phase: Feature/TrackingLedgerContract
+Dependencies: TLC-T2
+Acceptance Criteria:
+[AC1] Edit eligibility uses `retirementStartDate` + current date to compute `currentMonthIndex`.
+[AC2] Allowed month range is `<= currentMonthIndex + 1` and within horizon.
+[AC3] Out-of-window edit attempts are rejected/no-op.
+
+- [x] TLC-T4: Ensure same-row derived-field congruence for start/withdrawal edits
+Phase: Feature/TrackingLedgerContract
+Dependencies: TLC-T2
+Acceptance Criteria:
+[AC1] Start-balance edits recompute same-row `Start Total`, `Move*`, `Market Move`, `Return %`, `End*`, and `End Total`.
+[AC2] Withdrawal-by-asset edits recompute same-row per-asset withdrawal, withdrawal total/real, `End*`, and `End Total`.
+[AC3] Derived behavior covered by unit tests.
+
+- [x] TLC-T5: Apply Tracking stale-first lifecycle for ledger + input edits
+Phase: Feature/TrackingLedgerContract
+Dependencies: TLC-T2
+Acceptance Criteria:
+[AC1] Tracking ledger edits mark outputs stale in Manual and Monte Carlo.
+[AC2] Tracking input-panel changes mark outputs stale instead of auto-rerunning.
+[AC3] Run Simulation clears stale state and refreshes outputs.
+
+- [x] TLC-T6: Canonicalize compare Tracking runs to Slot A actual history
+Phase: Feature/TrackingLedgerContract
+Dependencies: TLC-T5
+Acceptance Criteria:
+[AC1] Compare Tracking uses Slot A overrides as canonical floor for all slots.
+[AC2] Non-A override edit attempts are blocked/no-op.
+[AC3] Run/stress paths consume canonical Slot A override map.
+
+- [x] TLC-T7: Preserve snapshot compatibility under new ledger contract
+Phase: Feature/TrackingLedgerContract
+Dependencies: TLC-T6
+Acceptance Criteria:
+[AC1] Legacy snapshots load without schema break.
+[AC2] Runtime behavior ignores non-A Tracking overrides and legacy row income/expense overrides.
+[AC3] Slot A overrides remain authoritative after load.
+
+- [x] TLC-T8: Update canonical docs, run regression gates, and close the wave
+Phase: Feature/TrackingLedgerContract
+Dependencies: TLC-T1, TLC-T2, TLC-T3, TLC-T4, TLC-T5, TLC-T6, TLC-T7
+Acceptance Criteria:
+[AC1] `docs/SPECS.md`, `docs/SCENARIOS.md`, `docs/ARCHITECTURE.md`, and `docs/DATA_MODEL.md` reflect v1.0 contract.
+[AC2] `npm run typecheck`, `npm run lint`, `npm test`, and `npm run build` pass.
+[AC3] `PROGRESS.txt` has append-only TLC entries with canonical-doc impact statement.

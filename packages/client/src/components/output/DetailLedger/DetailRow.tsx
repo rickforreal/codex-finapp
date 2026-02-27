@@ -15,10 +15,15 @@ type DetailRowProps = {
   tableGranularity: 'monthly' | 'annual';
   tableAssetColumnsEnabled: boolean;
   actualOverridesByMonth: Record<number, ActualMonthOverride>;
+  isCompareActive: boolean;
+  maxEditableMonthIndex: number;
+  runInflationRate: number | null;
   focusedCell: CellCoord | null;
   editingCell: CellCoord | null;
   draftValue: string;
   lastEditedMonthIndex: number | null;
+  isTrackingOutputsStale: boolean;
+  showResetColumn: boolean;
   activeLedgerSlotId: string;
   canonicalBoundary: number | null;
   onDraftChange: (value: string) => void;
@@ -40,10 +45,15 @@ const DetailRowInner = ({
   tableGranularity,
   tableAssetColumnsEnabled,
   actualOverridesByMonth,
+  isCompareActive,
+  maxEditableMonthIndex,
+  runInflationRate,
   focusedCell,
   editingCell,
   draftValue,
   lastEditedMonthIndex,
+  isTrackingOutputsStale,
+  showResetColumn,
   activeLedgerSlotId,
   canonicalBoundary,
   onDraftChange,
@@ -56,26 +66,42 @@ const DetailRowInner = ({
   registerRef,
   onResetRow,
 }: DetailRowProps) => {
+  const preservedBoundary = canonicalBoundary ?? lastEditedMonthIndex;
   const isPreservedRow =
     mode === AppMode.Tracking &&
     tableGranularity === 'monthly' &&
-    ((canonicalBoundary !== null && row.monthIndex <= canonicalBoundary) ||
-      (canonicalBoundary === null && lastEditedMonthIndex !== null && row.monthIndex <= lastEditedMonthIndex));
+    preservedBoundary !== null &&
+    row.monthIndex <= preservedBoundary;
 
   const isLockedRow =
     mode === AppMode.Tracking &&
     tableGranularity === 'monthly' &&
-    activeLedgerSlotId !== 'A' &&
-    canonicalBoundary !== null &&
-    row.monthIndex <= canonicalBoundary;
+    isCompareActive &&
+    activeLedgerSlotId !== 'A';
+
+  const isProjectionStaleRow =
+    mode === AppMode.Tracking &&
+    tableGranularity === 'monthly' &&
+    isTrackingOutputsStale &&
+    !isPreservedRow &&
+    (preservedBoundary === null || row.monthIndex > preservedBoundary);
 
   const isResetDisabled =
-    activeLedgerSlotId !== 'A' && canonicalBoundary !== null && row.monthIndex <= canonicalBoundary;
+    activeLedgerSlotId !== 'A' ||
+    row.monthIndex > maxEditableMonthIndex ||
+    mode !== AppMode.Tracking ||
+    tableGranularity !== 'monthly';
 
   return (
     <tr
       className="border-b border-slate-100 hover:bg-brand-surface"
-      style={isPreservedRow ? { backgroundColor: 'var(--theme-state-preserved-row-background)' } : undefined}
+      style={
+        isPreservedRow
+          ? { backgroundColor: 'var(--theme-state-preserved-row-background)' }
+          : isProjectionStaleRow
+            ? { backgroundColor: 'var(--theme-state-stale-background)' }
+            : undefined
+      }
     >
       {columns.map((column, colIndex) => (
         <DetailCell
@@ -88,6 +114,10 @@ const DetailRowInner = ({
           tableGranularity={tableGranularity}
           tableAssetColumnsEnabled={tableAssetColumnsEnabled}
           actualOverridesByMonth={actualOverridesByMonth}
+          activeLedgerSlotId={activeLedgerSlotId}
+          isCompareActive={isCompareActive}
+          maxEditableMonthIndex={maxEditableMonthIndex}
+          runInflationRate={runInflationRate}
           isFocused={focusedCell?.rowIndex === rowIndex && focusedCell?.colIndex === colIndex}
           isEditing={editingCell?.rowIndex === rowIndex && editingCell?.colIndex === colIndex}
           isLocked={isLockedRow}
@@ -102,7 +132,7 @@ const DetailRowInner = ({
           registerRef={registerRef}
         />
       ))}
-      {mode === AppMode.Tracking && tableGranularity === 'monthly' ? (
+      {showResetColumn ? (
         <td className="px-2 py-2">
           <button
             type="button"

@@ -25,6 +25,10 @@ type DetailCellProps = {
   tableGranularity: 'monthly' | 'annual';
   tableAssetColumnsEnabled: boolean;
   actualOverridesByMonth: Record<number, ActualMonthOverride>;
+  activeLedgerSlotId: string;
+  isCompareActive: boolean;
+  maxEditableMonthIndex: number;
+  runInflationRate: number | null;
   isFocused: boolean;
   isEditing: boolean;
   isLocked: boolean;
@@ -48,6 +52,10 @@ const DetailCellInner = ({
   tableGranularity,
   tableAssetColumnsEnabled,
   actualOverridesByMonth,
+  activeLedgerSlotId,
+  isCompareActive,
+  maxEditableMonthIndex,
+  runInflationRate,
   isFocused,
   isEditing,
   isLocked,
@@ -61,12 +69,22 @@ const DetailCellInner = ({
   onEditStart,
   registerRef,
 }: DetailCellProps) => {
-  const edited = isCellEdited(row, column, actualOverridesByMonth);
-  const editable = isEditableCell(row, column, mode, tableGranularity, tableAssetColumnsEnabled);
+  const edited = (!isCompareActive || activeLedgerSlotId === 'A')
+    && isCellEdited(row, column, actualOverridesByMonth);
+  const editable = isEditableCell(
+    row,
+    column,
+    mode,
+    tableGranularity,
+    tableAssetColumnsEnabled,
+    activeLedgerSlotId,
+    isCompareActive,
+    maxEditableMonthIndex,
+  );
 
   const cellValue =
     mode === AppMode.Tracking && tableGranularity === 'monthly'
-      ? displayCellValue(row, column, actualOverridesByMonth)
+      ? displayCellValue(row, column, actualOverridesByMonth, runInflationRate)
       : (row[column.key] as string | number | null);
 
   const refCallback = useCallback(
@@ -148,6 +166,10 @@ export const DetailCell = React.memo(DetailCellInner, (prev, next) => {
   if (prev.mode !== next.mode) return false;
   if (prev.tableGranularity !== next.tableGranularity) return false;
   if (prev.tableAssetColumnsEnabled !== next.tableAssetColumnsEnabled) return false;
+  if (prev.activeLedgerSlotId !== next.activeLedgerSlotId) return false;
+  if (prev.isCompareActive !== next.isCompareActive) return false;
+  if (prev.maxEditableMonthIndex !== next.maxEditableMonthIndex) return false;
+  if (prev.runInflationRate !== next.runInflationRate) return false;
   // Check if the override for this specific row changed
   const prevOverride = prev.actualOverridesByMonth[prev.row.monthIndex];
   const nextOverride = next.actualOverridesByMonth[next.row.monthIndex];

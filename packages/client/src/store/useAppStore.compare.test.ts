@@ -12,6 +12,11 @@ const activateCompare = () => {
   useAppStore.getState().addCompareSlotFromSource('A');
 };
 
+const widenTrackingEditWindow = () => {
+  const now = new Date();
+  useAppStore.getState().setCoreParam('retirementStartDate', { month: now.getMonth() + 1, year: now.getFullYear() - 1 });
+};
+
 describe('useAppStore compare slot behavior', () => {
   afterEach(() => {
     resetStore();
@@ -114,17 +119,35 @@ describe('useAppStore compare slot behavior', () => {
     expect(useAppStore.getState().compareWorkspace.slotOrder).toEqual(['A', 'B']);
   });
 
-  it('propagates A actual override clears to non-A canonical-floor slots', () => {
+  it('blocks non-A actual edits in tracking compare', () => {
     resetStore();
     activateCompare();
 
     const store = useAppStore.getState();
     store.setMode(AppMode.Tracking);
+    widenTrackingEditWindow();
     store.setCompareActiveSlot('A');
-    store.upsertActualOverride(5, { incomeTotal: 12_345 });
+    store.upsertActualOverride(3, { startBalances: { stocks: 777_000 } });
 
     store.setCompareActiveSlot('B');
-    expect(useAppStore.getState().actualOverridesByMonth[5]?.incomeTotal).toBe(12_345);
+    store.upsertActualOverride(4, { startBalances: { stocks: 888_000 } });
+
+    expect(useAppStore.getState().actualOverridesByMonth[4]).toBeUndefined();
+    expect(useAppStore.getState().actualOverridesByMonth[3]?.startBalances?.stocks).toBe(777_000);
+  });
+
+  it('propagates A actual override clears to non-A canonical slots', () => {
+    resetStore();
+    activateCompare();
+
+    const store = useAppStore.getState();
+    store.setMode(AppMode.Tracking);
+    widenTrackingEditWindow();
+    store.setCompareActiveSlot('A');
+    store.upsertActualOverride(5, { startBalances: { stocks: 1_234_500 } });
+
+    store.setCompareActiveSlot('B');
+    expect(useAppStore.getState().actualOverridesByMonth[5]?.startBalances?.stocks).toBe(1_234_500);
 
     store.setCompareActiveSlot('A');
     store.clearActualRowOverrides(5);

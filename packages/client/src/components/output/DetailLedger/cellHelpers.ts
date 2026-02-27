@@ -60,8 +60,6 @@ export const editableColumnKeys = new Set<keyof DetailRow>([
   'withdrawalStocks',
   'withdrawalBonds',
   'withdrawalCash',
-  'income',
-  'expenses',
 ]);
 
 export const formatCell = (value: string | number | null, column: Column): string | number => {
@@ -136,11 +134,17 @@ export const isEditableCell = (
   mode: AppMode,
   tableGranularity: 'monthly' | 'annual',
   tableAssetColumnsEnabled: boolean,
+  activeLedgerSlotId: string,
+  isCompareActive: boolean,
+  maxEditableMonthIndex: number,
 ): boolean =>
   mode === AppMode.Tracking &&
   tableGranularity === 'monthly' &&
+  (!isCompareActive || activeLedgerSlotId === 'A') &&
+  row.monthIndex > 0 &&
+  row.monthIndex <= maxEditableMonthIndex &&
   editableColumnKeys.has(column.key) &&
-  (column.key === 'income' || column.key === 'expenses' || tableAssetColumnsEnabled);
+  tableAssetColumnsEnabled;
 
 export const isCellEdited = (
   row: DetailRow,
@@ -164,10 +168,6 @@ export const isCellEdited = (
       return override.withdrawalsByAsset?.bonds !== undefined;
     case 'withdrawalCash':
       return override.withdrawalsByAsset?.cash !== undefined;
-    case 'income':
-      return override.incomeTotal !== undefined;
-    case 'expenses':
-      return override.expenseTotal !== undefined;
     default:
       return false;
   }
@@ -177,6 +177,7 @@ export const displayCellValue = (
   row: DetailRow,
   column: Column,
   actualOverridesByMonth: Record<number, ActualMonthOverride>,
+  runInflationRate: number | null = null,
 ): string | number | null => {
   const override = actualOverridesByMonth[row.monthIndex];
   const deltas = computeStartBalanceDeltas(row, override);
@@ -192,6 +193,14 @@ export const displayCellValue = (
   const wdStocks = override.withdrawalsByAsset?.stocks ?? row.withdrawalStocks;
   const wdBonds = override.withdrawalsByAsset?.bonds ?? row.withdrawalBonds;
   const wdCash = override.withdrawalsByAsset?.cash ?? row.withdrawalCash;
+  const withdrawalNominal = wdStocks + wdBonds + wdCash;
+  const fallbackInflationFactor =
+    row.withdrawalReal > 0 ? row.withdrawalNominal / row.withdrawalReal : 1;
+  const inflationFactor =
+    runInflationRate === null
+      ? fallbackInflationFactor
+      : (1 + runInflationRate) ** (row.monthIndex / 12);
+  const withdrawalReal = withdrawalNominal / Math.max(inflationFactor, 0.000001);
   const endStocks = startStocks + moveStocks - wdStocks;
   const endBonds = startBonds + moveBonds - wdBonds;
   const endCash = startCash + moveCash - wdCash;
@@ -223,6 +232,10 @@ export const displayCellValue = (
       return override.withdrawalsByAsset?.bonds ?? row.withdrawalBonds;
     case 'withdrawalCash':
       return override.withdrawalsByAsset?.cash ?? row.withdrawalCash;
+    case 'withdrawalNominal':
+      return withdrawalNominal;
+    case 'withdrawalReal':
+      return withdrawalReal;
     case 'endStocks':
       return endStocks;
     case 'endBonds':
@@ -231,10 +244,6 @@ export const displayCellValue = (
       return endCash;
     case 'endTotal':
       return endStocks + endBonds + endCash;
-    case 'income':
-      return override.incomeTotal ?? row.income;
-    case 'expenses':
-      return override.expenseTotal ?? row.expenses;
     default:
       return row[column.key] as string | number | null;
   }

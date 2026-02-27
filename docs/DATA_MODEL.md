@@ -176,12 +176,18 @@ Tracking edits are sparse and month-index keyed:
 ActualMonthOverride {
   startBalances?: { stocks?: number; bonds?: number; cash?: number };
   withdrawalsByAsset?: { stocks?: number; bonds?: number; cash?: number };
-  incomeTotal?: number;
-  expenseTotal?: number;
+  incomeTotal?: number;   // deprecated in Tracking ledger contract v1.0
+  expenseTotal?: number;  // deprecated in Tracking ledger contract v1.0
 }
 
 ActualOverridesByMonth = Record<number, ActualMonthOverride>
 ```
+
+Tracking ledger contract v1.0:
+- Authoritative user-authored fields: `startBalances`, `withdrawalsByAsset`.
+- Deprecated legacy fields: `incomeTotal`, `expenseTotal` (retained for backward compatibility; ignored by current Tracking ledger edit path).
+- In compare Tracking runs, effective overrides are canonicalized from Slot `A` for all active slots.
+- Editable month window for Slot `A`: `monthIndex <= min(horizonMonths, (lastEditedMonthIndex ?? 0) + 1)`, with Month 1 editable initially.
 
 ## 5. Simulation Outputs
 
@@ -387,6 +393,7 @@ Key constraints include:
 - Glide path requires at least 2 waypoints when enabled.
 - Event end date must be >= start date for recurring events.
 - Tracking overrides and balances are non-negative integers.
+- Tracking compare ledger edits are allowed only in Slot `A`; non-`A` slots are read-only projections over Slot `A` actual history.
 - Stress scenarios: 1..4 scenarios, start year/duration cannot exceed horizon, per-type parameter ranges enforced.
 
 ## 9. Snapshot Persistence Model
@@ -438,9 +445,9 @@ SnapshotState {
   simulationResults: {
     manual: SimulateResponse | null;
     monteCarlo: SimulateResponse | null;
-    reforecast: SimulateResponse | null;
+    reforecast: SimulateResponse | null; // legacy compatibility cache
     status: "idle" | "running" | "complete" | "error";
-    mcStale: boolean;
+    mcStale: boolean; // tracking stale flag for current output (Manual + Monte Carlo)
     errorMessage: string | null;
   };
   stress: {
@@ -467,7 +474,7 @@ SnapshotState {
     tableSpreadsheetMode: boolean;
     tableSort: { column: string; direction: "asc" | "desc" } | null;
     chartZoom: { start: number; end: number } | null; // reserved, not user-exposed in current UI
-    reforecastStatus: "idle" | "pending" | "complete";
+    reforecastStatus: "idle" | "pending" | "complete"; // reserved legacy status
     collapsedSections: Record<string, boolean>;
   };
 }
@@ -576,7 +583,8 @@ Lifecycle rules:
 - Remove slot: allowed only when active slot count is greater than 1, except `A` which is non-removable.
 - Baseline fallback: if baseline slot is removed, baseline reassigns to first slot in `slotOrder`.
 - Compare activation: compare output surfaces render when `slotOrder.length > 1`; single-portfolio surfaces render when `slotOrder.length === 1`.
-- Tracking canonical floor: slot `A.lastEditedMonthIndex` defines immutable floor for non-`A` slots. Non-`A` overrides at/before this boundary are replaced by `A` overrides.
+- Tracking canonical floor: slot `A.lastEditedMonthIndex` defines preserved history for all slots.
+- Slot `A` is the only source of Tracking actuals. Non-`A` slot overrides are ignored for effective runtime behavior and replaced by Slot `A` overrides.
 
 ### 10.2 Snapshot compatibility for compare workspace
 

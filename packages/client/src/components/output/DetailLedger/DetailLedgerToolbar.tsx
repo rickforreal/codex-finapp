@@ -1,12 +1,12 @@
 import { AppMode, SimulationMode } from '@finapp/shared';
 
-import { useAppStore } from '../../../store/useAppStore';
+import { useAppStore, useTrackingOutputsStale } from '../../../store/useAppStore';
 import { SegmentedToggle } from '../../shared/SegmentedToggle';
 
 export const DetailLedgerToolbar = () => {
   const mode = useAppStore((state) => state.mode);
   const simulationMode = useAppStore((state) => state.simulationMode);
-  const mcStale = useAppStore((state) => state.simulationResults.mcStale);
+  const trackingOutputsStale = useTrackingOutputsStale();
   const tableGranularity = useAppStore((state) => state.ui.tableGranularity);
   const tableAssetColumnsEnabled = useAppStore((state) => state.ui.tableAssetColumnsEnabled);
   const tableSpreadsheetMode = useAppStore((state) => state.ui.tableSpreadsheetMode);
@@ -73,7 +73,7 @@ export const DetailLedgerToolbar = () => {
             )}
           </svg>
         </button>
-        {mode === AppMode.Tracking && mcStale ? (
+        {mode === AppMode.Tracking && trackingOutputsStale ? (
           <span
             className="rounded-full px-2 py-1 text-xs font-semibold"
             style={{

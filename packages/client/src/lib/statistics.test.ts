@@ -42,14 +42,14 @@ const row = (
 });
 
 describe('buildSummaryStats', () => {
-  it('uses requested withdrawals (strategy output) instead of funded actuals', () => {
+  it('uses funded actual withdrawals when computing drawdown distribution metrics', () => {
     const rows = [row(1, 2_000, 500), row(2, 4_000, 500), row(3, 6_000, 500)];
 
     const stats = buildSummaryStats(rows, 0);
 
-    expect(stats.totalDrawdownNominal).toBe(12_000);
-    expect(Math.round(stats.medianMonthlyReal)).toBe(4_000);
-    expect(Math.round(stats.meanMonthlyReal)).toBe(4_000);
+    expect(stats.totalDrawdownNominal).toBe(1_500);
+    expect(Math.round(stats.medianMonthlyReal)).toBe(500);
+    expect(Math.round(stats.meanMonthlyReal)).toBe(500);
   });
 
   it('excludes pre-withdrawal months from withdrawal distribution stats', () => {

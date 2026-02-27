@@ -10,6 +10,7 @@ import {
   useAppStore,
   useCompareSimulationResults,
   useIsCompareActive,
+  useTrackingOutputsStale,
 } from '../../store/useAppStore';
 import { SegmentedToggle } from '../shared/SegmentedToggle';
 
@@ -101,7 +102,7 @@ export const PortfolioChart = () => {
   const chartBreakdownEnabled = useAppStore((state) => state.ui.chartBreakdownEnabled);
   const mode = useAppStore((state) => state.mode);
   const simulationMode = useAppStore((state) => state.simulationMode);
-  const mcStale = useAppStore((state) => state.simulationResults.mcStale);
+  const trackingOutputsStale = useTrackingOutputsStale();
   const lastEditedMonthIndex = useAppStore((state) => state.lastEditedMonthIndex);
   const setChartDisplayMode = useAppStore((state) => state.setChartDisplayMode);
   const setChartBreakdownEnabled = useAppStore((state) => state.setChartBreakdownEnabled);
@@ -565,6 +566,11 @@ export const PortfolioChart = () => {
             </div>
           ) : null}
         </div>
+        {mode === AppMode.Tracking && trackingOutputsStale ? (
+          <p className="mt-2 text-xs text-amber-700">
+            Results are stale after edits. Run Simulation to refresh projections.
+          </p>
+        ) : null}
       </section>
     );
   }
@@ -823,7 +829,7 @@ export const PortfolioChart = () => {
               <path d={areaPath(xValues, stocksUpper, stocksLower)} fill="var(--theme-color-asset-stocks)" fillOpacity={0.66} />
             </>
           ) : visibleBands ? (
-            <g opacity={mode === AppMode.Tracking && mcStale ? 0.4 : 1}>
+            <g opacity={mode === AppMode.Tracking && trackingOutputsStale ? 0.4 : 1}>
               {mode === AppMode.Tracking && simulationMode === SimulationMode.MonteCarlo && boundaryMonth !== null ? (
                 <>
                   <path d={leftRealizedLine} fill="none" stroke="var(--theme-chart-manual-line)" strokeWidth="2.5" />
@@ -998,7 +1004,7 @@ export const PortfolioChart = () => {
           </div>
         ) : null}
       </div>
-      {mode === AppMode.Tracking && mcStale ? (
+      {mode === AppMode.Tracking && trackingOutputsStale ? (
         <p className="mt-2 text-xs text-amber-700">
           Results are stale after edits. Run Simulation to refresh projections.
         </p>

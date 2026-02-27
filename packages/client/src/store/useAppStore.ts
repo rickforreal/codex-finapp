@@ -23,6 +23,9 @@ import {
 } from '@finapp/shared';
 
 import { createId } from '../lib/id';
+import {
+  sanitizeTrackingActualOverrides,
+} from '../lib/trackingActuals';
 
 export type IncomeEventForm = {
   id: string;
@@ -709,20 +712,26 @@ const cloneActualOverride = (override: ActualMonthOverride): ActualMonthOverride
 const normalizeTrackingCompareCanonicalFloor = (
   compareWorkspace: SnapshotState['compareWorkspace'],
 ): SnapshotState['compareWorkspace'] => {
-  const boundary = compareWorkspace.slots.A?.lastEditedMonthIndex ?? null;
-  if (boundary === null || boundary <= 0) {
+  const canonicalWorkspace = compareWorkspace.slots.A;
+  if (!canonicalWorkspace) {
     return compareWorkspace;
   }
-
-  const canonicalOverrides = compareWorkspace.slots.A?.actualOverridesByMonth ?? {};
-  const canonicalLocked = Object.fromEntries(
-    Object.entries(canonicalOverrides)
-      .map(([month, override]) => [Number(month), override] as const)
-      .filter(([month, override]) => Number.isInteger(month) && month > 0 && month <= boundary && Boolean(override))
-      .map(([month, override]) => [month, cloneActualOverride(override as ActualMonthOverride)]),
-  ) as ActualOverridesByMonth;
+  const canonicalOverrides = sanitizeTrackingActualOverrides(canonicalWorkspace.actualOverridesByMonth ?? {});
+  const canonicalMaxMonth = Object.keys(canonicalOverrides)
+    .map((value) => Number(value))
+    .filter((value) => Number.isInteger(value) && value > 0)
+    .reduce((max, value) => Math.max(max, value), 0);
+  const canonicalBoundary = canonicalWorkspace.lastEditedMonthIndex ?? (canonicalMaxMonth > 0 ? canonicalMaxMonth : null);
 
   const next = cloneCompareWorkspace(compareWorkspace);
+  const nextCanonicalWorkspace = next.slots.A;
+  if (nextCanonicalWorkspace) {
+    nextCanonicalWorkspace.actualOverridesByMonth = Object.fromEntries(
+      Object.entries(canonicalOverrides).map(([month, override]) => [Number(month), cloneActualOverride(override)]),
+    ) as ActualOverridesByMonth;
+    nextCanonicalWorkspace.lastEditedMonthIndex = canonicalBoundary;
+  }
+
   next.slotOrder.forEach((slotId) => {
     if (slotId === 'A') {
       return;
@@ -731,53 +740,12 @@ const normalizeTrackingCompareCanonicalFloor = (
     if (!workspace) {
       return;
     }
-    const unlocked = Object.fromEntries(
-      Object.entries(workspace.actualOverridesByMonth)
-        .map(([month, override]) => [Number(month), override] as const)
-        .filter(([month, override]) => Number.isInteger(month) && month > boundary && Boolean(override))
-        .map(([month, override]) => [month, cloneActualOverride(override as ActualMonthOverride)]),
+    workspace.actualOverridesByMonth = Object.fromEntries(
+      Object.entries(canonicalOverrides).map(([month, override]) => [Number(month), cloneActualOverride(override)]),
     ) as ActualOverridesByMonth;
-    const merged = { ...canonicalLocked, ...unlocked };
-    const maxMonth = Object.keys(merged)
-      .map((value) => Number(value))
-      .filter((value) => Number.isInteger(value) && value > 0)
-      .reduce((max, value) => Math.max(max, value), 0);
-    workspace.actualOverridesByMonth = merged;
-    workspace.lastEditedMonthIndex = maxMonth > 0 ? Math.max(boundary, maxMonth) : boundary;
+    workspace.lastEditedMonthIndex = canonicalBoundary;
   });
 
-  return next;
-};
-
-const pruneCanonicalRangeFromNonASlots = (
-  compareWorkspace: SnapshotState['compareWorkspace'],
-  previousBoundary: number | null,
-): SnapshotState['compareWorkspace'] => {
-  if (previousBoundary === null || previousBoundary <= 0) {
-    return compareWorkspace;
-  }
-  const next = cloneCompareWorkspace(compareWorkspace);
-  next.slotOrder.forEach((slotId) => {
-    if (slotId === 'A') {
-      return;
-    }
-    const workspace = next.slots[slotId];
-    if (!workspace) {
-      return;
-    }
-    const remaining = Object.fromEntries(
-      Object.entries(workspace.actualOverridesByMonth)
-        .map(([month, override]) => [Number(month), override] as const)
-        .filter(([month, override]) => Number.isInteger(month) && month > previousBoundary && Boolean(override))
-        .map(([month, override]) => [month, cloneActualOverride(override as ActualMonthOverride)]),
-    ) as ActualOverridesByMonth;
-    const maxMonth = Object.keys(remaining)
-      .map((value) => Number(value))
-      .filter((value) => Number.isInteger(value) && value > 0)
-      .reduce((max, value) => Math.max(max, value), 0);
-    workspace.actualOverridesByMonth = remaining;
-    workspace.lastEditedMonthIndex = maxMonth > 0 ? maxMonth : null;
-  });
   return next;
 };
 
@@ -860,6 +828,66 @@ const workspaceFromState = (state: AppStore): WorkspaceSnapshot => ({
     result: state.stress.result,
   },
 });
+
+const isTrackingCompareActive = (state: Pick<AppStore, 'mode' | 'compareWorkspace'>): boolean =>
+  state.mode === AppMode.Tracking && isCompareActiveFromWorkspace(state.compareWorkspace);
+
+const markAllCompareSlotsTrackingStale = (
+  compareWorkspace: SnapshotState['compareWorkspace'],
+): SnapshotState['compareWorkspace'] => {
+  const next = cloneCompareWorkspace(compareWorkspace);
+  next.slotOrder.forEach((slotId) => {
+    const workspace = next.slots[slotId];
+    if (!workspace) {
+      return;
+    }
+    workspace.simulationResults = {
+      ...workspace.simulationResults,
+      mcStale: true,
+    };
+  });
+  return next;
+};
+
+const markTrackingOutputStateStale = (
+  state: AppStore,
+  nextCompareWorkspace: SnapshotState['compareWorkspace'] | null = null,
+): Pick<AppStore, 'simulationResults' | 'compareWorkspace'> => {
+  if (state.mode !== AppMode.Tracking) {
+    return {
+      simulationResults: state.simulationResults,
+      compareWorkspace: nextCompareWorkspace ?? state.compareWorkspace,
+    };
+  }
+
+  const compareWorkspace = nextCompareWorkspace ?? state.compareWorkspace;
+  const staleCompareWorkspace = isCompareActiveFromWorkspace(compareWorkspace)
+    ? markAllCompareSlotsTrackingStale(compareWorkspace)
+    : compareWorkspace;
+
+  return {
+    simulationResults: {
+      ...state.simulationResults,
+      mcStale: true,
+    },
+    compareWorkspace: staleCompareWorkspace,
+  };
+};
+
+const getEditableTrackingMonthUpperBoundForState = (state: AppStore): number => {
+  const horizonMonths = Math.max(0, Math.round(state.coreParams.retirementDuration) * 12);
+  if (horizonMonths === 0) {
+    return 0;
+  }
+  return Math.max(1, Math.min(horizonMonths, (state.lastEditedMonthIndex ?? 0) + 1));
+};
+
+const isEditableTrackingMonthForState = (state: AppStore, monthIndex: number): boolean => {
+  if (!Number.isInteger(monthIndex) || monthIndex <= 0) {
+    return false;
+  }
+  return monthIndex <= getEditableTrackingMonthUpperBoundForState(state);
+};
 
 const trackingSimulationResultsCleared = (results: WorkspaceSnapshot['simulationResults']): WorkspaceSnapshot['simulationResults'] => ({
   ...results,
@@ -954,17 +982,21 @@ const currentInputFieldsFromState = (state: AppStore) => ({
   lastEditedMonthIndex: state.lastEditedMonthIndex,
 });
 
-const cloneSnapshotState = (snapshot: SnapshotState): SnapshotState => ({
-  mode: snapshot.mode,
-  trackingInitialized: snapshot.trackingInitialized,
-  planningWorkspace: snapshot.planningWorkspace ? cloneWorkspace(snapshot.planningWorkspace) : null,
-  trackingWorkspace: snapshot.trackingWorkspace ? cloneWorkspace(snapshot.trackingWorkspace) : null,
-  compareWorkspace:
+const cloneSnapshotState = (snapshot: SnapshotState): SnapshotState => {
+  const normalizedCompareWorkspace =
     snapshot.mode === AppMode.Tracking
       ? normalizeTrackingCompareCanonicalFloor(
           normalizeCompareWorkspace(cloneCompareWorkspace(snapshot.compareWorkspace)),
         )
-      : normalizeCompareWorkspace(cloneCompareWorkspace(snapshot.compareWorkspace)),
+      : normalizeCompareWorkspace(cloneCompareWorkspace(snapshot.compareWorkspace));
+  const normalizedActiveWorkspace = normalizedCompareWorkspace.slots[normalizedCompareWorkspace.activeSlotId];
+
+  return {
+  mode: snapshot.mode,
+  trackingInitialized: snapshot.trackingInitialized,
+  planningWorkspace: snapshot.planningWorkspace ? cloneWorkspace(snapshot.planningWorkspace) : null,
+  trackingWorkspace: snapshot.trackingWorkspace ? cloneWorkspace(snapshot.trackingWorkspace) : null,
+  compareWorkspace: normalizedCompareWorkspace,
   simulationMode: snapshot.simulationMode,
   selectedHistoricalEra: snapshot.selectedHistoricalEra,
   coreParams: {
@@ -1019,15 +1051,27 @@ const cloneSnapshotState = (snapshot: SnapshotState): SnapshotState => ({
     start: { ...event.start },
     end: event.end === 'endOfRetirement' ? event.end : { ...event.end },
   })),
-  actualOverridesByMonth: Object.fromEntries(
-    Object.entries(snapshot.actualOverridesByMonth).map(([month, value]) => [month, {
-      startBalances: value.startBalances ? { ...value.startBalances } : undefined,
-      withdrawalsByAsset: value.withdrawalsByAsset ? { ...value.withdrawalsByAsset } : undefined,
-      incomeTotal: value.incomeTotal,
-      expenseTotal: value.expenseTotal,
-    }]),
-  ),
-  lastEditedMonthIndex: snapshot.lastEditedMonthIndex,
+  actualOverridesByMonth: normalizedActiveWorkspace
+    ? Object.fromEntries(
+        Object.entries(normalizedActiveWorkspace.actualOverridesByMonth).map(([month, value]) => [
+          month,
+          {
+            startBalances: value.startBalances ? { ...value.startBalances } : undefined,
+            withdrawalsByAsset: value.withdrawalsByAsset ? { ...value.withdrawalsByAsset } : undefined,
+            incomeTotal: value.incomeTotal,
+            expenseTotal: value.expenseTotal,
+          },
+        ]),
+      )
+    : Object.fromEntries(
+        Object.entries(snapshot.actualOverridesByMonth).map(([month, value]) => [month, {
+          startBalances: value.startBalances ? { ...value.startBalances } : undefined,
+          withdrawalsByAsset: value.withdrawalsByAsset ? { ...value.withdrawalsByAsset } : undefined,
+          incomeTotal: value.incomeTotal,
+          expenseTotal: value.expenseTotal,
+        }]),
+      ),
+  lastEditedMonthIndex: normalizedActiveWorkspace?.lastEditedMonthIndex ?? snapshot.lastEditedMonthIndex,
   simulationResults: {
     ...snapshot.simulationResults,
     manual: snapshot.simulationResults.manual
@@ -1154,7 +1198,8 @@ const cloneSnapshotState = (snapshot: SnapshotState): SnapshotState => ({
     tableSort: snapshot.ui.tableSort ? { ...snapshot.ui.tableSort } : null,
     collapsedSections: { ...snapshot.ui.collapsedSections },
   },
-});
+  };
+};
 
 export const useAppStore = create<AppStore>((set) => ({
   mode: AppMode.Planning,
@@ -1458,22 +1503,36 @@ export const useAppStore = create<AppStore>((set) => ({
       if (monthIndex <= 0) {
         return state;
       }
-      const compareActive = isCompareActiveFromWorkspace(state.compareWorkspace);
+      if (state.mode === AppMode.Tracking && !isEditableTrackingMonthForState(state, monthIndex)) {
+        return state;
+      }
+      const compareActive = isTrackingCompareActive(state);
       const activeSlotId = state.compareWorkspace.activeSlotId;
-      const canonicalBoundary = state.compareWorkspace.slots.A?.lastEditedMonthIndex ?? null;
-      if (
-        state.mode === AppMode.Tracking &&
-        compareActive &&
-        activeSlotId !== 'A' &&
-        canonicalBoundary !== null &&
-        monthIndex <= canonicalBoundary
-      ) {
+      if (compareActive && activeSlotId !== 'A') {
+        return state;
+      }
+      const sanitizedPatch = sanitizeTrackingActualOverrides({ [monthIndex]: patch as ActualMonthOverride })[monthIndex];
+      if (!sanitizedPatch) {
         return state;
       }
       const existing = state.actualOverridesByMonth[monthIndex] ?? {};
       const next: ActualMonthOverride = {
-        ...existing,
-        ...patch,
+        startBalances:
+          sanitizedPatch.startBalances || existing.startBalances
+            ? {
+                ...(existing.startBalances ?? {}),
+                ...(sanitizedPatch.startBalances ?? {}),
+              }
+            : undefined,
+        withdrawalsByAsset:
+          sanitizedPatch.withdrawalsByAsset || existing.withdrawalsByAsset
+            ? {
+                ...(existing.withdrawalsByAsset ?? {}),
+                ...(sanitizedPatch.withdrawalsByAsset ?? {}),
+              }
+            : undefined,
+        incomeTotal: existing.incomeTotal,
+        expenseTotal: existing.expenseTotal,
       };
       const nextActualOverridesByMonth: ActualOverridesByMonth = {
         ...state.actualOverridesByMonth,
@@ -1493,28 +1552,22 @@ export const useAppStore = create<AppStore>((set) => ({
         workspace.slots[activeSlotId] = activeWorkspace;
         return normalizeTrackingCompareCanonicalFloor(workspace);
       })();
+      const staleState = markTrackingOutputStateStale(state, nextCompareWorkspace);
       return {
         actualOverridesByMonth: nextActualOverridesByMonth,
         lastEditedMonthIndex: nextLastEditedMonthIndex,
-        compareWorkspace: nextCompareWorkspace,
-        simulationResults:
-          state.mode === AppMode.Tracking
-            ? { ...state.simulationResults, mcStale: true }
-            : state.simulationResults,
+        compareWorkspace: staleState.compareWorkspace,
+        simulationResults: staleState.simulationResults,
       };
     }),
   clearActualRowOverrides: (monthIndex) =>
     set((state) => {
-      const compareActive = isCompareActiveFromWorkspace(state.compareWorkspace);
+      if (state.mode === AppMode.Tracking && !isEditableTrackingMonthForState(state, monthIndex)) {
+        return state;
+      }
+      const compareActive = isTrackingCompareActive(state);
       const activeSlotId = state.compareWorkspace.activeSlotId;
-      const canonicalBoundary = state.compareWorkspace.slots.A?.lastEditedMonthIndex ?? null;
-      if (
-        state.mode === AppMode.Tracking &&
-        compareActive &&
-        activeSlotId !== 'A' &&
-        canonicalBoundary !== null &&
-        monthIndex <= canonicalBoundary
-      ) {
+      if (compareActive && activeSlotId !== 'A') {
         return state;
       }
       const next = { ...state.actualOverridesByMonth };
@@ -1525,10 +1578,9 @@ export const useAppStore = create<AppStore>((set) => ({
       const hasAnyOverrides = editedMonths.length > 0;
       const nextLastEditedMonthIndex = hasAnyOverrides ? Math.max(...editedMonths) : null;
       const nextCompareWorkspace = (() => {
-        if (!(state.mode === AppMode.Tracking && compareActive)) {
+        if (!compareActive) {
           return state.compareWorkspace;
         }
-        const previousBoundary = state.compareWorkspace.slots.A?.lastEditedMonthIndex ?? null;
         const workspace = cloneCompareWorkspace(state.compareWorkspace);
         const activeWorkspace =
           workspace.slots[activeSlotId] ??
@@ -1536,54 +1588,29 @@ export const useAppStore = create<AppStore>((set) => ({
         activeWorkspace.actualOverridesByMonth = next;
         activeWorkspace.lastEditedMonthIndex = nextLastEditedMonthIndex;
         workspace.slots[activeSlotId] = activeWorkspace;
-        const prunedWorkspace =
-          activeSlotId === 'A'
-            ? pruneCanonicalRangeFromNonASlots(workspace, previousBoundary)
-            : workspace;
-        return normalizeTrackingCompareCanonicalFloor(prunedWorkspace);
+        return normalizeTrackingCompareCanonicalFloor(workspace);
       })();
+      const staleState = markTrackingOutputStateStale(state, nextCompareWorkspace);
       return {
         actualOverridesByMonth: next,
         lastEditedMonthIndex: nextLastEditedMonthIndex,
-        compareWorkspace: nextCompareWorkspace,
-        simulationResults:
-          state.mode === AppMode.Tracking
-            ? {
-                ...state.simulationResults,
-                reforecast: hasAnyOverrides ? state.simulationResults.reforecast : null,
-                mcStale: hasAnyOverrides,
-              }
-            : state.simulationResults,
+        compareWorkspace: staleState.compareWorkspace,
+        simulationResults: staleState.simulationResults,
       };
     }),
   clearAllActualOverrides: () =>
     set((state) => {
-      const compareActive = isCompareActiveFromWorkspace(state.compareWorkspace);
+      const compareActive = isTrackingCompareActive(state);
       const activeSlotId = state.compareWorkspace.activeSlotId;
-      const canonicalBoundary = state.compareWorkspace.slots.A?.lastEditedMonthIndex ?? null;
-      const canonicalOverrides = state.compareWorkspace.slots.A?.actualOverridesByMonth ?? {};
-      const keepCanonicalLocked =
-        state.mode === AppMode.Tracking &&
-        compareActive &&
-        activeSlotId !== 'A' &&
-        canonicalBoundary !== null &&
-        canonicalBoundary > 0;
-
-      const nextOverrides = keepCanonicalLocked
-        ? (Object.fromEntries(
-            Object.entries(canonicalOverrides)
-              .map(([month, override]) => [Number(month), override] as const)
-              .filter(([month, override]) => Number.isInteger(month) && month > 0 && month <= (canonicalBoundary ?? 0) && Boolean(override))
-              .map(([month, override]) => [month, cloneActualOverride(override as ActualMonthOverride)]),
-          ) as ActualOverridesByMonth)
-        : {};
-      const hasAnyOverrides = Object.keys(nextOverrides).length > 0;
-      const nextLastEditedMonthIndex = keepCanonicalLocked ? canonicalBoundary : null;
+      if (compareActive && activeSlotId !== 'A') {
+        return state;
+      }
+      const nextOverrides = {};
+      const nextLastEditedMonthIndex = null;
       const nextCompareWorkspace = (() => {
-        if (!(state.mode === AppMode.Tracking && compareActive)) {
+        if (!compareActive) {
           return state.compareWorkspace;
         }
-        const previousBoundary = state.compareWorkspace.slots.A?.lastEditedMonthIndex ?? null;
         const workspace = cloneCompareWorkspace(state.compareWorkspace);
         const activeWorkspace =
           workspace.slots[activeSlotId] ??
@@ -1591,29 +1618,23 @@ export const useAppStore = create<AppStore>((set) => ({
         activeWorkspace.actualOverridesByMonth = nextOverrides;
         activeWorkspace.lastEditedMonthIndex = nextLastEditedMonthIndex;
         workspace.slots[activeSlotId] = activeWorkspace;
-        const prunedWorkspace =
-          activeSlotId === 'A'
-            ? pruneCanonicalRangeFromNonASlots(workspace, previousBoundary)
-            : workspace;
-        return normalizeTrackingCompareCanonicalFloor(prunedWorkspace);
+        return normalizeTrackingCompareCanonicalFloor(workspace);
       })();
+      const staleState = markTrackingOutputStateStale(state, nextCompareWorkspace);
 
       return {
         actualOverridesByMonth: nextOverrides,
         lastEditedMonthIndex: nextLastEditedMonthIndex,
-        compareWorkspace: nextCompareWorkspace,
-        simulationResults:
-          state.mode === AppMode.Tracking
-            ? {
-                ...state.simulationResults,
-                reforecast: hasAnyOverrides ? state.simulationResults.reforecast : null,
-                mcStale: hasAnyOverrides,
-              }
-            : state.simulationResults,
+        compareWorkspace: staleState.compareWorkspace,
+        simulationResults: staleState.simulationResults,
       };
     }),
   setSimulationMode: (simulationMode) => set({ simulationMode }),
-  setSelectedHistoricalEra: (selectedHistoricalEra) => set({ selectedHistoricalEra }),
+  setSelectedHistoricalEra: (selectedHistoricalEra) =>
+    set((state) => {
+      const staleState = markTrackingOutputStateStale(state);
+      return { selectedHistoricalEra, ...staleState };
+    }),
   setHistoricalSummaryStatus: (status, errorMessage = null) =>
     set((state) => ({
       historicalData: { ...state.historicalData, status, errorMessage },
@@ -1642,6 +1663,7 @@ export const useAppStore = create<AppStore>((set) => ({
           Number(nextCore.withdrawalsStartAt),
         );
         const nextRetirementDuration = Number(nextCore.retirementDuration);
+        const staleState = markTrackingOutputStateStale(state);
         const nextGlidePath = state.drawdownStrategy.rebalancing.glidePath.map((waypoint, index, all) => {
           if (index === 0) {
             return { ...waypoint, year: 1 };
@@ -1668,21 +1690,31 @@ export const useAppStore = create<AppStore>((set) => ({
               glidePath: nextGlidePath.sort((a, b) => a.year - b.year),
             },
           },
+          ...staleState,
         };
       }
-      return { coreParams: nextCore };
+      const staleState = markTrackingOutputStateStale(state);
+      return { coreParams: nextCore, ...staleState };
     }),
   setPortfolioValue: (asset, value) =>
-    set((state) => ({
-      portfolio: { ...state.portfolio, [asset]: Math.max(0, Math.round(value)) },
-    })),
+    set((state) => {
+      const staleState = markTrackingOutputStateStale(state);
+      return {
+        portfolio: { ...state.portfolio, [asset]: Math.max(0, Math.round(value)) },
+        ...staleState,
+      };
+    }),
   setReturnAssumption: (asset, key, value) =>
-    set((state) => ({
-      returnAssumptions: {
-        ...state.returnAssumptions,
-        [asset]: { ...state.returnAssumptions[asset], [key]: value },
-      },
-    })),
+    set((state) => {
+      const staleState = markTrackingOutputStateStale(state);
+      return {
+        returnAssumptions: {
+          ...state.returnAssumptions,
+          [asset]: { ...state.returnAssumptions[asset], [key]: value },
+        },
+        ...staleState,
+      };
+    }),
   addSpendingPhase: () =>
     set((state) => {
       if (state.spendingPhases.length >= 4) {
@@ -1697,13 +1729,17 @@ export const useAppStore = create<AppStore>((set) => ({
       if (state.spendingPhases.length >= availableYears) {
         return state;
       }
+      const staleState = markTrackingOutputStateStale(state);
       const next = [...state.spendingPhases, {
         ...defaultPhase(),
         name: `Phase ${state.spendingPhases.length + 1}`,
         startYear: retirementYears,
         endYear: retirementYears,
       }];
-      return { spendingPhases: recalculatePhaseBoundaries(next, retirementYears, firstPhaseStartYear) };
+      return {
+        spendingPhases: recalculatePhaseBoundaries(next, retirementYears, firstPhaseStartYear),
+        ...staleState,
+      };
     }),
   removeSpendingPhase: (id) =>
     set((state) => {
@@ -1715,8 +1751,10 @@ export const useAppStore = create<AppStore>((set) => ({
         state.coreParams.startingAge,
         state.coreParams.withdrawalsStartAt,
       );
+      const staleState = markTrackingOutputStateStale(state);
       return {
         spendingPhases: recalculatePhaseBoundaries(next, state.coreParams.retirementDuration, firstPhaseStartYear),
+        ...staleState,
       };
     }),
   updateSpendingPhase: (id, patch) =>
@@ -1738,28 +1776,42 @@ export const useAppStore = create<AppStore>((set) => ({
         state.coreParams.startingAge,
         state.coreParams.withdrawalsStartAt,
       );
+      const staleState = markTrackingOutputStateStale(state);
       return {
         spendingPhases: recalculatePhaseBoundaries(next, state.coreParams.retirementDuration, firstPhaseStartYear),
+        ...staleState,
       };
     }),
   setWithdrawalStrategyType: (type) =>
-    set((state) => ({
-      withdrawalStrategy: { ...state.withdrawalStrategy, type },
-    })),
+    set((state) => {
+      const staleState = markTrackingOutputStateStale(state);
+      return {
+        withdrawalStrategy: { ...state.withdrawalStrategy, type },
+        ...staleState,
+      };
+    }),
   setWithdrawalParam: (key, value) =>
-    set((state) => ({
-      withdrawalStrategy: {
-        ...state.withdrawalStrategy,
-        params: {
-          ...state.withdrawalStrategy.params,
-          [key]: value,
+    set((state) => {
+      const staleState = markTrackingOutputStateStale(state);
+      return {
+        withdrawalStrategy: {
+          ...state.withdrawalStrategy,
+          params: {
+            ...state.withdrawalStrategy.params,
+            [key]: value,
+          },
         },
-      },
-    })),
+        ...staleState,
+      };
+    }),
   setDrawdownType: (type) =>
-    set((state) => ({
-      drawdownStrategy: { ...state.drawdownStrategy, type },
-    })),
+    set((state) => {
+      const staleState = markTrackingOutputStateStale(state);
+      return {
+        drawdownStrategy: { ...state.drawdownStrategy, type },
+        ...staleState,
+      };
+    }),
   moveBucketAsset: (asset, direction) =>
     set((state) => {
       const order = [...state.drawdownStrategy.bucketOrder];
@@ -1778,44 +1830,55 @@ export const useAppStore = create<AppStore>((set) => ({
       }
       order[index] = next;
       order[swapWith] = current;
+      const staleState = markTrackingOutputStateStale(state);
       return {
         drawdownStrategy: { ...state.drawdownStrategy, bucketOrder: order },
+        ...staleState,
       };
     }),
   setRebalancingTargetAllocation: (asset, value) =>
-    set((state) => ({
-      drawdownStrategy: {
-        ...state.drawdownStrategy,
-        rebalancing: {
-          ...state.drawdownStrategy.rebalancing,
-          targetAllocation: {
-            ...state.drawdownStrategy.rebalancing.targetAllocation,
-            [asset]: Math.max(0, Math.min(1, value)),
+    set((state) => {
+      const staleState = markTrackingOutputStateStale(state);
+      return {
+        drawdownStrategy: {
+          ...state.drawdownStrategy,
+          rebalancing: {
+            ...state.drawdownStrategy.rebalancing,
+            targetAllocation: {
+              ...state.drawdownStrategy.rebalancing.targetAllocation,
+              [asset]: Math.max(0, Math.min(1, value)),
+            },
           },
         },
-      },
-    })),
+        ...staleState,
+      };
+    }),
   setGlidePathEnabled: (enabled) =>
-    set((state) => ({
-      drawdownStrategy: {
-        ...state.drawdownStrategy,
-        rebalancing: {
-          ...state.drawdownStrategy.rebalancing,
-          glidePathEnabled: enabled,
-          glidePath:
-            enabled && state.drawdownStrategy.rebalancing.glidePath.length < 2
-              ? createDefaultGlidePath(
-                  state.coreParams.retirementDuration,
-                  state.drawdownStrategy.rebalancing.targetAllocation,
-                )
-              : state.drawdownStrategy.rebalancing.glidePath,
+    set((state) => {
+      const staleState = markTrackingOutputStateStale(state);
+      return {
+        drawdownStrategy: {
+          ...state.drawdownStrategy,
+          rebalancing: {
+            ...state.drawdownStrategy.rebalancing,
+            glidePathEnabled: enabled,
+            glidePath:
+              enabled && state.drawdownStrategy.rebalancing.glidePath.length < 2
+                ? createDefaultGlidePath(
+                    state.coreParams.retirementDuration,
+                    state.drawdownStrategy.rebalancing.targetAllocation,
+                  )
+                : state.drawdownStrategy.rebalancing.glidePath,
+          },
         },
-      },
-    })),
+        ...staleState,
+      };
+    }),
   addGlidePathWaypoint: () =>
     set((state) => {
       const existing = [...state.drawdownStrategy.rebalancing.glidePath].sort((a, b) => a.year - b.year);
       if (existing.length < 2) {
+        const staleState = markTrackingOutputStateStale(state);
         return {
           drawdownStrategy: {
             ...state.drawdownStrategy,
@@ -1827,6 +1890,7 @@ export const useAppStore = create<AppStore>((set) => ({
               ),
             },
           },
+          ...staleState,
         };
       }
       const last = existing[existing.length - 1];
@@ -1838,6 +1902,7 @@ export const useAppStore = create<AppStore>((set) => ({
       if (existing.some((waypoint) => waypoint.year === nextYear)) {
         return state;
       }
+      const staleState = markTrackingOutputStateStale(state);
       return {
         drawdownStrategy: {
           ...state.drawdownStrategy,
@@ -1848,6 +1913,7 @@ export const useAppStore = create<AppStore>((set) => ({
             ),
           },
         },
+        ...staleState,
       };
     }),
   removeGlidePathWaypoint: (year) =>
@@ -1856,11 +1922,13 @@ export const useAppStore = create<AppStore>((set) => ({
       if (next.length < 2) {
         return state;
       }
+      const staleState = markTrackingOutputStateStale(state);
       return {
         drawdownStrategy: {
           ...state.drawdownStrategy,
           rebalancing: { ...state.drawdownStrategy.rebalancing, glidePath: next },
         },
+        ...staleState,
       };
     }),
   updateGlidePathWaypoint: (year, patch) =>
@@ -1877,6 +1945,7 @@ export const useAppStore = create<AppStore>((set) => ({
         };
       });
 
+      const staleState = markTrackingOutputStateStale(state);
       return {
         drawdownStrategy: {
           ...state.drawdownStrategy,
@@ -1885,40 +1954,65 @@ export const useAppStore = create<AppStore>((set) => ({
             glidePath: waypoints.sort((a, b) => a.year - b.year),
           },
         },
+        ...staleState,
       };
     }),
   addIncomeEvent: (preset) =>
-    set((state) => ({
-      incomeEvents: [
-        ...state.incomeEvents,
-        preset ? { ...defaultIncomeEvent(), ...incomeEventPreset(preset), id: createId('income') } : defaultIncomeEvent(),
-      ],
-    })),
+    set((state) => {
+      const staleState = markTrackingOutputStateStale(state);
+      return {
+        incomeEvents: [
+          ...state.incomeEvents,
+          preset ? { ...defaultIncomeEvent(), ...incomeEventPreset(preset), id: createId('income') } : defaultIncomeEvent(),
+        ],
+        ...staleState,
+      };
+    }),
   removeIncomeEvent: (id) =>
-    set((state) => ({
-      incomeEvents: state.incomeEvents.filter((event) => event.id !== id),
-    })),
+    set((state) => {
+      const staleState = markTrackingOutputStateStale(state);
+      return {
+        incomeEvents: state.incomeEvents.filter((event) => event.id !== id),
+        ...staleState,
+      };
+    }),
   updateIncomeEvent: (id, patch) =>
-    set((state) => ({
-      incomeEvents: state.incomeEvents.map((event) => (event.id === id ? { ...event, ...patch } : event)),
-    })),
+    set((state) => {
+      const staleState = markTrackingOutputStateStale(state);
+      return {
+        incomeEvents: state.incomeEvents.map((event) => (event.id === id ? { ...event, ...patch } : event)),
+        ...staleState,
+      };
+    }),
   addExpenseEvent: (preset) =>
-    set((state) => ({
-      expenseEvents: [
-        ...state.expenseEvents,
-        preset
-          ? { ...defaultExpenseEvent(), ...expenseEventPreset(preset), id: createId('expense') }
-          : defaultExpenseEvent(),
-      ],
-    })),
+    set((state) => {
+      const staleState = markTrackingOutputStateStale(state);
+      return {
+        expenseEvents: [
+          ...state.expenseEvents,
+          preset
+            ? { ...defaultExpenseEvent(), ...expenseEventPreset(preset), id: createId('expense') }
+            : defaultExpenseEvent(),
+        ],
+        ...staleState,
+      };
+    }),
   removeExpenseEvent: (id) =>
-    set((state) => ({
-      expenseEvents: state.expenseEvents.filter((event) => event.id !== id),
-    })),
+    set((state) => {
+      const staleState = markTrackingOutputStateStale(state);
+      return {
+        expenseEvents: state.expenseEvents.filter((event) => event.id !== id),
+        ...staleState,
+      };
+    }),
   updateExpenseEvent: (id, patch) =>
-    set((state) => ({
-      expenseEvents: state.expenseEvents.map((event) => (event.id === id ? { ...event, ...patch } : event)),
-    })),
+    set((state) => {
+      const staleState = markTrackingOutputStateStale(state);
+      return {
+        expenseEvents: state.expenseEvents.map((event) => (event.id === id ? { ...event, ...patch } : event)),
+        ...staleState,
+      };
+    }),
   setSimulationStatus: (status, errorMessage = null) =>
     set((state) => ({
       simulationResults: { ...state.simulationResults, status, errorMessage },
@@ -1974,15 +2068,20 @@ export const useAppStore = create<AppStore>((set) => ({
         manual: mode === SimulationMode.Manual ? result : workspace.simulationResults.manual,
         monteCarlo: mode === SimulationMode.MonteCarlo ? result : workspace.simulationResults.monteCarlo,
         status: 'complete',
+        mcStale: false,
         errorMessage: null,
       };
       workspace.simulationMode = mode;
+      const compareHasStale = compareWorkspace.slotOrder.some((slotId) => compareWorkspace.slots[slotId]?.simulationResults.mcStale);
 
       const activeWorkspace = compareWorkspace.activeSlotId === slot;
       return activeWorkspace
         ? {
             compareWorkspace,
-            simulationResults: workspace.simulationResults,
+            simulationResults: {
+              ...workspace.simulationResults,
+              mcStale: compareHasStale,
+            },
           }
         : { compareWorkspace };
     }),
@@ -2228,10 +2327,7 @@ export const useRunSimulation = () =>
 export const useActiveSimulationResult = () =>
   useAppStore((state) => {
     if (state.mode === AppMode.Tracking && state.simulationMode === SimulationMode.Manual) {
-      if (state.lastEditedMonthIndex !== null) {
-        return state.simulationResults.reforecast ?? state.simulationResults.manual;
-      }
-      return state.simulationResults.manual;
+      return state.simulationResults.manual ?? state.simulationResults.reforecast;
     }
     if (state.mode === AppMode.Tracking && state.simulationMode === SimulationMode.MonteCarlo) {
       return (
@@ -2252,6 +2348,19 @@ export const useTrackingActuals = () =>
     lastEditedMonthIndex: state.lastEditedMonthIndex,
   }));
 
+export const useTrackingOutputsStale = () =>
+  useAppStore((state) => {
+    if (state.mode !== AppMode.Tracking) {
+      return false;
+    }
+    if (!isCompareActiveFromWorkspace(state.compareWorkspace)) {
+      return state.simulationResults.mcStale;
+    }
+    return state.compareWorkspace.slotOrder.some(
+      (slotId) => state.compareWorkspace.slots[slotId]?.simulationResults.mcStale,
+    );
+  });
+
 export const useCompareSimulationResults = () => useAppStore((state) => state.compareWorkspace);
 
 export const useIsCompareActive = () =>
@@ -2264,6 +2373,17 @@ export const useCompareStressResults = () =>
     ) as Partial<Record<CompareSlotId, WorkspaceSnapshot['stress'] | null>>,
     activeSlotId: state.compareWorkspace.activeSlotId,
   }));
+
+export const getTrackingActualOverridesForRun = (): ActualOverridesByMonth | undefined => {
+  const state = useAppStore.getState();
+  if (state.mode !== AppMode.Tracking) {
+    return undefined;
+  }
+  if (isCompareActiveFromWorkspace(state.compareWorkspace)) {
+    return sanitizeTrackingActualOverrides(state.compareWorkspace.slots.A?.actualOverridesByMonth ?? {});
+  }
+  return sanitizeTrackingActualOverrides(state.actualOverridesByMonth);
+};
 
 const snapshotStateFromStore = (state: AppStore): SnapshotState => {
   const compareWorkspace = compareWorkspaceWithCurrentState(state);

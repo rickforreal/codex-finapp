@@ -24,6 +24,7 @@ export const useDetailRows = (): {
   rows: DetailRow[];
   activeLedgerSlotId: string;
   canonicalBoundary: number | null;
+  runInflationRate: number | null;
 } => {
   const result = useActiveSimulationResult();
   const compareResults = useCompareSimulationResults();
@@ -103,5 +104,17 @@ export const useDetailRows = (): {
     rows: isCompareActive ? compareSlotRows : singleSlotRows,
     activeLedgerSlotId,
     canonicalBoundary,
+    runInflationRate: (() => {
+      if (isCompareActive) {
+        const workspace = compareResults.slots[activeLedgerSlotId];
+        const preferred =
+          simulationMode === SimulationMode.Manual
+            ? workspace?.simulationResults.manual
+            : workspace?.simulationResults.monteCarlo;
+        const slotResult = preferred ?? workspace?.simulationResults.manual ?? workspace?.simulationResults.monteCarlo;
+        return slotResult?.configSnapshot?.coreParams.inflationRate ?? null;
+      }
+      return result?.configSnapshot?.coreParams.inflationRate ?? null;
+    })(),
   };
 };

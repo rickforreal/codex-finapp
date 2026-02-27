@@ -45,11 +45,13 @@ type UseGridNavigationOptions = {
   rows: DetailRow[];
   columns: Column[];
   mode: AppMode;
+  isCompareActive: boolean;
   tableGranularity: 'monthly' | 'annual';
   tableAssetColumnsEnabled: boolean;
   actualOverridesByMonth: Record<number, unknown>;
+  maxEditableMonthIndex: number;
+  runInflationRate: number | null;
   activeLedgerSlotId: string;
-  canonicalBoundary: number | null;
   onCommit: (row: DetailRow, column: Column, value: string) => void;
 };
 
@@ -58,7 +60,19 @@ const coordKey = (rowIndex: number, colIndex: number) => `${rowIndex}:${colIndex
 export const useGridNavigation = (
   options: UseGridNavigationOptions,
 ): GridNavigationState & GridNavigationActions => {
-  const { rows, columns, mode, tableGranularity, tableAssetColumnsEnabled, actualOverridesByMonth, activeLedgerSlotId, canonicalBoundary, onCommit } = options;
+  const {
+    rows,
+    columns,
+    mode,
+    isCompareActive,
+    tableGranularity,
+    tableAssetColumnsEnabled,
+    actualOverridesByMonth,
+    maxEditableMonthIndex,
+    runInflationRate,
+    activeLedgerSlotId,
+    onCommit,
+  } = options;
 
   const [focusedCell, setFocusedCell] = useState<CellCoord | null>(null);
   const [editingCell, setEditingCell] = useState<CellCoord | null>(null);
@@ -83,15 +97,19 @@ export const useGridNavigation = (
   const isEditable = useCallback(
     (rowIndex: number, colIndex: number): boolean => {
       const column = columns[colIndex];
-      if (!column) return false;
+      const row = rows[rowIndex];
+      if (!column || !row) return false;
       return (
         mode === AppMode.Tracking &&
         tableGranularity === 'monthly' &&
+        (!isCompareActive || activeLedgerSlotId === 'A') &&
+        row.monthIndex > 0 &&
+        row.monthIndex <= maxEditableMonthIndex &&
         editableColumnKeys.has(column.key) &&
-        (column.key === 'income' || column.key === 'expenses' || tableAssetColumnsEnabled)
+        tableAssetColumnsEnabled
       );
     },
-    [columns, mode, tableGranularity, tableAssetColumnsEnabled],
+    [activeLedgerSlotId, columns, isCompareActive, maxEditableMonthIndex, mode, rows, tableAssetColumnsEnabled, tableGranularity],
   );
 
   const isLockedByCanonicalBoundary = useCallback(
@@ -101,13 +119,12 @@ export const useGridNavigation = (
       return (
         mode === AppMode.Tracking &&
         tableGranularity === 'monthly' &&
+        isCompareActive &&
         activeLedgerSlotId !== 'A' &&
-        canonicalBoundary !== null &&
-        row.monthIndex <= canonicalBoundary &&
         isEditable(rowIndex, colIndex)
       );
     },
-    [rows, mode, tableGranularity, activeLedgerSlotId, canonicalBoundary, isEditable],
+    [rows, mode, tableGranularity, isCompareActive, activeLedgerSlotId, isEditable],
   );
 
   const canEdit = useCallback(
@@ -129,11 +146,16 @@ export const useGridNavigation = (
       if (initialValue !== undefined) {
         setDraftValue(initialValue);
       } else {
-        const raw = displayCellValue(row, column, actualOverridesByMonth as Record<number, import('@finapp/shared').ActualMonthOverride>);
+        const raw = displayCellValue(
+          row,
+          column,
+          actualOverridesByMonth as Record<number, import('@finapp/shared').ActualMonthOverride>,
+          runInflationRate,
+        );
         setDraftValue(String(Math.round(Number(raw))));
       }
     },
-    [canEdit, rows, columns, actualOverridesByMonth],
+    [actualOverridesByMonth, canEdit, columns, rows, runInflationRate],
   );
 
   const commitEdit = useCallback(() => {
@@ -194,10 +216,15 @@ export const useGridNavigation = (
     const row = rows[focusedCell.rowIndex];
     const column = columns[focusedCell.colIndex];
     if (!row || !column) return;
-    const value = displayCellValue(row, column, actualOverridesByMonth as Record<number, import('@finapp/shared').ActualMonthOverride>);
+    const value = displayCellValue(
+      row,
+      column,
+      actualOverridesByMonth as Record<number, import('@finapp/shared').ActualMonthOverride>,
+      runInflationRate,
+    );
     const formatted = String(formatCell(value, column));
     void navigator.clipboard.writeText(formatted);
-  }, [focusedCell, rows, columns, actualOverridesByMonth]);
+  }, [actualOverridesByMonth, columns, focusedCell, rows, runInflationRate]);
 
   const pasteCell = useCallback(() => {
     if (!focusedCell) return;

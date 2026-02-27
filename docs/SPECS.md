@@ -31,7 +31,7 @@ These sit at the very top of the page, acting as the global "command bar" for th
 
 **Edge cases:**
 * If Tracking has never been run, the detail table shows an initialization empty state and prompts the user to run a simulation.
-* Tracking supports compare slots; slot `A` is canonical and defines locked history floor for non-`A` slots.
+* Tracking supports compare slots; slot `A` is canonical, and non-`A` ledgers are read-only views sourced from slot `A` actuals.
 
 ### Affordance #2: Simulation Mode Selector
 **Purpose:** Selects which simulation engine powers the active projection workflow — Manual (user-defined parameters, single stochastic path) or Monte Carlo (historical data sampling, 1,000+ paths).
@@ -59,11 +59,12 @@ These sit at the very top of the page, acting as the global "command bar" for th
   * The output area displays the results of the last Monte Carlo run. If none has been performed, it shows the empty/initial state.
   * Previously computed Manual results are preserved in memory.
 * When in Tracking Mode:
-  * **Manual selected:** Editing an actual value updates table/chart/stats immediately. The latest edited month defines the boundary; months up to and including that boundary are preserved while later months are recomputed.
-  * **Monte Carlo selected:** Editing an actual value marks Monte Carlo outputs stale. Chart/table/stats remain frozen until Run Simulation is clicked.
+  * **Manual selected:** Editing an actual value in Slot `A` updates the edited row's derived values immediately, advances the actuals boundary, and marks outputs stale until Run Simulation.
+  * **Monte Carlo selected:** Editing an actual value in Slot `A` follows the same stale-first behavior; chart/table/stats remain frozen until Run Simulation is clicked.
+  * Input-panel changes (any slot) also mark Tracking outputs stale and require an explicit rerun.
 * Switching modes in Tracking
-  * **Switching from Manual to Monte Carlo in Tracking Mode:** the output area continues to show the current deterministic projection (actuals + forecast). The Monte Carlo results are empty until the user clicks Run Simulation. The Probability of Success card (#41) appears but shows "—" until a run completes.
-  * **Switching from Monte Carlo to Manual:** the output area reverts to showing the deterministic single-path projection. Previously computed Monte Carlo results are preserved in memory.
+  * **Switching from Manual to Monte Carlo in Tracking Mode:** the output area continues to show the latest completed Tracking output. Monte Carlo-specific output remains empty until the user clicks Run Simulation. The Probability of Success card (#41) appears but shows "—" until a run completes.
+  * **Switching from Monte Carlo to Manual:** the output area reverts to the last completed Manual single-path output. Previously computed Monte Carlo results are preserved in memory.
 
 **State:**
 * simulationMode: "manual" | "monteCarlo"
@@ -111,6 +112,7 @@ These sit at the very top of the page, acting as the global "command bar" for th
 * **On click with multi-slot compare active (slot count > 1):**
   - Runs simulations for all active compare slots (`A`..`H`, max 8) using the same selected simulation type.
   - Uses shared stochastic conditions across all active slots so market randomness is matched for fair comparison.
+  - In Tracking mode, all slots use Slot `A` actual history as the canonical floor for preserved months.
   - Updates shared chart, shared stats cards (all slot values + baseline-relative deltas), and the compare detail ledger tab view.
   - If one slot errors, successful slot outputs remain visible and failed slots show slot-specific error states.
 * Initial state (no simulation run yet):
@@ -122,14 +124,12 @@ These sit at the very top of the page, acting as the global "command bar" for th
 * Initial State in Tracking Mode:
   * When the user first switches to Tracking Mode, the Run Simulation button is in its normal "ready" state and no results are shown until the first Tracking run.
   * After the first Tracking run, edits and reruns follow the boundary preservation rules above.
-* **Stale behavior:**
-  * When the user edits an actual cell in the table while Monte Carlo results exist, Monte Carlo results become stale.
-  * **Visual indicator:** A `Stale` pill appears in the detail table controls in Tracking + Monte Carlo.
-  * The confidence bands on the chart become semi-transparent (~40% of their normal opacity) and a small banner appears below the chart: _"Monte Carlo results are based on previous actuals. Click Run Simulation to update."_ — muted text, ~11px, with a small warning icon (⚠).
-  * **Clearing stale state:** Clicking Run Simulation re-runs Monte Carlo with updated overrides, removes stale pill, and restores full-opacity chart layers.
-  * This stale mechanism exists **only** for Monte Carlo in Tracking Mode. It does not apply to:
-    * Planning Mode (either Manual or Monte Carlo) — there's no reactive recalculation, so staleness isn't a concept.
-    * Manual in Tracking Mode — chart, stats, and table stay current after edits.
+* **Stale behavior (Tracking):**
+  * When the user edits a Tracking actual cell (Slot `A`) or changes Tracking inputs, the current Tracking outputs become stale.
+  * **Visual indicator:** A `Stale` pill appears in the detail table controls in Tracking (Manual and Monte Carlo).
+  * The chart shows stale dimming plus a banner indicating outputs are based on previous inputs/actuals until rerun.
+  * **Clearing stale state:** Clicking Run Simulation re-runs the active simulation mode with current inputs/actuals and clears stale indicators.
+  * Planning mode remains run-gated and does not use stale indicators.
 
 **State:**
 * simulationStatus: "idle" | "running" | "complete"
@@ -265,7 +265,7 @@ Affordance index reserved for future use. No explicit app-level redo behavior is
 - Remove affordance is a hover-only circular icon shown per chip only when slot count > 1.
 - Compare chips are color-linked to slot ID (`A`..`H`) and use the same slot color identity as compare chart lines.
 - Baseline visual indicator is theme-adaptive and slot-color-based (no fixed gold-only dependency).
-- In Tracking, slot `A` defines canonical history floor: non-`A` slots cannot edit months `<= A.lastEditedMonthIndex`.
+- In Tracking, slot `A` is the only editable ledger slot. All non-`A` ledger tabs are read-only and use slot `A` actual history.
 
 ### Affordance #68 · Shared Compare Chart
 
@@ -298,6 +298,7 @@ Affordance index reserved for future use. No explicit app-level redo behavior is
 - Monthly/Annual and Breakdown controls are shared.
 - Spreadsheet expand is disabled in multi-slot compare mode; scrolling is required.
 - Compare tab colors are slot-ID stable and match compare chips/chart lines.
+- In Tracking, only tab `A` allows ledger edits; non-`A` tabs display an inline read-only notice: "Actuals sourced from Portfolio A. This ledger is read-only."
 
 ### Affordance #71 · Compare Stress Test
 
@@ -382,7 +383,7 @@ A thin 1px horizontal divider separates this section from the next section below
 
 ### Affordance #4c: Retirement Start Date
 
-**Purpose:** Anchors Month 1 of the retirement timeline to a real calendar month and year. Used to display calendar dates in Tracking Mode's Period column, compute age-at-date helper labels, and determine which months are "in the past" (eligible for actual data entry in Tracking Mode).
+**Purpose:** Anchors Month 1 of the retirement timeline to a real calendar month and year. Used to display calendar dates in Tracking Mode's Period column and compute age-at-date helper labels.
 
 **Control type:** Month/Year picker
 
@@ -398,8 +399,8 @@ A thin 1px horizontal divider separates this section from the next section below
 - Default value: **The current month and year** (e.g., if today is February 2026, default is `Feb 2026`).
 - Valid range: **Jan 2000 to Dec 2080**. The wide range accommodates both users who retired years ago (and want to backfill actuals) and users planning far into the future.
 - On selection, the picker panel closes. All helper labels throughout the app that reference calendar dates (e.g., "Month 13 = January 2029 (age 56)" on the Withdrawals Start At field, "Month X of retirement (age XX)" on income/expense events) update reactively.
-- **Impact on Tracking Mode:** This date determines which months are "in the past" and therefore eligible for actual data entry. Specifically, any month whose calendar date is ≤ the current real-world date is eligible. Months in the future are projection-only.
-- No output recalculation until Run Simulation (Planning Mode). In Tracking Mode, changes re-anchor the timeline — actual data remains associated with its month index (not its calendar date), so changing the start date shifts which calendar dates appear but doesn't discard actuals.
+- **Impact on Tracking Mode:** This date controls period labeling only. Ledger editability follows the sequential window contract (latest edited month + 1), not the current calendar date.
+- No output recalculation until Run Simulation. In Tracking Mode, this change also marks outputs stale; actual data remains associated with month index (not calendar date), so changing the start date shifts labels without discarding existing overrides.
 
 #### State
 
@@ -650,7 +651,7 @@ This section defines the expected return and volatility for each asset class. It
 
 ### Affordance #11: Stocks Expected Return (%)
 
-**Purpose:** Defines the expected annual return for stocks, used in both deterministic projections (as the fixed return) and Monte Carlo simulations (as the mean of the return distribution).
+**Purpose:** Defines the expected annual return for stocks, used in Manual simulations as the mean of the stochastic return distribution.
 
 **Control type:** Compact numeric input with percentage formatting
 
@@ -989,7 +990,7 @@ The card's internal layout is organized in three rows:
   - Phase 4: **$4,000**
 - Focus/blur formatting behavior: same as Starting Portfolio inputs (#7–#9). On focus, strips to raw number. On blur, re-formats with dollar sign and commas.
 - **Validation:** Must be ≤ the Max Monthly Spend for the same phase (#17e). If the user enters a value greater than the current max, the field shows a red border with a tooltip: _"Minimum cannot exceed maximum."_ The value is accepted (not auto-clamped) to let the user fix whichever field they prefer — but the simulation will refuse to run (Run Simulation button shows a tooltip explaining the validation error).
-- No impact on the output area until the next simulation run (Planning Mode) or immediately in Tracking Mode.
+- No impact on output values until Run Simulation. In Tracking Mode, edits mark outputs stale until rerun.
 
 **State:**
 - `spendingPhases[i].minMonthlySpend`: integer (today's dollars)
@@ -1096,7 +1097,7 @@ The only validation that can fail is the per-phase min ≤ max spending check, w
 | Add a phase | New card animates in; previous last phase becomes editable |
 | Remove a phase | Card animates out; adjacent phases absorb the year range |
 | Change retirement duration (#5) | Last phase's end year adjusts; cascade backward if phases are squeezed |
-| In Tracking Mode, any edit | Projected months re-forecast immediately |
+| In Tracking Mode, any edit | Outputs become stale and update on next Run Simulation |
 
 # Input Panel — Section: Withdrawal Strategy (#20, #21, #22)
 
@@ -1182,7 +1183,7 @@ This section allows the user to select and configure a retirement withdrawal str
 ### Shared Interaction Note
 
 All parameter inputs follow the standard behavior:
-- No output recalculation on change (Planning Mode). In Tracking Mode, changes re-forecast projected months immediately.
+- No output recalculation on change. In Tracking Mode, changes mark outputs stale until Run Simulation.
 - Standard focus/blur formatting for percentage and currency fields.
 - Out-of-range values clamp on blur with the amber flash (300ms).
 
@@ -1621,7 +1622,7 @@ A potential v2 feature: allow the user to run the same simulation with multiple 
 | User Action | Result |
 |---|---|
 | Select a new strategy from dropdown | Parameters panel transitions to new strategy's inputs. Tooltip updates. No recalculation. |
-| Change a strategy-specific parameter | No recalculation until Run Simulation (Planning Mode). Immediate re-forecast in Tracking Mode. |
+| Change a strategy-specific parameter | No recalculation until Run Simulation. In Tracking Mode, marks outputs stale until rerun. |
 | Hover/tap the info icon | Tooltip appears with strategy explanation. |
 | Run Simulation | The simulation engine uses the selected strategy + its parameters + spending phase bounds to compute withdrawals. |
 
@@ -1661,7 +1662,7 @@ This section defines how withdrawals are sourced across the three asset classes 
 - Switching between strategies:
   - The configuration area below the toggle transitions to show the relevant controls. Use a crossfade animation (150ms): old config fades out, new config fades in.
   - Switching from Rebalancing back to Bucket hides the glide path controls but **preserves** all rebalancing configuration in memory (target allocations, glide path waypoints). If the user switches back to Rebalancing, their previous configuration is restored.
-  - No output recalculation — user must click "Run Simulation" (Planning Mode). In Tracking Mode, changes re-forecast projected months immediately.
+  - No output recalculation — user must click "Run Simulation." In Tracking Mode, changes mark outputs stale until rerun.
 
 ### State
 
@@ -1703,7 +1704,7 @@ This section defines how withdrawals are sourced across the three asset classes 
   - The drag is constrained vertically within the list — no horizontal movement.
 - **Keyboard accessibility:** Each row is focusable. When focused, arrow keys (↑/↓) move the row up or down in the list. Screen readers announce the current position (e.g., "Cash, priority 1 of 3. Press down arrow to move to priority 2.").
 - **Touch (mobile):** Long-press (~300ms) activates the drag. A subtle haptic pulse (if supported) confirms the grab.
-- No output recalculation until Run Simulation. In Tracking Mode, reorder triggers immediate re-forecast.
+- No output recalculation until Run Simulation. In Tracking Mode, reorder marks outputs stale until rerun.
 
 ### Depletion Behavior (Engine Logic, Not UI)
 
@@ -1757,7 +1758,7 @@ The table should visually indicate when an asset class is fully depleted (e.g., 
 - Default values: **Stocks: 70%**, **Bonds: 25%**, **Cash: 5%**
 - Standard focus/blur formatting. On blur, if the total exceeds 100%, the field does **not** auto-clamp — the validation indicator shows the error and the user fixes it manually. This is deliberate: auto-clamping one field when another changes is confusing and unpredictable.
 - As the user types, the allocation bar updates in real time, and the validation indicator recalculates.
-- No output recalculation until Run Simulation (Planning Mode). In Tracking Mode, changes re-forecast immediately (only if total = 100%).
+- No output recalculation until Run Simulation. In Tracking Mode, changes mark outputs stale until rerun (only if total = 100%).
 
 #### State
 
@@ -1974,7 +1975,7 @@ If the current year exactly matches a waypoint, use that waypoint's values direc
 | Enable/disable glide path | Editor appears/disappears. Target allocation inputs become read-only/editable. |
 | Add/remove/edit a glide path waypoint | Mini preview chart updates reactively. No output recalculation until Run Simulation. |
 | Run Simulation | Engine uses the selected drawdown strategy (bucket order or rebalancing targets + glide path) to source each month's withdrawal. |
-| In Tracking Mode, any drawdown config change | Projected months re-forecast immediately. |
+| In Tracking Mode, any drawdown config change | Outputs become stale and apply on next Run Simulation. |
 
 
 
@@ -2082,7 +2083,7 @@ The card's internal layout is organized in four rows, optimized for the sidebar'
 - Default value: **$0** (forces the user to enter a value).
 - Standard focus/blur formatting: strips to raw number on focus, re-formats on blur.
 - This is the amount in **today's dollars** if the Inflation-Adjusted toggle (#27g) is on. If inflation adjustment is off, this is the nominal fixed amount.
-- No output recalculation until Run Simulation (Planning Mode). In Tracking Mode, changes re-forecast immediately.
+- No output recalculation until Run Simulation. In Tracking Mode, changes mark outputs stale until rerun.
 
 #### State
 
@@ -2276,7 +2277,7 @@ The card's internal layout is organized in four rows, optimized for the sidebar'
 
 - **On click:** No confirmation dialog (income events are lightweight and easily re-created). The card animates out (fade-out + height collapse, 200ms ease).
 - If the removed card was the last one, the empty state placeholder reappears with a fade-in.
-- No output recalculation until Run Simulation. In Tracking Mode, removal triggers immediate re-forecast.
+- No output recalculation until Run Simulation. In Tracking Mode, removal marks outputs stale until rerun.
 
 ### State
 
@@ -2332,7 +2333,7 @@ Income events have minimal validation requirements:
 | Edit any field on an income event | Reactive updates to helper labels (total payments, per-frequency label). No output recalculation until Run Simulation. |
 | Change frequency from recurring to one-time (or vice versa) | Row 4 hides/shows. Helper labels update. |
 | Remove an income event | Card animates out. Empty state may reappear. No recalculation until Run Simulation. |
-| In Tracking Mode, any income event change | Projected months re-forecast immediately. |
+| In Tracking Mode, any income event change | Outputs become stale and apply on next Run Simulation. |
 | Run Simulation | Engine adds income deposits to the appropriate asset class in the appropriate months, respecting frequency, start/end dates, and inflation adjustment. |
 
 # Input Panel — Section: Irregular / Large Expenses (#30, #31, #32)
@@ -2435,7 +2436,7 @@ The card's internal layout uses the same four-row structure as income event card
 - Default value: **$0**.
 - Standard focus/blur formatting.
 - Amount is in **today's dollars** if the Inflation-Adjusted toggle (#30g) is on. Otherwise, fixed nominal.
-- No output recalculation until Run Simulation (Planning Mode). In Tracking Mode, changes re-forecast immediately.
+- No output recalculation until Run Simulation. In Tracking Mode, changes mark outputs stale until rerun.
 
 #### State
 
@@ -2646,7 +2647,7 @@ The card's internal layout uses the same four-row structure as income event card
 
 - **On click:** No confirmation dialog. Card animates out (fade-out + height collapse, 200ms ease).
 - If the removed card was the last one, the empty state placeholder reappears.
-- No output recalculation until Run Simulation. In Tracking Mode, removal triggers immediate re-forecast.
+- No output recalculation until Run Simulation. In Tracking Mode, removal marks outputs stale until rerun.
 
 ### State
 
@@ -2715,7 +2716,7 @@ The structural similarity means that once a user has configured an income event,
 | Change frequency between one-time and recurring | Row 4 hides/shows. Helper labels update. |
 | Change "Source From" to Follow Strategy vs. specific class | No visual change beyond the dropdown. Affects simulation engine behavior. |
 | Remove an expense event | Card animates out. Empty state may reappear. No recalculation until Run Simulation. |
-| In Tracking Mode, any expense event change | Projected months re-forecast immediately. |
+| In Tracking Mode, any expense event change | Outputs become stale and apply on next Run Simulation. |
 | Run Simulation | Engine deducts expense amounts from the appropriate asset class in the appropriate months, after regular withdrawals are processed. |
 
 
@@ -3004,9 +3005,8 @@ In **Tracking Mode**, the summary stats reflect a hybrid of actuals and projecti
 
 - For months where the user has entered actual values, the stats use those actual withdrawals.
 - For projected future months, the stats use the forecasted values.
-- The stats are recomputed immediately whenever the user edits an actual value in the table (reactive in Tracking Mode).
-- In Tracking + Manual, stats update reactively with table edits.
-- In Tracking + Monte Carlo, stats remain on the last Monte Carlo run until rerun after edits.
+- After Tracking edits (ledger or input panel), stats are treated as stale and remain on the last completed run until Run Simulation.
+- On rerun, stats recompute using preserved actual months through `lastEditedMonthIndex` and newly simulated future months.
 
 ---
 
@@ -3018,7 +3018,7 @@ In **Tracking Mode**, the summary stats reflect a hybrid of actuals and projecti
 | Run Simulation (subsequent) | Stats update. Changed values briefly highlight. |
 | Switch from Manual to Monte Carlo (or vice versa) | PoS card appears/disappears. Other cards reflow. Values show results from the last run of the now-active mode (or "—" if that mode hasn't been run). |
 | Switch to Tracking Mode | PoS card hidden. Stats reflect actuals + projection. |
-| Edit an actual in Tracking Mode | Stats recompute and update immediately. |
+| Edit an actual in Tracking Mode | Stats remain stale until Run Simulation, then refresh. |
 | Resize browser window | Cards reflow into appropriate number of rows. |
 
 # Output Area — Section: Portfolio Chart (#42–#48)
@@ -3231,7 +3231,7 @@ Described in #42 under "Tracking Mode" rendering:
 
 - Rendered automatically when in Tracking Mode and at least one actual value has been entered.
 - If no actuals exist in Tracking Mode, the entire line is dashed (all projection), and no "Today" marker appears.
-- As the user enters more actuals (editing cells in the table), the solid portion of the line extends rightward and the "Today" marker moves accordingly. This update is **immediate** (reactive in Tracking Mode).
+- As the user enters more actuals (editing cells in the table), the boundary update appears after Run Simulation. Until rerun, chart visuals are marked stale.
 
 ---
 
@@ -3348,7 +3348,7 @@ The controls above the chart are arranged in a single horizontal row:
 | Toggle Asset Class Breakdown | Line transforms to/from stacked area (400ms). MC bands hide/show. |
 | Hover over chart | Vertical crosshair + tooltip appear, following cursor. |
 | Switch to Tracking Mode | Chart shows solid/dashed split with "Today" marker. |
-| Edit an actual in Tracking Mode | Chart updates reactively — solid line extends, projections recalculate. |
+| Edit an actual in Tracking Mode | Chart is marked stale; rerun updates solid/dashed split and projections. |
 | Resize browser | Chart redraws at new dimensions. |
 
 # Output Area — Section: Detail Ledger (#49–#56)
@@ -3616,7 +3616,7 @@ In Tracking Mode, rows have additional visual treatments:
 - **Rows with user-entered actuals:** White background (standard), but with a thin **left border accent** (3px, app's primary color at ~40% opacity) on the Period cell. This subtle accent marks the row as containing real data without overwhelming the table.
 - **Rows with user-entered actuals — individual cell markers:** Each specific cell that was manually entered by the user displays a small **dot indicator** (4px, primary color) in the top-right corner of the cell. This distinguishes user-entered values from computed values within the same row (the user might enter the Stocks Start value but not Bonds Start — only the edited cell gets the dot).
 - **Rows in the past without actuals (gap-fill):** Same styling as projected rows (no special treatment). These are simulated months, indistinguishable from future projections.
-- **Projected future rows:** Faint blue-gray background tint (`#F5F7FA`) replacing the standard white/gray alternation. This creates a clear visual boundary between "resolved" months (past) and "projected" months (future).
+- **Projected future rows:** Blue-gray background tint replaces standard alternation. When Tracking outputs are stale, projected rows use a stronger tint to emphasize that values below the boundary are pending rerun.
 - **The boundary row:** The first projected row (the month immediately after the last actual, or the first future month) has a **top border** (2px, dashed, muted blue-gray) acting as the "today" divider. This aligns with the chart's "Today" marker.
 
 ### Year Boundary Rows (Monthly View)
@@ -3655,7 +3655,7 @@ The row in which the total portfolio first reaches $0 gets special treatment:
 
 ## Affordance #52: Tracking Mode Editable Cells
 
-**Purpose:** In Tracking Mode, allows the user to enter actual portfolio values, withdrawals, income, and expenses. This is the mechanism by which real-world data enters the simulation.
+**Purpose:** In Tracking Mode, allows the user to enter actual start balances and withdrawal-by-asset values. This is the mechanism by which real-world ledger actuals enter the simulation contract.
 
 **Control type:** Inline editable table cells
 
@@ -3664,21 +3664,21 @@ The row in which the total portfolio first reaches $0 gets special treatment:
 A cell is editable if **all** of the following are true:
 1. The app is in **Tracking Mode**.
 2. The row is in **Monthly** view.
-3. The cell belongs to one of the following columns:
+3. The active compare slot is **A** (when compare is active).
+4. The row month index is within the allowed edit window: `monthIndex <= min(horizonMonths, (lastEditedMonthIndex ?? 0) + 1)`, with Month 1 editable initially.
+5. The cell belongs to one of the following columns:
    - **Stocks Start** (under Portfolio Start)
    - **Bonds Start** (under Portfolio Start)
    - **Cash Start** (under Portfolio Start)
    - **Stocks Wdrl** (under Withdrawal Nominal)
    - **Bonds Wdrl** (under Withdrawal Nominal)
    - **Cash Wdrl** (under Withdrawal Nominal)
-   - **Income**
-   - **Expenses**
 
-This gives the user eight editable fields per month: three asset class starting values, three asset class withdrawal amounts, plus income and expenses. Other cells are computed from these inputs and the simulation configuration.
+This gives the user six editable fields per month: three asset class starting values and three asset class withdrawal amounts. Other cells are computed from these inputs, configured events, and simulation rules.
 
 ### Compact View Behavior
 
-When Breakdown is off (compact view), asset-specific start/withdrawal cells are not editable. Income and Expenses remain editable in monthly view.
+When Breakdown is off (compact view), asset-specific start/withdrawal cells are not visible and no cells are editable.
 
 ### Editable Cell Appearance
 
@@ -3695,8 +3695,8 @@ When Breakdown is off (compact view), asset-specific start/withdrawal cells are 
   - The dot indicator appears (or updates) in the top-right corner.
   - The same-row derived values update immediately (start total, market move, return %, per-asset move/end, and end total).
   - The latest edited month becomes the simulation boundary.
-  - Rows up to and including the boundary are preserved on subsequent runs; months after the boundary are recalculated.
-  - If Monte Carlo results exist, they become stale (see #3 revision).
+  - Rows up to and including the boundary are preserved on subsequent runs.
+  - Tracking outputs are marked stale; future months refresh only after Run Simulation.
 
 ### Keyboard Navigation
 
@@ -3716,7 +3716,7 @@ Focus is indicated by a visible focus ring (2px outline in the app's primary col
 
 ### Clearing an Actual
 
-- If the user selects the value in an edited cell and deletes it entirely (leaving it blank) and then blurs, the cell reverts to a **computed value** (the simulation fills it in). The dot indicator disappears. The cell is no longer treated as an actual.
+- If the user selects the value in an edited cell and deletes it entirely (leaving it blank) and then blurs, the cell reverts to a computed baseline value for the current run, the dot indicator disappears, and outputs are marked stale until rerun.
 - This allows the user to "un-enter" an actual for a specific cell without using the global "Clear Actuals" button (#61).
 
 ### Validation
@@ -3726,7 +3726,8 @@ Focus is indicated by a visible focus ring (2px outline in the app's primary col
 
 ### State
 
-- Actual overrides are stored by month with optional fields for start balances, withdrawals by asset, income total, and expense total.
+- Actual overrides are stored by month with optional `startBalances` and `withdrawalsByAsset`.
+- Legacy `incomeTotal`/`expenseTotal` override fields remain in schema for backward compatibility but are not authored by the current ledger UX.
 
 ---
 
@@ -3823,10 +3824,10 @@ In Monte Carlo mode, the table presents a unique challenge: there are 1,000+ sim
 | Hover over an Income or Expenses cell | Tooltip shows individual event breakdown. |
 | Hover over a clamped withdrawal | Tooltip explains which bound was hit and the original calculated value. |
 | Click an editable cell (Tracking Mode, expanded) | Cell becomes an inline input. Edit, Tab/Enter to confirm, Escape to cancel. |
-| Edit and confirm an actual value | Same-row derived values update immediately. Future months after latest edited boundary are recomputed; preserved rows stay fixed. MC results become stale if applicable. |
-| Clear an actual value | Cell reverts to computed. Dot indicator disappears. Downstream recalculation triggers. |
+| Edit and confirm an actual value | Same-row derived values update immediately. Boundary advances, outputs become stale, and future months refresh on rerun. |
+| Clear an actual value | Cell reverts to computed baseline. Dot indicator disappears. Outputs stay stale until rerun. |
 | Click row reset (↺) in monthly Tracking view | All overrides for that row are cleared and row values revert to computed baseline. |
-| Tracking + Monte Carlo stale state | A `Stale` pill appears in table controls; chart MC layers dim and stale banner appears until rerun. |
+| Tracking stale state (Manual or Monte Carlo) | A `Stale` pill appears in table controls; chart layers dim and stale banner appears until rerun. |
 | Scroll vertically | Controls bar and column headers remain sticky. |
 | Scroll horizontally (expanded view) | Period column remains frozen at left. Scroll shadows indicate hidden content. |
 

@@ -17,10 +17,15 @@ type VirtualizedBodyProps = {
   tableSpreadsheetMode: boolean;
   tableMinWidthClass: string;
   actualOverridesByMonth: Record<number, ActualMonthOverride>;
+  isCompareActive: boolean;
+  maxEditableMonthIndex: number;
+  runInflationRate: number | null;
   focusedCell: CellCoord | null;
   editingCell: CellCoord | null;
   draftValue: string;
   lastEditedMonthIndex: number | null;
+  isTrackingOutputsStale: boolean;
+  showResetColumn: boolean;
   activeLedgerSlotId: string;
   canonicalBoundary: number | null;
   onDraftChange: (value: string) => void;
@@ -44,10 +49,15 @@ export const VirtualizedBody = ({
   tableSpreadsheetMode,
   tableMinWidthClass,
   actualOverridesByMonth,
+  isCompareActive,
+  maxEditableMonthIndex,
+  runInflationRate,
   focusedCell,
   editingCell,
   draftValue,
   lastEditedMonthIndex,
+  isTrackingOutputsStale,
+  showResetColumn,
   activeLedgerSlotId,
   canonicalBoundary,
   onDraftChange,
@@ -99,10 +109,15 @@ export const VirtualizedBody = ({
                 tableGranularity={tableGranularity}
                 tableAssetColumnsEnabled={tableAssetColumnsEnabled}
                 actualOverridesByMonth={actualOverridesByMonth}
+                isCompareActive={isCompareActive}
+                maxEditableMonthIndex={maxEditableMonthIndex}
+                runInflationRate={runInflationRate}
                 focusedCell={focusedCell}
                 editingCell={editingCell}
                 draftValue={draftValue}
                 lastEditedMonthIndex={lastEditedMonthIndex}
+                isTrackingOutputsStale={isTrackingOutputsStale}
+                showResetColumn={showResetColumn}
                 activeLedgerSlotId={activeLedgerSlotId}
                 canonicalBoundary={canonicalBoundary}
                 onDraftChange={onDraftChange}
@@ -135,8 +150,8 @@ export const VirtualizedBody = ({
         <tbody>
           {virtualItems.length > 0 && virtualItems[0]!.start > 0 ? (
             <tr>
-              <td
-                colSpan={columns.length + (mode === AppMode.Tracking && tableGranularity === 'monthly' ? 1 : 0)}
+                <td
+                colSpan={columns.length + (showResetColumn ? 1 : 0)}
                 style={{ height: virtualItems[0]!.start }}
               />
             </tr>
@@ -154,10 +169,15 @@ export const VirtualizedBody = ({
                 tableGranularity={tableGranularity}
                 tableAssetColumnsEnabled={tableAssetColumnsEnabled}
                 actualOverridesByMonth={actualOverridesByMonth}
+                isCompareActive={isCompareActive}
+                maxEditableMonthIndex={maxEditableMonthIndex}
+                runInflationRate={runInflationRate}
                 focusedCell={focusedCell}
                 editingCell={editingCell}
                 draftValue={draftValue}
                 lastEditedMonthIndex={lastEditedMonthIndex}
+                isTrackingOutputsStale={isTrackingOutputsStale}
+                showResetColumn={showResetColumn}
                 activeLedgerSlotId={activeLedgerSlotId}
                 canonicalBoundary={canonicalBoundary}
                 onDraftChange={onDraftChange}
@@ -177,8 +197,8 @@ export const VirtualizedBody = ({
             const remaining = virtualizer.getTotalSize() - lastItem.end;
             return remaining > 0 ? (
               <tr>
-                <td
-                  colSpan={columns.length + (mode === AppMode.Tracking && tableGranularity === 'monthly' ? 1 : 0)}
+                  <td
+                  colSpan={columns.length + (showResetColumn ? 1 : 0)}
                   style={{ height: remaining }}
                 />
               </tr>

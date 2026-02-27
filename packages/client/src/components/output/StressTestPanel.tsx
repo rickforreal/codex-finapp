@@ -8,6 +8,7 @@ import { buildCompareStressTableModel } from '../../lib/compareStressTableModel'
 import { formatCompactCurrency, formatCurrency, formatPercent } from '../../lib/format';
 import {
   getCompareConfigForSlot,
+  getTrackingActualOverridesForRun,
   getCompareWorkspaceState,
   getCurrentConfig,
   type CompareSlotId,
@@ -142,7 +143,6 @@ export const StressTestPanel = () => {
   const setCompareSlotStressStatus = useAppStore((state) => state.setCompareSlotStressStatus);
   const setCompareSlotStressResult = useAppStore((state) => state.setCompareSlotStressResult);
   const clearCompareSlotStressResult = useAppStore((state) => state.clearCompareSlotStressResult);
-  const actualOverridesByMonth = useAppStore((state) => state.actualOverridesByMonth);
   const activeResult = useActiveSimulationResult();
   const baseMonteCarlo = useAppStore((state) => state.simulationResults.monteCarlo?.monteCarlo);
   const inflationRate = useAppStore((state) => state.coreParams.inflationRate);
@@ -189,7 +189,7 @@ export const StressTestPanel = () => {
         void runStressTest({
           config: getCurrentConfig(),
           scenarios: stress.scenarios,
-          actualOverridesByMonth,
+          actualOverridesByMonth: getTrackingActualOverridesForRun(),
           seed: activeResult.seedUsed,
           monthlyReturns: simulationMode === SimulationMode.Manual
             ? deriveMonthlyReturnsFromRows(activeResult.result.rows)
@@ -222,6 +222,7 @@ export const StressTestPanel = () => {
       }));
       slots.forEach(({ slotId }) => setCompareSlotStressStatus(slotId, 'running'));
       const currentCompareWorkspace = getCompareWorkspaceState();
+      const canonicalTrackingOverrides = getTrackingActualOverridesForRun();
 
       void (async () => {
         const queue = [...slots];
@@ -249,7 +250,10 @@ export const StressTestPanel = () => {
               const response = await runStressTest({
                 config,
                 scenarios: stress.scenarios,
-                actualOverridesByMonth: workspace?.actualOverridesByMonth ?? {},
+                actualOverridesByMonth:
+                  mode === AppMode.Tracking
+                    ? canonicalTrackingOverrides
+                    : workspace?.actualOverridesByMonth ?? {},
                 seed: result.seedUsed,
                 monthlyReturns:
                   simulationMode === SimulationMode.Manual
@@ -313,7 +317,6 @@ export const StressTestPanel = () => {
     };
   }, [
     activeResult,
-    actualOverridesByMonth,
     baseMonteCarlo,
     compareWorkspace.activeSlotId,
     compareSlotOrderKey,

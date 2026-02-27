@@ -1251,3 +1251,43 @@ Corrected TanStack Table doc drift across architecture/engineering/detail-ledger
 Validation run (client):
 - `npm run typecheck -w @finapp/client`
 - `npm run lint -w @finapp/client`
+
+## 2026-02-25 00:18 — TRACKING-LEDGER-CONTRACT-v1.0 | COMPLETE
+
+Implemented Tracking Detail Ledger Contract v1.0 with Slot `A` canonical actuals and stale-first rerun behavior.
+
+- [TLC-T1] Created feature docs:
+  - `docs/features/tracking-ledger-contract/FEATURE.md`
+  - `docs/features/tracking-ledger-contract/PLAN.md`
+  - `docs/features/tracking-ledger-contract/ACCEPTANCE.md`
+- [TLC-T2/T3] Enforced Tracking editability contract in ledger helpers/navigation:
+  - Editable columns reduced to start balances + withdrawal-by-asset only.
+  - Non-`A` compare slots blocked from ledger edits.
+  - Month edit guard added (`currentMonthIndex + 1` upper bound).
+- [TLC-T4] Added same-row derived congruence coverage:
+  - `packages/client/src/components/output/DetailLedger/cellHelpers.test.ts`
+  - `packages/client/src/lib/trackingActuals.test.ts`
+- [TLC-T5] Applied stale-first lifecycle for Tracking (Manual + Monte Carlo):
+  - Tracking ledger and input changes mark outputs stale.
+  - Explicit Run Simulation clears stale and refreshes outputs.
+- [TLC-T6] Canonicalized compare Tracking runtime to Slot `A` actual history:
+  - Non-`A` overrides blocked/ignored for effective run behavior.
+  - Compare run and stress paths consume canonical tracking override map.
+- [TLC-T7] Kept snapshot compatibility:
+  - Legacy override fields/schema accepted.
+  - Runtime ignores legacy per-row income/expense override authoring path.
+- [TLC-T8] Updated canonical docs:
+  - `docs/SPECS.md`
+  - `docs/SCENARIOS.md`
+  - `docs/ARCHITECTURE.md`
+  - `docs/DATA_MODEL.md`
+
+Validation run (all passing):
+- `npm run typecheck`
+- `npm run lint`
+- `npm test`
+- `npm run build`
+
+Canonical docs impact:
+- Tracking edit contract is now explicit and aligned across product, scenario, architecture, and data-model docs.
+- No backend API contract changes.

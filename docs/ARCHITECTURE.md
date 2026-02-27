@@ -85,7 +85,7 @@ This document defines the technical architecture for the Retirement Forecasting 
 
 **API-first boundary.** All server functionality is exposed through versioned REST endpoints. The React web client is the first consumer, but the API is designed to be consumed by any HTTP client — a future iOS app, Android app, or CLI tool would call the same endpoints.
 
-**Single canonical engine.** The simulation engine exists in exactly one place: the server. There is no client-side simulation code. This eliminates the risk of computational drift between two implementations and keeps the API boundary clean for future mobile clients. UX responsiveness for Tracking Mode re-forecasts is achieved through debouncing and optimistic UI patterns (see Section 9.3).
+**Single canonical engine.** The simulation engine exists in exactly one place: the server. There is no client-side simulation code. This eliminates the risk of computational drift between two implementations and keeps the API boundary clean for future mobile clients. Tracking uses a stale-first contract with explicit reruns, so forecast updates remain server-authoritative.
 
 **Shared type system.** Domain types and API contracts are defined once in a shared TypeScript package and imported by both client and server. This eliminates type drift across the boundary.
 
@@ -248,7 +248,7 @@ retirement-forecaster/
 │       │   ├── App.tsx            # Root component, layout shell
 │       │   ├── api/               # Typed API client functions
 │       │   │   ├── simulationApi.ts
-│       │   │   └── reforecastApi.ts  # Debounced, abortable reforecast calls
+│       │   │   └── reforecastApi.ts  # Legacy deterministic reforecast wrapper
 │       │   ├── store/
 │       │   │   ├── useAppStore.ts     # Zustand store definition
 │       │   │   ├── snapshot.ts        # Snapshot serialize/validate/restore
@@ -332,7 +332,7 @@ retirement-forecaster/
 │       │   │       └── Toast.tsx
 │       │   ├── hooks/
 │       │   │   ├── useSimulation.ts
-│       │   │   ├── useReforecast.ts   # Debounce + abort controller for Tracking edits
+│       │   │   ├── useReforecast.ts   # Legacy Tracking helper (not primary stale-first path)
 │       │   │   ├── useSnapshot.ts
 │       │   │   └── useKeyboardShortcuts.ts
 │       │   ├── utils/
@@ -535,7 +535,7 @@ App
     │   ├── useDetailColumns (column definitions)
     │   ├── useDetailRows (unified data pipeline)
     │   ├── useGridNavigation (keyboard nav: arrows, Tab, Enter, Escape, type-to-edit)
-    │   └── useReforecast (500ms debounce, non-blocking)
+    │   └── trackingActuals helpers (eligibility + canonical override sanitization)
     │
     └── StressTestPanel (collapsible)
         ├── ScenarioCard × N (#57) [1–4]
@@ -556,7 +556,7 @@ The application uses a single Zustand store divided into logical slices. Each sl
 
 ```
 AppStore
-├── mode: "planning" | "tracking" | "compare"
+├── mode: "planning" | "tracking"
 ├── simulationMode: "manual" | "monteCarlo"
 ├── selectedHistoricalEra: HistoricalEra
 │
@@ -600,8 +600,8 @@ AppStore
 │   ├── manual: ManualSimulationResult | null
 │   ├── monteCarlo: MonteCarloSimulationResult | null
 │   ├── status: "idle" | "running" | "complete" | "error"
-│   ├── mcStale: boolean
-│   └── reforecast: ReforecastResult | null   # Tracking mode deterministic result
+│   ├── mcStale: boolean                       # tracking stale flag (Manual + Monte Carlo)
+│   └── reforecast: ReforecastResult | null   # legacy deterministic cache (not the primary Tracking update path)
 │
 └── ui (included in snapshots)
     ├── chartDisplayMode: "nominal" | "real"   # default "real"
@@ -610,7 +610,7 @@ AppStore
     ├── tableAssetColumnsEnabled: boolean
     ├── tableSort: { column, direction } | null
     ├── chartZoom: { start, end } | null       # reserved; not user-exposed in current UI
-    └── reforecastStatus: "idle" | "pending" | "complete"
+    └── reforecastStatus: "idle" | "pending" | "complete"  # reserved legacy status field
 ```
 
 **Current implementation alignment (Phase 9+):**
@@ -631,7 +631,7 @@ AppStore
 - Compare slot manager is always visible in Planning and Tracking.
 - Compare output surfaces activate when slot count is greater than 1.
 - Slot `A` is canonical and non-removable.
-- In Tracking, non-`A` slots are constrained by `A` boundary (`A.lastEditedMonthIndex`) for immutable historical months.
+- In Tracking, slot `A` is the only editable ledger source of actuals. Non-`A` slot ledgers are read-only and consume `A` actual history for preserved months.
 - Compare simulation/stress caches remain slot-scoped and isolated from single-workspace caches.
 
 **Slice isolation.** Each slice exposes its own action creators. Components subscribe to the minimal slice they need via Zustand's selector pattern, preventing unnecessary re-renders.
@@ -670,9 +670,9 @@ Switching between Manual and Monte Carlo via the Simulation Mode Selector (#2) s
 
 Both caches are persisted in snapshots and restored on snapshot load.
 
-The `mcStale` flag is set to `true` when the user edits an actual in Tracking Mode while MC results exist. It is cleared when Monte Carlo is re-run.
+The `mcStale` flag is set to `true` when Tracking outputs become stale (ledger edits in slot `A` or Tracking input-panel changes). It is cleared when the active Tracking mode is rerun.
 
-A separate `simulationResults.reforecast` field stores the latest deterministic re-forecast result from the server (Tracking Mode). This is updated independently of the Manual/MC caches.
+`simulationResults.reforecast` remains as a compatibility cache but is not the primary update path for Tracking output refresh.
 
 ### 6.5 Charting Strategy
 
@@ -833,23 +833,14 @@ This function:
 
 **Random seed support.** Both Manual and Monte Carlo accept an optional seed for deterministic results. This is essential for stress testing (Section 7.5): the stress test uses the same seed as the base simulation so the only difference is the shock parameters.
 
-### 7.3 Deterministic Reforecast Engine
+### 7.3 Deterministic Reforecast Engine (Legacy Compatibility)
 
-The deterministic reforecast is a specialized variant of the simulation available for Tracking workflows. It has its own dedicated route (`POST /api/v1/reforecast`) and engine module (`engine/deterministic.ts`).
+The deterministic reforecast endpoint (`POST /api/v1/reforecast`) and module (`engine/deterministic.ts`) remain available for compatibility and controlled tooling use, but they are no longer the primary Tracking UX path.
 
-**What makes it deterministic:** Instead of sampling random returns (Manual) or historical returns (Monte Carlo), the deterministic path applies a **fixed monthly return** derived from the user's Return Assumptions (#11–#16):
-
-```
-monthlyReturn[asset] = (1 + annualExpectedReturn[asset])^(1/12) - 1
-```
-
-This rate is applied identically to every projected month. There is no randomness, no sampling, no seed. Given the same config and actuals, the deterministic reforecast always produces the same result.
-
-**How it interacts with actuals:** For months with user-entered actuals, the engine uses those values directly (locked). For months without actuals (gap-fill months in the past, and all future months), the engine applies the fixed monthly returns and computes withdrawals, income, and expenses per the config.
-
-**What users see (current implementation):** In Tracking Mode, editing updates same-row derived values immediately and establishes a latest-edited boundary. Subsequent Manual/Monte Carlo runs preserve rows up to that boundary and recompute only future rows. Monte Carlo edits mark MC visuals stale until rerun.
-
-**Performance target:** The deterministic reforecast must complete in <50ms server-side (it's a single pass with no randomness), keeping the total round-trip (including network) under ~200ms for a responsive editing experience.
+Current Tracking contract:
+- Ledger and input changes mark outputs stale.
+- Refresh happens on explicit Run Simulation (`POST /api/v1/simulate`) using preserved actuals through Slot `A.lastEditedMonthIndex`.
+- This keeps Manual and Monte Carlo behavior consistent under one rerun model.
 
 ### 7.4 Historical Data Loading
 
@@ -950,7 +941,7 @@ User edits a field
 
 No API call is made. The server is not contacted until the user clicks Run Simulation.
 
-**Exception: Tracking Mode.** When the user edits an input field (not an actual) while in Tracking Mode, the re-forecast flow (Section 9.3) is triggered in addition to the store update.
+**Tracking stale-first rule.** In Tracking Mode, input and ledger edits mark outputs stale, but do not trigger an immediate reforecast call.
 
 ### 9.2 Run Simulation (Planning / Tracking with optional multi-slot compare)
 
@@ -979,40 +970,34 @@ User clicks Run Simulation with compare-active slot set (slot count > 1)
             → Shared compare chart/stats/ledger tabs re-render
 ```
 
-### 9.3 Tracking Mode — Actual Edit and Input Changes (Server-Side Reforecast)
+### 9.3 Tracking Mode — Actual Edit and Input Changes (Stale-First Contract)
 
-The deterministic re-forecast runs on the server. The client uses debouncing, request cancellation, and optimistic UI to maintain responsiveness.
+Tracking uses explicit rerun semantics:
 
 ```
-User edits an actual cell (or changes an input in Tracking Mode)
-  → Store updates immediately (optimistic: edited cell shows new value)
-    → If MC results exist: set mcStale = true
-        → UI: MC bands dim, PoS dims, Run button gets orange badge
-      → Set reforecastStatus = "pending"
-        → UI: projected rows show subtle loading skeleton
-          → Debounce timer starts (300ms for slider drags, immediate for discrete edits)
-            → On debounce fire: abort any in-flight reforecast request
-              → Send POST /api/v1/reforecast with full config + actuals
-                → Server runs deterministic engine (<50ms)
-                  → Client receives response
-                    → Store updates simulationResults.reforecast
-                      → reforecastStatus = "complete"
-                        → Chart, Table, SummaryStats re-render with new projection
+User edits slot A actuals (start balances or withdrawal-by-asset)
+  → Store updates edited row and same-row derived values immediately
+    → Update A.lastEditedMonthIndex boundary
+      → Mark Tracking outputs stale
+        → UI: stale pill + stale banner + projected-row tint
+          → No server call yet
+
+User changes Tracking input-panel configuration
+  → Store updates config
+    → Mark Tracking outputs stale
+      → No server call yet
+
+User clicks Run Simulation
+  → Client sends POST /api/v1/simulate using current config and canonical tracking overrides
+    → Preserve rows through boundary (A.lastEditedMonthIndex)
+      → Replace rows after boundary with fresh simulated output
+        → Clear stale state
 ```
 
-**Debounce rules:**
-
-- Slider drags and rapid keystrokes: 300ms debounce. Changes within the window are collapsed into a single API call with the latest values.
-- Discrete edits (dropdown selections, toggle switches, adding/removing events): fire immediately (0ms debounce). These are single-action changes that feel sluggish with a delay.
-- In both cases, any in-flight reforecast request is aborted before sending the new one (using `AbortController`).
-
-**Optimistic UI:**
-
-- The edited cell's value updates immediately in the store — no waiting for the server.
-- Dependent cells (computed columns in the same row, all projected rows below) show a subtle loading skeleton (a faint pulse animation on the text) for the ~100–200ms until the server responds.
-- If the server response fails (network error, validation error), the client can show an error toast but the edited value remains in the store — the user doesn't lose their input.
-
-**What "deterministic" means here:** The server applies fixed expected returns (see Section 7.3) to all non-actual months. This produces a single, reproducible projection. It is not the same as a Manual simulation run (which is stochastic) or Monte Carlo (which is distributional). Users who want a stochastic or MC result must click Run Simulation.
+Key constraints:
+- Slot `A` is the only editable ledger in Tracking.
+- Non-`A` slots are read-only for ledger actuals and consume Slot `A` actual history as the compare canonical floor.
+- Manual and Monte Carlo both follow the same stale-first rerun model in Tracking.
 
 ### 9.4 Snapshot Save/Load
 
@@ -1041,8 +1026,6 @@ Load:
 |---|---|---|
 | Manual simulation (single path, 480 months) | < 50ms server-side | Time from request received to response sent |
 | Monte Carlo (1,000 runs, 480 months) | < 3 seconds server-side | Same |
-| Deterministic reforecast (480 months) | < 50ms server-side | Same |
-| Deterministic reforecast (total round-trip) | < 200ms | Time from actual edit to projected rows updated |
 | Stress test, Manual (4 scenarios) | < 200ms server-side | Same |
 | Stress test, Monte Carlo (4 scenarios × 1,000 runs) | < 15 seconds server-side | Same |
 | Chart render (initial draw-on) | < 100ms after data arrives | Time from data in store to pixels on screen |
@@ -1077,12 +1060,6 @@ Drawdown strategies (Bucket and Rebalancing) get similar treatment:
 
 The PMT helper gets standalone tests against known financial calculator outputs.
 
-**Deterministic reforecast tests:**
-
-- Verify that the deterministic engine uses the fixed monthly return `(1 + annualReturn)^(1/12) - 1` and produces identical results for identical inputs (no randomness).
-- Verify that actuals are locked and non-actual months are computed.
-- Verify that the deterministic result differs from a Manual simulation run for the same config (since Manual is stochastic).
-
 Monte Carlo tests verify:
 
 - **Determinism:** same seed produces the same result.
@@ -1099,7 +1076,7 @@ Monte Carlo tests verify:
 - **Snapshot serialization:** verify round-trip (serialize → deserialize produces identical state), schema version validation, and rejection of invalid data.
   - Verify packed-row decoding rejects malformed column headers and malformed tuple widths.
 - **Derived selectors:** verify computed values (total portfolio, percentage breakdowns, phase validation) update correctly when inputs change.
-- **Reforecast debounce logic:** verify that rapid changes collapse into a single API call, and that in-flight requests are aborted.
+- **Tracking stale lifecycle:** verify Tracking edits mark outputs stale and explicit rerun clears stale state.
 
 ### 11.4 Integration Tests — API Endpoints (Medium Priority)
 
@@ -1107,8 +1084,7 @@ Use Fastify's built-in `inject()` method (no actual HTTP server needed):
 
 - **Valid requests** return 200 with correctly shaped responses.
 - **Invalid requests** (missing fields, out-of-range values, phase gaps) return 400 with structured error bodies.
-- **Each simulation mode** (Manual Planning, MC Planning, deterministic reforecast, Manual Tracking, MC Tracking) returns the expected result shape.
-- **Reforecast endpoint** returns results within the 50ms performance target for a standard configuration.
+- **Each simulation mode** (Manual Planning, MC Planning, Manual Tracking, MC Tracking) returns the expected result shape.
 
 ### 11.5 Component Tests (Lower Priority)
 
@@ -1125,7 +1101,7 @@ Simple display components (StatCard, CollapsibleSection, etc.) do not need tests
 A small E2E suite (Playwright or Cypress) covering the two critical user flows:
 
 1. **Planning flow:** Set inputs → Run Manual simulation → Verify chart and stats render → Switch to MC → Run → Verify bands and PoS render.
-2. **Tracking flow:** Switch to Tracking → Enter actuals → Verify re-forecast renders → Run MC → Verify bands from actuals forward.
+2. **Tracking flow:** Switch to Tracking → Enter actuals in slot A → Verify stale state → Run simulation → Verify preserved rows + refreshed projections.
 
 These are high-value smoke tests, not comprehensive coverage. They guard against integration breakage between client and server.
 

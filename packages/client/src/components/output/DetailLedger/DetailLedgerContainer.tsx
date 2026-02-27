@@ -15,7 +15,6 @@ import { DetailLedgerToolbar } from './DetailLedgerToolbar';
 import { useDetailColumns } from './useDetailColumns';
 import { useDetailRows } from './useDetailRows';
 import { useGridNavigation } from './useGridNavigation';
-import { useReforecast } from './useReforecast';
 import { VirtualizedBody } from './VirtualizedBody';
 
 export const DetailLedgerContainer = () => {
@@ -27,16 +26,34 @@ export const DetailLedgerContainer = () => {
   const setTableSort = useAppStore((state) => state.setTableSort);
   const actualOverridesByMonth = useAppStore((state) => state.actualOverridesByMonth);
   const lastEditedMonthIndex = useAppStore((state) => state.lastEditedMonthIndex);
+  const trackingOutputsStale = useAppStore((state) => {
+    if (state.mode !== AppMode.Tracking) {
+      return false;
+    }
+    if (state.compareWorkspace.slotOrder.length <= 1) {
+      return state.simulationResults.mcStale;
+    }
+    return state.compareWorkspace.slotOrder.some((slotId) => state.compareWorkspace.slots[slotId]?.simulationResults.mcStale);
+  });
+  const retirementDuration = useAppStore((state) => state.coreParams.retirementDuration);
   const upsertActualOverride = useAppStore((state) => state.upsertActualOverride);
   const clearActualRowOverrides = useAppStore((state) => state.clearActualRowOverrides);
   const isCompareActive = useIsCompareActive();
   const compareSlotOrder = useAppStore((state) => state.compareWorkspace.slotOrder);
 
-  const { rows, activeLedgerSlotId, canonicalBoundary } = useDetailRows();
+  const { rows, activeLedgerSlotId, canonicalBoundary, runInflationRate } = useDetailRows();
   const { columns, tableMinWidthClass } = useDetailColumns();
-
-  // Reforecast effect (debounced, no overlay)
-  useReforecast(rows.length);
+  const trackingHorizonMonths = Math.max(0, Math.round(retirementDuration) * 12);
+  const maxEditableMonthIndex =
+    mode === AppMode.Tracking
+      ? trackingHorizonMonths === 0
+        ? 0
+        : Math.max(1, Math.min(trackingHorizonMonths, (lastEditedMonthIndex ?? 0) + 1))
+      : 0;
+  const showResetColumn =
+    mode === AppMode.Tracking &&
+    tableGranularity === 'monthly' &&
+    activeLedgerSlotId === 'A';
 
   // Commit handler for grid navigation
   const handleCommit = useCallback(
@@ -56,10 +73,6 @@ export const DetailLedgerContainer = () => {
       ) {
         const key = column.key === 'withdrawalStocks' ? 'stocks' : column.key === 'withdrawalBonds' ? 'bonds' : 'cash';
         patch.withdrawalsByAsset = { [key]: normalized };
-      } else if (column.key === 'income') {
-        patch.incomeTotal = normalized;
-      } else if (column.key === 'expenses') {
-        patch.expenseTotal = normalized;
       }
 
       upsertActualOverride(monthIndex, patch);
@@ -71,11 +84,13 @@ export const DetailLedgerContainer = () => {
     rows,
     columns,
     mode,
+    isCompareActive,
     tableGranularity,
     tableAssetColumnsEnabled,
     actualOverridesByMonth,
+    maxEditableMonthIndex,
+    runInflationRate,
     activeLedgerSlotId,
-    canonicalBoundary,
     onCommit: handleCommit,
   });
 
@@ -176,7 +191,7 @@ export const DetailLedgerContainer = () => {
               </th>
             );
           })}
-          {mode === AppMode.Tracking && tableGranularity === 'monthly' ? (
+          {showResetColumn ? (
             <th className="border-b border-brand-border bg-white px-2 py-2 text-left font-semibold text-slate-700">
               Reset
             </th>
@@ -184,7 +199,7 @@ export const DetailLedgerContainer = () => {
         </tr>
       </thead>
     ),
-    [columns, mode, tableGranularity, tableSort, setSort],
+    [columns, setSort, showResetColumn, tableSort],
   );
 
   return (
@@ -194,7 +209,24 @@ export const DetailLedgerContainer = () => {
         {isCompareActive ? <CompareSlotTabs slotOrder={compareSlotOrder} activeLedgerSlotId={activeLedgerSlotId} /> : null}
         {isCompareActive ? (
           <div className="border-b border-brand-border px-3 py-2 text-xs font-semibold text-slate-700">
-            Portfolio {activeLedgerSlotId}
+            <span>Portfolio {activeLedgerSlotId}</span>
+            {mode === AppMode.Tracking && activeLedgerSlotId !== 'A' ? (
+              <span className="ml-2 font-normal text-slate-500">
+                Actuals sourced from Portfolio A. This ledger is read-only.
+              </span>
+            ) : null}
+          </div>
+        ) : null}
+        {mode === AppMode.Tracking && trackingOutputsStale ? (
+          <div
+            className="border-b border-brand-border px-3 py-2 text-xs font-medium"
+            style={{
+              backgroundColor: 'var(--theme-state-stale-background)',
+              color: 'var(--theme-state-stale-text)',
+            }}
+          >
+            Projection is stale. Run Simulation to refresh
+            {canonicalBoundary !== null ? ` from month ${canonicalBoundary + 1} onward.` : ' results.'}
           </div>
         ) : null}
       </div>
@@ -208,10 +240,15 @@ export const DetailLedgerContainer = () => {
         tableSpreadsheetMode={tableSpreadsheetMode}
         tableMinWidthClass={tableMinWidthClass}
         actualOverridesByMonth={actualOverridesByMonth}
+        isCompareActive={isCompareActive}
+        maxEditableMonthIndex={maxEditableMonthIndex}
+        runInflationRate={runInflationRate}
         focusedCell={nav.focusedCell}
         editingCell={nav.editingCell}
         draftValue={nav.draftValue}
         lastEditedMonthIndex={lastEditedMonthIndex}
+        isTrackingOutputsStale={trackingOutputsStale}
+        showResetColumn={showResetColumn}
         activeLedgerSlotId={activeLedgerSlotId}
         canonicalBoundary={canonicalBoundary}
         onDraftChange={nav.setDraftValue}

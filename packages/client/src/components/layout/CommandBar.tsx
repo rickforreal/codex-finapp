@@ -1,11 +1,19 @@
 import { useEffect, useRef, useState, type ChangeEvent } from 'react';
 
-import { AppMode, DrawdownStrategyType, HistoricalEra, SimulationMode } from '@finapp/shared';
+import {
+  AppMode,
+  DrawdownStrategyType,
+  HistoricalEra,
+  SimulationMode,
+  type ActualMonthOverride,
+  type ActualOverridesByMonth,
+} from '@finapp/shared';
 
 import { fetchHistoricalSummary } from '../../api/historicalApi';
 import { runSimulation } from '../../api/simulationApi';
 import { SnapshotLoadError, parseSnapshot, serializeSnapshot } from '../../store/snapshot';
 import {
+  getTrackingActualOverridesForRun,
   getCompareConfigs,
   getCurrentConfig,
   useIsCompareActive,
@@ -37,6 +45,82 @@ const mergeRowsWithPreservedBoundary = <
   };
 };
 
+type RowWithBalancesAndWithdrawals = {
+  startBalances: { stocks: number; bonds: number; cash: number };
+  marketChange: { stocks: number; bonds: number; cash: number };
+  withdrawals: { byAsset: { stocks: number; bonds: number; cash: number } };
+  endBalances: { stocks: number; bonds: number; cash: number };
+};
+
+const deriveBoundaryEndBalances = (
+  row: RowWithBalancesAndWithdrawals,
+  override: ActualMonthOverride | undefined,
+): { stocks: number; bonds: number; cash: number } => {
+  const startStocks = override?.startBalances?.stocks ?? row.startBalances.stocks;
+  const startBonds = override?.startBalances?.bonds ?? row.startBalances.bonds;
+  const startCash = override?.startBalances?.cash ?? row.startBalances.cash;
+
+  const deltaStocks =
+    override?.startBalances?.stocks !== undefined
+      ? override.startBalances.stocks - row.startBalances.stocks
+      : 0;
+  const deltaBonds =
+    override?.startBalances?.bonds !== undefined
+      ? override.startBalances.bonds - row.startBalances.bonds
+      : 0;
+  const deltaCash =
+    override?.startBalances?.cash !== undefined
+      ? override.startBalances.cash - row.startBalances.cash
+      : 0;
+
+  const moveStocks = row.marketChange.stocks + deltaStocks;
+  const moveBonds = row.marketChange.bonds + deltaBonds;
+  const moveCash = row.marketChange.cash + deltaCash;
+
+  const wdStocks = override?.withdrawalsByAsset?.stocks ?? row.withdrawals.byAsset.stocks;
+  const wdBonds = override?.withdrawalsByAsset?.bonds ?? row.withdrawals.byAsset.bonds;
+  const wdCash = override?.withdrawalsByAsset?.cash ?? row.withdrawals.byAsset.cash;
+
+  return {
+    stocks: Math.max(0, Math.round(startStocks + moveStocks - wdStocks)),
+    bonds: Math.max(0, Math.round(startBonds + moveBonds - wdBonds)),
+    cash: Math.max(0, Math.round(startCash + moveCash - wdCash)),
+  };
+};
+
+const withBoundaryStartAnchor = (
+  overrides: ActualOverridesByMonth | undefined,
+  boundaryMonthIndex: number | null,
+  preservedRows: RowWithBalancesAndWithdrawals[],
+): ActualOverridesByMonth | undefined => {
+  if (boundaryMonthIndex === null || boundaryMonthIndex <= 0) {
+    return overrides;
+  }
+
+  const boundaryRow = preservedRows[boundaryMonthIndex - 1];
+  if (!boundaryRow) {
+    return overrides;
+  }
+
+  const nextMonthIndex = boundaryMonthIndex + 1;
+  const boundaryOverride = overrides?.[boundaryMonthIndex];
+  const anchoredStartBalances = deriveBoundaryEndBalances(boundaryRow, boundaryOverride);
+  const nextOverrides = { ...(overrides ?? {}) };
+  const nextMonthOverride = nextOverrides[nextMonthIndex] ?? {};
+
+  nextOverrides[nextMonthIndex] = {
+    ...nextMonthOverride,
+    startBalances: {
+      ...(nextMonthOverride.startBalances ?? {}),
+      stocks: anchoredStartBalances.stocks,
+      bonds: anchoredStartBalances.bonds,
+      cash: anchoredStartBalances.cash,
+    },
+  };
+
+  return nextOverrides;
+};
+
 export const CommandBar = () => {
   const fileInputRef = useRef<HTMLInputElement | null>(null);
   const [themeMenuOpen, setThemeMenuOpen] = useState(false);
@@ -55,12 +139,10 @@ export const CommandBar = () => {
   const setHistoricalSummary = useAppStore((state) => state.setHistoricalSummary);
   const setSimulationStatus = useAppStore((state) => state.setSimulationStatus);
   const setSimulationResult = useAppStore((state) => state.setSimulationResult);
-  const setReforecastResult = useAppStore((state) => state.setReforecastResult);
   const setCompareSlotSimulationStatus = useAppStore((state) => state.setCompareSlotSimulationStatus);
   const setCompareSlotSimulationResult = useAppStore((state) => state.setCompareSlotSimulationResult);
   const drawdownType = useAppStore((state) => state.drawdownStrategy.type);
   const targetAllocation = useAppStore((state) => state.drawdownStrategy.rebalancing.targetAllocation);
-  const actualOverridesByMonth = useAppStore((state) => state.actualOverridesByMonth);
   const lastEditedMonthIndex = useAppStore((state) => state.lastEditedMonthIndex);
   const startDate = useAppStore((state) => state.coreParams.retirementStartDate);
   const clearAllActualOverrides = useAppStore((state) => state.clearAllActualOverrides);
@@ -196,6 +278,10 @@ export const CommandBar = () => {
         }
 
         const seed = Math.floor(Math.random() * 2_147_483_000);
+        const trackingActualOverrides = mode === AppMode.Tracking ? getTrackingActualOverridesForRun() : undefined;
+        const canonicalBoundary = mode === AppMode.Tracking
+          ? (compareWorkspace.slots.A?.lastEditedMonthIndex ?? null)
+          : null;
         compareConfigs.forEach(({ slotId }) => setCompareSlotSimulationStatus(slotId, 'running'));
         const queue = [...compareConfigs];
         const maxParallel = 4;
@@ -208,12 +294,57 @@ export const CommandBar = () => {
             }
             const { slotId, config } = next;
             try {
-              const actualOverridesByMonth =
+              const existingResultForSlot = (() => {
+                const workspace = compareWorkspace.slots[slotId];
+                if (!workspace) {
+                  return null;
+                }
+                const preferred =
+                  simulationMode === SimulationMode.Manual
+                    ? workspace.simulationResults.manual
+                    : workspace.simulationResults.monteCarlo;
+                return preferred ?? workspace.simulationResults.manual ?? workspace.simulationResults.monteCarlo;
+              })();
+              const effectiveOverrides =
                 mode === AppMode.Tracking
-                  ? (compareWorkspace.slots[slotId]?.actualOverridesByMonth ?? {})
-                  : undefined;
-              const response = await runSimulation({ config, seed, actualOverridesByMonth });
-              setCompareSlotSimulationResult(slotId, simulationMode, response);
+                  ? withBoundaryStartAnchor(
+                      trackingActualOverrides,
+                      canonicalBoundary,
+                      (existingResultForSlot?.result.rows ?? []) as RowWithBalancesAndWithdrawals[],
+                    )
+                  : trackingActualOverrides;
+              const response = await runSimulation({
+                config,
+                seed,
+                actualOverridesByMonth: effectiveOverrides,
+              });
+              if (
+                mode === AppMode.Tracking &&
+                canonicalBoundary !== null &&
+                canonicalBoundary > 0 &&
+                existingResultForSlot
+              ) {
+                const merged = mergeRowsWithPreservedBoundary(
+                  response.result.rows,
+                  existingResultForSlot.result.rows,
+                  canonicalBoundary,
+                );
+                const mergedResponse = {
+                  ...response,
+                  result: {
+                    ...response.result,
+                    rows: merged.rows,
+                    summary: {
+                      ...response.result.summary,
+                      terminalPortfolioValue:
+                        merged.terminalPortfolioValue ?? response.result.summary.terminalPortfolioValue,
+                    },
+                  },
+                };
+                setCompareSlotSimulationResult(slotId, simulationMode, mergedResponse);
+              } else {
+                setCompareSlotSimulationResult(slotId, simulationMode, response);
+              }
             } catch (error) {
               const message = error instanceof Error ? error.message : `Compare ${slotId} simulation failed`;
               setCompareSlotSimulationStatus(slotId, 'error', message);
@@ -230,6 +361,7 @@ export const CommandBar = () => {
 
       setSimulationStatus('running');
       const config = getCurrentConfig();
+      const trackingActualOverrides = mode === AppMode.Tracking ? getTrackingActualOverridesForRun() : undefined;
       if (
         mode === AppMode.Tracking &&
         (simulationMode === SimulationMode.Manual || simulationMode === SimulationMode.MonteCarlo) &&
@@ -242,7 +374,12 @@ export const CommandBar = () => {
             state.simulationResults.manual ??
             state.simulationResults.monteCarlo
           )?.result.rows ?? [];
-        const result = await runSimulation({ config, actualOverridesByMonth });
+        const effectiveOverrides = withBoundaryStartAnchor(
+          trackingActualOverrides,
+          lastEditedMonthIndex,
+          visibleRows as RowWithBalancesAndWithdrawals[],
+        );
+        const result = await runSimulation({ config, actualOverridesByMonth: effectiveOverrides });
         const merged = mergeRowsWithPreservedBoundary(
           result.result.rows,
           visibleRows,
@@ -261,15 +398,11 @@ export const CommandBar = () => {
             },
           },
         };
-        if (simulationMode === SimulationMode.Manual) {
-          setReforecastResult(mergedResult);
-        } else {
-          setSimulationResult(simulationMode, mergedResult);
-        }
+        setSimulationResult(simulationMode, mergedResult);
         return;
       }
 
-      const result = await runSimulation({ config, actualOverridesByMonth });
+      const result = await runSimulation({ config, actualOverridesByMonth: trackingActualOverrides });
       setSimulationResult(simulationMode, result);
     } catch (error) {
       const message = error instanceof Error ? error.message : 'Unknown simulation error';
