@@ -162,6 +162,9 @@ To add a theme:
 4. If needed, map additional tokens in `packages/client/src/styles/themeEngine.ts`.
 5. Verify UI coverage in dark/high-contrast contexts and run full checks.
 
+Detailed theming architecture and authoring workflow:
+- `docs/features/themes/GUIDE.md`
+
 ### 2) Add a Withdrawal Strategy
 
 1. Add strategy type/params in shared domain (`packages/shared/src/domain/simulation.ts`).
