@@ -70,6 +70,33 @@ describe('runMonteCarlo', () => {
     expect(result.monteCarlo.probabilityOfSuccess).toBe(0);
   });
 
+  it('treats empty spending phases as no clamp bounds', async () => {
+    const configWithoutPhases = createBaseConfig();
+    configWithoutPhases.simulationMode = SimulationMode.MonteCarlo;
+    configWithoutPhases.spendingPhases = [];
+
+    const configWithWidePhase = createBaseConfig();
+    configWithWidePhase.simulationMode = SimulationMode.MonteCarlo;
+    configWithWidePhase.spendingPhases = [
+      {
+        id: 'wide',
+        name: 'Wide',
+        startYear: 1,
+        endYear: configWithWidePhase.coreParams.retirementDuration,
+        minMonthlySpend: 0,
+        maxMonthlySpend: 1_000_000_000,
+      },
+    ];
+
+    const withoutPhases = await runMonteCarlo(configWithoutPhases, { runs: 300, seed: 101 });
+    const withWidePhase = await runMonteCarlo(configWithWidePhase, { runs: 300, seed: 101 });
+
+    expect(withoutPhases.monteCarlo.probabilityOfSuccess).toBe(withWidePhase.monteCarlo.probabilityOfSuccess);
+    expect(withoutPhases.representativePath.summary.terminalPortfolioValue).toBe(
+      withWidePhase.representativePath.summary.terminalPortfolioValue,
+    );
+  });
+
   it('completes 1000 runs under performance target', async () => {
     const config = createBaseConfig();
     config.simulationMode = SimulationMode.MonteCarlo;

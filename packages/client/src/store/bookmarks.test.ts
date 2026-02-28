@@ -186,4 +186,18 @@ describe('bookmarks', () => {
     expect(compareSync.familyLocks.spendingPhases).toBe(true);
     expect(compareSync.unsyncedBySlot.B?.families.spendingPhases).toBe(true);
   });
+
+  it('auto-clears spending phases when applying legacy bookmark payloads', () => {
+    const storage = new MemoryStorage();
+    resetStore();
+    const store = useAppStore.getState();
+    store.addSpendingPhase();
+    store.addSpendingPhase();
+    expect(useAppStore.getState().spendingPhases.length).toBeGreaterThan(0);
+    createBookmark('With Phases', { storage, createId: () => 'bookmark-phases' });
+
+    store.removeSpendingPhase(useAppStore.getState().spendingPhases[0]?.id ?? '');
+    applyBookmark('bookmark-phases', { storage });
+    expect(useAppStore.getState().spendingPhases).toHaveLength(0);
+  });
 });

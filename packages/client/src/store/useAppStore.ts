@@ -1379,12 +1379,63 @@ const isCompareInstanceLockedAndSyncedForActiveSlot = (
   return isSlotInstanceSynced(compareSync, activeSlotId, family, instanceId);
 };
 
+const clearSpendingPhasesInWorkspace = (workspace: WorkspaceSnapshot | null): WorkspaceSnapshot | null => {
+  if (!workspace) {
+    return null;
+  }
+  return {
+    ...workspace,
+    spendingPhases: [],
+  };
+};
+
+const clearSnapshotSpendingPhases = (snapshot: SnapshotState): SnapshotState => {
+  const compareWorkspaceSlots = Object.fromEntries(
+    Object.entries(snapshot.compareWorkspace.slots).map(([slotId, workspace]) => [
+      slotId,
+      clearSpendingPhasesInWorkspace(workspace ?? null),
+    ]),
+  ) as SnapshotState['compareWorkspace']['slots'];
+
+  const compareSync = snapshot.compareWorkspace.compareSync;
+  return {
+    ...snapshot,
+    spendingPhases: [],
+    planningWorkspace: clearSpendingPhasesInWorkspace(snapshot.planningWorkspace),
+    trackingWorkspace: clearSpendingPhasesInWorkspace(snapshot.trackingWorkspace),
+    compareWorkspace: {
+      ...snapshot.compareWorkspace,
+      compareSync: {
+        ...compareSync,
+        instanceLocks: {
+          ...compareSync.instanceLocks,
+          spendingPhases: {},
+        },
+        unsyncedBySlot: Object.fromEntries(
+          Object.entries(compareSync.unsyncedBySlot).map(([slotId, overrides]) => [
+            slotId,
+            {
+              ...overrides,
+              instances: {
+                ...overrides.instances,
+                spendingPhases: {},
+              },
+            },
+          ]),
+        ) as SnapshotState['compareWorkspace']['compareSync']['unsyncedBySlot'],
+      },
+      slots: compareWorkspaceSlots,
+    },
+  };
+};
+
 const cloneSnapshotState = (snapshot: SnapshotState): SnapshotState => {
+  const normalizedSnapshot = clearSnapshotSpendingPhases(snapshot);
   const syncedCompareWorkspace = applyCompareSyncFromMaster(
-    normalizeCompareWorkspace(cloneCompareWorkspace(snapshot.compareWorkspace)),
+    normalizeCompareWorkspace(cloneCompareWorkspace(normalizedSnapshot.compareWorkspace)),
   );
   const normalizedCompareWorkspace =
-    snapshot.mode === AppMode.Tracking
+    normalizedSnapshot.mode === AppMode.Tracking
       ? normalizeTrackingCompareCanonicalFloor(
           syncedCompareWorkspace,
         )
@@ -1392,61 +1443,61 @@ const cloneSnapshotState = (snapshot: SnapshotState): SnapshotState => {
   const normalizedActiveWorkspace = normalizedCompareWorkspace.slots[normalizedCompareWorkspace.activeSlotId];
 
   return {
-  mode: snapshot.mode,
-  trackingInitialized: snapshot.trackingInitialized,
-  planningWorkspace: snapshot.planningWorkspace ? cloneWorkspace(snapshot.planningWorkspace) : null,
-  trackingWorkspace: snapshot.trackingWorkspace ? cloneWorkspace(snapshot.trackingWorkspace) : null,
+  mode: normalizedSnapshot.mode,
+  trackingInitialized: normalizedSnapshot.trackingInitialized,
+  planningWorkspace: normalizedSnapshot.planningWorkspace ? cloneWorkspace(normalizedSnapshot.planningWorkspace) : null,
+  trackingWorkspace: normalizedSnapshot.trackingWorkspace ? cloneWorkspace(normalizedSnapshot.trackingWorkspace) : null,
   compareWorkspace: normalizedCompareWorkspace,
-  simulationMode: snapshot.simulationMode,
-  selectedHistoricalEra: snapshot.selectedHistoricalEra,
+  simulationMode: normalizedSnapshot.simulationMode,
+  selectedHistoricalEra: normalizedSnapshot.selectedHistoricalEra,
   coreParams: {
-    ...snapshot.coreParams,
-    retirementStartDate: { ...snapshot.coreParams.retirementStartDate },
+    ...normalizedSnapshot.coreParams,
+    retirementStartDate: { ...normalizedSnapshot.coreParams.retirementStartDate },
   },
-  portfolio: { ...snapshot.portfolio },
+  portfolio: { ...normalizedSnapshot.portfolio },
   returnAssumptions: {
-    stocks: { ...snapshot.returnAssumptions.stocks },
-    bonds: { ...snapshot.returnAssumptions.bonds },
-    cash: { ...snapshot.returnAssumptions.cash },
+    stocks: { ...normalizedSnapshot.returnAssumptions.stocks },
+    bonds: { ...normalizedSnapshot.returnAssumptions.bonds },
+    cash: { ...normalizedSnapshot.returnAssumptions.cash },
   },
-  spendingPhases: snapshot.spendingPhases.map((phase) => ({ ...phase })),
+  spendingPhases: normalizedSnapshot.spendingPhases.map((phase) => ({ ...phase })),
   withdrawalStrategy: {
-    type: snapshot.withdrawalStrategy.type,
-    params: { ...snapshot.withdrawalStrategy.params },
+    type: normalizedSnapshot.withdrawalStrategy.type,
+    params: { ...normalizedSnapshot.withdrawalStrategy.params },
   },
   drawdownStrategy: {
-    type: snapshot.drawdownStrategy.type,
-    bucketOrder: [...snapshot.drawdownStrategy.bucketOrder],
+    type: normalizedSnapshot.drawdownStrategy.type,
+    bucketOrder: [...normalizedSnapshot.drawdownStrategy.bucketOrder],
     rebalancing: {
-      targetAllocation: { ...snapshot.drawdownStrategy.rebalancing.targetAllocation },
-      glidePathEnabled: snapshot.drawdownStrategy.rebalancing.glidePathEnabled,
-      glidePath: snapshot.drawdownStrategy.rebalancing.glidePath.map((waypoint) => ({
+      targetAllocation: { ...normalizedSnapshot.drawdownStrategy.rebalancing.targetAllocation },
+      glidePathEnabled: normalizedSnapshot.drawdownStrategy.rebalancing.glidePathEnabled,
+      glidePath: normalizedSnapshot.drawdownStrategy.rebalancing.glidePath.map((waypoint) => ({
         year: waypoint.year,
         allocation: { ...waypoint.allocation },
       })),
     },
   },
   historicalData: {
-    ...snapshot.historicalData,
-    summary: snapshot.historicalData.summary
+    ...normalizedSnapshot.historicalData,
+    summary: normalizedSnapshot.historicalData.summary
       ? {
-          ...snapshot.historicalData.summary,
-          selectedEra: { ...snapshot.historicalData.summary.selectedEra },
-          eras: snapshot.historicalData.summary.eras.map((era) => ({ ...era })),
+          ...normalizedSnapshot.historicalData.summary,
+          selectedEra: { ...normalizedSnapshot.historicalData.summary.selectedEra },
+          eras: normalizedSnapshot.historicalData.summary.eras.map((era) => ({ ...era })),
           byAsset: {
-            stocks: { ...snapshot.historicalData.summary.byAsset.stocks },
-            bonds: { ...snapshot.historicalData.summary.byAsset.bonds },
-            cash: { ...snapshot.historicalData.summary.byAsset.cash },
+            stocks: { ...normalizedSnapshot.historicalData.summary.byAsset.stocks },
+            bonds: { ...normalizedSnapshot.historicalData.summary.byAsset.bonds },
+            cash: { ...normalizedSnapshot.historicalData.summary.byAsset.cash },
           },
         }
       : null,
   },
-  incomeEvents: snapshot.incomeEvents.map((event) => ({
+  incomeEvents: normalizedSnapshot.incomeEvents.map((event) => ({
     ...event,
     start: { ...event.start },
     end: event.end === 'endOfRetirement' ? event.end : { ...event.end },
   })),
-  expenseEvents: snapshot.expenseEvents.map((event) => ({
+  expenseEvents: normalizedSnapshot.expenseEvents.map((event) => ({
     ...event,
     start: { ...event.start },
     end: event.end === 'endOfRetirement' ? event.end : { ...event.end },
@@ -1464,22 +1515,22 @@ const cloneSnapshotState = (snapshot: SnapshotState): SnapshotState => {
         ]),
       )
     : Object.fromEntries(
-        Object.entries(snapshot.actualOverridesByMonth).map(([month, value]) => [month, {
+        Object.entries(normalizedSnapshot.actualOverridesByMonth).map(([month, value]) => [month, {
           startBalances: value.startBalances ? { ...value.startBalances } : undefined,
           withdrawalsByAsset: value.withdrawalsByAsset ? { ...value.withdrawalsByAsset } : undefined,
           incomeTotal: value.incomeTotal,
           expenseTotal: value.expenseTotal,
         }]),
       ),
-  lastEditedMonthIndex: normalizedActiveWorkspace?.lastEditedMonthIndex ?? snapshot.lastEditedMonthIndex,
+  lastEditedMonthIndex: normalizedActiveWorkspace?.lastEditedMonthIndex ?? normalizedSnapshot.lastEditedMonthIndex,
   simulationResults: {
-    ...snapshot.simulationResults,
-    manual: snapshot.simulationResults.manual
+    ...normalizedSnapshot.simulationResults,
+    manual: normalizedSnapshot.simulationResults.manual
       ? {
-          ...snapshot.simulationResults.manual,
+          ...normalizedSnapshot.simulationResults.manual,
           result: {
-            ...snapshot.simulationResults.manual.result,
-            rows: snapshot.simulationResults.manual.result.rows.map((row) => ({
+            ...normalizedSnapshot.simulationResults.manual.result,
+            rows: normalizedSnapshot.simulationResults.manual.result.rows.map((row) => ({
               ...row,
               startBalances: { ...row.startBalances },
               marketChange: { ...row.marketChange },
@@ -1489,28 +1540,28 @@ const cloneSnapshotState = (snapshot: SnapshotState): SnapshotState => {
               },
               endBalances: { ...row.endBalances },
             })),
-            summary: { ...snapshot.simulationResults.manual.result.summary },
+            summary: { ...normalizedSnapshot.simulationResults.manual.result.summary },
           },
-          monteCarlo: snapshot.simulationResults.manual.monteCarlo
+          monteCarlo: normalizedSnapshot.simulationResults.manual.monteCarlo
             ? {
-                ...snapshot.simulationResults.manual.monteCarlo,
-                terminalValues: [...snapshot.simulationResults.manual.monteCarlo.terminalValues],
+                ...normalizedSnapshot.simulationResults.manual.monteCarlo,
+                terminalValues: [...normalizedSnapshot.simulationResults.manual.monteCarlo.terminalValues],
                 percentileCurves: {
-                  total: { ...snapshot.simulationResults.manual.monteCarlo.percentileCurves.total },
-                  stocks: { ...snapshot.simulationResults.manual.monteCarlo.percentileCurves.stocks },
-                  bonds: { ...snapshot.simulationResults.manual.monteCarlo.percentileCurves.bonds },
-                  cash: { ...snapshot.simulationResults.manual.monteCarlo.percentileCurves.cash },
+                  total: { ...normalizedSnapshot.simulationResults.manual.monteCarlo.percentileCurves.total },
+                  stocks: { ...normalizedSnapshot.simulationResults.manual.monteCarlo.percentileCurves.stocks },
+                  bonds: { ...normalizedSnapshot.simulationResults.manual.monteCarlo.percentileCurves.bonds },
+                  cash: { ...normalizedSnapshot.simulationResults.manual.monteCarlo.percentileCurves.cash },
                 },
               }
             : undefined,
         }
       : null,
-    monteCarlo: snapshot.simulationResults.monteCarlo
+    monteCarlo: normalizedSnapshot.simulationResults.monteCarlo
       ? {
-          ...snapshot.simulationResults.monteCarlo,
+          ...normalizedSnapshot.simulationResults.monteCarlo,
           result: {
-            ...snapshot.simulationResults.monteCarlo.result,
-            rows: snapshot.simulationResults.monteCarlo.result.rows.map((row) => ({
+            ...normalizedSnapshot.simulationResults.monteCarlo.result,
+            rows: normalizedSnapshot.simulationResults.monteCarlo.result.rows.map((row) => ({
               ...row,
               startBalances: { ...row.startBalances },
               marketChange: { ...row.marketChange },
@@ -1520,28 +1571,28 @@ const cloneSnapshotState = (snapshot: SnapshotState): SnapshotState => {
               },
               endBalances: { ...row.endBalances },
             })),
-            summary: { ...snapshot.simulationResults.monteCarlo.result.summary },
+            summary: { ...normalizedSnapshot.simulationResults.monteCarlo.result.summary },
           },
-          monteCarlo: snapshot.simulationResults.monteCarlo.monteCarlo
+          monteCarlo: normalizedSnapshot.simulationResults.monteCarlo.monteCarlo
             ? {
-                ...snapshot.simulationResults.monteCarlo.monteCarlo,
-                terminalValues: [...snapshot.simulationResults.monteCarlo.monteCarlo.terminalValues],
+                ...normalizedSnapshot.simulationResults.monteCarlo.monteCarlo,
+                terminalValues: [...normalizedSnapshot.simulationResults.monteCarlo.monteCarlo.terminalValues],
                 percentileCurves: {
-                  total: { ...snapshot.simulationResults.monteCarlo.monteCarlo.percentileCurves.total },
-                  stocks: { ...snapshot.simulationResults.monteCarlo.monteCarlo.percentileCurves.stocks },
-                  bonds: { ...snapshot.simulationResults.monteCarlo.monteCarlo.percentileCurves.bonds },
-                  cash: { ...snapshot.simulationResults.monteCarlo.monteCarlo.percentileCurves.cash },
+                  total: { ...normalizedSnapshot.simulationResults.monteCarlo.monteCarlo.percentileCurves.total },
+                  stocks: { ...normalizedSnapshot.simulationResults.monteCarlo.monteCarlo.percentileCurves.stocks },
+                  bonds: { ...normalizedSnapshot.simulationResults.monteCarlo.monteCarlo.percentileCurves.bonds },
+                  cash: { ...normalizedSnapshot.simulationResults.monteCarlo.monteCarlo.percentileCurves.cash },
                 },
               }
             : undefined,
         }
       : null,
-    reforecast: snapshot.simulationResults.reforecast
+    reforecast: normalizedSnapshot.simulationResults.reforecast
       ? {
-          ...snapshot.simulationResults.reforecast,
+          ...normalizedSnapshot.simulationResults.reforecast,
           result: {
-            ...snapshot.simulationResults.reforecast.result,
-            rows: snapshot.simulationResults.reforecast.result.rows.map((row) => ({
+            ...normalizedSnapshot.simulationResults.reforecast.result,
+            rows: normalizedSnapshot.simulationResults.reforecast.result.rows.map((row) => ({
               ...row,
               startBalances: { ...row.startBalances },
               marketChange: { ...row.marketChange },
@@ -1551,17 +1602,17 @@ const cloneSnapshotState = (snapshot: SnapshotState): SnapshotState => {
               },
               endBalances: { ...row.endBalances },
             })),
-            summary: { ...snapshot.simulationResults.reforecast.result.summary },
+            summary: { ...normalizedSnapshot.simulationResults.reforecast.result.summary },
           },
-          monteCarlo: snapshot.simulationResults.reforecast.monteCarlo
+          monteCarlo: normalizedSnapshot.simulationResults.reforecast.monteCarlo
             ? {
-                ...snapshot.simulationResults.reforecast.monteCarlo,
-                terminalValues: [...snapshot.simulationResults.reforecast.monteCarlo.terminalValues],
+                ...normalizedSnapshot.simulationResults.reforecast.monteCarlo,
+                terminalValues: [...normalizedSnapshot.simulationResults.reforecast.monteCarlo.terminalValues],
                 percentileCurves: {
-                  total: { ...snapshot.simulationResults.reforecast.monteCarlo.percentileCurves.total },
-                  stocks: { ...snapshot.simulationResults.reforecast.monteCarlo.percentileCurves.stocks },
-                  bonds: { ...snapshot.simulationResults.reforecast.monteCarlo.percentileCurves.bonds },
-                  cash: { ...snapshot.simulationResults.reforecast.monteCarlo.percentileCurves.cash },
+                  total: { ...normalizedSnapshot.simulationResults.reforecast.monteCarlo.percentileCurves.total },
+                  stocks: { ...normalizedSnapshot.simulationResults.reforecast.monteCarlo.percentileCurves.stocks },
+                  bonds: { ...normalizedSnapshot.simulationResults.reforecast.monteCarlo.percentileCurves.bonds },
+                  cash: { ...normalizedSnapshot.simulationResults.reforecast.monteCarlo.percentileCurves.cash },
                 },
               }
             : undefined,
@@ -1569,14 +1620,14 @@ const cloneSnapshotState = (snapshot: SnapshotState): SnapshotState => {
       : null,
   },
   stress: {
-    ...snapshot.stress,
-    scenarios: snapshot.stress.scenarios.map((scenario) => ({ ...scenario })),
-    result: snapshot.stress.result
+    ...normalizedSnapshot.stress,
+    scenarios: normalizedSnapshot.stress.scenarios.map((scenario) => ({ ...scenario })),
+    result: normalizedSnapshot.stress.result
       ? {
-          ...snapshot.stress.result,
-          base: { ...snapshot.stress.result.base },
-          scenarios: snapshot.stress.result.scenarios.map((scenario) => ({ ...scenario })),
-          timingSensitivity: snapshot.stress.result.timingSensitivity?.map((series) => ({
+          ...normalizedSnapshot.stress.result,
+          base: { ...normalizedSnapshot.stress.result.base },
+          scenarios: normalizedSnapshot.stress.result.scenarios.map((scenario) => ({ ...scenario })),
+          timingSensitivity: normalizedSnapshot.stress.result.timingSensitivity?.map((series) => ({
             ...series,
             points: series.points.map((point) => ({ ...point })),
           })),
@@ -1584,19 +1635,19 @@ const cloneSnapshotState = (snapshot: SnapshotState): SnapshotState => {
       : null,
   },
   theme: {
-    selectedThemeId: snapshot.theme.selectedThemeId,
-    defaultThemeId: snapshot.theme.defaultThemeId,
-    themes: snapshot.theme.themes.map((theme) => ({ ...theme })),
-    catalog: snapshot.theme.catalog.map((item) => ({ ...item })),
-    validationIssues: snapshot.theme.validationIssues.map((issue) => ({ ...issue })),
-    status: snapshot.theme.status,
-    errorMessage: snapshot.theme.errorMessage,
+    selectedThemeId: normalizedSnapshot.theme.selectedThemeId,
+    defaultThemeId: normalizedSnapshot.theme.defaultThemeId,
+    themes: normalizedSnapshot.theme.themes.map((theme) => ({ ...theme })),
+    catalog: normalizedSnapshot.theme.catalog.map((item) => ({ ...item })),
+    validationIssues: normalizedSnapshot.theme.validationIssues.map((issue) => ({ ...issue })),
+    status: normalizedSnapshot.theme.status,
+    errorMessage: normalizedSnapshot.theme.errorMessage,
   },
   ui: {
-    ...snapshot.ui,
-    chartZoom: snapshot.ui.chartZoom ? { ...snapshot.ui.chartZoom } : null,
-    tableSort: snapshot.ui.tableSort ? { ...snapshot.ui.tableSort } : null,
-    collapsedSections: { ...snapshot.ui.collapsedSections },
+    ...normalizedSnapshot.ui,
+    chartZoom: normalizedSnapshot.ui.chartZoom ? { ...normalizedSnapshot.ui.chartZoom } : null,
+    tableSort: normalizedSnapshot.ui.tableSort ? { ...normalizedSnapshot.ui.tableSort } : null,
+    collapsedSections: { ...normalizedSnapshot.ui.collapsedSections },
   },
   };
 };
@@ -1632,7 +1683,7 @@ export const useAppStore = create<AppStore>((set) => ({
     bonds: { expectedReturn: 0.04, stdDev: 0.07 },
     cash: { expectedReturn: 0.02, stdDev: 0.01 },
   },
-  spendingPhases: [defaultPhase()],
+  spendingPhases: [],
   withdrawalStrategy: {
     type: WithdrawalStrategyType.ConstantDollar,
     params: defaultWithdrawalStrategyParams(),
@@ -2333,10 +2384,13 @@ export const useAppStore = create<AppStore>((set) => ({
       ) {
         return state;
       }
-      if (state.spendingPhases.length <= 1) {
+      if (state.spendingPhases.length <= 0) {
         return state;
       }
       const next = state.spendingPhases.filter((phase) => phase.id !== id);
+      if (next.length === state.spendingPhases.length) {
+        return state;
+      }
       const firstPhaseStartYear = resolveFirstPhaseStartYear(
         state.coreParams.startingAge,
         state.coreParams.withdrawalsStartAt,

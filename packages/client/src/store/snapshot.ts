@@ -748,13 +748,56 @@ const unpackSnapshotState = (packed: unknown): SnapshotState => {
     stress: unknown;
   };
 
-  return {
+  const unpacked: SnapshotState = {
     ...data,
     compareWorkspace: unpackCompareWorkspace(data.compareWorkspace),
     planningWorkspace: unpackWorkspace(data.planningWorkspace),
     trackingWorkspace: unpackWorkspace(data.trackingWorkspace),
     simulationResults: unpackSimulationResults(data.simulationResults),
     stress: unpackStressState(data.stress),
+  };
+
+  const clearWorkspace = (workspace: WorkspaceSnapshot | null): WorkspaceSnapshot | null =>
+    workspace
+      ? {
+          ...workspace,
+          spendingPhases: [],
+        }
+      : null;
+
+  return {
+    ...unpacked,
+    spendingPhases: [],
+    planningWorkspace: clearWorkspace(unpacked.planningWorkspace),
+    trackingWorkspace: clearWorkspace(unpacked.trackingWorkspace),
+    compareWorkspace: {
+      ...unpacked.compareWorkspace,
+      compareSync: {
+        ...unpacked.compareWorkspace.compareSync,
+        instanceLocks: {
+          ...unpacked.compareWorkspace.compareSync.instanceLocks,
+          spendingPhases: {},
+        },
+        unsyncedBySlot: Object.fromEntries(
+          Object.entries(unpacked.compareWorkspace.compareSync.unsyncedBySlot).map(([slotId, overrides]) => [
+            slotId,
+            {
+              ...overrides,
+              instances: {
+                ...overrides.instances,
+                spendingPhases: {},
+              },
+            },
+          ]),
+        ) as SnapshotState['compareWorkspace']['compareSync']['unsyncedBySlot'],
+      },
+      slots: Object.fromEntries(
+        Object.entries(unpacked.compareWorkspace.slots).map(([slotId, workspace]) => [
+          slotId,
+          clearWorkspace(workspace ?? null),
+        ]),
+      ) as SnapshotState['compareWorkspace']['slots'],
+    },
   };
 };
 

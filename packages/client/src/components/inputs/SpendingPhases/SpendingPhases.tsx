@@ -10,27 +10,46 @@ export const SpendingPhases = () => {
 
   return (
     <div className="space-y-2">
-      {phases.map((phase) => (
-        <PhaseCard
-          key={phase.id}
-          phase={phase}
-          canRemove={phases.length > 1 && !familyLockState.readOnly}
-          lockStartYear={phase.id === phases[0]?.id}
-          lockEndYear={phase.id === phases[phases.length - 1]?.id}
-          familyReadOnly={familyLockState.readOnly}
-          onUpdate={(patch) => updateSpendingPhase(phase.id, patch)}
-          onRemove={() => removeSpendingPhase(phase.id)}
-        />
-      ))}
-      <button
-        type="button"
-        onClick={addSpendingPhase}
-        disabled={phases.length >= 4 || familyLockState.readOnly}
-        className="w-full rounded border border-dashed border-brand-navy py-2 text-sm font-medium text-brand-navy disabled:opacity-40"
-      >
-        Add Phase
-      </button>
-      <p className="text-xs text-slate-500">Maximum 4 phases.</p>
+      {phases.length === 0 ? (
+        <div className="space-y-3 rounded-md border border-dashed border-brand-border bg-brand-surface p-3">
+          <p className="text-xs text-slate-600">
+            No spending phase bounds are active. Withdrawals are currently driven only by your selected withdrawal strategy.
+          </p>
+          <button
+            type="button"
+            onClick={addSpendingPhase}
+            disabled={familyLockState.readOnly}
+            className="w-full rounded border border-dashed border-brand-navy py-2 text-sm font-medium text-brand-navy disabled:opacity-40"
+          >
+            Add Phase
+          </button>
+          <p className="text-xs text-slate-500">Optional, up to 4 phases.</p>
+        </div>
+      ) : (
+        <>
+          {phases.map((phase) => (
+            <PhaseCard
+              key={phase.id}
+              phase={phase}
+              canRemove={!familyLockState.readOnly}
+              lockStartYear={phase.id === phases[0]?.id}
+              lockEndYear={phase.id === phases[phases.length - 1]?.id}
+              familyReadOnly={familyLockState.readOnly}
+              onUpdate={(patch) => updateSpendingPhase(phase.id, patch)}
+              onRemove={() => removeSpendingPhase(phase.id)}
+            />
+          ))}
+          <button
+            type="button"
+            onClick={addSpendingPhase}
+            disabled={phases.length >= 4 || familyLockState.readOnly}
+            className="w-full rounded border border-dashed border-brand-navy py-2 text-sm font-medium text-brand-navy disabled:opacity-40"
+          >
+            Add Phase
+          </button>
+          <p className="text-xs text-slate-500">Maximum 4 phases.</p>
+        </>
+      )}
     </div>
   );
 };

@@ -472,7 +472,7 @@ App
 │   │   └── HistoricalDataSummary [computed from era]
 │   │
 │   ├── CollapsibleSection: "Spending Phases"
-│   │   ├── PhaseCard × N (#17) [1–4 cards]
+│   │   ├── PhaseCard × N (#17) [0–4 cards]
 │   │   ├── AddPhaseButton (#18)
 │   │   └── [RemovePhaseButton (#19) is per-card]
 │   │
@@ -1166,7 +1166,7 @@ Validation occurs at two levels:
 
 **Client-side (Zustand store actions).** Input values are clamped or rejected per the ranges defined in SPECS.md. This provides immediate user feedback (amber flash, red borders) without a server round-trip. Client-side validation is a UX convenience, not a security boundary.
 
-**Server-side (Zod schemas in Fastify).** Every API request body is validated against a Zod schema before reaching the simulation engine. This is the authoritative validation — the server never trusts client-provided data. Out-of-range values, missing fields, invalid enum values, and structural violations (e.g., spending phases with gaps) are caught here and returned as 400 errors.
+**Server-side (Zod schemas in Fastify).** Every API request body is validated against a Zod schema before reaching the simulation engine. This is the authoritative validation — the server never trusts client-provided data. Out-of-range values, missing fields, invalid enum values, and structural violations (e.g., malformed spending phase entries) are caught here and returned as 400 errors.
 
 The Zod schemas are defined in `shared/contracts/` so that client and server import the same validation logic. The client may choose to pre-validate before sending a request (to show inline errors without a round-trip), but the server always re-validates.
 
@@ -1174,7 +1174,7 @@ The Zod schemas are defined in `shared/contracts/` so that client and server imp
 
 - String inputs (phase names, event names, scenario labels) are truncated to their maximum length and stripped of control characters.
 - Numeric inputs are type-checked and range-checked by Zod.
-- Array lengths are bounded (e.g., spending phases max 4, stress scenarios max 4, glide path waypoints max 10).
+- Array lengths are bounded (e.g., spending phases max 4 with zero-phase allowed, stress scenarios max 4, glide path waypoints max 10).
 - No SQL injection surface (no database). No template injection surface (no server-side rendering of user strings).
 
 ### 12.3 Authentication and Authorization

@@ -106,6 +106,24 @@ describe('POST /api/v1/simulate', () => {
     await app.close();
   });
 
+  it('accepts empty spending phases and runs simulation', async () => {
+    const app = createApp();
+    const request = createSimulateRequest();
+    request.config.spendingPhases = [];
+
+    const response = await app.inject({
+      method: 'POST',
+      url: '/api/v1/simulate',
+      payload: request,
+    });
+
+    expect(response.statusCode).toBe(200);
+    const body = response.json();
+    expect(body.result.rows.length).toBe(120);
+
+    await app.close();
+  });
+
   it('applies manual overrides in monte carlo representative path', async () => {
     const app = createApp();
     const request = createSimulateRequest();

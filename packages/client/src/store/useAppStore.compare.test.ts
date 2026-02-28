@@ -40,6 +40,23 @@ describe('useAppStore compare slot behavior', () => {
     expect(state.compareWorkspace.slots.A?.portfolio.stocks).not.toBe(1_234_567);
   });
 
+  it('starts with zero spending phases and supports add/remove back to zero', () => {
+    resetStore();
+    const store = useAppStore.getState();
+    expect(useAppStore.getState().spendingPhases).toHaveLength(0);
+
+    store.removeSpendingPhase('missing-phase-id');
+    expect(useAppStore.getState().spendingPhases).toHaveLength(0);
+
+    store.addSpendingPhase();
+    const createdId = useAppStore.getState().spendingPhases[0]?.id;
+    if (!createdId) {
+      throw new Error('Expected created spending phase');
+    }
+    store.removeSpendingPhase(createdId);
+    expect(useAppStore.getState().spendingPhases).toHaveLength(0);
+  });
+
   it('initializes compare workspace with A-only and activates compare at 2+ slots', () => {
     resetStore();
     expect(useAppStore.getState().compareWorkspace.slotOrder).toEqual(['A']);
@@ -255,6 +272,7 @@ describe('useAppStore compare slot behavior', () => {
     store.setCompareActiveSlot('A');
     store.addSpendingPhase();
     store.addSpendingPhase();
+    store.addSpendingPhase();
     const phases = useAppStore.getState().spendingPhases;
     const first = phases[0]?.id;
     const second = phases[1]?.id;
@@ -284,6 +302,7 @@ describe('useAppStore compare slot behavior', () => {
     store.setCompareActiveSlot('A');
     store.addSpendingPhase();
     store.addSpendingPhase();
+    store.addSpendingPhase();
     const phases = useAppStore.getState().spendingPhases;
     const first = phases[0]?.id;
     const second = phases[1]?.id;
@@ -302,5 +321,18 @@ describe('useAppStore compare slot behavior', () => {
     expect(locks[first]).toBe(true);
     expect(locks[second]).toBeUndefined();
     expect(locks[third]).toBeUndefined();
+  });
+
+  it('syncs empty spending phase list from A under global family lock', () => {
+    resetStore();
+    activateCompare();
+    const store = useAppStore.getState();
+    store.setCompareActiveSlot('A');
+    expect(useAppStore.getState().spendingPhases).toHaveLength(0);
+    store.toggleCompareFamilyLock('spendingPhases');
+
+    store.setCompareActiveSlot('B');
+    store.addSpendingPhase();
+    expect(useAppStore.getState().spendingPhases).toHaveLength(0);
   });
 });

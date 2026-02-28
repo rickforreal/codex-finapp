@@ -212,6 +212,7 @@ describe('snapshot', () => {
     store.setCompareActiveSlot('A');
     store.addSpendingPhase();
     store.addSpendingPhase();
+    store.addSpendingPhase();
     const phases = useAppStore.getState().spendingPhases;
     const first = phases[0]?.id;
     const third = phases[2]?.id;
@@ -244,8 +245,28 @@ describe('snapshot', () => {
     applySnapshot(JSON.stringify(parsed));
 
     const locks = useAppStore.getState().compareWorkspace.compareSync.instanceLocks.spendingPhases;
-    expect(locks[first]).toBe(true);
+    expect(locks[first]).toBeUndefined();
     expect(locks[third]).toBeUndefined();
+  });
+
+  it('auto-clears loaded spending phases from legacy snapshots', () => {
+    resetStore();
+    const store = useAppStore.getState();
+    store.addSpendingPhase();
+    store.addCompareSlotFromSource('A');
+    store.setCompareActiveSlot('A');
+    store.addSpendingPhase();
+    store.setCompareActiveSlot('B');
+    store.addSpendingPhase();
+
+    const { json } = serializeSnapshot('Legacy Spending Phases');
+    applySnapshot(json);
+
+    const state = useAppStore.getState();
+    expect(state.spendingPhases).toHaveLength(0);
+    expect(state.compareWorkspace.slots.A?.spendingPhases).toHaveLength(0);
+    expect(state.compareWorkspace.slots.B?.spendingPhases).toHaveLength(0);
+    expect(state.compareWorkspace.compareSync.instanceLocks.spendingPhases).toEqual({});
   });
 
   it('rejects invalid files and preserves existing state', () => {

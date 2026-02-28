@@ -31,4 +31,27 @@ describe('reforecastDeterministic', () => {
     expect(row?.withdrawals.byAsset.cash).toBe(20_000);
     expect(row?.withdrawals.byAsset.bonds).toBe(10_000);
   });
+
+  it('treats empty spending phases as no clamp bounds', () => {
+    const configWithoutPhases = createBaseConfig();
+    configWithoutPhases.spendingPhases = [];
+
+    const configWithWidePhase = createBaseConfig();
+    configWithWidePhase.spendingPhases = [
+      {
+        id: 'wide',
+        name: 'Wide',
+        startYear: 1,
+        endYear: configWithWidePhase.coreParams.retirementDuration,
+        minMonthlySpend: 0,
+        maxMonthlySpend: 1_000_000_000,
+      },
+    ];
+
+    const withoutPhases = reforecastDeterministic(configWithoutPhases, {});
+    const withWidePhase = reforecastDeterministic(configWithWidePhase, {});
+
+    expect(withoutPhases.summary.totalWithdrawn).toBe(withWidePhase.summary.totalWithdrawn);
+    expect(withoutPhases.summary.terminalPortfolioValue).toBe(withWidePhase.summary.terminalPortfolioValue);
+  });
 });

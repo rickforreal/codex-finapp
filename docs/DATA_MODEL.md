@@ -86,6 +86,11 @@ SpendingPhase {
 }
 ```
 
+Cardinality and semantics:
+- `spendingPhases` supports `0..4` entries.
+- `0` entries means no phase min/max bounds are active (withdrawals are strategy-only).
+- When one or more entries exist, they must form a contiguous retirement-year coverage segment via UI/store normalization.
+
 ### 3.2 Withdrawal Strategy Union
 
 ```ts

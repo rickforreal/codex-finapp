@@ -67,6 +67,8 @@ Request:
 }
 ```
 
+`config.spendingPhases` accepts `0..4` phase entries. When empty, spending-phase min/max clamping is disabled and withdrawals follow strategy output.
+
 Response:
 
 ```ts

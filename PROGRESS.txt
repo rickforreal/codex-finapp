@@ -1561,3 +1561,39 @@ Canonical docs impact:
   - `npm run lint -w @finapp/client`
   - `npm test -w @finapp/client`
 - Canonical docs impact: No canonical doc impact (bugfix + visibility polish within existing CPV31.1 behavior contract).
+2026-02-28 — CPV31.2 Zero-Phase Spending Defaults | COMPLETE
+- Implemented optional Spending Phases (`0..4`) with zero-phase default behavior.
+- Shared contract updated: `spendingPhases` now accepts empty arrays (`max(4)` only).
+- Engine behavior updated in deterministic + Monte Carlo simulation paths:
+  - empty phase list no longer throws
+  - phase min/max clamp is applied only when an active/fallback phase exists
+- Client store updated:
+  - initial state now uses `spendingPhases: []`
+  - removing the last phase returns to empty state
+  - missing-id remove is a no-op
+- Spending Phases UI now renders an empty-state explanation + Add CTA when no phases exist.
+- Snapshot/bookmark load migration implemented:
+  - loaded root/planning/tracking/compare workspaces are normalized to zero spending phases
+  - spending-phase compare instance locks/unsync overrides are cleared during load normalization
+- Added feature wave docs:
+  - `docs/features/compare-portfolios-v3-1-lock-sync-v1-2/FEATURE.md`
+  - `docs/features/compare-portfolios-v3-1-lock-sync-v1-2/PLAN.md`
+  - `docs/features/compare-portfolios-v3-1-lock-sync-v1-2/ACCEPTANCE.md`
+- Tests added/updated:
+  - client store/snapshot/bookmark coverage for zero-phase defaults and load migration
+  - server deterministic + monte carlo zero-phase no-clamp parity tests
+  - route test for `/simulate` with empty spending phases
+
+Validation run (all passing):
+- `npm run typecheck`
+- `npm run lint`
+- `npm test`
+- `npm run build`
+
+Canonical docs impact:
+- Updated:
+  - `docs/SPECS.md`
+  - `docs/SCENARIOS.md`
+  - `docs/DATA_MODEL.md`
+  - `docs/ARCHITECTURE.md`
+  - `docs/API.md`

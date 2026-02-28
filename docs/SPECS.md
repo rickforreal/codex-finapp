@@ -542,7 +542,7 @@ A thin 1px horizontal divider separates this section from the next section below
     * In the table, these "no-withdrawal" months could have a subtle visual indicator — e.g., the withdrawal cells are lightly grayed out or show a small "deferred" icon.
   * For all months from the withdrawals start month onward:
     * The withdrawal strategy operates normally, subject to spending phase bounds.
-  * Spending phase interaction: Spending phases define bounds on withdrawals. In months before the withdrawal start, spending phases are irrelevant (no withdrawals occur). The spending phase timeline still runs from year 1, but the bounds only take effect once withdrawals begin. No special configuration needed — the logic simply skips withdrawal calculation for pre-start months.
+  * Spending phase interaction: Spending phases are optional bounds on withdrawals. In months before the withdrawal start, spending phases are irrelevant (no withdrawals occur). If no spending phases exist, withdrawals are strategy-only with no phase clamp. If phases exist, bounds take effect once withdrawals begin.
   * Chart impact: The portfolio chart may show a period of growth (or stability) before withdrawals begin, followed by the expected drawdown curve. This should be visually self-evident without special annotation, though the "today" marker in Tracking Mode and the deferral period will be naturally visible.
 
 **State:**
@@ -891,7 +891,7 @@ When the user has selected Monte Carlo mode, this display replaces the Return As
 
 ## Input Panel — Section: Spending Phases (#17, #18, #19)
 
-This section allows the user to define one or more spending phases across their retirement period, each with its own minimum and maximum monthly withdrawal bounds. This models the well-documented "retirement spending smile" — higher spending in active early retirement, lower in the quiet middle years, and higher again late in life due to healthcare costs.
+This section allows the user to optionally define spending phases across retirement, each with minimum and maximum monthly withdrawal bounds. When no phases exist, withdrawals are determined solely by the selected withdrawal strategy.
 
 ### Section Container
 
@@ -905,7 +905,7 @@ This section allows the user to define one or more spending phases across their 
 
 ### Affordance #17: Spending Phase Card
 
-**Purpose:** Each phase card defines a named time segment of retirement with its own minimum and maximum monthly spending bounds. The user can have 1–4 phases, and together they must cover the entire retirement duration with no gaps or overlaps.
+**Purpose:** Each phase card defines a named time segment of retirement with its own minimum and maximum monthly spending bounds. The user can have 0–4 phases. When one or more phases exist, they must cover the retirement duration with no gaps or overlaps.
 
 **Control type:** A styled card container holding multiple sub-controls.
 
@@ -1071,6 +1071,12 @@ The card's internal layout is organized in three rows:
 
 ---
 
+### Empty State (0 Phases)
+
+- When no phases exist, the section renders an explanatory empty state plus an Add Phase CTA.
+- Empty-state helper text: withdrawals are currently strategy-driven with no phase min/max bounds.
+- Add Phase remains available unless the section is read-only due to compare sync.
+
 ### Affordance #18: Add Phase Button
 
 **Purpose:** Allows the user to add a new spending phase, up to a maximum of 4.
@@ -1100,7 +1106,7 @@ The card's internal layout is organized in three rows:
 
 ### Affordance #19: Remove Phase Button
 
-**Purpose:** Allows the user to remove a spending phase. At least 1 phase must always exist.
+**Purpose:** Allows the user to remove a spending phase, including removing the last remaining phase back to zero phases.
 
 **Control type:** Icon button (destructive)
 
@@ -1108,7 +1114,7 @@ The card's internal layout is organized in three rows:
 - Positioned in the top-right corner of each phase card (Row 1, right-aligned).
 - A small icon button: trash can or "×" icon, ~24px square, no background.
 - Icon color: muted gray by default. On hover: muted red, with a faint red background circle appearing behind the icon.
-- **When only 1 phase exists:** The button is **hidden** on that single card (the last remaining phase cannot be removed).
+- The remove button remains available while cards exist (subject to read-only/lock state).
 
 **Behavior:**
 - **On click:** No confirmation dialog (phases are lightweight and easily re-added — a confirmation would add unnecessary friction). The phase card animates out (fade-out + collapse height, 200ms ease).
@@ -1129,7 +1135,7 @@ The card's internal layout is organized in three rows:
 
 ### Section-Level Validation Summary
 
-The spending phases section has a **global validation rule**: the phases must collectively cover years 1 through the retirement duration with no gaps and no overlaps. The constraints built into the affordances above (auto-computed start years, pinned first/last boundaries, cascade logic) make it **impossible** for the user to create an invalid phase configuration through normal interaction. This is by design — validation-by-construction is always better than validation-by-error-message.
+The spending phases section has a **global validation rule** when phases exist: phases must collectively cover years 1 through the retirement duration with no gaps and no overlaps. With zero phases, no phase-bound validation applies.
 
 The only validation that can fail is the per-phase min ≤ max spending check, which is handled with inline field-level errors as described in #17d and #17e.
 
@@ -1640,7 +1646,7 @@ Below is the content for each of the 13 strategies:
 
 ### Guardrail Interaction Reminder
 
-All 13 strategies produce a "raw" withdrawal amount each period. This amount is then clamped by the active spending phase's min/max bounds (from Section: Spending Phases, #17d/#17e). The clamping is a hard override:
+All 13 strategies produce a "raw" withdrawal amount each period. If an active spending phase exists, that amount is clamped by the phase's min/max bounds (from Section: Spending Phases, #17d/#17e). If no spending phases exist, no clamp is applied.
 
 - If raw withdrawal < phase min → withdrawal = phase min
 - If raw withdrawal > phase max → withdrawal = phase max

@@ -1382,3 +1382,29 @@ Acceptance Criteria:
 [AC1] Newly added Spending Phase in Slot A is lock-eligible when prior phase is locked.
 [AC2] Lock/sync controls are hidden when compare has only Slot A.
 [AC3] Client typecheck, lint, and tests pass.
+
+## Feature Plan — Compare Portfolios v3.1.2 (Zero-Phase Spending Defaults)
+
+- [x] CPV312-T1: Implement zero-phase default and optional-clamp engine semantics
+Phase: Feature/ComparePortfolios-v3.1.2
+Dependencies: CPV311-T4
+Acceptance Criteria:
+[AC1] Client default spending phases are empty (`0` phases).
+[AC2] Shared schema allows `spendingPhases: []` with max length 4.
+[AC3] Deterministic/Monte Carlo engines skip phase clamp when no active phase exists.
+
+- [x] CPV312-T2: Add empty-state UX and load migration behavior
+Phase: Feature/ComparePortfolios-v3.1.2
+Dependencies: CPV312-T1
+Acceptance Criteria:
+[AC1] Spending Phases section shows explanation + Add CTA when empty.
+[AC2] Removing last phase returns to empty state.
+[AC3] Snapshot/bookmark load auto-clears legacy spending phases and spending-phase lock overrides.
+
+- [x] CPV312-T3: Add regression tests, update docs, and run verification gate
+Phase: Feature/ComparePortfolios-v3.1.2
+Dependencies: CPV312-T1, CPV312-T2
+Acceptance Criteria:
+[AC1] Store/snapshot/bookmark/server tests cover zero-phase behavior and migration.
+[AC2] `docs/SPECS.md`, `docs/SCENARIOS.md`, `docs/DATA_MODEL.md`, `docs/ARCHITECTURE.md`, and `docs/API.md` updated.
+[AC3] `npm run typecheck`, `npm run lint`, `npm test`, and `npm run build` pass.
