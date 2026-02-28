@@ -52,4 +52,5 @@ export enum ThemeId {
   HighContrast = 'highContrast',
   Monokai = 'monokai',
   Synthwave84 = 'synthwave84',
+  StayTheCourse = 'stayTheCourse',
 }

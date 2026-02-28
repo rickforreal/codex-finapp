@@ -1442,3 +1442,21 @@ Acceptance Criteria:
 [AC1] Store/snapshot/bookmark/server tests cover zero-phase behavior and migration.
 [AC2] `docs/SPECS.md`, `docs/SCENARIOS.md`, `docs/DATA_MODEL.md`, `docs/ARCHITECTURE.md`, and `docs/API.md` updated.
 [AC3] `npm run typecheck`, `npm run lint`, `npm test`, and `npm run build` pass.
+
+## Feature Plan — Theme Pack: Stay The Course
+
+- [x] STC-T1: Create Stay The Course theme pack docs under `docs/features/themes/stay-the-course`
+Phase: Feature/ThemePack-StayTheCourse
+Dependencies: none
+Acceptance Criteria:
+[AC1] `FEATURE.md`, `PLAN.md`, `ACCEPTANCE.md`, and `TOKENS.md` exist.
+[AC2] Palette source values are captured as authoritative token direction.
+[AC3] Canonical-doc impact is explicitly documented in the plan.
+
+- [x] STC-T2: Implement Stay The Course as a built-in selectable theme
+Phase: Feature/ThemePack-StayTheCourse
+Dependencies: STC-T1
+Acceptance Criteria:
+[AC1] `ThemeId.StayTheCourse` exists in shared enums/contracts.
+[AC2] Server theme registry includes full Stay The Course token bundle and `/api/v1/themes` exposes it.
+[AC3] Route tests include the new built-in ID and regression gate (`typecheck`, `lint`, `test`, `build`) passes.

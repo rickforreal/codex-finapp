@@ -21,7 +21,14 @@ describe('GET /api/v1/themes', () => {
     expect(Array.isArray(body.slotCatalog)).toBe(true);
     expect(body.slotCatalog.length).toBeGreaterThan(10);
     expect(body.themes.map((theme: { id: ThemeId }) => theme.id)).toEqual(
-      expect.arrayContaining([ThemeId.Light, ThemeId.Dark, ThemeId.HighContrast, ThemeId.Monokai, ThemeId.Synthwave84]),
+      expect.arrayContaining([
+        ThemeId.Light,
+        ThemeId.Dark,
+        ThemeId.HighContrast,
+        ThemeId.Monokai,
+        ThemeId.Synthwave84,
+        ThemeId.StayTheCourse,
+      ]),
     );
 
     await app.close();

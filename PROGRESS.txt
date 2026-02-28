@@ -1616,3 +1616,31 @@ Canonical docs impact:
   - `docs/DATA_MODEL.md`
   - `docs/ARCHITECTURE.md`
   - `docs/API.md`
+2026-02-28 — STC-T1 Stay The Course theme pack docs | COMPLETE
+- Created new theme feature pack under:
+  - `docs/features/themes/stay-the-course/FEATURE.md`
+  - `docs/features/themes/stay-the-course/PLAN.md`
+  - `docs/features/themes/stay-the-course/ACCEPTANCE.md`
+  - `docs/features/themes/stay-the-course/TOKENS.md`
+- Captured authoritative dark palette and mapped it to token/semantic intent for implementation.
+- Updated root tracker:
+  - `TASKS.md` (added/completed `STC-T1`)
+- Canonical docs impact: No canonical doc impact (docs-only theme-pack creation; no contract/behavior changes implemented yet).
+2026-02-28 — STC-T2 Stay The Course built-in theme implementation | COMPLETE
+- Added shared enum ID:
+  - `packages/shared/src/constants/enums.ts` (`ThemeId.StayTheCourse = 'stayTheCourse'`)
+- Added server built-in theme definition in:
+  - `packages/server/src/themes/registry.ts`
+  - dark palette anchored to `#0C0C0C` with teal-forward accents from provided colors
+- Updated route test built-in ID assertions:
+  - `packages/server/tests/routes/themes.test.ts`
+- Updated root tracker:
+  - `TASKS.md` (added/completed `STC-T2`)
+
+Validation run (all passing):
+- `npm run typecheck`
+- `npm run lint`
+- `npm test`
+- `npm run build`
+
+Canonical docs impact: No canonical doc impact (additive built-in theme within existing theme model/API shape).
