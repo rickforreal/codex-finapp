@@ -51,9 +51,9 @@ export const Sidebar = () => {
 
   return (
     <div className="space-y-3">
-      <div className="rounded-xl border border-brand-border bg-brand-surface p-3 shadow-[0_1px_0_rgba(15,23,42,0.03)]">
-          <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-slate-500">Compare Slot</p>
-          <p className="mt-1 text-sm text-slate-500">Select portfolios to analyze performance.</p>
+      <div className="theme-sidebar-compare-card rounded-xl border p-3 shadow-[0_1px_0_rgba(15,23,42,0.03)]">
+          <p className="theme-sidebar-compare-card-title text-[11px] font-semibold uppercase tracking-[0.14em]">Compare Slot</p>
+          <p className="theme-sidebar-compare-card-text mt-1 text-sm">Select portfolios to analyze performance.</p>
           <div className="mt-3 flex flex-wrap items-center gap-2">
             {compareSlotOrder.map((slotId) => {
               const slotColor = getCompareSlotColorVar(slotId);
@@ -127,7 +127,7 @@ export const Sidebar = () => {
                 type="button"
                 onClick={() => addCompareSlotFromSource(compareActiveSlot)}
                 disabled={!canAddCompareSlot}
-                className="inline-flex h-10 w-10 items-center justify-center rounded-full border border-brand-border bg-white text-xl leading-none text-slate-500 transition hover:border-brand-blue hover:text-brand-blue disabled:cursor-not-allowed disabled:opacity-40"
+                className="theme-sidebar-add-slot-btn inline-flex h-10 w-10 items-center justify-center rounded-full border text-xl leading-none transition disabled:cursor-not-allowed disabled:opacity-40"
                 title={canAddCompareSlot ? `Clone active slot ${compareActiveSlot}` : 'Maximum 8 slots'}
               >
                 +

@@ -1,6 +1,16 @@
-import { ThemeId, themesResponseSchema, type ThemeCatalogItem, type ThemeDefinition, type ThemesResponse, type ThemeValidationIssue } from '@finapp/shared';
+import {
+  ThemeId,
+  themesResponseSchema,
+  type ThemeCatalogItem,
+  type ThemeDefinition,
+  type ThemeSlotCatalogItem,
+  type ThemeTokenMap,
+  type ThemeTokenRefOrValue,
+  type ThemesResponse,
+  type ThemeValidationIssue,
+} from '@finapp/shared';
 
-import { validateThemeAccessibility } from './validation';
+import { validateThemeAccessibility, validateThemeTokenModel } from './validation';
 
 const baseTypography = {
   fontSans: 'ibmPlexSans',
@@ -51,7 +61,183 @@ const baseThemeTokens = {
   typography: baseTypography,
 } as const;
 
-const themes: ThemeDefinition[] = [
+type BaseThemeDefinition = Omit<ThemeDefinition, 'tokenModelVersion' | 'semantic' | 'slots' | 'overrides'>;
+
+const defaultSlotMap: ThemeTokenMap = {
+  'appShell.root.bg': { ref: 'semantic.surface.app' },
+  'appShell.root.text': { ref: 'semantic.text.primary' },
+  'appShell.sidebar.bg': { ref: 'semantic.surface.panel' },
+  'appShell.sidebar.border': { ref: 'semantic.border.default' },
+  'appShell.main.bg': { ref: 'semantic.surface.app' },
+  'debugStatusPanel.bg': { ref: 'semantic.surface.card' },
+  'debugStatusPanel.border': { ref: 'semantic.border.default' },
+  'debugStatusPanel.text': { ref: 'semantic.text.secondary' },
+  'debugStatusPanel.error': { ref: 'semantic.status.negative' },
+  'commandBar.shell.bg': { ref: 'semantic.surface.overlay' },
+  'commandBar.shell.border': { ref: 'semantic.border.default' },
+  'commandBar.logo.badge.bg': { ref: 'semantic.brand.secondary' },
+  'commandBar.logo.badge.text': { ref: 'semantic.text.inverse' },
+  'commandBar.logo.text': { ref: 'semantic.text.primary' },
+  'commandBar.sectionLabel.text': { ref: 'semantic.text.muted' },
+  'commandBar.message.text': { ref: 'semantic.text.secondary' },
+  'commandBar.actionButton.bg': { ref: 'semantic.surface.card' },
+  'commandBar.actionButton.border': { ref: 'semantic.border.default' },
+  'commandBar.actionButton.text': { ref: 'semantic.text.secondary' },
+  'commandBar.actionButton.hoverText': { ref: 'semantic.brand.secondary' },
+  'commandBar.actionButton.hoverBorder': { ref: 'semantic.brand.secondary' },
+  'commandBar.primaryAction.bg': { ref: 'semantic.interactive.primary.bg' },
+  'commandBar.primaryAction.text': { ref: 'semantic.interactive.primary.text' },
+  'commandBar.primaryAction.disabledBg': { ref: 'semantic.surface.disabled' },
+  'commandBar.popover.bg': { ref: 'semantic.surface.card' },
+  'commandBar.popover.border': { ref: 'semantic.border.default' },
+  'commandBar.popover.title': { ref: 'semantic.text.muted' },
+  'commandBar.popover.item': { ref: 'semantic.text.secondary' },
+  'commandBar.popover.itemHoverBg': { ref: 'semantic.surface.muted' },
+  'commandBar.popover.itemActiveBg': { ref: 'semantic.surface.panel' },
+  'commandBar.tooltip.bg': { ref: 'semantic.surface.tooltip' },
+  'commandBar.tooltip.text': { ref: 'semantic.text.inverse' },
+  'commandBar.modal.backdrop': 'color-mix(in srgb, var(--theme-color-text-primary) 45%, transparent)',
+  'commandBar.modal.bg': { ref: 'semantic.surface.card' },
+  'commandBar.modal.border': { ref: 'semantic.border.default' },
+  'commandBar.modal.title': { ref: 'semantic.text.primary' },
+  'commandBar.modal.text': { ref: 'semantic.text.secondary' },
+  'sidebar.compareCard.bg': { ref: 'semantic.surface.panel' },
+  'sidebar.compareCard.border': { ref: 'semantic.border.default' },
+  'sidebar.compareCard.title': { ref: 'semantic.text.muted' },
+  'sidebar.compareCard.text': { ref: 'semantic.text.secondary' },
+  'section.card.bg': { ref: 'semantic.surface.card' },
+  'section.card.border': { ref: 'semantic.border.default' },
+  'section.header.title': { ref: 'semantic.brand.primary' },
+  'section.header.icon': { ref: 'semantic.text.secondary' },
+  'section.divider': { ref: 'semantic.border.default' },
+  'syncControl.master.locked.bg': { ref: 'semantic.brand.primary' },
+  'syncControl.master.locked.text': { ref: 'semantic.text.inverse' },
+  'syncControl.master.unlocked.bg': { ref: 'semantic.surface.card' },
+  'syncControl.master.unlocked.text': { ref: 'semantic.text.secondary' },
+  'syncControl.follower.synced.bg': 'color-mix(in srgb, var(--theme-color-positive) 14%, var(--theme-color-surface-primary))',
+  'syncControl.follower.synced.text': { ref: 'semantic.status.positive' },
+  'syncControl.follower.unsynced.bg': 'color-mix(in srgb, var(--theme-color-warning) 18%, var(--theme-color-surface-primary))',
+  'syncControl.follower.unsynced.text': { ref: 'semantic.status.warning' },
+  'inputs.control.bg': { ref: 'semantic.surface.card' },
+  'inputs.control.border': { ref: 'semantic.border.default' },
+  'inputs.control.text': { ref: 'semantic.text.primary' },
+  'inputs.control.placeholder': { ref: 'semantic.text.muted' },
+  'inputs.control.disabledBg': { ref: 'semantic.surface.disabled' },
+  'inputs.label.text': { ref: 'semantic.text.secondary' },
+  'inputs.helper.text': { ref: 'semantic.text.muted' },
+  'inputs.addButton.border': { ref: 'semantic.brand.primary' },
+  'inputs.addButton.text': { ref: 'semantic.brand.primary' },
+  'inputs.removeButton.text': { ref: 'semantic.text.secondary' },
+  'startingPortfolio.donut.innerBg': { ref: 'semantic.surface.card' },
+  'summaryStats.shell.bg': { ref: 'semantic.surface.panel' },
+  'summaryStats.card.bg': { ref: 'semantic.surface.card' },
+  'summaryStats.card.border': { ref: 'semantic.border.default' },
+  'summaryStats.label.text': { ref: 'semantic.text.muted' },
+  'summaryStats.value.text': { ref: 'semantic.text.primary' },
+  'summaryStats.value.positive': { ref: 'semantic.status.positive' },
+  'summaryStats.value.negative': { ref: 'semantic.status.negative' },
+  'summaryStats.annotation.text': { ref: 'semantic.text.muted' },
+  'chartPanel.shell.bg': { ref: 'semantic.surface.card' },
+  'chartPanel.shell.border': { ref: 'semantic.border.default' },
+  'chartPanel.heading.text': { ref: 'semantic.text.muted' },
+  'chartPanel.overlay.bg': 'color-mix(in srgb, var(--theme-color-surface-primary) 65%, transparent)',
+  'chartPanel.overlay.text': { ref: 'semantic.text.secondary' },
+  'chartPanel.overlay.spinner': { ref: 'semantic.brand.secondary' },
+  'portfolioChart.axis': { ref: 'semantic.chart.axis' },
+  'portfolioChart.grid': { ref: 'semantic.chart.grid' },
+  'portfolioChart.text': { ref: 'semantic.chart.text' },
+  'portfolioChart.tooltip.bg': { ref: 'semantic.chart.tooltip.bg' },
+  'portfolioChart.tooltip.border': { ref: 'semantic.chart.tooltip.border' },
+  'portfolioChart.tooltip.text': { ref: 'semantic.chart.tooltip.text' },
+  'withdrawalChart.axis': { ref: 'semantic.chart.axis' },
+  'withdrawalChart.grid': { ref: 'semantic.chart.grid' },
+  'withdrawalChart.text': { ref: 'semantic.chart.text' },
+  'withdrawalChart.tooltip.bg': { ref: 'semantic.chart.tooltip.bg' },
+  'withdrawalChart.tooltip.border': { ref: 'semantic.chart.tooltip.border' },
+  'withdrawalChart.tooltip.text': { ref: 'semantic.chart.tooltip.text' },
+  'compareDiffTable.shell.bg': { ref: 'semantic.surface.card' },
+  'compareDiffTable.shell.border': { ref: 'semantic.border.default' },
+  'compareDiffTable.header.bg': { ref: 'semantic.surface.panel' },
+  'compareDiffTable.header.text': { ref: 'semantic.text.secondary' },
+  'compareDiffTable.group.bg': { ref: 'semantic.surface.muted' },
+  'compareDiffTable.group.text': { ref: 'semantic.text.secondary' },
+  'compareDiffTable.diffCell.bg': 'color-mix(in srgb, var(--theme-color-info) 10%, var(--theme-color-surface-primary))',
+  'detailLedger.shell.bg': { ref: 'semantic.surface.card' },
+  'detailLedger.shell.border': { ref: 'semantic.border.default' },
+  'detailLedger.header.bg': { ref: 'semantic.surface.card' },
+  'detailLedger.header.text': { ref: 'semantic.text.secondary' },
+  'detailLedger.toolbar.title': { ref: 'semantic.text.primary' },
+  'detailLedger.toolbar.subtitle': { ref: 'semantic.text.muted' },
+  'detailLedger.reference.bg': { ref: 'semantic.surface.muted' },
+  'detailLedger.reference.text': { ref: 'semantic.text.secondary' },
+  'detailLedger.cell.focusBg': { ref: 'semantic.interactive.secondary.bg' },
+  'detailLedger.cell.focusOutline': { ref: 'semantic.state.selected' },
+  'detailLedger.cell.editedBg': { ref: 'semantic.state.edited' },
+  'detailLedger.row.preservedBg': { ref: 'semantic.state.preserved' },
+  'detailLedger.stale.bg': { ref: 'semantic.state.stale.bg' },
+  'detailLedger.stale.text': { ref: 'semantic.state.stale.text' },
+  'stressPanel.shell.bg': { ref: 'semantic.surface.card' },
+  'stressPanel.shell.border': { ref: 'semantic.border.default' },
+  'stressPanel.header.bg': { ref: 'semantic.surface.panel' },
+  'stressPanel.header.text': { ref: 'semantic.text.primary' },
+  'stressPanel.card.bg': { ref: 'semantic.surface.card' },
+  'stressPanel.card.border': { ref: 'semantic.border.default' },
+  'stressPanel.metricTable.headerBg': { ref: 'semantic.surface.muted' },
+  'stressPanel.metricTable.headerText': { ref: 'semantic.text.secondary' },
+  'stressPanel.metricTable.rowText': { ref: 'semantic.text.secondary' },
+  'stressPanel.metricTable.deltaText': { ref: 'semantic.status.negative' },
+};
+
+const slotCatalog: ThemeSlotCatalogItem[] = Object.entries(defaultSlotMap).map(([path, fallback]) => ({
+  path,
+  category: path.split('.')[0] ?? 'app',
+  description: `${path} themed slot`,
+  fallback,
+}));
+
+const buildSemanticMap = (theme: BaseThemeDefinition): ThemeTokenMap => ({
+  'semantic.surface.app': theme.tokens.color.appBackground,
+  'semantic.surface.card': theme.tokens.color.surfacePrimary,
+  'semantic.surface.panel': theme.tokens.color.surfaceMuted,
+  'semantic.surface.muted': theme.tokens.color.surfaceSecondary,
+  'semantic.surface.overlay': theme.tokens.color.overlay,
+  'semantic.surface.disabled': theme.tokens.color.surfaceSecondary,
+  'semantic.surface.tooltip': theme.tokens.color.chartTooltipBackground,
+  'semantic.border.default': theme.tokens.color.borderPrimary,
+  'semantic.border.subtle': theme.tokens.color.borderSubtle,
+  'semantic.border.strong': theme.tokens.color.borderStrong,
+  'semantic.text.primary': theme.tokens.color.textPrimary,
+  'semantic.text.secondary': theme.tokens.color.textSecondary,
+  'semantic.text.muted': theme.tokens.color.textMuted,
+  'semantic.text.inverse': theme.tokens.color.textInverse,
+  'semantic.brand.primary': theme.tokens.color.brandNavy,
+  'semantic.brand.secondary': theme.tokens.color.brandBlue,
+  'semantic.interactive.primary.bg': theme.tokens.color.interactivePrimary,
+  'semantic.interactive.primary.text': theme.tokens.color.textInverse,
+  'semantic.interactive.primary.hover': theme.tokens.color.interactivePrimaryHover,
+  'semantic.interactive.secondary.bg': theme.tokens.color.interactiveSecondary,
+  'semantic.interactive.secondary.hover': theme.tokens.color.interactiveSecondaryHover,
+  'semantic.status.positive': theme.tokens.color.positive,
+  'semantic.status.negative': theme.tokens.color.negative,
+  'semantic.status.warning': theme.tokens.color.warning,
+  'semantic.status.info': theme.tokens.color.info,
+  'semantic.chart.axis': theme.tokens.color.chartAxis,
+  'semantic.chart.grid': theme.tokens.color.chartGrid,
+  'semantic.chart.text': theme.tokens.color.chartText,
+  'semantic.chart.tooltip.bg': theme.tokens.color.chartTooltipBackground,
+  'semantic.chart.tooltip.border': theme.tokens.color.chartTooltipBorder,
+  'semantic.chart.tooltip.text': theme.tokens.color.chartTooltipText,
+  'semantic.state.edited': theme.tokens.state.editedCellBackground,
+  'semantic.state.preserved': theme.tokens.state.preservedRowBackground,
+  'semantic.state.stale.bg': theme.tokens.state.staleBackground,
+  'semantic.state.stale.text': theme.tokens.state.staleText,
+  'semantic.state.selected': theme.tokens.state.selectedCellOutline,
+});
+
+const resolveTokenRefString = (token: ThemeTokenRefOrValue): string =>
+  typeof token === 'string' ? token : token.ref;
+
+const baseThemes: BaseThemeDefinition[] = [
   {
     id: ThemeId.Light,
     name: 'Light',
@@ -501,6 +687,16 @@ const themes: ThemeDefinition[] = [
   },
 ];
 
+const themes: ThemeDefinition[] = baseThemes.map((theme) => ({
+  ...theme,
+  tokenModelVersion: '2',
+  semantic: buildSemanticMap(theme),
+  slots: Object.fromEntries(
+    Object.entries(defaultSlotMap).map(([path, fallback]) => [path, resolveTokenRefString(fallback)]),
+  ),
+  overrides: {},
+}));
+
 const catalog: ThemeCatalogItem[] = themes.map((theme) => ({
   id: theme.id,
   name: theme.name,
@@ -515,12 +711,17 @@ if (!defaultTheme) {
   throw new Error('Theme registry must include one default theme.');
 }
 
-const validationIssues: ThemeValidationIssue[] = themes.flatMap((theme) => validateThemeAccessibility(theme));
+const validationIssues: ThemeValidationIssue[] = themes.flatMap((theme) => [
+  ...validateThemeAccessibility(theme),
+  ...validateThemeTokenModel(theme, slotCatalog),
+]);
 
 const responsePayload: ThemesResponse = {
+  tokenModelVersion: '2',
   defaultThemeId: defaultTheme.id,
   themes,
   catalog,
+  slotCatalog,
   validationIssues,
 };
 

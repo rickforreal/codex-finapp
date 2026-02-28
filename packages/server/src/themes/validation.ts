@@ -1,4 +1,4 @@
-import { type ThemeDefinition, type ThemeValidationIssue } from '@finapp/shared';
+import { type ThemeDefinition, type ThemeSlotCatalogItem, type ThemeValidationIssue } from '@finapp/shared';
 
 const HEX_COLOR_REGEX = /^#([0-9a-f]{6}|[0-9a-f]{8})$/i;
 
@@ -99,4 +99,132 @@ export const validateThemeAccessibility = (theme: ThemeDefinition): ThemeValidat
   ];
 
   return checks.filter((issue): issue is ThemeValidationIssue => issue !== null);
+};
+
+const tokenValueMap = (theme: ThemeDefinition): Record<string, string> => {
+  const out: Record<string, string> = {};
+
+  const walk = (prefix: string, value: unknown) => {
+    if (value === null || typeof value !== 'object') {
+      if (typeof value === 'string') {
+        out[prefix] = value;
+      }
+      return;
+    }
+    Object.entries(value as Record<string, unknown>).forEach(([key, child]) => {
+      const nextPrefix = prefix ? `${prefix}.${key}` : key;
+      walk(nextPrefix, child);
+    });
+  };
+
+  walk('tokens', theme.tokens as unknown as Record<string, unknown>);
+  return out;
+};
+
+const resolveRefOrValue = (
+  value: unknown,
+  semantic: Record<string, unknown>,
+  tokens: Record<string, string>,
+): string | null => {
+  if (typeof value !== 'string' && (typeof value !== 'object' || value === null || typeof (value as { ref?: unknown }).ref !== 'string')) {
+    return null;
+  }
+
+  const ref = typeof value === 'string' ? value : (value as { ref: string }).ref;
+  if (ref in semantic) {
+    const semanticValue = semantic[ref];
+    if (typeof semanticValue === 'string') {
+      return semanticValue;
+    }
+    return null;
+  }
+  if (ref in tokens) {
+    return tokens[ref] ?? null;
+  }
+  return ref;
+};
+
+export const validateThemeTokenModel = (
+  theme: ThemeDefinition,
+  slotCatalog: ThemeSlotCatalogItem[],
+): ThemeValidationIssue[] => {
+  const issues: ThemeValidationIssue[] = [];
+  const tokenMap = tokenValueMap(theme);
+  const semanticEntries = Object.entries(theme.semantic);
+  const resolvedSlotValues: Record<string, string> = {};
+
+  semanticEntries.forEach(([key, value]) => {
+    const resolved = resolveRefOrValue(value, theme.semantic as Record<string, unknown>, tokenMap);
+    if (resolved === null) {
+      issues.push({
+        themeId: theme.id,
+        tokenPath: `semantic.${key}`,
+        severity: 'warning',
+        message: 'Semantic token cannot be resolved to a valid value.',
+      });
+    }
+  });
+
+  slotCatalog.forEach((slot) => {
+    const raw = theme.overrides?.[slot.path] ?? theme.slots[slot.path] ?? slot.fallback;
+    const resolved = resolveRefOrValue(raw, theme.semantic as Record<string, unknown>, tokenMap);
+    if (resolved === null) {
+      issues.push({
+        themeId: theme.id,
+        tokenPath: `slots.${slot.path}`,
+        severity: 'warning',
+        message: 'Slot token cannot be resolved to a valid value.',
+      });
+      return;
+    }
+    resolvedSlotValues[slot.path] = resolved;
+  });
+
+  Object.keys(theme.slots).forEach((slotKey) => {
+    if (!slotCatalog.some((item) => item.path === slotKey)) {
+      issues.push({
+        themeId: theme.id,
+        tokenPath: `slots.${slotKey}`,
+        severity: 'warning',
+        message: 'Slot key is not in slot catalog.',
+      });
+    }
+  });
+
+  const slotContrastChecks: Array<{ fg: string; bg: string; tokenPath: string }> = [
+    {
+      fg: 'commandBar.logo.text',
+      bg: 'commandBar.shell.bg',
+      tokenPath: 'slots.commandBar.logo.text/slots.commandBar.shell.bg',
+    },
+    {
+      fg: 'summaryStats.value.text',
+      bg: 'summaryStats.card.bg',
+      tokenPath: 'slots.summaryStats.value.text/slots.summaryStats.card.bg',
+    },
+    {
+      fg: 'portfolioChart.tooltip.text',
+      bg: 'portfolioChart.tooltip.bg',
+      tokenPath: 'slots.portfolioChart.tooltip.text/slots.portfolioChart.tooltip.bg',
+    },
+    {
+      fg: 'detailLedger.header.text',
+      bg: 'detailLedger.header.bg',
+      tokenPath: 'slots.detailLedger.header.text/slots.detailLedger.header.bg',
+    },
+  ];
+  const minimum = theme.isHighContrast ? 7 : 4.5;
+  slotContrastChecks.forEach((check) => {
+    const fg = resolvedSlotValues[check.fg];
+    const bg = resolvedSlotValues[check.bg];
+    if (!fg || !bg) {
+      return;
+    }
+    const issue = validateContrast(theme, fg, bg, check.tokenPath, minimum);
+    if (issue) {
+      issues.push(issue);
+    }
+  });
+
+  return issues;
 };

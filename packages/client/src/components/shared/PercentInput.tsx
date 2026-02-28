@@ -27,7 +27,7 @@ export const PercentInput = ({
         step={step}
         disabled={disabled}
       />
-      <span className="text-sm text-slate-500">%</span>
+      <span className="theme-input-affix text-sm">%</span>
     </div>
   );
 };

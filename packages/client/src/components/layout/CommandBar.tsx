@@ -236,6 +236,7 @@ export const CommandBar = () => {
       setThemeState({
         themes: [],
         catalog: [],
+        slotCatalog: [],
         validationIssues: [],
         status: 'idle',
         errorMessage: null,
@@ -281,6 +282,7 @@ export const CommandBar = () => {
       setThemeState({
         themes: [],
         catalog: [],
+        slotCatalog: [],
         validationIssues: [],
         status: 'idle',
         errorMessage: null,
@@ -506,17 +508,17 @@ export const CommandBar = () => {
   };
 
   return (
-    <header className="sticky top-0 z-10 border-b border-brand-border bg-white/95 px-4 py-2 shadow-panel backdrop-blur">
+    <header className="theme-commandbar-shell sticky top-0 z-10 border-b px-4 py-2 shadow-panel backdrop-blur">
       <div className="flex flex-wrap items-center gap-4">
         <div className="flex h-14 w-[220px] shrink-0 items-center gap-3 border-r border-brand-border pr-4">
           <div className="grid h-9 w-9 place-items-center rounded-lg bg-brand-blue text-lg font-bold text-white">F</div>
-          <p className="text-[2rem] font-semibold leading-none text-slate-800">FinApp</p>
+          <p className="theme-commandbar-logo-text text-[2rem] font-semibold leading-none">FinApp</p>
         </div>
 
         <div className="min-w-0 flex-1">
           <div className="flex flex-wrap items-end gap-x-4 gap-y-2">
             <div className="flex min-w-[160px] flex-col gap-1">
-              <p className="px-1 text-[10px] font-semibold uppercase tracking-[0.14em] text-slate-400">View Mode</p>
+              <p className="theme-commandbar-section-label px-1 text-[10px] font-semibold uppercase tracking-[0.14em]">View Mode</p>
             <SegmentedToggle
               value={mode}
               onChange={setMode}
@@ -528,7 +530,7 @@ export const CommandBar = () => {
             </div>
 
             <div className="flex min-w-[210px] flex-col gap-1">
-              <p className="px-1 text-[10px] font-semibold uppercase tracking-[0.14em] text-slate-400">Simulation Type</p>
+              <p className="theme-commandbar-section-label px-1 text-[10px] font-semibold uppercase tracking-[0.14em]">Simulation Type</p>
               <SegmentedToggle
                 value={simulationMode}
                 onChange={setSimulationMode}
@@ -541,7 +543,7 @@ export const CommandBar = () => {
 
             {simulationMode === SimulationMode.MonteCarlo ? (
               <div className="flex min-w-[260px] flex-col gap-1">
-                <p className="px-1 text-[10px] font-semibold uppercase tracking-[0.14em] text-slate-400">Historical Era</p>
+                <p className="theme-commandbar-section-label px-1 text-[10px] font-semibold uppercase tracking-[0.14em]">Historical Era</p>
                 <div className="w-[280px] max-w-full">
                   <Dropdown<HistoricalEra>
                     value={eraValue}
@@ -558,18 +560,18 @@ export const CommandBar = () => {
 
             {mode === AppMode.Tracking ? (
               <div className="flex min-w-[180px] flex-col gap-1">
-                <p className="px-1 text-[10px] font-semibold uppercase tracking-[0.14em] text-slate-400">Tracking</p>
+                <p className="theme-commandbar-section-label px-1 text-[10px] font-semibold uppercase tracking-[0.14em]">Tracking</p>
                 <div className="flex flex-wrap items-center gap-2">
                   {lastEditedMonthIndex !== null ? (
                     <button
                       type="button"
                       onClick={clearAllActualOverrides}
-                      className="rounded border border-brand-border bg-white px-2.5 py-1 text-xs font-medium text-slate-700"
+                      className="theme-commandbar-action-btn rounded border px-2.5 py-1 text-xs font-medium"
                     >
                       Clear Actuals
                     </button>
                   ) : null}
-                  <p className="text-xs text-slate-500">
+                  <p className="theme-commandbar-muted text-xs">
                     {lastEditedMonthIndex === null
                       ? 'No actuals entered'
                       : `Actuals through: ${
@@ -584,7 +586,7 @@ export const CommandBar = () => {
             ) : null}
           </div>
 
-          {commandMessage ? <p className="mt-1 text-xs text-slate-500">{commandMessage}</p> : null}
+          {commandMessage ? <p className="theme-commandbar-muted mt-1 text-xs">{commandMessage}</p> : null}
         </div>
 
         <div className="ml-auto flex items-center gap-2">
@@ -592,7 +594,7 @@ export const CommandBar = () => {
             <button
               type="button"
               onClick={handleOpenCreateBookmark}
-              className="grid h-9 w-9 place-items-center rounded-md border border-brand-border bg-white text-slate-600 transition hover:border-brand-blue hover:text-brand-blue"
+              className="theme-commandbar-action-btn grid h-9 w-9 place-items-center rounded-md border transition"
               aria-label="Create bookmark"
               title="Create Bookmark"
             >
@@ -604,7 +606,7 @@ export const CommandBar = () => {
                 <path d="M12 15h8" />
               </svg>
             </button>
-            <span className="pointer-events-none absolute left-1/2 top-full z-20 mt-1 -translate-x-1/2 whitespace-nowrap rounded bg-slate-800 px-2 py-1 text-[11px] font-medium text-white opacity-0 transition group-hover:opacity-100">
+            <span className="theme-commandbar-tooltip pointer-events-none absolute left-1/2 top-full z-20 mt-1 -translate-x-1/2 whitespace-nowrap rounded px-2 py-1 text-[11px] font-medium opacity-0 transition group-hover:opacity-100">
               Create Bookmark
             </span>
           </div>
@@ -615,7 +617,7 @@ export const CommandBar = () => {
                 setBookmarksMenuOpen((open) => !open);
                 setThemeMenuOpen(false);
               }}
-              className="flex h-9 items-center gap-2 rounded-md border border-brand-border bg-white px-3 text-sm font-medium text-slate-700 transition hover:border-brand-blue hover:text-brand-blue"
+              className="theme-commandbar-action-btn flex h-9 items-center gap-2 rounded-md border px-3 text-sm font-medium transition"
               aria-label="Bookmarks"
               title="Bookmarks"
             >
@@ -625,11 +627,11 @@ export const CommandBar = () => {
               </svg>
             </button>
             {bookmarksMenuOpen ? (
-              <div className="absolute right-0 top-11 z-30 w-80 rounded-md border border-brand-border bg-white p-2 shadow-lg">
-                <p className="px-2 pb-1 text-[11px] font-semibold uppercase tracking-wide text-slate-500">Bookmarks</p>
+              <div className="theme-commandbar-popover absolute right-0 top-11 z-30 w-80 rounded-md border p-2 shadow-lg">
+                <p className="theme-commandbar-popover-title px-2 pb-1 text-[11px] font-semibold uppercase tracking-wide">Bookmarks</p>
                 <div className="max-h-72 overflow-y-auto">
                   {bookmarks.length === 0 ? (
-                    <p className="px-2 py-2 text-xs text-slate-500">No bookmarks saved yet.</p>
+                    <p className="theme-commandbar-muted px-2 py-2 text-xs">No bookmarks saved yet.</p>
                   ) : (
                     <div className="space-y-1">
                       {bookmarks.map((bookmark) => (
@@ -637,11 +639,11 @@ export const CommandBar = () => {
                           key={bookmark.id}
                           type="button"
                           onClick={() => handleLoadBookmark(bookmark.id)}
-                          className="group flex w-full items-center justify-between gap-2 rounded px-2 py-1.5 text-left transition hover:bg-brand-surface"
+                          className="theme-commandbar-popover-item group flex w-full items-center justify-between gap-2 rounded px-2 py-1.5 text-left transition"
                         >
                           <span className="min-w-0">
-                            <span className="block truncate text-sm text-slate-800">{bookmark.name}</span>
-                            <span className="block text-[11px] text-slate-500">
+                            <span className="theme-commandbar-popover-item-name block truncate text-sm">{bookmark.name}</span>
+                            <span className="theme-commandbar-muted block text-[11px]">
                               {new Date(bookmark.savedAt).toLocaleString()}
                             </span>
                           </span>
@@ -662,7 +664,7 @@ export const CommandBar = () => {
                                 event.stopPropagation();
                                 handleDeleteBookmark(bookmark);
                               }}
-                              className="grid h-7 w-7 place-items-center rounded text-slate-400 opacity-0 transition hover:bg-rose-50 hover:text-rose-600 group-hover:opacity-100 focus:opacity-100"
+                              className="theme-commandbar-delete-btn grid h-7 w-7 place-items-center rounded opacity-0 transition group-hover:opacity-100 focus:opacity-100"
                               aria-label={`Delete bookmark ${bookmark.name}`}
                               title="Delete bookmark"
                             >
@@ -688,7 +690,7 @@ export const CommandBar = () => {
                 setThemeMenuOpen((open) => !open);
                 setBookmarksMenuOpen(false);
               }}
-              className="grid h-9 w-9 place-items-center rounded-md border border-brand-border bg-white text-slate-600 transition hover:border-brand-blue hover:text-brand-blue"
+              className="theme-commandbar-action-btn grid h-9 w-9 place-items-center rounded-md border transition"
               aria-label="Select theme"
               title="Select Theme"
             >
@@ -700,8 +702,8 @@ export const CommandBar = () => {
               </svg>
             </button>
             {themeMenuOpen ? (
-              <div className="absolute right-0 top-11 z-30 w-64 rounded-md border border-brand-border bg-white p-2 shadow-lg">
-                <p className="px-2 pb-1 text-[11px] font-semibold uppercase tracking-wide text-slate-500">Theme</p>
+              <div className="theme-commandbar-popover absolute right-0 top-11 z-30 w-64 rounded-md border p-2 shadow-lg">
+                <p className="theme-commandbar-popover-title px-2 pb-1 text-[11px] font-semibold uppercase tracking-wide">Theme</p>
                 <div className="space-y-1">
                   {theme.catalog.map((item) => (
                     <button
@@ -711,22 +713,22 @@ export const CommandBar = () => {
                         setSelectedThemeId(item.id);
                         setThemeMenuOpen(false);
                       }}
-                      className={`flex w-full items-center justify-between rounded px-2 py-1.5 text-left text-sm transition ${
+                      className={`theme-commandbar-popover-item flex w-full items-center justify-between rounded px-2 py-1.5 text-left text-sm transition ${
                         item.id === theme.selectedThemeId
-                          ? 'bg-brand-panel text-slate-900'
-                          : 'text-slate-700 hover:bg-brand-surface'
+                          ? 'theme-commandbar-popover-item-active'
+                          : ''
                       }`}
                     >
                       <span>{item.name}</span>
                       {item.isHighContrast ? (
-                        <span className="rounded bg-brand-surface px-1.5 py-0.5 text-[10px] text-slate-600">
+                        <span className="theme-commandbar-tag rounded px-1.5 py-0.5 text-[10px]">
                           A11y
                         </span>
                       ) : null}
                     </button>
                   ))}
                   {theme.catalog.length === 0 ? (
-                    <p className="px-2 py-1 text-xs text-slate-500">
+                    <p className="theme-commandbar-muted px-2 py-1 text-xs">
                       {theme.status === 'error'
                         ? (theme.errorMessage ?? 'Failed to load themes')
                         : 'Loading themes...'}
@@ -740,7 +742,7 @@ export const CommandBar = () => {
             <button
               type="button"
               onClick={handleSaveSnapshot}
-              className="grid h-9 w-9 place-items-center rounded-md border border-brand-border bg-white text-slate-600 transition hover:border-brand-blue hover:text-brand-blue"
+              className="theme-commandbar-action-btn grid h-9 w-9 place-items-center rounded-md border transition"
               aria-label="Save snapshot"
               title="Save Snapshot"
             >
@@ -750,7 +752,7 @@ export const CommandBar = () => {
                 <path d="M4 15v4a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-4" />
               </svg>
             </button>
-            <span className="pointer-events-none absolute left-1/2 top-full z-20 mt-1 -translate-x-1/2 whitespace-nowrap rounded bg-slate-800 px-2 py-1 text-[11px] font-medium text-white opacity-0 transition group-hover:opacity-100">
+            <span className="theme-commandbar-tooltip pointer-events-none absolute left-1/2 top-full z-20 mt-1 -translate-x-1/2 whitespace-nowrap rounded px-2 py-1 text-[11px] font-medium opacity-0 transition group-hover:opacity-100">
               Save Snapshot
             </span>
           </div>
@@ -759,7 +761,7 @@ export const CommandBar = () => {
             <button
               type="button"
               onClick={handleLoadClick}
-              className="grid h-9 w-9 place-items-center rounded-md border border-brand-border bg-white text-slate-600 transition hover:border-brand-blue hover:text-brand-blue"
+              className="theme-commandbar-action-btn grid h-9 w-9 place-items-center rounded-md border transition"
               aria-label="Load snapshot"
               title="Load Snapshot"
             >
@@ -769,7 +771,7 @@ export const CommandBar = () => {
                 <path d="M4 9V5a2 2 0 0 1 2-2h12a2 2 0 0 1 2 2v4" />
               </svg>
             </button>
-            <span className="pointer-events-none absolute left-1/2 top-full z-20 mt-1 -translate-x-1/2 whitespace-nowrap rounded bg-slate-800 px-2 py-1 text-[11px] font-medium text-white opacity-0 transition group-hover:opacity-100">
+            <span className="theme-commandbar-tooltip pointer-events-none absolute left-1/2 top-full z-20 mt-1 -translate-x-1/2 whitespace-nowrap rounded px-2 py-1 text-[11px] font-medium opacity-0 transition group-hover:opacity-100">
               Load Snapshot
             </span>
           </div>
@@ -778,7 +780,7 @@ export const CommandBar = () => {
             type="button"
             onClick={() => void handleRunSimulation()}
             disabled={!canRunActiveWorkspace}
-            className="rounded-md bg-brand-navy px-4 py-2 text-sm font-semibold text-white disabled:cursor-not-allowed disabled:bg-slate-400"
+            className="theme-commandbar-primary-btn rounded-md px-4 py-2 text-sm font-semibold disabled:cursor-not-allowed"
           >
             {status === 'running' ? 'Running...' : 'Run Simulation'}
           </button>
@@ -793,18 +795,18 @@ export const CommandBar = () => {
       </div>
 
       {bookmarkModalOpen ? (
-        <div className="fixed inset-0 z-40 grid place-items-center bg-slate-900/45 px-4">
-          <div className="w-full max-w-md rounded-lg border border-brand-border bg-white p-4 shadow-lg">
-            <h2 className="text-base font-semibold text-slate-900">Create Bookmark</h2>
-            <p className="mt-1 text-sm text-slate-600">Save the current full app state to browser bookmarks.</p>
-            <label className="mt-3 block text-xs font-semibold uppercase tracking-wide text-slate-500" htmlFor="bookmark-name-input">
+        <div className="theme-commandbar-modal-backdrop fixed inset-0 z-40 grid place-items-center px-4">
+          <div className="theme-commandbar-modal w-full max-w-md rounded-lg border p-4 shadow-lg">
+            <h2 className="theme-commandbar-modal-title text-base font-semibold">Create Bookmark</h2>
+            <p className="theme-commandbar-modal-text mt-1 text-sm">Save the current full app state to browser bookmarks.</p>
+            <label className="theme-commandbar-section-label mt-3 block text-xs font-semibold uppercase tracking-wide" htmlFor="bookmark-name-input">
               Bookmark Name
             </label>
             <input
               id="bookmark-name-input"
               value={bookmarkName}
               onChange={(event) => setBookmarkName(event.target.value)}
-              className="mt-1 h-10 w-full rounded border border-brand-border bg-white px-3 text-sm text-slate-900"
+              className="theme-input-control mt-1 h-10 w-full rounded border px-3 text-sm"
               autoFocus
             />
             <div className="mt-4 flex justify-end gap-2">
@@ -814,7 +816,7 @@ export const CommandBar = () => {
                   setBookmarkModalOpen(false);
                   setBookmarkName('');
                 }}
-                className="rounded-md border border-brand-border bg-white px-3 py-1.5 text-sm font-medium text-slate-700"
+                className="theme-commandbar-action-btn rounded-md border px-3 py-1.5 text-sm font-medium"
               >
                 Cancel
               </button>
@@ -822,7 +824,7 @@ export const CommandBar = () => {
                 type="button"
                 onClick={handleCreateBookmark}
                 disabled={bookmarkName.trim().length === 0}
-                className="rounded-md bg-brand-navy px-3 py-1.5 text-sm font-semibold text-white disabled:cursor-not-allowed disabled:bg-slate-400"
+                className="theme-commandbar-primary-btn rounded-md px-3 py-1.5 text-sm font-semibold disabled:cursor-not-allowed"
               >
                 Save Bookmark
               </button>

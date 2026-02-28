@@ -232,6 +232,7 @@ Affordance index reserved for future use. No explicit app-level redo behavior is
 **Behavior:**
 - Themes are loaded from `GET /api/v1/themes`.
 - Selection applies immediately (no page refresh and no rerun required).
+- Theme engine uses inheritance-first slot resolution (`overrides -> slots -> slotCatalog fallback -> semantic -> primitives`) so themes may override only targeted elements while the rest inherit defaults.
 - Startup precedence:
   1. snapshot-selected theme (if present and available)
   2. local browser preference

@@ -1221,6 +1221,14 @@ The Fastify server configures CORS to allow requests from the client's origin. I
 - Theme tokens are semantic, not component-hardcoded.
 - Token groups:
   - `color`, `typography`, `spacing`, `radius`, `border`, `shadow`, `motion`, `state`, `chart`.
+- Token model v2 adds inheritance maps per theme:
+  - `semantic` (global aliases)
+  - `slots` (component-slot aliases)
+  - optional `overrides` (theme-specific deltas)
+- Slot paths use dot notation (`<domain>.<component>.<element>[.<state>]`), and the server returns canonical `slotCatalog` with fallback refs.
+- Client compiles resolved slot values into CSS variables:
+  - `--theme-slot-<kebab-slot-path>`
+  - Example: `commandBar.shell.bg` -> `--theme-slot-command-bar-shell-bg`
 - Server emits validation warnings (`ThemeValidationIssue[]`) for contrast-sensitive pairs.
 
 ### 13.4 Persistence

@@ -15,8 +15,11 @@ describe('GET /api/v1/themes', () => {
 
     expect(response.statusCode).toBe(200);
     const body = response.json();
+    expect(body.tokenModelVersion).toBe('2');
     expect(body.defaultThemeId).toBe(ThemeId.Light);
     expect(Array.isArray(body.themes)).toBe(true);
+    expect(Array.isArray(body.slotCatalog)).toBe(true);
+    expect(body.slotCatalog.length).toBeGreaterThan(10);
     expect(body.themes.map((theme: { id: ThemeId }) => theme.id)).toEqual(
       expect.arrayContaining([ThemeId.Light, ThemeId.Dark, ThemeId.HighContrast, ThemeId.Monokai, ThemeId.Synthwave84]),
     );

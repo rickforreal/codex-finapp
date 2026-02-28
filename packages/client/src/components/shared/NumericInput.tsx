@@ -36,7 +36,7 @@ export const NumericInput = ({
       step={step}
       onChange={handleChange}
       disabled={disabled}
-      className={`h-8 w-full rounded border border-brand-border bg-white px-2 text-sm disabled:cursor-not-allowed disabled:bg-slate-100 disabled:text-slate-500 ${className}`}
+      className={`theme-input-control h-8 w-full rounded border px-2 text-sm disabled:cursor-not-allowed ${className}`}
     />
   );
 };

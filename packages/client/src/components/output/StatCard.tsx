@@ -20,11 +20,11 @@ export const StatCard = ({
   annotationStyle,
   className = '',
 }: Props) => (
-  <article className={`min-h-[84px] min-w-[140px] rounded-lg border border-slate-200 bg-white p-3 shadow-sm ${className}`}>
-    <p className="text-[11px] uppercase tracking-[0.5px] text-slate-500">{label}</p>
-    <p className={`mt-2 font-mono text-[22px] font-semibold leading-none text-slate-800 ${valueClassName}`}>{value}</p>
+  <article className={`theme-summary-stat-card min-h-[84px] min-w-[140px] rounded-lg border p-3 shadow-sm ${className}`}>
+    <p className="theme-summary-stat-label text-[11px] uppercase tracking-[0.5px]">{label}</p>
+    <p className={`theme-summary-stat-value mt-2 font-mono text-[22px] font-semibold leading-none ${valueClassName}`}>{value}</p>
     {annotation ? (
-      <p className={`mt-2 text-[10px] text-slate-500 ${annotationClassName}`} style={annotationStyle}>
+      <p className={`theme-summary-stat-annotation mt-2 text-[10px] ${annotationClassName}`} style={annotationStyle}>
         {annotation}
       </p>
     ) : null}

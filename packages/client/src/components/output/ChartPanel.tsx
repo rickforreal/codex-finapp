@@ -21,7 +21,7 @@ const BreakdownLabelToggle = ({
     type="button"
     onClick={() => onChange(!checked)}
     className={`inline-flex items-center gap-1.5 text-[13px] font-medium transition ${
-      checked ? 'text-blue-500' : 'text-slate-500 hover:text-slate-700'
+      checked ? 'theme-chart-breakdown-active' : 'theme-chart-breakdown'
     }`}
     aria-pressed={checked}
   >
@@ -69,7 +69,7 @@ export const ChartPanel = () => {
 
   return (
     <section
-      className="relative rounded-xl border border-brand-border bg-white p-4 shadow-panel"
+      className="theme-chart-panel relative rounded-xl border p-4 shadow-panel"
       style={
         mode === AppMode.Tracking && trackingOutputsStale
           ? { opacity: 0.6, filter: 'saturate(0.82)' }
@@ -95,7 +95,7 @@ export const ChartPanel = () => {
         className={`${sideBySide ? 'flex' : 'flex flex-col'} gap-4`}
       >
         <div className={`${sideBySide ? 'flex-1' : 'w-full'} min-w-0 rounded-lg border border-brand-border`}>
-          <div className="mb-1 px-2 pt-1 text-[11px] font-semibold uppercase tracking-wider text-slate-400">Portfolio Value</div>
+          <div className="theme-chart-panel-heading mb-1 px-2 pt-1 text-[11px] font-semibold uppercase tracking-wider">Portfolio Value</div>
           <PortfolioChart
             hoverIndex={hoverIndex}
             onHoverChange={setHoverIndex}
@@ -103,7 +103,7 @@ export const ChartPanel = () => {
           />
         </div>
         <div className={`${sideBySide ? 'flex-1' : 'w-full'} min-w-0 rounded-lg border border-brand-border`}>
-          <div className="mb-1 px-2 pt-1 text-[11px] font-semibold uppercase tracking-wider text-slate-400">Monthly Withdrawal</div>
+          <div className="theme-chart-panel-heading mb-1 px-2 pt-1 text-[11px] font-semibold uppercase tracking-wider">Monthly Withdrawal</div>
           <WithdrawalChart
             hoverIndex={hoverIndex}
             onHoverChange={setHoverIndex}
@@ -118,9 +118,9 @@ export const ChartPanel = () => {
         </p>
       ) : null}
       {simulationStatus === 'running' ? (
-        <div className="pointer-events-none absolute inset-0 z-40 flex items-center justify-center rounded-xl bg-white/65 backdrop-blur-[1px]">
-          <div className="rounded-md border border-brand-border bg-white px-3 py-2 text-xs text-slate-600 shadow-sm">
-            <span className="mr-2 inline-block h-3 w-3 animate-spin rounded-full border-2 border-slate-300 border-t-brand-blue align-[-1px]" />
+        <div className="theme-chart-panel-overlay pointer-events-none absolute inset-0 z-40 flex items-center justify-center rounded-xl backdrop-blur-[1px]">
+          <div className="theme-chart-panel-overlay-card rounded-md border px-3 py-2 text-xs shadow-sm">
+            <span className="theme-chart-panel-spinner mr-2 inline-block h-3 w-3 animate-spin rounded-full border-2 align-[-1px]" />
             Running simulation...
           </div>
         </div>

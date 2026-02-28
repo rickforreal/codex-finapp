@@ -14,6 +14,7 @@ import {
   type HistoricalDataSummary,
   type ThemeCatalogItem,
   type ThemeDefinition,
+  type ThemeSlotCatalogItem,
   type ThemeValidationIssue,
   type StressScenario,
   type StressTestResult,
@@ -252,6 +253,7 @@ export type SnapshotState = {
     defaultThemeId: ThemeId;
     themes: ThemeDefinition[];
     catalog: ThemeCatalogItem[];
+    slotCatalog: ThemeSlotCatalogItem[];
     validationIssues: ThemeValidationIssue[];
     status: ThemeStatus;
     errorMessage: string | null;
@@ -361,6 +363,7 @@ export type AppStore = SnapshotState & {
       defaultThemeId?: ThemeId;
       themes?: ThemeDefinition[];
       catalog?: ThemeCatalogItem[];
+      slotCatalog?: ThemeSlotCatalogItem[];
       validationIssues?: ThemeValidationIssue[];
       status?: ThemeStatus;
       errorMessage?: string | null;
@@ -1639,6 +1642,7 @@ const cloneSnapshotState = (snapshot: SnapshotState): SnapshotState => {
     defaultThemeId: normalizedSnapshot.theme.defaultThemeId,
     themes: normalizedSnapshot.theme.themes.map((theme) => ({ ...theme })),
     catalog: normalizedSnapshot.theme.catalog.map((item) => ({ ...item })),
+    slotCatalog: (normalizedSnapshot.theme.slotCatalog ?? []).map((item) => ({ ...item })),
     validationIssues: normalizedSnapshot.theme.validationIssues.map((issue) => ({ ...issue })),
     status: normalizedSnapshot.theme.status,
     errorMessage: normalizedSnapshot.theme.errorMessage,
@@ -1726,6 +1730,7 @@ export const useAppStore = create<AppStore>((set) => ({
     defaultThemeId: ThemeId.Light,
     themes: [],
     catalog: [],
+    slotCatalog: [],
     validationIssues: [],
     status: 'idle',
     errorMessage: null,
@@ -2984,6 +2989,7 @@ export const useAppStore = create<AppStore>((set) => ({
         defaultThemeId: payload.defaultThemeId ?? state.theme.defaultThemeId,
         themes: payload.themes ?? state.theme.themes,
         catalog: payload.catalog ?? state.theme.catalog,
+        slotCatalog: payload.slotCatalog ?? state.theme.slotCatalog,
         validationIssues: payload.validationIssues ?? state.theme.validationIssues,
         status: payload.status ?? state.theme.status,
         errorMessage:
@@ -3239,6 +3245,7 @@ const snapshotStateFromStore = (state: AppStore): SnapshotState => {
     defaultThemeId: state.theme.defaultThemeId,
     themes: state.theme.themes.map((theme) => ({ ...theme })),
     catalog: state.theme.catalog.map((item) => ({ ...item })),
+    slotCatalog: state.theme.slotCatalog.map((item) => ({ ...item })),
     validationIssues: state.theme.validationIssues.map((issue) => ({ ...issue })),
     status: state.theme.status,
     errorMessage: state.theme.errorMessage,

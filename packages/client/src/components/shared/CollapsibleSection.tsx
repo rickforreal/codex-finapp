@@ -44,21 +44,21 @@ const MeasuredCollapsibleSection = ({ id, title, collapsed, onToggle, headerActi
   }, [children]);
 
   return (
-    <section className="rounded-lg border border-brand-border bg-white">
+    <section className="theme-section-card rounded-lg border">
       <div className="flex items-center justify-between gap-2 px-3 py-2">
         <button
           type="button"
           onClick={() => onToggle(id)}
           className="min-w-0 flex-1 text-left"
         >
-          <span className="text-sm font-semibold text-brand-navy">{title}</span>
+          <span className="theme-section-title text-sm font-semibold">{title}</span>
         </button>
         <div className="flex shrink-0 items-center gap-1">
           {headerAction ? <div>{headerAction}</div> : null}
           <button
             type="button"
             onClick={() => onToggle(id)}
-            className="inline-flex h-7 w-7 items-center justify-center text-sm text-slate-500 transition"
+            className="theme-section-icon inline-flex h-7 w-7 items-center justify-center text-sm transition"
             aria-label={collapsed ? `Expand ${title}` : `Collapse ${title}`}
           >
             <span className={`transition ${collapsed ? '-rotate-90' : ''}`}>⌄</span>
@@ -69,7 +69,7 @@ const MeasuredCollapsibleSection = ({ id, title, collapsed, onToggle, headerActi
         className="overflow-hidden transition-[max-height] duration-200 ease-out"
         style={{ maxHeight: collapsed ? 0 : `${expandedHeight}px` }}
       >
-        <div ref={contentRef} className="space-y-3 border-t border-brand-border px-3 py-3">
+        <div ref={contentRef} className="theme-section-divider space-y-3 border-t px-3 py-3">
           {children}
         </div>
       </div>

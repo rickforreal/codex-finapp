@@ -101,9 +101,11 @@ Response:
 
 ```ts
 {
+  tokenModelVersion: "2";
   defaultThemeId: ThemeId;
   themes: ThemeDefinition[];
   catalog: ThemeCatalogItem[];
+  slotCatalog: ThemeSlotCatalogItem[];
   validationIssues: Array<{
     themeId: ThemeId;
     tokenPath: string;
@@ -113,7 +115,13 @@ Response:
 }
 ```
 
-Theme contract note (v1 + CHG-0003 refinement):
+Theme contract note (v2):
+- `tokenModelVersion` is currently fixed to `"2"`.
+- `ThemeDefinition` now includes inheritance maps:
+  - `semantic: Record<string, ThemeTokenRefOrValue>`
+  - `slots: Record<string, ThemeTokenRefOrValue>`
+  - `overrides?: Record<string, ThemeTokenRefOrValue>`
+- `slotCatalog` provides canonical slot paths plus server fallback refs for deterministic client resolution.
 - `ThemeDefinition.tokens.chart` includes:
   - base chart tokens (`manualLine`, `manualAreaTop`, `manualAreaBottom`, `mcMedianLine`, `mcBandOuter`, `mcBandInner`)
   - compare slot color tokens (`compareSlotA` .. `compareSlotH`) used to keep compare chips/tabs/chart line colors aligned per slot ID.

@@ -493,8 +493,12 @@ ThemeDefinition {
   name: string;
   description: string;
   version: string;
+  tokenModelVersion: "2";
   isHighContrast: boolean;
   defaultForApp: boolean;
+  semantic: Record<string, ThemeTokenRefOrValue>;
+  slots: Record<string, ThemeTokenRefOrValue>;
+  overrides?: Record<string, ThemeTokenRefOrValue>;
   tokens: {
     color: ThemeColorTokens;        // semantic UI/chart/state palette
     typography: ThemeTypographyTokens;
@@ -506,6 +510,17 @@ ThemeDefinition {
     state: ThemeStateTokens;        // edited/preserved/stale/selection visuals
     chart: ThemeChartTokens;        // manual line/fill + MC bands/median + compare slot colors
   };
+}
+```
+
+Theme slot catalog (from `/themes`):
+
+```ts
+ThemeSlotCatalogItem {
+  path: string;                     // dot-path, e.g. commandBar.shell.bg
+  category: string;                 // top-level domain, e.g. commandBar
+  description: string;
+  fallback: ThemeTokenRefOrValue;   // default server fallback for this slot
 }
 ```
 

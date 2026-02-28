@@ -10,7 +10,7 @@ type Props = {
 export const CurrencyInput = ({ value, onChange, className = '', disabled = false }: Props) => {
   return (
     <div className={`flex items-center gap-1 ${className}`}>
-      <span className="text-sm text-slate-500">$</span>
+      <span className="theme-input-affix text-sm">$</span>
       <NumericInput
         value={value}
         onChange={(next) => onChange(Math.max(0, Math.round(next)))}

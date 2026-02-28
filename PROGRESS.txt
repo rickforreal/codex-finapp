@@ -1561,6 +1561,25 @@ Canonical docs impact:
   - `npm run lint -w @finapp/client`
   - `npm test -w @finapp/client`
 - Canonical docs impact: No canonical doc impact (bugfix + visibility polish within existing CPV31.1 behavior contract).
+## 2026-02-28 — TEG11-T1/T2/T3/T4 | COMPLETE
+
+Implemented Theme Engine Granular v1.1 with token model v2 (`semantic -> slots -> overrides`) and slot catalog delivery from `/api/v1/themes`. Added server-side token-model validation and client-side slot resolver/compiler that emits `--theme-slot-*` variables during theme application.
+
+Migrated key UI surfaces to slot-driven classes (app shell, command bar, section chrome, shared controls, summary stats, compare diff panel, chart panel, stress panel) while retaining existing startup precedence and snapshot/local preference behavior. Snapshot parsing now defaults missing `theme.slotCatalog` to `[]` for backward compatibility.
+
+Updated docs and feature artifacts:
+- `docs/features/theme-engine-granular-v1-1/{FEATURE,PLAN,ACCEPTANCE}.md`
+- `docs/SPECS.md`
+- `docs/DATA_MODEL.md`
+- `docs/API.md`
+- `docs/ARCHITECTURE.md`
+- `TASKS.md`
+
+Validation run (all passing):
+- `npm run typecheck`
+- `npm run lint`
+- `npm test`
+- `npm run build`
 2026-02-28 — CPV31.2 Zero-Phase Spending Defaults | COMPLETE
 - Implemented optional Spending Phases (`0..4`) with zero-phase default behavior.
 - Shared contract updated: `spendingPhases` now accepts empty arrays (`max(4)` only).

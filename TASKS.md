@@ -1383,6 +1383,40 @@ Acceptance Criteria:
 [AC2] Lock/sync controls are hidden when compare has only Slot A.
 [AC3] Client typecheck, lint, and tests pass.
 
+## Feature Plan — Theme Engine Granular v1.1
+
+- [x] TEG11-T1: Add theme token model v2 contracts and `/themes` response expansion
+Phase: Feature/ThemeEngine-Granular-v1.1
+Dependencies: none
+Acceptance Criteria:
+[AC1] Shared theme contracts include `tokenModelVersion`, `semantic`, `slots`, optional `overrides`, and `slotCatalog` types.
+[AC2] `/api/v1/themes` payload includes `tokenModelVersion` and `slotCatalog`.
+[AC3] Route tests verify expanded payload shape.
+
+- [x] TEG11-T2: Implement resolver/compiler for slot-level CSS variables
+Phase: Feature/ThemeEngine-Granular-v1.1
+Dependencies: TEG11-T1
+Acceptance Criteria:
+[AC1] Client compiles slot tokens with deterministic precedence.
+[AC2] `applyTheme` emits `--theme-slot-*` vars from resolved slots.
+[AC3] Resolver/engine tests cover override precedence and slot var emission.
+
+- [x] TEG11-T3: Migrate key UI surfaces to slot-driven classes
+Phase: Feature/ThemeEngine-Granular-v1.1
+Dependencies: TEG11-T2
+Acceptance Criteria:
+[AC1] App shell, command bar, shared controls, summary stats, compare diff, chart panel, and stress panel consume slot classes.
+[AC2] Existing built-in themes remain visually coherent after migration.
+[AC3] Snapshot compatibility is preserved (including missing `slotCatalog` fallback).
+
+- [x] TEG11-T4: Update canonical docs and pass full regression gate
+Phase: Feature/ThemeEngine-Granular-v1.1
+Dependencies: TEG11-T3
+Acceptance Criteria:
+[AC1] `docs/SPECS.md`, `docs/DATA_MODEL.md`, `docs/API.md`, and `docs/ARCHITECTURE.md` reflect v1.1 behavior.
+[AC2] `npm run typecheck`, `npm run lint`, `npm test`, and `npm run build` pass.
+[AC3] `PROGRESS.txt` records append-only completion summary and canonical-doc impact.
+
 ## Feature Plan — Compare Portfolios v3.1.2 (Zero-Phase Spending Defaults)
 
 - [x] CPV312-T1: Implement zero-phase default and optional-clamp engine semantics

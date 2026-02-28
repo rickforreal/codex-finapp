@@ -77,24 +77,24 @@ const compactVerticalBarChart = (
 ) => {
   const maxAbs = Math.max(1, ...values.map((item) => Math.abs(item.value)));
   return (
-    <div className="rounded-md border border-brand-border bg-white p-2">
-      <p className="mb-2 text-[11px] font-semibold text-slate-600">{title}</p>
+    <div className="theme-stress-card rounded-md border p-2">
+      <p className="theme-stress-muted mb-2 text-[11px] font-semibold">{title}</p>
       <div className="flex h-32 items-end gap-2">
         {values.map((item, index) => {
           const height = `${Math.max(4, (Math.abs(item.value) / maxAbs) * 100)}%`;
           return (
             <div key={`${title}-${item.label}-${index}`} className="flex min-w-0 flex-1 flex-col items-center gap-1">
-              <span className="text-[10px] font-medium text-slate-700">
+              <span className="theme-stress-metric text-[10px] font-medium">
                 {asPercent ? formatPercent(item.value, 1) : formatCompactCurrency(Math.round(item.value))}
               </span>
-              <div className="flex h-24 w-full items-end rounded bg-slate-100 px-1">
+              <div className="theme-stress-bar-bg flex h-24 w-full items-end rounded px-1">
                 <div
                   className="w-full rounded-t"
                   style={{ height, backgroundColor: item.color }}
                   title={`${item.label}: ${asPercent ? formatPercent(item.value, 1) : formatCurrency(Math.round(item.value))}`}
                 />
               </div>
-              <span className="max-w-full truncate text-[10px] text-slate-600">{item.label}</span>
+              <span className="theme-stress-muted max-w-full truncate text-[10px]">{item.label}</span>
             </div>
           );
         })}
@@ -390,14 +390,14 @@ export const StressTestPanel = () => {
   });
 
   return (
-    <section className="rounded-xl border border-brand-border bg-white shadow-panel">
+    <section className="theme-stress-shell rounded-xl border shadow-panel">
       <button
         type="button"
         onClick={toggleStressPanel}
-        className="flex w-full items-center justify-between rounded-t-xl bg-brand-surface px-4 py-3 text-left"
+        className="theme-stress-header flex w-full items-center justify-between rounded-t-xl px-4 py-3 text-left"
       >
-        <span className="text-sm font-semibold text-slate-800">Stress Test</span>
-        <span className="text-slate-500">{stress.isExpanded ? '▾' : '▸'}</span>
+        <span className="theme-stress-header-text text-sm font-semibold">Stress Test</span>
+        <span className="theme-stress-muted">{stress.isExpanded ? '▾' : '▸'}</span>
       </button>
 
       {stress.isExpanded ? (

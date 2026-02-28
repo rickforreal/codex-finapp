@@ -165,6 +165,7 @@ const snapshotStateSchema = z
         defaultThemeId: z.nativeEnum(ThemeId),
         themes: z.array(z.unknown()),
         catalog: z.array(z.unknown()),
+        slotCatalog: z.array(z.unknown()).optional(),
         validationIssues: z.array(z.unknown()),
         status: z.enum(['idle', 'loading', 'ready', 'error']),
         errorMessage: z.string().nullable(),
@@ -750,6 +751,10 @@ const unpackSnapshotState = (packed: unknown): SnapshotState => {
 
   const unpacked: SnapshotState = {
     ...data,
+    theme: {
+      ...data.theme,
+      slotCatalog: data.theme.slotCatalog ?? [],
+    },
     compareWorkspace: unpackCompareWorkspace(data.compareWorkspace),
     planningWorkspace: unpackWorkspace(data.planningWorkspace),
     trackingWorkspace: unpackWorkspace(data.trackingWorkspace),

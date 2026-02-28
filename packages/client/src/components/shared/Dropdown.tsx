@@ -15,7 +15,7 @@ export const Dropdown = <T extends string>({ value, options, onChange, disabled 
     value={value}
     onChange={(event) => onChange(event.target.value as T)}
     disabled={disabled}
-    className="h-9 w-full rounded border border-brand-border bg-white px-2 text-sm disabled:cursor-not-allowed disabled:bg-slate-100 disabled:text-slate-500"
+    className="theme-input-control h-9 w-full rounded border px-2 text-sm disabled:cursor-not-allowed"
   >
     {options.map((option) => (
       <option key={option.value} value={option.value}>

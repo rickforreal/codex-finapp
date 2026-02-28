@@ -1,4 +1,6 @@
-import type { ThemeDefinition, ThemeFontFamilyId } from '@finapp/shared';
+import type { ThemeDefinition, ThemeFontFamilyId, ThemeSlotCatalogItem } from '@finapp/shared';
+
+import { compileThemeSlotVars } from './themeResolver';
 
 const FONT_FAMILY_MAP: Record<ThemeFontFamilyId, string> = {
   ibmPlexSans: '"IBM Plex Sans", sans-serif',
@@ -14,7 +16,7 @@ const setVar = (name: string, value: string) => {
   document.documentElement.style.setProperty(name, value);
 };
 
-export const applyTheme = (theme: ThemeDefinition): void => {
+export const applyTheme = (theme: ThemeDefinition, slotCatalog: ThemeSlotCatalogItem[] = []): void => {
   const { color, typography, spacing, radius, border, shadow, motion, state, chart } = theme.tokens;
 
   setVar('--theme-color-neutral-50', color.neutral50);
@@ -125,6 +127,11 @@ export const applyTheme = (theme: ThemeDefinition): void => {
   setVar('--theme-chart-compare-slot-f', chart.compareSlotF);
   setVar('--theme-chart-compare-slot-g', chart.compareSlotG);
   setVar('--theme-chart-compare-slot-h', chart.compareSlotH);
+
+  const slotVars = compileThemeSlotVars(theme, slotCatalog);
+  Object.entries(slotVars).forEach(([key, value]) => {
+    setVar(key, value);
+  });
 
   document.documentElement.setAttribute('data-theme-id', theme.id);
 };

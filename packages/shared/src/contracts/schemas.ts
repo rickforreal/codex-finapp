@@ -659,12 +659,23 @@ const themeChartSchema = z
   })
   .strict();
 
+const themeTokenRefSchema = z
+  .object({
+    ref: z.string().min(1),
+  })
+  .strict();
+
+const themeTokenRefOrValueSchema = z.union([themeTokenRefSchema, z.string().min(1)]);
+
+const themeTokenMapSchema = z.record(z.string().min(1), themeTokenRefOrValueSchema);
+
 export const themeDefinitionSchema = z
   .object({
     id: z.nativeEnum(ThemeId),
     name: z.string().min(1),
     description: z.string().min(1),
     version: z.string().min(1),
+    tokenModelVersion: z.literal('2'),
     isHighContrast: z.boolean(),
     defaultForApp: z.boolean(),
     tokens: z
@@ -680,11 +691,24 @@ export const themeDefinitionSchema = z
         chart: themeChartSchema,
       })
       .strict(),
+    semantic: themeTokenMapSchema,
+    slots: themeTokenMapSchema,
+    overrides: themeTokenMapSchema.optional(),
+  })
+  .strict();
+
+const themeSlotCatalogItemSchema = z
+  .object({
+    path: z.string().min(1),
+    category: z.string().min(1),
+    description: z.string().min(1),
+    fallback: themeTokenRefOrValueSchema,
   })
   .strict();
 
 export const themesResponseSchema = z
   .object({
+    tokenModelVersion: z.literal('2'),
     defaultThemeId: z.nativeEnum(ThemeId),
     themes: z.array(themeDefinitionSchema).min(1),
     catalog: z.array(
@@ -699,6 +723,7 @@ export const themesResponseSchema = z
         })
         .strict(),
     ),
+    slotCatalog: z.array(themeSlotCatalogItemSchema),
     validationIssues: z.array(
       z
         .object({

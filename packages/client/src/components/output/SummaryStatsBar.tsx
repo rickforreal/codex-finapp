@@ -49,7 +49,7 @@ export const SummaryStatsBar = () => {
   const showPoS = simulationMode === SimulationMode.MonteCarlo;
   const pos = monteCarlo?.probabilityOfSuccess ?? null;
   const posClassName =
-    pos === null ? undefined : pos >= 0.9 ? 'text-emerald-700' : pos >= 0.75 ? 'text-amber-700' : 'text-rose-700';
+    pos === null ? undefined : pos >= 0.9 ? 'theme-text-positive' : pos >= 0.75 ? 'theme-text-warning' : 'theme-text-negative';
   const terminalMedianNominal = monteCarlo?.percentileCurves.total.p50[activeRunRetirementDuration * 12 - 1] ?? null;
   const terminalMedianReal =
     terminalMedianNominal === null
@@ -165,14 +165,14 @@ export const SummaryStatsBar = () => {
 
     return (
       <section
-        className="rounded-xl bg-brand-surface p-4"
+        className="theme-summary-shell rounded-xl p-4"
         style={
           mode === AppMode.Tracking && trackingOutputsStale
             ? { opacity: 0.58, filter: 'saturate(0.78)' }
             : undefined
         }
       >
-        <div className="mb-2 text-xs text-slate-500">Compare metrics across {slotEntries.length} active portfolios.</div>
+        <div className="theme-summary-muted mb-2 text-xs">Compare metrics across {slotEntries.length} active portfolios.</div>
         <div className="grid grid-cols-[repeat(auto-fit,minmax(260px,1fr))] gap-3">
           {simulationMode === SimulationMode.MonteCarlo
             ? compareCard('Probability of Success', (entry) => entry.pos, (value) => formatPercent(value))
@@ -224,7 +224,7 @@ export const SummaryStatsBar = () => {
 
   return (
     <section
-      className="rounded-xl bg-brand-surface p-4"
+      className="theme-summary-shell rounded-xl p-4"
       style={
         mode === AppMode.Tracking && trackingOutputsStale
           ? { opacity: 0.58, filter: 'saturate(0.78)' }
@@ -232,7 +232,7 @@ export const SummaryStatsBar = () => {
       }
     >
       {simulationStatus === 'running' ? (
-        <div className="mb-2 flex items-center gap-2 text-xs text-slate-600">
+        <div className="theme-summary-muted mb-2 flex items-center gap-2 text-xs">
           <span className="inline-block h-3 w-3 animate-spin rounded-full border-2 border-slate-300 border-t-brand-blue" />
           <span>Updating summary metrics...</span>
         </div>
@@ -268,7 +268,7 @@ export const SummaryStatsBar = () => {
           label="Mean Monthly (Real)"
           value={hasResult ? formatCurrency(Math.round(stats.meanMonthlyReal)) : '—'}
           annotation={hasResult ? `${meanVsMedian >= 0 ? '+' : '-'}${formatCurrency(Math.round(Math.abs(meanVsMedian)))} vs median` : undefined}
-          valueClassName={meanVsMedian >= 0 ? 'text-emerald-700' : 'text-rose-700'}
+          valueClassName={meanVsMedian >= 0 ? 'theme-text-positive' : 'theme-text-negative'}
         />
         <StatCard
           label="Std. Deviation (Real)"
@@ -288,8 +288,8 @@ export const SummaryStatsBar = () => {
           label="Portfolio End (Real)"
           value={hasResult ? formatCompactCurrency(Math.round(terminalDisplayValue)) : '—'}
           annotation={terminalAnnotation}
-          valueClassName={terminalDepleted ? 'text-rose-700' : 'text-emerald-700'}
-          className={terminalDepleted ? 'border-rose-200 bg-rose-50' : ''}
+          valueClassName={terminalDepleted ? 'theme-text-negative' : 'theme-text-positive'}
+          className={terminalDepleted ? 'theme-summary-terminal-depleted' : ''}
         />
       </div>
     </section>

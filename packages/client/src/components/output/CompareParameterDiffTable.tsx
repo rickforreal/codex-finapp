@@ -63,26 +63,26 @@ export const CompareParameterDiffTable = () => {
   }));
 
   return (
-    <section className="rounded-xl border border-brand-border bg-white shadow-panel">
+    <section className="theme-compare-diff-shell rounded-xl border shadow-panel">
       <button
         type="button"
         onClick={() => setIsExpanded((current) => !current)}
-        className="flex w-full items-center justify-between gap-2 rounded-t-xl bg-brand-surface px-4 py-3 text-left"
+        className="theme-compare-diff-header flex w-full items-center justify-between gap-2 rounded-t-xl px-4 py-3 text-left"
       >
-        <span className="text-[13px] font-semibold text-slate-800">Comparison Insight: Only Differences</span>
+        <span className="theme-compare-diff-header-text text-[13px] font-semibold">Comparison Insight: Only Differences</span>
         <span className="inline-flex items-center gap-2">
           <span className="rounded-full bg-[var(--theme-color-surface-muted)] px-2 py-0.5 text-xs font-medium text-[var(--theme-color-text-secondary)]">
             {differenceCount} {differenceCount === 1 ? 'Difference' : 'Differences'}
           </span>
-          <span className="text-slate-500">{isExpanded ? '▾' : '▸'}</span>
+          <span className="theme-compare-diff-muted">{isExpanded ? '▾' : '▸'}</span>
         </span>
       </button>
 
       {isExpanded ? (
         <div className="space-y-2 p-4">
-          <div className="overflow-x-auto rounded-lg border border-brand-border">
+          <div className="overflow-x-auto rounded-lg border theme-compare-diff-shell">
             <table className="min-w-[840px] w-full border-collapse text-left text-xs">
-              <thead className="bg-brand-surface text-slate-600">
+              <thead className="theme-compare-diff-header theme-compare-diff-muted">
                 <tr>
                   <th className="border-b border-brand-border px-3 py-2 font-semibold">Parameter</th>
                   {slotOrder.map((slotId) => (
@@ -115,7 +115,7 @@ export const CompareParameterDiffTable = () => {
                         </tr>
                       ) : null}
                       <tr className="border-b border-brand-border last:border-b-0">
-                        <td className="px-3 py-2 font-medium text-slate-700">{row.label}</td>
+                        <td className="theme-compare-diff-row-label px-3 py-2 font-medium">{row.label}</td>
                         {slotOrder.map((slotId) => {
                           const isBaseline = slotId === baselineSlotId;
                           const isDeviation = row.differsFromBaselineBySlot[slotId] && !isBaseline;
@@ -144,7 +144,7 @@ export const CompareParameterDiffTable = () => {
               </tbody>
             </table>
           </div>
-          <p className="text-[11px] text-[var(--theme-color-text-secondary)]">
+          <p className="theme-compare-diff-muted text-[11px]">
             Showing only parameters that differ across active portfolios in the current simulation mode snapshot.
           </p>
         </div>

@@ -81,8 +81,8 @@ export const CompareSyncControl = ({
         disabled={lockToggleDisabled}
         className={`${commonClass} ${
           locked
-            ? 'border-brand-navy bg-brand-navy text-white'
-            : 'border-brand-border bg-white text-slate-600'
+            ? 'theme-sync-master-locked'
+            : 'theme-sync-master-unlocked'
         } disabled:cursor-not-allowed disabled:opacity-50`}
         title={
           lockToggleDisabled && lockToggleDisabledReason
@@ -108,8 +108,8 @@ export const CompareSyncControl = ({
       onClick={() => onToggleSync(!synced)}
       className={`${commonClass} ${
         synced
-          ? 'border-emerald-600 bg-emerald-50 text-emerald-700'
-          : 'border-amber-600 bg-amber-50 text-amber-700'
+          ? 'theme-sync-follower-synced'
+          : 'theme-sync-follower-unsynced'
       }`}
       title={synced ? 'Unsync from A so this slot becomes editable' : 'Resync from A and overwrite local value'}
       aria-label={synced ? 'Synced to A. Click to unsync' : 'Unsynced from A. Click to resync'}

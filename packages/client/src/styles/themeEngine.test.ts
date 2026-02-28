@@ -9,8 +9,18 @@ const theme: ThemeDefinition = {
   name: 'Dark',
   description: 'test',
   version: '1.0.0',
+  tokenModelVersion: '2',
   isHighContrast: false,
   defaultForApp: false,
+  semantic: {
+    'semantic.text.primary': '#ffffff',
+    'semantic.surface.card': '#111111',
+  },
+  slots: {
+    'commandBar.shell.bg': 'semantic.surface.card',
+    'commandBar.logo.text': 'semantic.text.primary',
+  },
+  overrides: {},
   tokens: {
     color: {
       neutral50: '#010101',
@@ -154,11 +164,26 @@ describe('themeEngine', () => {
       },
     });
 
-    applyTheme(theme);
+    applyTheme(theme, [
+      {
+        path: 'commandBar.shell.bg',
+        category: 'commandBar',
+        description: 'shell background',
+        fallback: 'semantic.surface.card',
+      },
+      {
+        path: 'commandBar.logo.text',
+        category: 'commandBar',
+        description: 'logo text',
+        fallback: 'semantic.text.primary',
+      },
+    ]);
 
     expect(styleState.get('--theme-color-brand-navy')).toBe('#555555');
     expect(styleState.get('--theme-chart-mc-median-line')).toBe('#998877');
     expect(styleState.get('--theme-chart-compare-slot-c')).toBe('#3030aa');
+    expect(styleState.get('--theme-slot-command-bar-shell-bg')).toBe('#111111');
+    expect(styleState.get('--theme-slot-command-bar-logo-text')).toBe('#ffffff');
     expect(attrs.get('data-theme-id')).toBe(ThemeId.Dark);
   });
 });

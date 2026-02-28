@@ -134,6 +134,21 @@ export type ThemeChartTokens = {
   compareSlotH: string;
 };
 
+export type ThemeTokenRef = {
+  ref: string;
+};
+
+export type ThemeTokenRefOrValue = ThemeTokenRef | string;
+
+export type ThemeTokenMap = Record<string, ThemeTokenRefOrValue>;
+
+export type ThemeSlotCatalogItem = {
+  path: string;
+  category: string;
+  description: string;
+  fallback: ThemeTokenRefOrValue;
+};
+
 export type ThemeTokenBundle = {
   color: ThemeColorTokens;
   typography: ThemeTypographyTokens;
@@ -151,9 +166,13 @@ export type ThemeDefinition = {
   name: string;
   description: string;
   version: string;
+  tokenModelVersion: '2';
   isHighContrast: boolean;
   defaultForApp: boolean;
   tokens: ThemeTokenBundle;
+  semantic: ThemeTokenMap;
+  slots: ThemeTokenMap;
+  overrides?: ThemeTokenMap;
 };
 
 export type ThemeCatalogItem = {

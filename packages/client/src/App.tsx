@@ -45,7 +45,7 @@ const App = () => {
         const selectedThemeId = snapshotPreference ?? localPreferenceId ?? response.defaultThemeId;
         const selectedTheme = response.themes.find((theme) => theme.id === selectedThemeId);
         if (selectedTheme) {
-          applyTheme(selectedTheme);
+          applyTheme(selectedTheme, response.slotCatalog);
           persistThemePreference(selectedTheme.id);
         }
         if (response.validationIssues.length > 0) {
@@ -58,6 +58,7 @@ const App = () => {
           defaultThemeId: response.defaultThemeId,
           themes: response.themes,
           catalog: response.catalog,
+          slotCatalog: response.slotCatalog,
           validationIssues: response.validationIssues,
         });
       })
@@ -82,9 +83,9 @@ const App = () => {
     if (!selectedTheme) {
       return;
     }
-    applyTheme(selectedTheme);
+    applyTheme(selectedTheme, themeState.slotCatalog);
     persistThemePreference(selectedTheme.id);
-  }, [themeState.selectedThemeId, themeState.status, themeState.themes]);
+  }, [themeState.selectedThemeId, themeState.slotCatalog, themeState.status, themeState.themes]);
 
   return <AppShell />;
 };
