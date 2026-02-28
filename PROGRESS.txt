@@ -1344,3 +1344,84 @@ Canonical docs impact:
 - `docs/SPECS.md` — added Affordance #74 (ChartPanel) and #75 (WithdrawalChart)
 - `docs/ARCHITECTURE.md` — updated component tree and file listing
 - `docs/SCENARIOS.md` — added Scenario #27 (side-by-side chart viewing)
+
+## 2026-02-28 — Feature: Bookmarks (Local Compressed Persistence) | COMPLETE
+
+Implemented command-bar bookmarks as fast in-browser persistence, separate from snapshot file save/load.
+
+Feature docs:
+- `docs/features/bookmarks/FEATURE.md`
+- `docs/features/bookmarks/PLAN.md`
+- `docs/features/bookmarks/ACCEPTANCE.md`
+
+Implementation:
+- Added bookmark persistence module: `packages/client/src/store/bookmarks.ts`
+  - Types: `BookmarkRecord`, `BookmarksStorageEnvelope`
+  - Storage key/version: `finapp:bookmarks:v1`
+  - Full-state payload reuse via snapshot serializer/parser
+  - Compression: gzip + base64 (`pako`)
+  - Policies: newest-first insert, duplicate-name allowed, max 100 bookmarks, oldest eviction, explicit quota error
+- Added tests: `packages/client/src/store/bookmarks.test.ts`
+  - round-trip restore
+  - newest-first ordering
+  - duplicate-name allowance
+  - targeted delete
+  - 101st-save eviction behavior
+  - corrupted payload rejection without state mutation
+  - envelope version mismatch and quota error behavior
+- Updated command bar UX: `packages/client/src/components/layout/CommandBar.tsx`
+  - Added `Create Bookmark` button
+  - Added Create Bookmark modal (required name; disabled save on empty input)
+  - Added Bookmarks dropdown (newest-first, immediate load, hover trash + delete confirm)
+  - Reused toolbar message area for bookmark save/load/delete/quota errors
+  - Snapshot Save/Load behavior remains intact
+
+Tracker updates:
+- Marked stale theme QA tasks complete by user direction:
+  - `FM-T4`
+  - `FS84-T4`
+- Added and completed root tasks:
+  - `BM-T1` through `BM-T4`
+
+Additional test maintenance:
+- Updated `packages/client/src/store/useAppStore.compare.test.ts` tracking compare month indices to match current sequential edit-window contract.
+
+Validation run (all passing):
+- `npm run typecheck`
+- `npm run lint`
+- `npm test`
+- `npm run build`
+
+Canonical docs impact:
+- Updated:
+  - `docs/PRD.md`
+  - `docs/SPECS.md` (new affordances #76 and #77)
+  - `docs/SCENARIOS.md` (new scenario #28)
+  - `docs/ARCHITECTURE.md`
+  - `docs/DATA_MODEL.md`
+  - `docs/API.md`
+
+## 2026-02-28 — Bookmark UI Refinement (Icon-Only Create Control) | COMPLETE
+
+Applied a focused command-bar UX refinement for bookmarks.
+
+Changes:
+- Replaced text `Create Bookmark` button with icon-only control in `CommandBar`.
+- Implemented YouTube-style save/playlist-add visual metaphor (lines + plus) as inline SVG.
+- Added hover tooltip text `Create Bookmark` matching existing icon-button tooltip pattern.
+- Preserved existing bookmark behavior (modal create flow, newest-first list, immediate load, hover delete with confirm).
+- Preserved `Bookmarks` terminology as requested.
+
+Files updated:
+- `packages/client/src/components/layout/CommandBar.tsx`
+- `docs/SPECS.md` (Affordance #76 updated to icon-only semantics)
+
+Validation run (all passing):
+- `npm run typecheck`
+- `npm run lint`
+- `npm test`
+- `npm run build`
+
+Canonical docs impact:
+- `docs/SPECS.md` updated (UI affordance presentation detail).
+- No API/data model/architecture contract changes.

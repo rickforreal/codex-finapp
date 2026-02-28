@@ -113,3 +113,9 @@ Dana, 67, has 10 months of actuals entered in Tracking. In **Compare Slot (#67)*
 ## 27. Viewing Portfolio and Withdrawal Charts Side by Side
 
 Priya, 64, runs a Manual simulation and sees the **Chart Panel (#74)** with two charts side by side: the **Portfolio Chart (#42)** on the left showing her portfolio value trajectory, and the **Withdrawal Chart (#75)** on the right showing her monthly withdrawal amounts. She hovers over the portfolio chart at Year 10 and notices that a synchronized crosshair also appears on the withdrawal chart at the same month. The tooltip on the portfolio chart shows $1.2M portfolio value and $4,800 withdrawal; switching to the withdrawal chart tooltip, she sees the same $4,800 with a per-asset breakdown when **Breakdown (#44)** is enabled. She toggles between **Nominal and Real (#43)** and both charts update simultaneously. In Monte Carlo mode, the portfolio chart shows confidence bands while the withdrawal chart shows the representative path with a "(representative path)" annotation. When she narrows her browser window below 900px, both charts stack vertically.
+
+## 28. Fast In-Browser Bookmarking
+
+Ethan, 62, is iterating quickly and wants to avoid file downloads between every experiment. He clicks **Create Bookmark (#76)**, enters `Baseline`, and saves. After changing assumptions and rerunning, he creates a second bookmark also named `Baseline` (duplicate names are allowed). In the **Bookmarks Dropdown (#77)**, the newest bookmark appears at the top. Clicking any row immediately restores the full app state with no load confirmation.
+
+Ethan hovers a bookmark row and sees a trash icon. He clicks it, confirms deletion, and only that bookmark is removed. Later, after many saves, he hits browser storage limits; trying to save again shows a clear quota error and no partial/corrupted bookmark is written.

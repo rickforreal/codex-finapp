@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState, type ChangeEvent } from 'react';
+import { useCallback, useEffect, useRef, useState, type ChangeEvent } from 'react';
 
 import {
   AppMode,
@@ -11,6 +11,14 @@ import {
 
 import { fetchHistoricalSummary } from '../../api/historicalApi';
 import { runSimulation } from '../../api/simulationApi';
+import {
+  applyBookmark,
+  createBookmark,
+  deleteBookmark,
+  listBookmarks,
+  type BookmarkRecord,
+  BookmarkStorageError,
+} from '../../store/bookmarks';
 import { SnapshotLoadError, parseSnapshot, serializeSnapshot } from '../../store/snapshot';
 import {
   getTrackingActualOverridesForRun,
@@ -124,7 +132,11 @@ const withBoundaryStartAnchor = (
 export const CommandBar = () => {
   const fileInputRef = useRef<HTMLInputElement | null>(null);
   const [themeMenuOpen, setThemeMenuOpen] = useState(false);
-  const [snapshotMessage, setSnapshotMessage] = useState<string | null>(null);
+  const [bookmarksMenuOpen, setBookmarksMenuOpen] = useState(false);
+  const [bookmarks, setBookmarks] = useState<BookmarkRecord[]>([]);
+  const [bookmarkModalOpen, setBookmarkModalOpen] = useState(false);
+  const [bookmarkName, setBookmarkName] = useState('');
+  const [commandMessage, setCommandMessage] = useState<string | null>(null);
   const mode = useAppStore((state) => state.mode);
   const isCompareActive = useIsCompareActive();
   const simulationMode = useAppStore((state) => state.simulationMode);
@@ -155,11 +167,31 @@ export const CommandBar = () => {
     drawdownType !== DrawdownStrategyType.Rebalancing ||
     Math.abs(targetAllocation.stocks + targetAllocation.bonds + targetAllocation.cash - 1) < 0.000001;
 
+  const refreshBookmarks = useCallback(() => {
+    try {
+      setBookmarks(listBookmarks());
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'Failed to load bookmarks.';
+      setCommandMessage(message);
+    }
+  }, []);
+
+  useEffect(() => {
+    refreshBookmarks();
+  }, [refreshBookmarks]);
+
   const getDefaultSnapshotName = () => {
     const now = new Date();
     const date = now.toLocaleDateString(undefined, { year: 'numeric', month: 'short', day: 'numeric' });
     const time = now.toLocaleTimeString(undefined, { hour: 'numeric', minute: '2-digit' });
     return `Snapshot ${date} ${time}`;
+  };
+
+  const getDefaultBookmarkName = () => {
+    const now = new Date();
+    const date = now.toLocaleDateString(undefined, { year: 'numeric', month: 'short', day: 'numeric' });
+    const time = now.toLocaleTimeString(undefined, { hour: 'numeric', minute: '2-digit' });
+    return `Bookmark ${date} ${time}`;
   };
 
   const handleSaveSnapshot = () => {
@@ -177,7 +209,7 @@ export const CommandBar = () => {
     anchor.download = filename;
     anchor.click();
     URL.revokeObjectURL(url);
-    setSnapshotMessage(`Saved snapshot: ${name}`);
+    setCommandMessage(`Saved snapshot: ${name}`);
   };
 
   const handleLoadClick = () => {
@@ -208,13 +240,76 @@ export const CommandBar = () => {
         status: 'idle',
         errorMessage: null,
       });
-      setSnapshotMessage(`Loaded snapshot: ${parsed.name}`);
+      setCommandMessage(`Loaded snapshot: ${parsed.name}`);
     } catch (error) {
       if (error instanceof SnapshotLoadError) {
         window.alert(error.message);
         return;
       }
       window.alert("This file doesn't appear to be a valid snapshot.");
+    }
+  };
+
+  const handleOpenCreateBookmark = () => {
+    setBookmarkName(getDefaultBookmarkName());
+    setBookmarkModalOpen(true);
+    setBookmarksMenuOpen(false);
+    setThemeMenuOpen(false);
+  };
+
+  const handleCreateBookmark = () => {
+    const name = bookmarkName.trim();
+    if (!name) {
+      return;
+    }
+
+    try {
+      createBookmark(name);
+      refreshBookmarks();
+      setBookmarkModalOpen(false);
+      setBookmarkName('');
+      setCommandMessage(`Saved bookmark: ${name}`);
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'Failed to save bookmark.';
+      setCommandMessage(message);
+    }
+  };
+
+  const handleLoadBookmark = (bookmarkId: string) => {
+    try {
+      const loaded = applyBookmark(bookmarkId);
+      setThemeState({
+        themes: [],
+        catalog: [],
+        validationIssues: [],
+        status: 'idle',
+        errorMessage: null,
+      });
+      setBookmarksMenuOpen(false);
+      setCommandMessage(`Loaded bookmark: ${loaded.name}`);
+    } catch (error) {
+      if (error instanceof BookmarkStorageError || error instanceof SnapshotLoadError) {
+        setCommandMessage(error.message);
+        return;
+      }
+      setCommandMessage('Failed to load bookmark.');
+    }
+  };
+
+  const handleDeleteBookmark = (bookmark: BookmarkRecord) => {
+    if (!window.confirm(`Delete bookmark "${bookmark.name}"?`)) {
+      return;
+    }
+
+    try {
+      const removed = deleteBookmark(bookmark.id);
+      if (removed) {
+        refreshBookmarks();
+        setCommandMessage(`Deleted bookmark: ${bookmark.name}`);
+      }
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'Failed to delete bookmark.';
+      setCommandMessage(message);
     }
   };
 
@@ -489,14 +584,110 @@ export const CommandBar = () => {
             ) : null}
           </div>
 
-          {snapshotMessage ? <p className="mt-1 text-xs text-slate-500">{snapshotMessage}</p> : null}
+          {commandMessage ? <p className="mt-1 text-xs text-slate-500">{commandMessage}</p> : null}
         </div>
 
         <div className="ml-auto flex items-center gap-2">
+          <div className="group relative">
+            <button
+              type="button"
+              onClick={handleOpenCreateBookmark}
+              className="grid h-9 w-9 place-items-center rounded-md border border-brand-border bg-white text-slate-600 transition hover:border-brand-blue hover:text-brand-blue"
+              aria-label="Create bookmark"
+              title="Create Bookmark"
+            >
+              <svg viewBox="0 0 24 24" className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
+                <path d="M4 7h10" />
+                <path d="M4 12h10" />
+                <path d="M4 17h7" />
+                <path d="M16 11v8" />
+                <path d="M12 15h8" />
+              </svg>
+            </button>
+            <span className="pointer-events-none absolute left-1/2 top-full z-20 mt-1 -translate-x-1/2 whitespace-nowrap rounded bg-slate-800 px-2 py-1 text-[11px] font-medium text-white opacity-0 transition group-hover:opacity-100">
+              Create Bookmark
+            </span>
+          </div>
           <div className="relative">
             <button
               type="button"
-              onClick={() => setThemeMenuOpen((open) => !open)}
+              onClick={() => {
+                setBookmarksMenuOpen((open) => !open);
+                setThemeMenuOpen(false);
+              }}
+              className="flex h-9 items-center gap-2 rounded-md border border-brand-border bg-white px-3 text-sm font-medium text-slate-700 transition hover:border-brand-blue hover:text-brand-blue"
+              aria-label="Bookmarks"
+              title="Bookmarks"
+            >
+              <span>Bookmarks</span>
+              <svg viewBox="0 0 20 20" className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth="1.8">
+                <path d="m5 8 5 5 5-5" />
+              </svg>
+            </button>
+            {bookmarksMenuOpen ? (
+              <div className="absolute right-0 top-11 z-30 w-80 rounded-md border border-brand-border bg-white p-2 shadow-lg">
+                <p className="px-2 pb-1 text-[11px] font-semibold uppercase tracking-wide text-slate-500">Bookmarks</p>
+                <div className="max-h-72 overflow-y-auto">
+                  {bookmarks.length === 0 ? (
+                    <p className="px-2 py-2 text-xs text-slate-500">No bookmarks saved yet.</p>
+                  ) : (
+                    <div className="space-y-1">
+                      {bookmarks.map((bookmark) => (
+                        <button
+                          key={bookmark.id}
+                          type="button"
+                          onClick={() => handleLoadBookmark(bookmark.id)}
+                          className="group flex w-full items-center justify-between gap-2 rounded px-2 py-1.5 text-left transition hover:bg-brand-surface"
+                        >
+                          <span className="min-w-0">
+                            <span className="block truncate text-sm text-slate-800">{bookmark.name}</span>
+                            <span className="block text-[11px] text-slate-500">
+                              {new Date(bookmark.savedAt).toLocaleString()}
+                            </span>
+                          </span>
+                          <span className="shrink-0">
+                            <span
+                              role="button"
+                              tabIndex={0}
+                              onClick={(event) => {
+                                event.preventDefault();
+                                event.stopPropagation();
+                                handleDeleteBookmark(bookmark);
+                              }}
+                              onKeyDown={(event) => {
+                                if (event.key !== 'Enter' && event.key !== ' ') {
+                                  return;
+                                }
+                                event.preventDefault();
+                                event.stopPropagation();
+                                handleDeleteBookmark(bookmark);
+                              }}
+                              className="grid h-7 w-7 place-items-center rounded text-slate-400 opacity-0 transition hover:bg-rose-50 hover:text-rose-600 group-hover:opacity-100 focus:opacity-100"
+                              aria-label={`Delete bookmark ${bookmark.name}`}
+                              title="Delete bookmark"
+                            >
+                              <svg viewBox="0 0 20 20" className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth="1.8">
+                                <path d="M3.5 5.5h13" />
+                                <path d="M7.5 5.5V4A1.5 1.5 0 0 1 9 2.5h2A1.5 1.5 0 0 1 12.5 4v1.5" />
+                                <path d="m6.5 5.5.7 10a1.5 1.5 0 0 0 1.5 1.4h2.6a1.5 1.5 0 0 0 1.5-1.4l.7-10" />
+                              </svg>
+                            </span>
+                          </span>
+                        </button>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              </div>
+            ) : null}
+          </div>
+          <div className="relative">
+            <button
+              type="button"
+              onClick={() => {
+                setThemeMenuOpen((open) => !open);
+                setBookmarksMenuOpen(false);
+              }}
               className="grid h-9 w-9 place-items-center rounded-md border border-brand-border bg-white text-slate-600 transition hover:border-brand-blue hover:text-brand-blue"
               aria-label="Select theme"
               title="Select Theme"
@@ -600,6 +791,45 @@ export const CommandBar = () => {
           onChange={(event) => void handleLoadSnapshot(event)}
         />
       </div>
+
+      {bookmarkModalOpen ? (
+        <div className="fixed inset-0 z-40 grid place-items-center bg-slate-900/45 px-4">
+          <div className="w-full max-w-md rounded-lg border border-brand-border bg-white p-4 shadow-lg">
+            <h2 className="text-base font-semibold text-slate-900">Create Bookmark</h2>
+            <p className="mt-1 text-sm text-slate-600">Save the current full app state to browser bookmarks.</p>
+            <label className="mt-3 block text-xs font-semibold uppercase tracking-wide text-slate-500" htmlFor="bookmark-name-input">
+              Bookmark Name
+            </label>
+            <input
+              id="bookmark-name-input"
+              value={bookmarkName}
+              onChange={(event) => setBookmarkName(event.target.value)}
+              className="mt-1 h-10 w-full rounded border border-brand-border bg-white px-3 text-sm text-slate-900"
+              autoFocus
+            />
+            <div className="mt-4 flex justify-end gap-2">
+              <button
+                type="button"
+                onClick={() => {
+                  setBookmarkModalOpen(false);
+                  setBookmarkName('');
+                }}
+                className="rounded-md border border-brand-border bg-white px-3 py-1.5 text-sm font-medium text-slate-700"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={handleCreateBookmark}
+                disabled={bookmarkName.trim().length === 0}
+                className="rounded-md bg-brand-navy px-3 py-1.5 text-sm font-semibold text-white disabled:cursor-not-allowed disabled:bg-slate-400"
+              >
+                Save Bookmark
+              </button>
+            </div>
+          </div>
+        </div>
+      ) : null}
     </header>
   );
 };

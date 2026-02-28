@@ -795,7 +795,7 @@ Dependencies: FM-T2
 Acceptance Criteria:
 [AC1] Route test asserts Monokai appears in built-in IDs.
 
-- [ ] FM-T4: Run full verification and visual QA
+- [x] FM-T4: Run full verification and visual QA
 Phase: Feature/Monokai
 Dependencies: FM-T3
 Acceptance Criteria:
@@ -823,7 +823,7 @@ Dependencies: FS84-T2
 Acceptance Criteria:
 [AC1] Route tests assert `ThemeId.Synthwave84` appears in built-in IDs.
 
-- [ ] FS84-T4: Run verification + visual QA
+- [x] FS84-T4: Run verification + visual QA
 Phase: Feature/Synthwave84
 Dependencies: FS84-T3
 Acceptance Criteria:
@@ -1264,3 +1264,37 @@ Dependencies: WC-T5
 Acceptance Criteria:
 [AC1] SPECS.md, SCENARIOS.md, ARCHITECTURE.md updated.
 [AC2] `npm run typecheck && npm run lint && npm test && npm run build` passes.
+
+## Feature Plan — Bookmarks (Local Compressed Persistence)
+
+- [x] BM-T1: Create bookmarks feature docs and lock implementation decisions
+Phase: Feature/Bookmarks
+Dependencies: none
+Acceptance Criteria:
+[AC1] `docs/features/bookmarks/{FEATURE,PLAN,ACCEPTANCE}.md` exist.
+[AC2] Decisions are locked for full-state load behavior, duplicate names, cap policy, and quota handling.
+[AC3] Canonical-doc impact list is explicit in `PLAN.md`.
+
+- [x] BM-T2: Implement bookmark storage codec and localStorage persistence
+Phase: Feature/Bookmarks
+Dependencies: BM-T1
+Acceptance Criteria:
+[AC1] `packages/client/src/store/bookmarks.ts` defines `BookmarkRecord` + `BookmarksStorageEnvelope`.
+[AC2] Bookmark payloads store compressed snapshot JSON (gzip+Base64) under `finapp:bookmarks:v1`.
+[AC3] Save enforces newest-first ordering, duplicate-name support, 100-item cap with oldest eviction, and explicit quota errors.
+
+- [x] BM-T3: Add command bar bookmark UX (create modal, dropdown load, hover delete)
+Phase: Feature/Bookmarks
+Dependencies: BM-T2
+Acceptance Criteria:
+[AC1] `Create Bookmark` action opens modal with required name input.
+[AC2] Bookmarks dropdown loads full state immediately on row click and lists newest first.
+[AC3] Hover trash affordance supports confirmed delete.
+
+- [x] BM-T4: Add bookmark test coverage and run full regression gate
+Phase: Feature/Bookmarks
+Dependencies: BM-T3
+Acceptance Criteria:
+[AC1] Unit tests cover round-trip load, ordering, duplicates, targeted delete, cap eviction, payload corruption, version mismatch, and quota errors.
+[AC2] `npm run typecheck`, `npm run lint`, `npm test`, and `npm run build` pass.
+[AC3] Root docs + trackers are updated and PROGRESS includes canonical-doc impact statement.

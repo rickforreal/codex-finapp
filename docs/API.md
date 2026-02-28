@@ -8,6 +8,8 @@ Note: CSV export is not part of the current release scope and there is no CSV ex
 
 Multi-slot compare uses existing endpoints (`/simulate` and `/stress-test`) with client-side slot orchestration. No dedicated compare endpoint is required.
 
+Bookmark persistence is client-only (`localStorage`) in the current release. There are no bookmark create/list/load/delete API endpoints.
+
 ## Base URL
 
 - All routes are served under `/api/v1`.

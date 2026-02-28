@@ -555,6 +555,33 @@ PackedRows {
   - `stress.result.base.result.rows`
   - `stress.result.scenarios[*].result.rows`
 
+### 9.1 Local Bookmark Persistence Model
+
+Bookmarks are browser-local (no API) and store compressed snapshot payloads for fast in-app recall.
+
+```ts
+BookmarkRecord {
+  id: string;
+  name: string;
+  savedAt: string;  // ISO timestamp
+  payload: string;  // gzip + base64 encoded snapshot JSON
+}
+
+BookmarksStorageEnvelope {
+  version: number;  // current: 1
+  bookmarks: BookmarkRecord[];
+}
+```
+
+Rules:
+- Storage key: `finapp:bookmarks:v1`
+- Max count: `100` bookmarks
+- Insert order: newest first
+- Duplicate names: allowed
+- Over-cap handling: evict oldest by count
+- Quota-exceeded handling: reject save with explicit error and no partial write
+- Load behavior: decode + validate through snapshot parser before state replace
+
 ## 10. Compare Workspace Model (v3.0)
 
 ### 10.1 Compare state model

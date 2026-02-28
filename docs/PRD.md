@@ -48,6 +48,8 @@ The output area presents results at four levels of detail, each answering the qu
 
 **Snapshot controls** sit in the application toolbar alongside the mode toggle. The user can save the complete state of their dashboard — inputs, actuals, configuration, and cached outputs — to a named JSON file on their local drive, and reload any previously saved snapshot. This gives the app session-to-session continuity without a backend.
 
+**Bookmark controls** also sit in the toolbar as a faster in-browser persistence path. Users can create named bookmarks that capture the same full state and retrieve them instantly from a dropdown list without using file dialogs.
+
 **CSV export is deferred** in the current release and is reserved for a future phase.
 
 **The stress test panel** lets the user apply hypothetical market shocks — a stock crash, a prolonged bear market, an inflation spike — and compare the outcomes against the base case. Stress scenarios are also overlaid directly on the main chart with legend and tooltip support, so base-vs-scenario divergence is visible in context.
@@ -65,5 +67,5 @@ Themed variants must preserve this professional tone while supporting stronger c
 
 **Explore-and-iterate workflow.** In Planning Mode, changing inputs does not automatically re-run the simulation — the user adjusts parameters and clicks "Run Simulation" when ready. This gives them control over when expensive computations happen and lets them make multiple changes before seeing results. In Tracking Mode, editing actual values triggers immediate re-forecasting for responsiveness.
 
-**Nondestructive exploration.** The app supports named snapshot files as the primary recovery and comparison mechanism. Users can save and reload complete dashboard states as JSON files, enabling side-by-side strategy comparison across sessions and durable persistence without requiring a backend or accounts.
+**Nondestructive exploration.** The app supports both named snapshot files and local bookmarks. Snapshot files are the durable cross-session export/import mechanism; bookmarks are the fast in-browser recall mechanism for iterative exploration in the same browser profile.
 Theme selection is part of the persisted state so loaded snapshots restore their visual context exactly.

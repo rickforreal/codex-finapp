@@ -245,6 +245,33 @@ Affordance index reserved for future use. No explicit app-level redo behavior is
 - Monokai
 - Synthwave '84
 
+### Affordance #76 · Create Bookmark
+
+| Attribute | Detail |
+|---|---|
+| **Type** | Icon-only button (playlist-add/save style) with tooltip `Create Bookmark` |
+| **Location** | Application toolbar action cluster (command bar) |
+| **Behavior** | Opens a modal dialog with a required bookmark name input and `Save Bookmark`/`Cancel` actions. |
+| **Save semantics** | On save, captures the full current app state (same state scope as snapshot), compresses payload (gzip+Base64), and stores in browser local storage. |
+| **Name rules** | Required, trimmed, duplicates allowed. |
+| **Capacity policy** | Max 100 bookmarks. New save inserts at top; if count exceeds 100, oldest entries are evicted. |
+| **Error handling** | If local storage quota is exceeded, show clear message and do not save partially. |
+| **Keyboard shortcut** | None |
+| **Tooltip** | `Create Bookmark` |
+
+### Affordance #77 · Bookmarks Dropdown
+
+| Attribute | Detail |
+|---|---|
+| **Type** | Dropdown/popover list labeled `Bookmarks` |
+| **Location** | Application toolbar action cluster near Create Bookmark |
+| **Ordering** | Newest bookmark first (`savedAt` descending). |
+| **Load behavior** | Clicking a row immediately performs full-state replace from bookmark payload (no load confirmation dialog). |
+| **Delete affordance** | Hover-only trash icon per row; clicking prompts confirmation and deletes bookmark on confirm. |
+| **Empty state** | Displays `No bookmarks saved yet.` when list is empty. |
+| **Error handling** | Corrupted/unsupported bookmark payloads show an error and must not mutate state. |
+| **Persistence key** | Local storage key `finapp:bookmarks:v1` (versioned envelope). |
+
 ## Compare Slot Additions — Multi-Portfolio (v3.0)
 
 ### Affordance #67 · Compare Slot Manager (Sidebar)

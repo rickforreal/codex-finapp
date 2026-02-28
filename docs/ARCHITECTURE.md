@@ -252,6 +252,7 @@ retirement-forecaster/
 │       │   ├── store/
 │       │   │   ├── useAppStore.ts     # Zustand store definition
 │       │   │   ├── snapshot.ts        # Snapshot serialize/validate/restore
+│       │   │   ├── bookmarks.ts       # Local bookmark persistence (gzip+base64)
 │       │   │   ├── slices/            # Logical groupings of store state
 │       │   │   │   ├── coreParams.ts
 │       │   │   │   ├── portfolio.ts
@@ -660,6 +661,23 @@ AppStore
 6. If invalid, show an error message. Do not modify state.
 
 **Schema policy.** Snapshot loading uses strict version matching (`snapshot.schemaVersion === supportedVersion`). Files from different versions are rejected to avoid restoring incompatible cached output payloads.
+
+### 6.3.1 Local Bookmark Persistence
+
+Bookmarks provide in-browser, no-file-dialog state recall and are distinct from snapshot file save/load.
+
+- Storage key: `finapp:bookmarks:v1`
+- Envelope shape: `{ version, bookmarks[] }`
+- Bookmark record: `{ id, name, savedAt, payload }`
+- `payload` is gzip+Base64 compressed snapshot JSON produced by the same snapshot serializer path used for `.json` downloads.
+
+Behavior:
+1. Create bookmark captures full app state and inserts at the top of list.
+2. List ordering is newest-first by insertion/saved time.
+3. Max 100 bookmarks; entries beyond cap are evicted from the oldest end.
+4. Loading a bookmark performs immediate full-state replace (same semantics as successful snapshot load, without a file picker).
+5. Deletion is client-side local storage mutation only.
+6. Quota exceeded errors are surfaced to the UI and do not partially write data.
 
 ### 6.4 Simulation Result Caching
 
