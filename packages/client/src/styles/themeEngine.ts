@@ -1,4 +1,4 @@
-import type { ThemeDefinition, ThemeFontFamilyId, ThemeSlotCatalogItem } from '@finapp/shared';
+import { ThemeAppearance, ThemeFamilyId, ThemeId, type ThemeDefinition, type ThemeFontFamilyId, type ThemeSlotCatalogItem } from '@finapp/shared';
 
 import { compileThemeSlotVars } from './themeResolver';
 
@@ -10,7 +10,13 @@ const FONT_FAMILY_MAP: Record<ThemeFontFamilyId, string> = {
   atkinsonHyperlegible: '"Atkinson Hyperlegible", "IBM Plex Sans", sans-serif',
 };
 
-export const THEME_PREFERENCE_STORAGE_KEY = 'finapp:theme-id';
+export type ThemePreferenceSelection = {
+  familyId: ThemeFamilyId;
+  appearance: ThemeAppearance;
+};
+
+export const THEME_PREFERENCE_STORAGE_KEY = 'finapp:theme-selection-v1';
+const LEGACY_THEME_PREFERENCE_STORAGE_KEY = 'finapp:theme-id';
 
 const setVar = (name: string, value: string) => {
   document.documentElement.style.setProperty(name, value);
@@ -134,11 +140,60 @@ export const applyTheme = (theme: ThemeDefinition, slotCatalog: ThemeSlotCatalog
   });
 
   document.documentElement.setAttribute('data-theme-id', theme.id);
+  document.documentElement.setAttribute('data-theme-family', theme.familyId);
+  document.documentElement.setAttribute('data-theme-appearance', theme.appearance);
 };
 
-export const persistThemePreference = (themeId: string): void => {
-  window.localStorage.setItem(THEME_PREFERENCE_STORAGE_KEY, themeId);
+const mapLegacyThemeIdToSelection = (themeId: ThemeId): ThemePreferenceSelection => {
+  switch (themeId) {
+    case ThemeId.Light:
+      return { familyId: ThemeFamilyId.Default, appearance: ThemeAppearance.Light };
+    case ThemeId.Dark:
+      return { familyId: ThemeFamilyId.Default, appearance: ThemeAppearance.Dark };
+    case ThemeId.Monokai:
+      return { familyId: ThemeFamilyId.Monokai, appearance: ThemeAppearance.Dark };
+    case ThemeId.Synthwave84:
+      return { familyId: ThemeFamilyId.Synthwave84, appearance: ThemeAppearance.Dark };
+    case ThemeId.StayTheCourse:
+      return { familyId: ThemeFamilyId.StayTheCourse, appearance: ThemeAppearance.Dark };
+    case ThemeId.HighContrast:
+      return { familyId: ThemeFamilyId.HighContrast, appearance: ThemeAppearance.Dark };
+  }
 };
 
-export const loadThemePreference = (): string | null =>
-  window.localStorage.getItem(THEME_PREFERENCE_STORAGE_KEY);
+export const persistThemePreference = (selection: ThemePreferenceSelection): void => {
+  window.localStorage.setItem(THEME_PREFERENCE_STORAGE_KEY, JSON.stringify(selection));
+};
+
+const isObjectRecord = (value: unknown): value is Record<string, unknown> =>
+  typeof value === 'object' && value !== null;
+
+export const loadThemePreference = (): ThemePreferenceSelection | null => {
+  const raw = window.localStorage.getItem(THEME_PREFERENCE_STORAGE_KEY);
+  if (raw) {
+    try {
+      const parsed = JSON.parse(raw) as unknown;
+      if (
+        isObjectRecord(parsed) &&
+        parsed.familyId &&
+        parsed.appearance &&
+        Object.values(ThemeFamilyId).includes(parsed.familyId as ThemeFamilyId) &&
+        Object.values(ThemeAppearance).includes(parsed.appearance as ThemeAppearance)
+      ) {
+        return {
+          familyId: parsed.familyId as ThemeFamilyId,
+          appearance: parsed.appearance as ThemeAppearance,
+        };
+      }
+    } catch {
+      // ignore malformed selection; fall through to legacy
+    }
+  }
+
+  const legacy = window.localStorage.getItem(LEGACY_THEME_PREFERENCE_STORAGE_KEY);
+  if (legacy && Object.values(ThemeId).includes(legacy as ThemeId)) {
+    return mapLegacyThemeIdToSelection(legacy as ThemeId);
+  }
+
+  return null;
+};

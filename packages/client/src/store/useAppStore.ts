@@ -6,13 +6,16 @@ import {
   DrawdownStrategyType,
   HistoricalEra,
   SimulationMode,
+  ThemeAppearance,
+  ThemeFamilyId,
   ThemeId,
+  ThemeVariantId,
   WithdrawalStrategyType,
   type DrawdownStrategy,
   type ActualMonthOverride,
   type ActualOverridesByMonth,
   type HistoricalDataSummary,
-  type ThemeCatalogItem,
+  type ThemeFamilyCatalogItem,
   type ThemeDefinition,
   type ThemeSlotCatalogItem,
   type ThemeValidationIssue,
@@ -249,10 +252,23 @@ export type SnapshotState = {
     errorMessage: string | null;
   };
   theme: {
-    selectedThemeId: ThemeId;
-    defaultThemeId: ThemeId;
-    themes: ThemeDefinition[];
-    catalog: ThemeCatalogItem[];
+    selectedThemeFamilyId: ThemeFamilyId;
+    selectedAppearanceByFamily: Record<ThemeFamilyId, ThemeAppearance>;
+    defaultThemeFamilyId: ThemeFamilyId;
+    defaultAppearance: ThemeAppearance;
+    activeVariantId: ThemeVariantId | null;
+    variants: ThemeDefinition[];
+    families: ThemeFamilyCatalogItem[];
+    legacyDefaultThemeId: ThemeId;
+    legacyThemes: ThemeDefinition[];
+    legacyCatalog: Array<{
+      id: ThemeId;
+      name: string;
+      description: string;
+      version: string;
+      isHighContrast: boolean;
+      defaultForApp: boolean;
+    }>;
     slotCatalog: ThemeSlotCatalogItem[];
     validationIssues: ThemeValidationIssue[];
     status: ThemeStatus;
@@ -359,17 +375,24 @@ export type AppStore = SnapshotState & {
   setStateFromSnapshot: (snapshotState: SnapshotState) => void;
   setThemeState: (
     payload: {
-      selectedThemeId?: ThemeId;
-      defaultThemeId?: ThemeId;
-      themes?: ThemeDefinition[];
-      catalog?: ThemeCatalogItem[];
+      selectedThemeFamilyId?: ThemeFamilyId;
+      selectedAppearanceByFamily?: Record<ThemeFamilyId, ThemeAppearance>;
+      defaultThemeFamilyId?: ThemeFamilyId;
+      defaultAppearance?: ThemeAppearance;
+      activeVariantId?: ThemeVariantId | null;
+      variants?: ThemeDefinition[];
+      families?: ThemeFamilyCatalogItem[];
+      legacyDefaultThemeId?: ThemeId;
+      legacyThemes?: ThemeDefinition[];
+      legacyCatalog?: AppStore['theme']['legacyCatalog'];
       slotCatalog?: ThemeSlotCatalogItem[];
       validationIssues?: ThemeValidationIssue[];
       status?: ThemeStatus;
       errorMessage?: string | null;
     },
   ) => void;
-  setSelectedThemeId: (themeId: ThemeId) => void;
+  setSelectedThemeFamilyId: (familyId: ThemeFamilyId) => void;
+  setThemeAppearanceForFamily: (familyId: ThemeFamilyId, appearance: ThemeAppearance) => void;
 };
 
 const defaultPhase = (): SpendingPhaseForm => ({
@@ -1638,10 +1661,16 @@ const cloneSnapshotState = (snapshot: SnapshotState): SnapshotState => {
       : null,
   },
   theme: {
-    selectedThemeId: normalizedSnapshot.theme.selectedThemeId,
-    defaultThemeId: normalizedSnapshot.theme.defaultThemeId,
-    themes: normalizedSnapshot.theme.themes.map((theme) => ({ ...theme })),
-    catalog: normalizedSnapshot.theme.catalog.map((item) => ({ ...item })),
+    selectedThemeFamilyId: normalizedSnapshot.theme.selectedThemeFamilyId,
+    selectedAppearanceByFamily: { ...normalizedSnapshot.theme.selectedAppearanceByFamily },
+    defaultThemeFamilyId: normalizedSnapshot.theme.defaultThemeFamilyId,
+    defaultAppearance: normalizedSnapshot.theme.defaultAppearance,
+    activeVariantId: normalizedSnapshot.theme.activeVariantId,
+    variants: normalizedSnapshot.theme.variants.map((theme) => ({ ...theme })),
+    families: normalizedSnapshot.theme.families.map((item) => ({ ...item })),
+    legacyDefaultThemeId: normalizedSnapshot.theme.legacyDefaultThemeId,
+    legacyThemes: normalizedSnapshot.theme.legacyThemes.map((theme) => ({ ...theme })),
+    legacyCatalog: normalizedSnapshot.theme.legacyCatalog.map((item) => ({ ...item })),
     slotCatalog: (normalizedSnapshot.theme.slotCatalog ?? []).map((item) => ({ ...item })),
     validationIssues: normalizedSnapshot.theme.validationIssues.map((issue) => ({ ...issue })),
     status: normalizedSnapshot.theme.status,
@@ -1726,10 +1755,22 @@ export const useAppStore = create<AppStore>((set) => ({
     errorMessage: null,
   },
   theme: {
-    selectedThemeId: ThemeId.Light,
-    defaultThemeId: ThemeId.Light,
-    themes: [],
-    catalog: [],
+    selectedThemeFamilyId: ThemeFamilyId.Default,
+    selectedAppearanceByFamily: {
+      [ThemeFamilyId.Default]: ThemeAppearance.Light,
+      [ThemeFamilyId.Monokai]: ThemeAppearance.Dark,
+      [ThemeFamilyId.Synthwave84]: ThemeAppearance.Dark,
+      [ThemeFamilyId.StayTheCourse]: ThemeAppearance.Dark,
+      [ThemeFamilyId.HighContrast]: ThemeAppearance.Dark,
+    },
+    defaultThemeFamilyId: ThemeFamilyId.Default,
+    defaultAppearance: ThemeAppearance.Light,
+    activeVariantId: null,
+    variants: [],
+    families: [],
+    legacyDefaultThemeId: ThemeId.Light,
+    legacyThemes: [],
+    legacyCatalog: [],
     slotCatalog: [],
     validationIssues: [],
     status: 'idle',
@@ -2985,10 +3026,17 @@ export const useAppStore = create<AppStore>((set) => ({
   setThemeState: (payload) =>
     set((state) => ({
       theme: {
-        selectedThemeId: payload.selectedThemeId ?? state.theme.selectedThemeId,
-        defaultThemeId: payload.defaultThemeId ?? state.theme.defaultThemeId,
-        themes: payload.themes ?? state.theme.themes,
-        catalog: payload.catalog ?? state.theme.catalog,
+        selectedThemeFamilyId: payload.selectedThemeFamilyId ?? state.theme.selectedThemeFamilyId,
+        selectedAppearanceByFamily: payload.selectedAppearanceByFamily ?? state.theme.selectedAppearanceByFamily,
+        defaultThemeFamilyId: payload.defaultThemeFamilyId ?? state.theme.defaultThemeFamilyId,
+        defaultAppearance: payload.defaultAppearance ?? state.theme.defaultAppearance,
+        activeVariantId:
+          payload.activeVariantId === undefined ? state.theme.activeVariantId : payload.activeVariantId,
+        variants: payload.variants ?? state.theme.variants,
+        families: payload.families ?? state.theme.families,
+        legacyDefaultThemeId: payload.legacyDefaultThemeId ?? state.theme.legacyDefaultThemeId,
+        legacyThemes: payload.legacyThemes ?? state.theme.legacyThemes,
+        legacyCatalog: payload.legacyCatalog ?? state.theme.legacyCatalog,
         slotCatalog: payload.slotCatalog ?? state.theme.slotCatalog,
         validationIssues: payload.validationIssues ?? state.theme.validationIssues,
         status: payload.status ?? state.theme.status,
@@ -2996,11 +3044,21 @@ export const useAppStore = create<AppStore>((set) => ({
           payload.errorMessage === undefined ? state.theme.errorMessage : payload.errorMessage,
       },
     })),
-  setSelectedThemeId: (themeId) =>
+  setSelectedThemeFamilyId: (familyId) =>
     set((state) => ({
       theme: {
         ...state.theme,
-        selectedThemeId: themeId,
+        selectedThemeFamilyId: familyId,
+      },
+    })),
+  setThemeAppearanceForFamily: (familyId, appearance) =>
+    set((state) => ({
+      theme: {
+        ...state.theme,
+        selectedAppearanceByFamily: {
+          ...state.theme.selectedAppearanceByFamily,
+          [familyId]: appearance,
+        },
       },
     })),
   setStateFromSnapshot: (snapshotState) =>
@@ -3241,10 +3299,16 @@ const snapshotStateFromStore = (state: AppStore): SnapshotState => {
   simulationResults: cloneWorkspace(workspaceFromState(state)).simulationResults,
   stress: cloneWorkspace(workspaceFromState(state)).stress,
   theme: {
-    selectedThemeId: state.theme.selectedThemeId,
-    defaultThemeId: state.theme.defaultThemeId,
-    themes: state.theme.themes.map((theme) => ({ ...theme })),
-    catalog: state.theme.catalog.map((item) => ({ ...item })),
+    selectedThemeFamilyId: state.theme.selectedThemeFamilyId,
+    selectedAppearanceByFamily: { ...state.theme.selectedAppearanceByFamily },
+    defaultThemeFamilyId: state.theme.defaultThemeFamilyId,
+    defaultAppearance: state.theme.defaultAppearance,
+    activeVariantId: state.theme.activeVariantId,
+    variants: state.theme.variants.map((theme) => ({ ...theme })),
+    families: state.theme.families.map((item) => ({ ...item })),
+    legacyDefaultThemeId: state.theme.legacyDefaultThemeId,
+    legacyThemes: state.theme.legacyThemes.map((theme) => ({ ...theme })),
+    legacyCatalog: state.theme.legacyCatalog.map((item) => ({ ...item })),
     slotCatalog: state.theme.slotCatalog.map((item) => ({ ...item })),
     validationIssues: state.theme.validationIssues.map((issue) => ({ ...issue })),
     status: state.theme.status,

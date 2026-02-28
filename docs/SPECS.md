@@ -226,25 +226,28 @@ Affordance index reserved for future use. No explicit app-level redo behavior is
 
 **Appearance:**
 - Palette icon button near Save/Load Snapshot and Run Simulation.
-- Clicking opens a small menu listing available server-provided themes.
-- Active theme row is visibly highlighted.
+- Clicking opens a small menu listing available server-provided theme families.
+- Active family row is visibly highlighted.
+- Non-A11y families include an inline light/dark toggle.
+- High Contrast shows `A11y` badge and remains single-appearance (dark-only).
 
 **Behavior:**
 - Themes are loaded from `GET /api/v1/themes`.
-- Selection applies immediately (no page refresh and no rerun required).
+- Selecting a family applies that family's remembered appearance immediately.
+- Changing a family's light/dark toggle applies immediately (no refresh and no rerun).
 - Theme engine uses inheritance-first slot resolution (`overrides -> slots -> slotCatalog fallback -> semantic -> primitives`) so themes may override only targeted elements while the rest inherit defaults.
 - Startup precedence:
-  1. snapshot-selected theme (if present and available)
+  1. snapshot-selected family/appearance (if present and available)
   2. local browser preference
   3. server default theme
-- Theme selection is persisted to snapshots and local preference.
+- Theme family selection and per-family appearance memory persist to snapshots and local preference.
 
-**Current built-ins:**
-- Light
-- Dark
-- High Contrast (accessibility-focused)
+**Current family set:**
+- Default (Light + Dark variants)
 - Monokai
 - Synthwave '84
+- Stay The Course
+- High Contrast (accessibility-focused, dark-only)
 
 ### Affordance #76 · Create Bookmark
 

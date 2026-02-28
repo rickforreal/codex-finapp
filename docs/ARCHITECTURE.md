@@ -1203,18 +1203,19 @@ The Fastify server configures CORS to allow requests from the client's origin. I
 ### 13.1 Ownership Model
 
 - Theme definitions are authored and versioned on the server.
-- Client selects only `ThemeId` and never authors token payloads in-app.
+- Client selects `ThemeFamilyId + ThemeAppearance` and never authors token payloads in-app.
 - Theme payload source of truth: `/api/v1/themes`.
 
 ### 13.2 Runtime Flow
 
 1. Client loads themes from `/api/v1/themes`.
-2. Client resolves active theme using precedence:
+2. Client resolves active theme variant using precedence:
    - loaded snapshot selection
    - local storage preference
-   - server `defaultThemeId`
-3. Client applies resolved theme tokens to CSS custom properties.
-4. UI components consume semantic variables (including chart + stress colors).
+   - server `defaultSelection`
+3. Client resolves concrete `ThemeDefinition` from `variants` using selected family + appearance.
+4. Client applies resolved theme tokens to CSS custom properties.
+5. UI components consume semantic variables (including chart + stress colors).
 
 ### 13.3 Token Strategy
 
@@ -1233,6 +1234,6 @@ The Fastify server configures CORS to allow requests from the client's origin. I
 
 ### 13.4 Persistence
 
-- Selected theme is persisted in snapshot state for exact restores.
-- Local storage keeps the last selected theme between browser reloads.
+- Selected family + per-family remembered appearance is persisted in snapshot state.
+- Local storage keeps the last selected family + appearance between browser reloads.
 - Snapshot restore has higher precedence than local preference.

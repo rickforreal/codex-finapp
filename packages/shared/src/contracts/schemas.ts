@@ -5,8 +5,11 @@ import {
   AssetClass,
   DrawdownStrategyType,
   HistoricalEra,
+  ThemeAppearance,
+  ThemeFamilyId,
   SimulationMode,
   ThemeId,
+  ThemeVariantId,
   WithdrawalStrategyType,
 } from '../constants/enums';
 
@@ -671,7 +674,9 @@ const themeTokenMapSchema = z.record(z.string().min(1), themeTokenRefOrValueSche
 
 export const themeDefinitionSchema = z
   .object({
-    id: z.nativeEnum(ThemeId),
+    id: z.nativeEnum(ThemeVariantId),
+    familyId: z.nativeEnum(ThemeFamilyId),
+    appearance: z.nativeEnum(ThemeAppearance),
     name: z.string().min(1),
     description: z.string().min(1),
     version: z.string().min(1),
@@ -709,6 +714,26 @@ const themeSlotCatalogItemSchema = z
 export const themesResponseSchema = z
   .object({
     tokenModelVersion: z.literal('2'),
+    defaultSelection: z
+      .object({
+        familyId: z.nativeEnum(ThemeFamilyId),
+        appearance: z.nativeEnum(ThemeAppearance),
+      })
+      .strict(),
+    variants: z.array(themeDefinitionSchema).min(1),
+    families: z.array(
+      z
+        .object({
+          id: z.nativeEnum(ThemeFamilyId),
+          name: z.string().min(1),
+          description: z.string().min(1),
+          version: z.string().min(1),
+          isHighContrast: z.boolean(),
+          defaultForApp: z.boolean(),
+          supportedAppearances: z.array(z.nativeEnum(ThemeAppearance)).min(1),
+        })
+        .strict(),
+    ),
     defaultThemeId: z.nativeEnum(ThemeId),
     themes: z.array(themeDefinitionSchema).min(1),
     catalog: z.array(
@@ -727,7 +752,7 @@ export const themesResponseSchema = z
     validationIssues: z.array(
       z
         .object({
-          themeId: z.nativeEnum(ThemeId),
+          themeId: z.nativeEnum(ThemeVariantId),
           tokenPath: z.string().min(1),
           severity: z.literal('warning'),
           message: z.string().min(1),

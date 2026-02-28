@@ -1,11 +1,17 @@
 import {
+  ThemeAppearance,
+  ThemeFamilyId,
   ThemeId,
+  ThemeVariantId,
   themesResponseSchema,
   type ThemeCatalogItem,
+  type ThemeDefaultSelection,
   type ThemeDefinition,
+  type ThemeFamilyCatalogItem,
   type ThemeSlotCatalogItem,
   type ThemeTokenMap,
   type ThemeTokenRefOrValue,
+  type ThemeTokenBundle,
   type ThemesResponse,
   type ThemeValidationIssue,
 } from '@finapp/shared';
@@ -61,7 +67,7 @@ const baseThemeTokens = {
   typography: baseTypography,
 } as const;
 
-type BaseThemeDefinition = Omit<ThemeDefinition, 'tokenModelVersion' | 'semantic' | 'slots' | 'overrides'>;
+type BaseThemeVariant = Omit<ThemeDefinition, 'tokenModelVersion' | 'semantic' | 'slots' | 'overrides'>;
 
 const defaultSlotMap: ThemeTokenMap = {
   'appShell.root.bg': { ref: 'semantic.surface.app' },
@@ -195,7 +201,7 @@ const slotCatalog: ThemeSlotCatalogItem[] = Object.entries(defaultSlotMap).map((
   fallback,
 }));
 
-const buildSemanticMap = (theme: BaseThemeDefinition): ThemeTokenMap => ({
+const buildSemanticMap = (theme: BaseThemeVariant): ThemeTokenMap => ({
   'semantic.surface.app': theme.tokens.color.appBackground,
   'semantic.surface.card': theme.tokens.color.surfacePrimary,
   'semantic.surface.panel': theme.tokens.color.surfaceMuted,
@@ -237,9 +243,11 @@ const buildSemanticMap = (theme: BaseThemeDefinition): ThemeTokenMap => ({
 const resolveTokenRefString = (token: ThemeTokenRefOrValue): string =>
   typeof token === 'string' ? token : token.ref;
 
-const baseThemes: BaseThemeDefinition[] = [
+const baseThemes: BaseThemeVariant[] = [
   {
-    id: ThemeId.Light,
+    id: ThemeVariantId.DefaultLight,
+    familyId: ThemeFamilyId.Default,
+    appearance: ThemeAppearance.Light,
     name: 'Light',
     description: 'Clean neutral daylight palette with balanced contrast.',
     version: '1.0.0',
@@ -324,7 +332,9 @@ const baseThemes: BaseThemeDefinition[] = [
     },
   },
   {
-    id: ThemeId.Dark,
+    id: ThemeVariantId.DefaultDark,
+    familyId: ThemeFamilyId.Default,
+    appearance: ThemeAppearance.Dark,
     name: 'Dark',
     description: 'Low-glare dark interface with cool highlights.',
     version: '1.0.0',
@@ -409,7 +419,9 @@ const baseThemes: BaseThemeDefinition[] = [
     },
   },
   {
-    id: ThemeId.Monokai,
+    id: ThemeVariantId.MonokaiDark,
+    familyId: ThemeFamilyId.Monokai,
+    appearance: ThemeAppearance.Dark,
     name: 'Monokai',
     description: 'VS Code Monokai-inspired dark palette with vivid chart and table accents.',
     version: '1.0.0',
@@ -503,7 +515,9 @@ const baseThemes: BaseThemeDefinition[] = [
     },
   },
   {
-    id: ThemeId.Synthwave84,
+    id: ThemeVariantId.Synthwave84Dark,
+    familyId: ThemeFamilyId.Synthwave84,
+    appearance: ThemeAppearance.Dark,
     name: "Synthwave '84",
     description: "VS Code Synthwave '84-inspired neon dark palette by Robb Owen.",
     version: '1.0.0',
@@ -597,7 +611,9 @@ const baseThemes: BaseThemeDefinition[] = [
     },
   },
   {
-    id: ThemeId.StayTheCourse,
+    id: ThemeVariantId.StayTheCourseDark,
+    familyId: ThemeFamilyId.StayTheCourse,
+    appearance: ThemeAppearance.Dark,
     name: 'Stay The Course',
     description: 'Dark theme with disciplined teal-forward accents and high legibility.',
     version: '1.0.0',
@@ -687,7 +703,9 @@ const baseThemes: BaseThemeDefinition[] = [
     },
   },
   {
-    id: ThemeId.HighContrast,
+    id: ThemeVariantId.HighContrastDark,
+    familyId: ThemeFamilyId.HighContrast,
+    appearance: ThemeAppearance.Dark,
     name: 'High Contrast',
     description: 'Accessibility-first palette optimized for strong separation and legibility.',
     version: '1.0.0',
@@ -777,7 +795,94 @@ const baseThemes: BaseThemeDefinition[] = [
   },
 ];
 
-const themes: ThemeDefinition[] = baseThemes.map((theme) => ({
+const cloneTokens = (tokens: ThemeTokenBundle): ThemeTokenBundle => ({
+  color: { ...tokens.color },
+  typography: { ...tokens.typography },
+  spacing: { ...tokens.spacing },
+  radius: { ...tokens.radius },
+  border: { ...tokens.border },
+  shadow: { ...tokens.shadow },
+  motion: { ...tokens.motion },
+  state: { ...tokens.state },
+  chart: { ...tokens.chart },
+});
+
+const createLightVariantFromDark = (
+  darkVariant: BaseThemeVariant,
+  lightVariantId: ThemeVariantId,
+): BaseThemeVariant => {
+  const defaultLight = baseThemes.find((theme) => theme.id === ThemeVariantId.DefaultLight);
+  if (!defaultLight) {
+    throw new Error('Theme registry missing default.light seed variant.');
+  }
+
+  const tokens = cloneTokens(defaultLight.tokens);
+  tokens.typography = { ...darkVariant.tokens.typography };
+  tokens.shadow = { ...darkVariant.tokens.shadow };
+
+  tokens.color.brandBlue = darkVariant.tokens.color.brandBlue;
+  tokens.color.brandNavy = darkVariant.tokens.color.brandNavy;
+  tokens.color.focusRing = darkVariant.tokens.color.focusRing;
+  tokens.color.interactivePrimary = darkVariant.tokens.color.brandBlue;
+  tokens.color.interactivePrimaryHover = darkVariant.tokens.color.interactivePrimaryHover;
+  tokens.color.interactiveSecondary = darkVariant.tokens.color.interactiveSecondary;
+  tokens.color.interactiveSecondaryHover = darkVariant.tokens.color.interactiveSecondaryHover;
+  tokens.color.positive = darkVariant.tokens.color.positive;
+  tokens.color.negative = darkVariant.tokens.color.negative;
+  tokens.color.warning = darkVariant.tokens.color.warning;
+  tokens.color.info = darkVariant.tokens.color.info;
+  tokens.color.assetStocks = darkVariant.tokens.color.assetStocks;
+  tokens.color.assetBonds = darkVariant.tokens.color.assetBonds;
+  tokens.color.assetCash = darkVariant.tokens.color.assetCash;
+  tokens.color.mcBandOuter = darkVariant.tokens.color.mcBandOuter;
+  tokens.color.mcBandInner = darkVariant.tokens.color.mcBandInner;
+  tokens.color.stressScenarioA = darkVariant.tokens.color.stressScenarioA;
+  tokens.color.stressScenarioB = darkVariant.tokens.color.stressScenarioB;
+  tokens.color.stressScenarioC = darkVariant.tokens.color.stressScenarioC;
+  tokens.color.stressScenarioD = darkVariant.tokens.color.stressScenarioD;
+
+  tokens.state.selectedCellOutline = darkVariant.tokens.color.brandBlue;
+  tokens.chart.manualLine = darkVariant.tokens.color.brandNavy;
+  tokens.chart.mcMedianLine = darkVariant.tokens.color.brandNavy;
+  tokens.chart.mcBandOuter = darkVariant.tokens.chart.mcBandOuter;
+  tokens.chart.mcBandInner = darkVariant.tokens.chart.mcBandInner;
+  tokens.chart.compareSlotA = darkVariant.tokens.chart.compareSlotA;
+  tokens.chart.compareSlotB = darkVariant.tokens.chart.compareSlotB;
+  tokens.chart.compareSlotC = darkVariant.tokens.chart.compareSlotC;
+  tokens.chart.compareSlotD = darkVariant.tokens.chart.compareSlotD;
+  tokens.chart.compareSlotE = darkVariant.tokens.chart.compareSlotE;
+  tokens.chart.compareSlotF = darkVariant.tokens.chart.compareSlotF;
+  tokens.chart.compareSlotG = darkVariant.tokens.chart.compareSlotG;
+  tokens.chart.compareSlotH = darkVariant.tokens.chart.compareSlotH;
+
+  return {
+    ...darkVariant,
+    id: lightVariantId,
+    appearance: ThemeAppearance.Light,
+    defaultForApp: false,
+    tokens,
+  };
+};
+
+const familyDarkVariants = baseThemes.filter((theme) =>
+  theme.appearance === ThemeAppearance.Dark && theme.familyId !== ThemeFamilyId.Default && theme.familyId !== ThemeFamilyId.HighContrast,
+);
+
+const generatedLightVariants: BaseThemeVariant[] = familyDarkVariants.map((darkVariant) => {
+  const lightVariantIdByFamily: Record<ThemeFamilyId, ThemeVariantId> = {
+    [ThemeFamilyId.Default]: ThemeVariantId.DefaultLight,
+    [ThemeFamilyId.Monokai]: ThemeVariantId.MonokaiLight,
+    [ThemeFamilyId.Synthwave84]: ThemeVariantId.Synthwave84Light,
+    [ThemeFamilyId.StayTheCourse]: ThemeVariantId.StayTheCourseLight,
+    [ThemeFamilyId.HighContrast]: ThemeVariantId.HighContrastDark,
+  };
+
+  return createLightVariantFromDark(darkVariant, lightVariantIdByFamily[darkVariant.familyId]);
+});
+
+const allBaseVariants: BaseThemeVariant[] = [...baseThemes, ...generatedLightVariants];
+
+const variants: ThemeDefinition[] = allBaseVariants.map((theme) => ({
   ...theme,
   tokenModelVersion: '2',
   semantic: buildSemanticMap(theme),
@@ -787,28 +892,153 @@ const themes: ThemeDefinition[] = baseThemes.map((theme) => ({
   overrides: {},
 }));
 
-const catalog: ThemeCatalogItem[] = themes.map((theme) => ({
-  id: theme.id,
-  name: theme.name,
-  description: theme.description,
-  version: theme.version,
-  isHighContrast: theme.isHighContrast,
-  defaultForApp: theme.defaultForApp,
-}));
+const families: ThemeFamilyCatalogItem[] = [
+  {
+    id: ThemeFamilyId.Default,
+    name: 'Default',
+    description: 'Balanced neutral foundation with configurable light/dark appearance.',
+    version: '1.0.0',
+    isHighContrast: false,
+    defaultForApp: true,
+    supportedAppearances: [ThemeAppearance.Light, ThemeAppearance.Dark],
+  },
+  {
+    id: ThemeFamilyId.Monokai,
+    name: 'Monokai',
+    description: 'VS Code Monokai-inspired palette family.',
+    version: '1.0.0',
+    isHighContrast: false,
+    defaultForApp: false,
+    supportedAppearances: [ThemeAppearance.Light, ThemeAppearance.Dark],
+  },
+  {
+    id: ThemeFamilyId.Synthwave84,
+    name: "Synthwave '84",
+    description: "VS Code Synthwave '84-inspired neon family.",
+    version: '1.0.0',
+    isHighContrast: false,
+    defaultForApp: false,
+    supportedAppearances: [ThemeAppearance.Light, ThemeAppearance.Dark],
+  },
+  {
+    id: ThemeFamilyId.StayTheCourse,
+    name: 'Stay The Course',
+    description: 'Teal-forward disciplined palette family.',
+    version: '1.0.0',
+    isHighContrast: false,
+    defaultForApp: false,
+    supportedAppearances: [ThemeAppearance.Light, ThemeAppearance.Dark],
+  },
+  {
+    id: ThemeFamilyId.HighContrast,
+    name: 'High Contrast',
+    description: 'Accessibility-first high-contrast family.',
+    version: '1.0.0',
+    isHighContrast: true,
+    defaultForApp: false,
+    supportedAppearances: [ThemeAppearance.Dark],
+  },
+];
 
-const defaultTheme = themes.find((theme) => theme.defaultForApp);
-if (!defaultTheme) {
-  throw new Error('Theme registry must include one default theme.');
-}
+const defaultSelection: ThemeDefaultSelection = {
+  familyId: ThemeFamilyId.Default,
+  appearance: ThemeAppearance.Light,
+};
 
-const validationIssues: ThemeValidationIssue[] = themes.flatMap((theme) => [
+const findVariant = (familyId: ThemeFamilyId, appearance: ThemeAppearance): ThemeDefinition => {
+  const match = variants.find((variant) => variant.familyId === familyId && variant.appearance === appearance);
+  if (!match) {
+    throw new Error(`Theme variant missing for ${familyId}.${appearance}`);
+  }
+  return match;
+};
+
+families.forEach((family) => {
+  family.supportedAppearances.forEach((appearance) => {
+    findVariant(family.id, appearance);
+  });
+});
+
+const legacyThemeMap: Record<ThemeId, ThemeDefinition> = {
+  [ThemeId.Light]: findVariant(ThemeFamilyId.Default, ThemeAppearance.Light),
+  [ThemeId.Dark]: findVariant(ThemeFamilyId.Default, ThemeAppearance.Dark),
+  [ThemeId.Monokai]: findVariant(ThemeFamilyId.Monokai, ThemeAppearance.Dark),
+  [ThemeId.Synthwave84]: findVariant(ThemeFamilyId.Synthwave84, ThemeAppearance.Dark),
+  [ThemeId.StayTheCourse]: findVariant(ThemeFamilyId.StayTheCourse, ThemeAppearance.Dark),
+  [ThemeId.HighContrast]: findVariant(ThemeFamilyId.HighContrast, ThemeAppearance.Dark),
+};
+
+const themes: ThemeDefinition[] = [
+  legacyThemeMap[ThemeId.Light],
+  legacyThemeMap[ThemeId.Dark],
+  legacyThemeMap[ThemeId.Monokai],
+  legacyThemeMap[ThemeId.Synthwave84],
+  legacyThemeMap[ThemeId.StayTheCourse],
+  legacyThemeMap[ThemeId.HighContrast],
+];
+
+const catalog: ThemeCatalogItem[] = [
+  {
+    id: ThemeId.Light,
+    name: 'Light',
+    description: 'Legacy default light appearance alias.',
+    version: '1.0.0',
+    isHighContrast: false,
+    defaultForApp: true,
+  },
+  {
+    id: ThemeId.Dark,
+    name: 'Dark',
+    description: 'Legacy default dark appearance alias.',
+    version: '1.0.0',
+    isHighContrast: false,
+    defaultForApp: false,
+  },
+  {
+    id: ThemeId.Monokai,
+    name: 'Monokai',
+    description: 'Legacy alias for Monokai dark variant.',
+    version: '1.0.0',
+    isHighContrast: false,
+    defaultForApp: false,
+  },
+  {
+    id: ThemeId.Synthwave84,
+    name: "Synthwave '84",
+    description: "Legacy alias for Synthwave '84 dark variant.",
+    version: '1.0.0',
+    isHighContrast: false,
+    defaultForApp: false,
+  },
+  {
+    id: ThemeId.StayTheCourse,
+    name: 'Stay The Course',
+    description: 'Legacy alias for Stay The Course dark variant.',
+    version: '1.0.0',
+    isHighContrast: false,
+    defaultForApp: false,
+  },
+  {
+    id: ThemeId.HighContrast,
+    name: 'High Contrast',
+    description: 'Legacy alias for High Contrast variant.',
+    version: '1.0.0',
+    isHighContrast: true,
+    defaultForApp: false,
+  },
+];
+
+const validationIssues: ThemeValidationIssue[] = variants.flatMap((theme) => [
   ...validateThemeAccessibility(theme),
   ...validateThemeTokenModel(theme, slotCatalog),
 ]);
 
 const responsePayload: ThemesResponse = {
   tokenModelVersion: '2',
-  defaultThemeId: defaultTheme.id,
+  defaultSelection,
+  variants,
+  families,
+  defaultThemeId: ThemeId.Light,
   themes,
   catalog,
   slotCatalog,

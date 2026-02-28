@@ -5,6 +5,7 @@ import {
   DrawdownStrategyType,
   HistoricalEra,
   SimulationMode,
+  ThemeAppearance,
   type ActualMonthOverride,
   type ActualOverridesByMonth,
 } from '@finapp/shared';
@@ -159,7 +160,8 @@ export const CommandBar = () => {
   const startDate = useAppStore((state) => state.coreParams.retirementStartDate);
   const clearAllActualOverrides = useAppStore((state) => state.clearAllActualOverrides);
   const theme = useAppStore((state) => state.theme);
-  const setSelectedThemeId = useAppStore((state) => state.setSelectedThemeId);
+  const setSelectedThemeFamilyId = useAppStore((state) => state.setSelectedThemeFamilyId);
+  const setThemeAppearanceForFamily = useAppStore((state) => state.setThemeAppearanceForFamily);
   const setThemeState = useAppStore((state) => state.setThemeState);
   const setStateFromSnapshot = useAppStore((state) => state.setStateFromSnapshot);
   const compareWorkspace = useAppStore((state) => state.compareWorkspace);
@@ -232,10 +234,12 @@ export const CommandBar = () => {
       const parsed = parseSnapshot(raw);
       setStateFromSnapshot(parsed.data);
       // Theme catalog is server-authoritative; force refresh so older snapshots
-      // pick up newly added built-in themes while keeping selectedThemeId.
+      // pick up newly added built-in themes while keeping selected family selection.
       setThemeState({
-        themes: [],
-        catalog: [],
+        variants: [],
+        families: [],
+        legacyThemes: [],
+        legacyCatalog: [],
         slotCatalog: [],
         validationIssues: [],
         status: 'idle',
@@ -280,8 +284,10 @@ export const CommandBar = () => {
     try {
       const loaded = applyBookmark(bookmarkId);
       setThemeState({
-        themes: [],
-        catalog: [],
+        variants: [],
+        families: [],
+        legacyThemes: [],
+        legacyCatalog: [],
         slotCatalog: [],
         validationIssues: [],
         status: 'idle',
@@ -705,29 +711,103 @@ export const CommandBar = () => {
               <div className="theme-commandbar-popover absolute right-0 top-11 z-30 w-64 rounded-md border p-2 shadow-lg">
                 <p className="theme-commandbar-popover-title px-2 pb-1 text-[11px] font-semibold uppercase tracking-wide">Theme</p>
                 <div className="space-y-1">
-                  {theme.catalog.map((item) => (
-                    <button
-                      key={item.id}
-                      type="button"
-                      onClick={() => {
-                        setSelectedThemeId(item.id);
-                        setThemeMenuOpen(false);
-                      }}
-                      className={`theme-commandbar-popover-item flex w-full items-center justify-between rounded px-2 py-1.5 text-left text-sm transition ${
-                        item.id === theme.selectedThemeId
-                          ? 'theme-commandbar-popover-item-active'
-                          : ''
-                      }`}
-                    >
-                      <span>{item.name}</span>
-                      {item.isHighContrast ? (
-                        <span className="theme-commandbar-tag rounded px-1.5 py-0.5 text-[10px]">
-                          A11y
-                        </span>
-                      ) : null}
-                    </button>
-                  ))}
-                  {theme.catalog.length === 0 ? (
+                  {theme.families.map((family) => {
+                    const selected = family.id === theme.selectedThemeFamilyId;
+                    const supportsLight = family.supportedAppearances.includes(ThemeAppearance.Light);
+                    const supportsDark = family.supportedAppearances.includes(ThemeAppearance.Dark);
+                    const selectedAppearance = theme.selectedAppearanceByFamily[family.id];
+                    return (
+                      <button
+                        key={family.id}
+                        type="button"
+                        onClick={() => {
+                          setSelectedThemeFamilyId(family.id);
+                          setThemeMenuOpen(false);
+                        }}
+                        className={`theme-commandbar-popover-item flex w-full items-center justify-between rounded px-2 py-1.5 text-left text-sm transition ${
+                          selected ? 'theme-commandbar-popover-item-active' : ''
+                        }`}
+                      >
+                        <span>{family.name}</span>
+                        {family.isHighContrast ? (
+                          <span className="theme-commandbar-tag rounded px-1.5 py-0.5 text-[10px]">A11y</span>
+                        ) : (
+                          <span className="flex items-center gap-1">
+                            <span
+                              role="button"
+                              tabIndex={0}
+                              onClick={(event) => {
+                                event.preventDefault();
+                                event.stopPropagation();
+                                if (!supportsLight) {
+                                  return;
+                                }
+                                setSelectedThemeFamilyId(family.id);
+                                setThemeAppearanceForFamily(family.id, ThemeAppearance.Light);
+                              }}
+                              onKeyDown={(event) => {
+                                if (event.key !== 'Enter' && event.key !== ' ') {
+                                  return;
+                                }
+                                event.preventDefault();
+                                event.stopPropagation();
+                                if (!supportsLight) {
+                                  return;
+                                }
+                                setSelectedThemeFamilyId(family.id);
+                                setThemeAppearanceForFamily(family.id, ThemeAppearance.Light);
+                              }}
+                              className={`grid h-6 w-6 place-items-center rounded ${
+                                selectedAppearance === ThemeAppearance.Light ? 'theme-commandbar-popover-item-active' : ''
+                              } ${supportsLight ? '' : 'opacity-40'}`}
+                              aria-label={`${family.name} light`}
+                              title="Light appearance"
+                            >
+                              <svg viewBox="0 0 20 20" className="h-3.5 w-3.5" fill="none" stroke="currentColor" strokeWidth="1.8">
+                                <circle cx="10" cy="10" r="3.2" />
+                                <path d="M10 1.8v2.1M10 16.1v2.1M1.8 10h2.1M16.1 10h2.1M4.1 4.1l1.5 1.5M14.4 14.4l1.5 1.5M15.9 4.1l-1.5 1.5M5.6 14.4l-1.5 1.5" />
+                              </svg>
+                            </span>
+                            <span
+                              role="button"
+                              tabIndex={0}
+                              onClick={(event) => {
+                                event.preventDefault();
+                                event.stopPropagation();
+                                if (!supportsDark) {
+                                  return;
+                                }
+                                setSelectedThemeFamilyId(family.id);
+                                setThemeAppearanceForFamily(family.id, ThemeAppearance.Dark);
+                              }}
+                              onKeyDown={(event) => {
+                                if (event.key !== 'Enter' && event.key !== ' ') {
+                                  return;
+                                }
+                                event.preventDefault();
+                                event.stopPropagation();
+                                if (!supportsDark) {
+                                  return;
+                                }
+                                setSelectedThemeFamilyId(family.id);
+                                setThemeAppearanceForFamily(family.id, ThemeAppearance.Dark);
+                              }}
+                              className={`grid h-6 w-6 place-items-center rounded ${
+                                selectedAppearance === ThemeAppearance.Dark ? 'theme-commandbar-popover-item-active' : ''
+                              } ${supportsDark ? '' : 'opacity-40'}`}
+                              aria-label={`${family.name} dark`}
+                              title="Dark appearance"
+                            >
+                              <svg viewBox="0 0 20 20" className="h-3.5 w-3.5" fill="none" stroke="currentColor" strokeWidth="1.8">
+                                <path d="M12.7 2.5a6.8 6.8 0 1 0 4.8 10.8A6.2 6.2 0 0 1 12.7 2.5Z" />
+                              </svg>
+                            </span>
+                          </span>
+                        )}
+                      </button>
+                    );
+                  })}
+                  {theme.families.length === 0 ? (
                     <p className="theme-commandbar-muted px-2 py-1 text-xs">
                       {theme.status === 'error'
                         ? (theme.errorMessage ?? 'Failed to load themes')

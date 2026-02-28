@@ -1460,3 +1460,37 @@ Acceptance Criteria:
 [AC1] `ThemeId.StayTheCourse` exists in shared enums/contracts.
 [AC2] Server theme registry includes full Stay The Course token bundle and `/api/v1/themes` exposes it.
 [AC3] Route tests include the new built-in ID and regression gate (`typecheck`, `lint`, `test`, `build`) passes.
+
+## Feature Plan — Theme Families + Per-Theme Appearance (Light/Dark) v1
+
+- [x] TFLD1-T1: Expand shared theme contracts and `/themes` schema for families + variants
+Phase: Feature/ThemeFamilies-LightDark-v1
+Dependencies: TEG11-T4
+Acceptance Criteria:
+[AC1] Shared enums/types add `ThemeFamilyId`, `ThemeAppearance`, and `ThemeVariantId`.
+[AC2] `ThemeDefinition` carries `familyId` + `appearance`.
+[AC3] `ThemesResponse` adds `families`, `variants`, and `defaultSelection` while retaining legacy fields.
+
+- [x] TFLD1-T2: Implement server family+variant registry output with compatibility aliases
+Phase: Feature/ThemeFamilies-LightDark-v1
+Dependencies: TFLD1-T1
+Acceptance Criteria:
+[AC1] `/api/v1/themes` returns grouped families and full variant list.
+[AC2] Legacy alias fields (`defaultThemeId/themes/catalog`) remain populated.
+[AC3] Route tests cover new payload fields and built-in family/variant coverage.
+
+- [x] TFLD1-T3: Migrate client theme state, startup selection, and command bar UI
+Phase: Feature/ThemeFamilies-LightDark-v1
+Dependencies: TFLD1-T1, TFLD1-T2
+Acceptance Criteria:
+[AC1] Store tracks selected family, per-family remembered appearance, and active variant id.
+[AC2] Command bar renders family rows with per-row light/dark toggles and A11y single-variant handling.
+[AC3] Startup precedence remains snapshot > local preference > server default using family+appearance.
+
+- [x] TFLD1-T4: Add snapshot/local-preference migration and complete canonical docs + regression gate
+Phase: Feature/ThemeFamilies-LightDark-v1
+Dependencies: TFLD1-T3
+Acceptance Criteria:
+[AC1] Legacy `selectedThemeId` snapshots map deterministically to family+appearance.
+[AC2] Canonical docs updated (`SPECS`, `DATA_MODEL`, `API`, `ARCHITECTURE`) and feature docs created.
+[AC3] `npm run typecheck`, `npm run lint`, `npm test`, and `npm run build` pass.

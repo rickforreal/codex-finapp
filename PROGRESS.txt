@@ -1644,3 +1644,39 @@ Validation run (all passing):
 - `npm run build`
 
 Canonical docs impact: No canonical doc impact (additive built-in theme within existing theme model/API shape).
+2026-02-28 — TFLD1 Theme Families + Per-Theme Appearance (Light/Dark) v1 | COMPLETE
+- Implemented shared theme model migration from flat theme IDs to family + appearance selection:
+  - added `ThemeFamilyId`, `ThemeAppearance`, `ThemeVariantId`
+  - `ThemeDefinition` now includes `familyId` and `appearance`
+  - `/themes` response contract now includes `defaultSelection`, `families`, and `variants`
+- Implemented server theme registry grouped output with compatibility aliases:
+  - canonical payload fields: `defaultSelection`, `families`, `variants`
+  - legacy compatibility fields retained: `defaultThemeId`, `themes`, `catalog`
+  - server route tests expanded for family/variant coverage
+- Implemented client migration:
+  - store theme slice now tracks selected family, per-family remembered appearance, and active variant id
+  - startup precedence preserved: snapshot > local preference > server default
+  - local preference migrated to `finapp:theme-selection-v1` with legacy `finapp:theme-id` fallback mapping
+  - command bar theme popover now renders family rows with light/dark toggles (A11y family remains dark-only badge)
+- Implemented snapshot compatibility migration:
+  - legacy snapshot fields (`selectedThemeId`/`defaultThemeId`) map deterministically to family+appearance
+  - new theme fields are normalized on load
+- Added feature wave docs:
+  - `docs/features/theme-families-light-dark-v1/FEATURE.md`
+  - `docs/features/theme-families-light-dark-v1/PLAN.md`
+  - `docs/features/theme-families-light-dark-v1/ACCEPTANCE.md`
+- Updated root tracker:
+  - `TASKS.md` (added/completed `TFLD1-T1..TFLD1-T4`)
+
+Validation run (all passing):
+- `npm run typecheck`
+- `npm run lint`
+- `npm test`
+- `npm run build`
+
+Canonical docs impact:
+- Updated:
+  - `docs/SPECS.md`
+  - `docs/DATA_MODEL.md`
+  - `docs/API.md`
+  - `docs/ARCHITECTURE.md`

@@ -1,4 +1,4 @@
-import { ThemeId } from '../constants/enums';
+import { ThemeAppearance, ThemeFamilyId, ThemeId, ThemeVariantId } from '../constants/enums';
 
 export type ThemeFontFamilyId =
   | 'ibmPlexSans'
@@ -162,7 +162,9 @@ export type ThemeTokenBundle = {
 };
 
 export type ThemeDefinition = {
-  id: ThemeId;
+  id: ThemeVariantId;
+  familyId: ThemeFamilyId;
+  appearance: ThemeAppearance;
   name: string;
   description: string;
   version: string;
@@ -184,8 +186,23 @@ export type ThemeCatalogItem = {
   defaultForApp: boolean;
 };
 
+export type ThemeFamilyCatalogItem = {
+  id: ThemeFamilyId;
+  name: string;
+  description: string;
+  version: string;
+  isHighContrast: boolean;
+  defaultForApp: boolean;
+  supportedAppearances: ThemeAppearance[];
+};
+
+export type ThemeDefaultSelection = {
+  familyId: ThemeFamilyId;
+  appearance: ThemeAppearance;
+};
+
 export type ThemeValidationIssue = {
-  themeId: ThemeId;
+  themeId: ThemeVariantId;
   tokenPath: string;
   severity: 'warning';
   message: string;

@@ -54,3 +54,28 @@ export enum ThemeId {
   Synthwave84 = 'synthwave84',
   StayTheCourse = 'stayTheCourse',
 }
+
+export enum ThemeFamilyId {
+  Default = 'default',
+  Monokai = 'monokai',
+  Synthwave84 = 'synthwave84',
+  StayTheCourse = 'stayTheCourse',
+  HighContrast = 'highContrast',
+}
+
+export enum ThemeAppearance {
+  Light = 'light',
+  Dark = 'dark',
+}
+
+export enum ThemeVariantId {
+  DefaultLight = 'default.light',
+  DefaultDark = 'default.dark',
+  MonokaiLight = 'monokai.light',
+  MonokaiDark = 'monokai.dark',
+  Synthwave84Light = 'synthwave84.light',
+  Synthwave84Dark = 'synthwave84.dark',
+  StayTheCourseLight = 'stayTheCourse.light',
+  StayTheCourseDark = 'stayTheCourse.dark',
+  HighContrastDark = 'highContrast.dark',
+}

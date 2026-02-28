@@ -1,6 +1,17 @@
 import { z } from 'zod';
 
-import { AppMode, HistoricalEra, SimulationMode, ThemeId, type MonthlySimulationRow, type SimulateResponse, type SinglePathResult, type StressTestResult } from '@finapp/shared';
+import {
+  AppMode,
+  HistoricalEra,
+  SimulationMode,
+  ThemeAppearance,
+  ThemeFamilyId,
+  ThemeId,
+  type MonthlySimulationRow,
+  type SimulateResponse,
+  type SinglePathResult,
+  type StressTestResult,
+} from '@finapp/shared';
 
 import { getSnapshotState, type CompareSlotId, type SnapshotState, type WorkspaceSnapshot, useAppStore } from './useAppStore';
 
@@ -161,10 +172,20 @@ const snapshotStateSchema = z
     stress: z.unknown(),
     theme: z
       .object({
-        selectedThemeId: z.nativeEnum(ThemeId),
-        defaultThemeId: z.nativeEnum(ThemeId),
-        themes: z.array(z.unknown()),
-        catalog: z.array(z.unknown()),
+        selectedThemeFamilyId: z.nativeEnum(ThemeFamilyId).optional(),
+        selectedAppearanceByFamily: z.record(z.string().min(1), z.nativeEnum(ThemeAppearance)).optional(),
+        defaultThemeFamilyId: z.nativeEnum(ThemeFamilyId).optional(),
+        defaultAppearance: z.nativeEnum(ThemeAppearance).optional(),
+        activeVariantId: z.string().nullable().optional(),
+        variants: z.array(z.unknown()).optional(),
+        families: z.array(z.unknown()).optional(),
+        legacyDefaultThemeId: z.nativeEnum(ThemeId).optional(),
+        legacyThemes: z.array(z.unknown()).optional(),
+        legacyCatalog: z.array(z.unknown()).optional(),
+        selectedThemeId: z.nativeEnum(ThemeId).optional(),
+        defaultThemeId: z.nativeEnum(ThemeId).optional(),
+        themes: z.array(z.unknown()).optional(),
+        catalog: z.array(z.unknown()).optional(),
         slotCatalog: z.array(z.unknown()).optional(),
         validationIssues: z.array(z.unknown()),
         status: z.enum(['idle', 'loading', 'ready', 'error']),
@@ -197,6 +218,23 @@ const makeDownloadFilename = (name: string): string => {
 
 const invalidSnapshot = (): SnapshotLoadError =>
   new SnapshotLoadError('invalid_snapshot', "This file doesn't appear to be a valid snapshot.");
+
+const mapLegacyThemeIdToSelection = (themeId: ThemeId): { familyId: ThemeFamilyId; appearance: ThemeAppearance } => {
+  switch (themeId) {
+    case ThemeId.Light:
+      return { familyId: ThemeFamilyId.Default, appearance: ThemeAppearance.Light };
+    case ThemeId.Dark:
+      return { familyId: ThemeFamilyId.Default, appearance: ThemeAppearance.Dark };
+    case ThemeId.Monokai:
+      return { familyId: ThemeFamilyId.Monokai, appearance: ThemeAppearance.Dark };
+    case ThemeId.Synthwave84:
+      return { familyId: ThemeFamilyId.Synthwave84, appearance: ThemeAppearance.Dark };
+    case ThemeId.StayTheCourse:
+      return { familyId: ThemeFamilyId.StayTheCourse, appearance: ThemeAppearance.Dark };
+    case ThemeId.HighContrast:
+      return { familyId: ThemeFamilyId.HighContrast, appearance: ThemeAppearance.Dark };
+  }
+};
 
 const isCompareSlotId = (value: unknown): value is CompareSlotId =>
   value === 'A' ||
@@ -747,14 +785,51 @@ const unpackSnapshotState = (packed: unknown): SnapshotState => {
     compareWorkspace?: unknown;
     simulationResults: unknown;
     stress: unknown;
+    theme: SnapshotState['theme'] & {
+      selectedThemeId?: ThemeId;
+      defaultThemeId?: ThemeId;
+      themes?: unknown[];
+      catalog?: unknown[];
+    };
   };
+
+  const legacySelectedThemeId = data.theme.selectedThemeId ?? ThemeId.Light;
+  const legacyDefaultThemeId = data.theme.defaultThemeId ?? ThemeId.Light;
+  const selectionFromLegacy = mapLegacyThemeIdToSelection(legacySelectedThemeId);
+  const defaultFromLegacy = mapLegacyThemeIdToSelection(legacyDefaultThemeId);
+  const selectedThemeFamilyId = data.theme.selectedThemeFamilyId ?? selectionFromLegacy.familyId;
+  const selectedAppearanceByFamilyDefaults: Record<ThemeFamilyId, ThemeAppearance> = {
+    [ThemeFamilyId.Default]: ThemeAppearance.Light,
+    [ThemeFamilyId.Monokai]: ThemeAppearance.Dark,
+    [ThemeFamilyId.Synthwave84]: ThemeAppearance.Dark,
+    [ThemeFamilyId.StayTheCourse]: ThemeAppearance.Dark,
+    [ThemeFamilyId.HighContrast]: ThemeAppearance.Dark,
+  };
+  const selectedAppearanceByFamily = {
+    ...selectedAppearanceByFamilyDefaults,
+    ...(data.theme.selectedAppearanceByFamily ?? {}),
+    [selectedThemeFamilyId]:
+      data.theme.selectedAppearanceByFamily?.[selectedThemeFamilyId] ?? selectionFromLegacy.appearance,
+  } as Record<ThemeFamilyId, ThemeAppearance>;
 
   const unpacked: SnapshotState = {
     ...data,
     theme: {
-      ...data.theme,
+      selectedThemeFamilyId,
+      selectedAppearanceByFamily,
+      defaultThemeFamilyId: data.theme.defaultThemeFamilyId ?? defaultFromLegacy.familyId,
+      defaultAppearance: data.theme.defaultAppearance ?? defaultFromLegacy.appearance,
+      activeVariantId: data.theme.activeVariantId ?? null,
+      variants: data.theme.variants ?? [],
+      families: data.theme.families ?? [],
+      legacyDefaultThemeId: data.theme.legacyDefaultThemeId ?? legacyDefaultThemeId,
+      legacyThemes: data.theme.legacyThemes ?? data.theme.themes ?? [],
+      legacyCatalog: data.theme.legacyCatalog ?? data.theme.catalog ?? [],
       slotCatalog: data.theme.slotCatalog ?? [],
-    },
+      validationIssues: data.theme.validationIssues,
+      status: data.theme.status,
+      errorMessage: data.theme.errorMessage,
+    } as SnapshotState['theme'],
     compareWorkspace: unpackCompareWorkspace(data.compareWorkspace),
     planningWorkspace: unpackWorkspace(data.planningWorkspace),
     trackingWorkspace: unpackWorkspace(data.trackingWorkspace),

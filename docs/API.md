@@ -102,12 +102,21 @@ Response:
 ```ts
 {
   tokenModelVersion: "2";
+  defaultSelection: {
+    familyId: ThemeFamilyId;
+    appearance: ThemeAppearance;
+  };
+  variants: ThemeDefinition[];       // new canonical list
+  families: ThemeFamilyCatalogItem[]; // new canonical grouped catalog
+
+  // Legacy compatibility aliases (temporary):
   defaultThemeId: ThemeId;
   themes: ThemeDefinition[];
   catalog: ThemeCatalogItem[];
+
   slotCatalog: ThemeSlotCatalogItem[];
   validationIssues: Array<{
-    themeId: ThemeId;
+    themeId: ThemeVariantId;
     tokenPath: string;
     severity: "warning";
     message: string;
@@ -117,6 +126,11 @@ Response:
 
 Theme contract note (v2):
 - `tokenModelVersion` is currently fixed to `"2"`.
+- `ThemeDefinition` now identifies concrete variants:
+  - `id: ThemeVariantId`
+  - `familyId: ThemeFamilyId`
+  - `appearance: ThemeAppearance`
+- `families` defines grouped selectable entries and supported appearances.
 - `ThemeDefinition` now includes inheritance maps:
   - `semantic: Record<string, ThemeTokenRefOrValue>`
   - `slots: Record<string, ThemeTokenRefOrValue>`

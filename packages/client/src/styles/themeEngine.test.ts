@@ -1,11 +1,13 @@
 import { describe, expect, it } from 'vitest';
 
-import { ThemeId, type ThemeDefinition } from '@finapp/shared';
+import { ThemeAppearance, ThemeFamilyId, ThemeVariantId, type ThemeDefinition } from '@finapp/shared';
 
 import { applyTheme } from './themeEngine';
 
 const theme: ThemeDefinition = {
-  id: ThemeId.Dark,
+  id: ThemeVariantId.DefaultDark,
+  familyId: ThemeFamilyId.Default,
+  appearance: ThemeAppearance.Dark,
   name: 'Dark',
   description: 'test',
   version: '1.0.0',
@@ -184,6 +186,8 @@ describe('themeEngine', () => {
     expect(styleState.get('--theme-chart-compare-slot-c')).toBe('#3030aa');
     expect(styleState.get('--theme-slot-command-bar-shell-bg')).toBe('#111111');
     expect(styleState.get('--theme-slot-command-bar-logo-text')).toBe('#ffffff');
-    expect(attrs.get('data-theme-id')).toBe(ThemeId.Dark);
+    expect(attrs.get('data-theme-id')).toBe(ThemeVariantId.DefaultDark);
+    expect(attrs.get('data-theme-family')).toBe(ThemeFamilyId.Default);
+    expect(attrs.get('data-theme-appearance')).toBe(ThemeAppearance.Dark);
   });
 });

@@ -8,7 +8,14 @@ import type {
   SimulationConfig,
   SinglePathResult,
 } from '../domain/simulation';
-import type { ThemeCatalogItem, ThemeDefinition, ThemeSlotCatalogItem, ThemeValidationIssue } from '../domain/theme';
+import type {
+  ThemeCatalogItem,
+  ThemeDefaultSelection,
+  ThemeDefinition,
+  ThemeFamilyCatalogItem,
+  ThemeSlotCatalogItem,
+  ThemeValidationIssue,
+} from '../domain/theme';
 import type { SimulationMode } from '../constants/enums';
 
 export interface HealthResponse {
@@ -36,7 +43,10 @@ export interface HistoricalSummaryResponse {
 
 export interface ThemesResponse {
   tokenModelVersion: ThemeDefinition['tokenModelVersion'];
-  defaultThemeId: ThemeDefinition['id'];
+  defaultSelection: ThemeDefaultSelection;
+  variants: ThemeDefinition[];
+  families: ThemeFamilyCatalogItem[];
+  defaultThemeId: ThemeCatalogItem['id'];
   themes: ThemeDefinition[];
   catalog: ThemeCatalogItem[];
   slotCatalog: ThemeSlotCatalogItem[];

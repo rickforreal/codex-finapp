@@ -1,11 +1,13 @@
 import { describe, expect, it } from 'vitest';
 
-import { ThemeId, type ThemeDefinition } from '@finapp/shared';
+import { ThemeAppearance, ThemeFamilyId, ThemeVariantId, type ThemeDefinition } from '@finapp/shared';
 
 import { compileThemeSlotVars } from './themeResolver';
 
 const theme: ThemeDefinition = {
-  id: ThemeId.Light,
+  id: ThemeVariantId.DefaultLight,
+  familyId: ThemeFamilyId.Default,
+  appearance: ThemeAppearance.Light,
   name: 'Light',
   description: 'test',
   version: '1.0.0',

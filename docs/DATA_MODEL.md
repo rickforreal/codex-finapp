@@ -463,10 +463,17 @@ SnapshotState {
     errorMessage: string | null;
   };
   theme: {
-    selectedThemeId: ThemeId;
-    defaultThemeId: ThemeId;
-    themes: ThemeDefinition[];
-    catalog: ThemeCatalogItem[];
+    selectedThemeFamilyId: ThemeFamilyId;
+    selectedAppearanceByFamily: Record<ThemeFamilyId, ThemeAppearance>;
+    defaultThemeFamilyId: ThemeFamilyId;
+    defaultAppearance: ThemeAppearance;
+    activeVariantId: ThemeVariantId | null;
+    variants: ThemeDefinition[];
+    families: ThemeFamilyCatalogItem[];
+    legacyDefaultThemeId: ThemeId;      // compatibility alias (transition wave)
+    legacyThemes: ThemeDefinition[];    // compatibility alias (transition wave)
+    legacyCatalog: ThemeCatalogItem[];  // compatibility alias (transition wave)
+    slotCatalog: ThemeSlotCatalogItem[];
     validationIssues: ThemeValidationIssue[];
     status: "idle" | "loading" | "ready" | "error";
     errorMessage: string | null;
@@ -489,7 +496,9 @@ Theme modeling (server-owned):
 
 ```ts
 ThemeDefinition {
-  id: ThemeId;                      // light | dark | highContrast
+  id: ThemeVariantId;               // e.g. default.light, monokai.dark
+  familyId: ThemeFamilyId;          // default | monokai | synthwave84 | stayTheCourse | highContrast
+  appearance: ThemeAppearance;      // light | dark
   name: string;
   description: string;
   version: string;
@@ -510,6 +519,18 @@ ThemeDefinition {
     state: ThemeStateTokens;        // edited/preserved/stale/selection visuals
     chart: ThemeChartTokens;        // manual line/fill + MC bands/median + compare slot colors
   };
+}
+```
+
+```ts
+ThemeFamilyCatalogItem {
+  id: ThemeFamilyId;
+  name: string;
+  description: string;
+  version: string;
+  isHighContrast: boolean;
+  defaultForApp: boolean;
+  supportedAppearances: ThemeAppearance[];
 }
 ```
 
