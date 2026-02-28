@@ -1680,3 +1680,20 @@ Canonical docs impact:
   - `docs/DATA_MODEL.md`
   - `docs/API.md`
   - `docs/ARCHITECTURE.md`
+2026-02-28 — TFLD1 follow-up: compare-slot contrast tuning for light variants + Stay The Course differentiation | COMPLETE
+- Addressed UX feedback on compare slot visibility and chart-line separation:
+  - Improved light-variant compare-slot contrast by enforcing a darker `compareSlotA` and a high-contrast spread for `compareSlotC..H` in generated light variants.
+  - Preserved family identity in light variants via family accent on `compareSlotB`.
+  - Reworked Stay The Course compare-slot palette (dark variant) to include additional distinct accent hues beyond narrow teal shades for clearer line/chip differentiation.
+- Updated theme authoring guidance:
+  - `docs/features/themes/GUIDE.md` now explicitly requires compare-slot palette distinctness and allows adding supplemental accents when needed.
+
+Validation run (all passing):
+- `npm run typecheck`
+- `npm run lint`
+- `npm test`
+- `npm run build`
+
+Canonical docs impact:
+- Updated:
+  - `docs/features/themes/GUIDE.md`

@@ -693,11 +693,11 @@ const baseThemes: BaseThemeVariant[] = [
         mcBandInner: '#04F2AE66',
         compareSlotA: '#E6FFF7',
         compareSlotB: '#04F2C6',
-        compareSlotC: '#04F2AE',
-        compareSlotD: '#04F29B',
-        compareSlotE: '#048C65',
-        compareSlotF: '#5BE8C7',
-        compareSlotG: '#2FA387',
+        compareSlotC: '#5B8CFF',
+        compareSlotD: '#F59E0B',
+        compareSlotE: '#E879F9',
+        compareSlotF: '#84CC16',
+        compareSlotG: '#FB7185',
         compareSlotH: '#A2D6C2',
       },
     },
@@ -846,14 +846,16 @@ const createLightVariantFromDark = (
   tokens.chart.mcMedianLine = darkVariant.tokens.color.brandNavy;
   tokens.chart.mcBandOuter = darkVariant.tokens.chart.mcBandOuter;
   tokens.chart.mcBandInner = darkVariant.tokens.chart.mcBandInner;
-  tokens.chart.compareSlotA = darkVariant.tokens.chart.compareSlotA;
+  // Light variants require stronger slot contrast for chips/lines on bright surfaces.
+  // Keep family accent on B and use a stable high-contrast spread for remaining slots.
+  tokens.chart.compareSlotA = defaultLight.tokens.chart.compareSlotA;
   tokens.chart.compareSlotB = darkVariant.tokens.chart.compareSlotB;
-  tokens.chart.compareSlotC = darkVariant.tokens.chart.compareSlotC;
-  tokens.chart.compareSlotD = darkVariant.tokens.chart.compareSlotD;
-  tokens.chart.compareSlotE = darkVariant.tokens.chart.compareSlotE;
-  tokens.chart.compareSlotF = darkVariant.tokens.chart.compareSlotF;
-  tokens.chart.compareSlotG = darkVariant.tokens.chart.compareSlotG;
-  tokens.chart.compareSlotH = darkVariant.tokens.chart.compareSlotH;
+  tokens.chart.compareSlotC = defaultLight.tokens.chart.compareSlotC;
+  tokens.chart.compareSlotD = defaultLight.tokens.chart.compareSlotD;
+  tokens.chart.compareSlotE = defaultLight.tokens.chart.compareSlotE;
+  tokens.chart.compareSlotF = defaultLight.tokens.chart.compareSlotF;
+  tokens.chart.compareSlotG = defaultLight.tokens.chart.compareSlotG;
+  tokens.chart.compareSlotH = defaultLight.tokens.chart.compareSlotH;
 
   return {
     ...darkVariant,

@@ -126,12 +126,23 @@ If a UI element is not granularly styleable yet:
 4. Apply class in relevant component.
 5. Add/update tests if behavior changed.
 
-## 6) Snapshot/Bookmark Compatibility
+## 6) Compare Slot Color Quality Bar
+
+Compare slot tokens (`ThemeChartTokens.compareSlotA..H`) drive:
+- sidebar compare chips
+- compare tabs
+- compare chart line colors
+
+When creating a theme, ensure these colors are intentionally distinct from each other in both appearances.
+Do not constrain compare-slot tokens to only narrow shades of one hue if that reduces visual separation.
+It is acceptable (and recommended when needed) to introduce additional accent colors beyond the base brand palette to maintain line/chip distinguishability and readability.
+
+## 7) Snapshot/Bookmark Compatibility
 
 Theme persistence remains by selected family/appearance and cached theme payload.
 Snapshot parsing tolerates missing `theme.slotCatalog` by defaulting to `[]` for backward compatibility.
 
-## 7) Troubleshooting
+## 8) Troubleshooting
 
 If a slot does not appear to update:
 
