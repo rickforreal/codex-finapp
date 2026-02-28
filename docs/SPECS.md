@@ -4089,3 +4089,38 @@ A small note appears below the timing input in Tracking Mode: _"Year 1 = first p
 | Switch to Monte Carlo mode | Stress tests re-run as Monte Carlo. PoS rows appear. Timing chart hides. |
 | Switch to Tracking Mode | Shock timing reanchors to projected months. Actuals are immune to shocks. |
 | Collapse the panel | All state preserved. Re-expanding shows the same scenarios and results. |
+
+### Affordance #74 · Chart Panel (Side-by-Side)
+
+The Chart Panel is a container that holds both the Portfolio Chart and Withdrawal Chart side-by-side with shared controls.
+
+**Layout:**
+- Wide viewport (>=900px container): Two charts side-by-side in a flex row
+- Narrow viewport (<900px container): Charts stack vertically
+
+**Shared Controls:**
+- Nominal/Real toggle — affects both charts simultaneously
+- Breakdown toggle — stacked asset areas on both charts
+
+**Synchronized Hover:**
+- Hovering one chart shows crosshair on the other at the same month index
+- Tooltip appears on the hovered chart only
+
+**Stale/Loading State:**
+- Stale overlay (opacity + desaturation) applied at panel level in Tracking mode
+- Simulation-running spinner overlay at panel level
+
+### Affordance #75 · Withdrawal Chart
+
+The Withdrawal Chart renders monthly withdrawal amounts over time with the same rendering modes as the Portfolio Chart.
+
+| Action / State | Result |
+|---|---|
+| Single sim, no breakdown | Line + gradient fill of total withdrawal per month |
+| Single sim, breakdown on | Stacked area by asset class (stocks/bonds/cash withdrawals) |
+| Monte Carlo mode | Representative path line only, "(representative path)" legend note |
+| Compare mode (2+ slots) | One line per slot, slot colors matching Portfolio Chart |
+| Stress scenarios active | Dashed withdrawal lines per scenario (hidden when breakdown on) |
+| Tracking mode | Actuals boundary line, stale dimming |
+| Zero withdrawals | "No withdrawals in this simulation" message |
+| Hover tooltip | Monthly withdrawal total, per-asset if breakdown on, shortfall if non-zero |

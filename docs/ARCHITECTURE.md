@@ -297,9 +297,9 @@ retirement-forecaster/
 │       │   │   │   ├── SummaryStats/
 │       │   │   │   │   ├── SummaryStatsBar.tsx
 │       │   │   │   │   └── StatCard.tsx
-│       │   │   │   ├── PortfolioChart/
-│       │   │   │   │   ├── PortfolioChart.tsx
-│       │   │   │   │   └── ChartTooltip.tsx
+│       │   │   │   ├── ChartPanel.tsx
+│       │   │   │   ├── PortfolioChart.tsx
+│       │   │   │   ├── WithdrawalChart.tsx
 │       │   │   │   ├── DetailLedger/
 │       │   │   │   │   ├── index.ts
 │       │   │   │   │   ├── DetailLedgerContainer.tsx
@@ -513,14 +513,16 @@ App
     │   ├── StatCard: TerminalValue (#40)
     │   └── StatCard: ProbabilityOfSuccess (#41) [visible: MC mode]
     │
-    ├── PortfolioChart
+    ├── ChartPanel (#74)
     │   ├── RealNominalToggle (#43)
     │   ├── BreakdownLabelControl (#44)
-    │   ├── Chart (#42) [line/area/bands depending on mode]
+    │   ├── PortfolioChart (#42) [line/area/bands depending on mode]
     │   │   ├── ConfidenceBands (#45) [MC mode]
     │   │   ├── TrackingOverlay (#46) [Tracking mode]
     │   │   └── ChartTooltip (#47) [hover]
-    │   └── ZoomPanControls (#48) [deferred/disabled]
+    │   └── WithdrawalChart (#75) [line/area/stacked by asset]
+    │       ├── TrackingOverlay (#46) [Tracking mode]
+    │       └── ChartTooltip [hover]
     │
     ├── DetailLedgerContainer (TanStack Virtual)
     │   ├── DetailLedgerToolbar
