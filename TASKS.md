@@ -1219,3 +1219,48 @@ Acceptance Criteria:
 [AC1] `docs/SPECS.md`, `docs/SCENARIOS.md`, `docs/ARCHITECTURE.md`, and `docs/DATA_MODEL.md` reflect v1.0 contract.
 [AC2] `npm run typecheck`, `npm run lint`, `npm test`, and `npm run build` pass.
 [AC3] `PROGRESS.txt` has append-only TLC entries with canonical-doc impact statement.
+
+## Feature: Withdrawal Chart (Side-by-Side)
+
+- [x] WC-T1: Create feature documentation
+Phase: Feature/WithdrawalChart
+Dependencies: none
+Acceptance Criteria:
+[AC1] `docs/features/withdrawal-chart/` has FEATURE.md, PLAN.md, ACCEPTANCE.md.
+[AC2] Tasks added to root TASKS.md.
+
+- [x] WC-T2: Extract shared chart primitives
+Phase: Feature/WithdrawalChart
+Dependencies: WC-T1
+Acceptance Criteria:
+[AC1] `packages/client/src/lib/chartPrimitives.ts` exports `linePath`, `areaPath`, `inflationFactor`, `stressScenarioColors`, chart constants.
+[AC2] PortfolioChart imports from chartPrimitives — no behavioral change.
+
+- [x] WC-T3: Refactor PortfolioChart for external hosting
+Phase: Feature/WithdrawalChart
+Dependencies: WC-T2
+Acceptance Criteria:
+[AC1] PortfolioChart accepts `hoverIndex`, `onHoverChange`, `chartWidth` props.
+[AC2] Section wrapper, toggle controls, ResizeObserver, stale/loading overlays removed from PortfolioChart.
+
+- [x] WC-T4: Create WithdrawalChart component
+Phase: Feature/WithdrawalChart
+Dependencies: WC-T2
+Acceptance Criteria:
+[AC1] WithdrawalChart renders all modes: single, breakdown, compare, MC, stress, tracking.
+[AC2] Tooltip shows withdrawal total, per-asset breakdown, shortfall when non-zero.
+
+- [x] WC-T5: Create ChartPanel wrapper + AppShell wiring
+Phase: Feature/WithdrawalChart
+Dependencies: WC-T3, WC-T4
+Acceptance Criteria:
+[AC1] ChartPanel owns ResizeObserver, hoverIndex, toggle controls.
+[AC2] AppShell renders ChartPanel instead of PortfolioChart.
+[AC3] Side-by-side at wide widths, stacked at narrow (<900px).
+
+- [x] WC-T6: Update canonical docs and verify
+Phase: Feature/WithdrawalChart
+Dependencies: WC-T5
+Acceptance Criteria:
+[AC1] SPECS.md, SCENARIOS.md, ARCHITECTURE.md updated.
+[AC2] `npm run typecheck && npm run lint && npm test && npm run build` passes.

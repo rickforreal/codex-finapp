@@ -1,7 +1,7 @@
 import { useAppStore } from '../../store/useAppStore';
+import { ChartPanel } from '../output/ChartPanel';
 import { CompareParameterDiffTable } from '../output/CompareParameterDiffTable';
 import { DetailTable } from '../output/DetailLedger';
-import { PortfolioChart } from '../output/PortfolioChart';
 import { StressTestPanel } from '../output/StressTestPanel';
 import { SummaryStatsBar } from '../output/SummaryStatsBar';
 import { Sidebar } from './Sidebar';
@@ -22,7 +22,7 @@ export const AppShell = () => {
           <div className="space-y-4">
             <SummaryStatsBar />
             <CompareParameterDiffTable />
-            <PortfolioChart />
+            <ChartPanel />
             <DetailTable />
             <StressTestPanel />
             <div className="rounded-md border border-brand-border bg-white px-3 py-2 text-xs text-slate-600">

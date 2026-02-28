@@ -1308,3 +1308,39 @@ Validation run (passing):
 
 Canonical docs impact:
 - No canonical doc impact (implementation-level UX refinements only).
+
+## 2026-02-27 — Feature: Withdrawal Chart (Side-by-Side) | COMPLETE
+
+Implemented a new Withdrawal Chart rendered side-by-side with the existing Portfolio Chart inside a shared ChartPanel container.
+
+New files:
+- `packages/client/src/lib/chartPrimitives.ts` — shared chart utilities (`linePath`, `areaPath`, `inflationFactor`, constants, coordinate helpers)
+- `packages/client/src/components/output/WithdrawalChart.tsx` — withdrawal chart with all rendering modes (single, breakdown, compare, MC representative path, stress, tracking)
+- `packages/client/src/components/output/ChartPanel.tsx` — wrapper owning ResizeObserver, shared hoverIndex, Nominal/Real + Breakdown toggles, stale/loading overlays, responsive layout
+- `docs/features/withdrawal-chart/` — FEATURE.md, PLAN.md, ACCEPTANCE.md
+
+Modified files:
+- `PortfolioChart.tsx` — refactored to accept `hoverIndex`, `onHoverChange`, `chartWidth` props; shed section wrapper, toggles, ResizeObserver, overlays; imports from chartPrimitives
+- `AppShell.tsx` — replaced `<PortfolioChart />` with `<ChartPanel />`
+- `TASKS.md` — added WC-T1 through WC-T6
+
+Key behaviors:
+- Synchronized hover crosshair across both charts
+- Shared Nominal/Real and Breakdown toggles (Breakdown hidden in compare mode)
+- Compare mode: one line per slot with matching "Portfolio X" labels
+- MC mode: representative path only (no percentile bands) with annotation
+- Stress overlays: dashed withdrawal lines (hidden when breakdown enabled)
+- Tracking: actuals boundary line, stale dimming at panel level
+- Responsive: side-by-side >= 900px, vertical stack below
+- Shortfall tooltip when actual < requested
+
+Validation run (passing):
+- `npm run typecheck` — clean
+- `npm run lint` — clean
+- `npm test` — 105/105 passed
+- `npm run build` — successful
+
+Canonical docs impact:
+- `docs/SPECS.md` — added Affordance #74 (ChartPanel) and #75 (WithdrawalChart)
+- `docs/ARCHITECTURE.md` — updated component tree and file listing
+- `docs/SCENARIOS.md` — added Scenario #27 (side-by-side chart viewing)
