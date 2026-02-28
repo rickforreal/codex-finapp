@@ -4,13 +4,19 @@ type Props = {
   value: number;
   onChange: (value: number) => void;
   className?: string;
+  disabled?: boolean;
 };
 
-export const CurrencyInput = ({ value, onChange, className = '' }: Props) => {
+export const CurrencyInput = ({ value, onChange, className = '', disabled = false }: Props) => {
   return (
     <div className={`flex items-center gap-1 ${className}`}>
       <span className="text-sm text-slate-500">$</span>
-      <NumericInput value={value} onChange={(next) => onChange(Math.max(0, Math.round(next)))} min={0} />
+      <NumericInput
+        value={value}
+        onChange={(next) => onChange(Math.max(0, Math.round(next)))}
+        min={0}
+        disabled={disabled}
+      />
     </div>
   );
 };

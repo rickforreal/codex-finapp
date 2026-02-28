@@ -155,4 +155,152 @@ describe('useAppStore compare slot behavior', () => {
     store.setCompareActiveSlot('B');
     expect(useAppStore.getState().actualOverridesByMonth[1]).toBeUndefined();
   });
+
+  it('supports family-level lock sync, unsync, and resync across slots', () => {
+    resetStore();
+    activateCompare();
+    const store = useAppStore.getState();
+    store.addCompareSlotFromSource('A');
+
+    store.setCompareActiveSlot('A');
+    store.toggleCompareFamilyLock('startingPortfolio');
+    store.setPortfolioValue(AssetClass.Stocks, 1_111_000);
+
+    store.setCompareActiveSlot('B');
+    expect(useAppStore.getState().portfolio.stocks).toBe(1_111_000);
+    store.setPortfolioValue(AssetClass.Stocks, 900_000);
+    expect(useAppStore.getState().portfolio.stocks).toBe(1_111_000);
+
+    store.setCompareSlotFamilySync('B', 'startingPortfolio', false);
+    store.setPortfolioValue(AssetClass.Stocks, 900_000);
+    expect(useAppStore.getState().portfolio.stocks).toBe(900_000);
+
+    store.setCompareActiveSlot('A');
+    store.setPortfolioValue(AssetClass.Stocks, 1_222_000);
+
+    store.setCompareActiveSlot('C');
+    expect(useAppStore.getState().portfolio.stocks).toBe(1_222_000);
+
+    store.setCompareActiveSlot('B');
+    expect(useAppStore.getState().portfolio.stocks).toBe(900_000);
+    store.setCompareSlotFamilySync('B', 'startingPortfolio', true);
+    expect(useAppStore.getState().portfolio.stocks).toBe(1_222_000);
+  });
+
+  it('applies global list lock as exact mirror and blocks follower edits', () => {
+    resetStore();
+    activateCompare();
+    const store = useAppStore.getState();
+
+    store.setCompareActiveSlot('A');
+    store.addIncomeEvent('socialSecurity');
+    const aEventId = useAppStore.getState().incomeEvents[0]?.id;
+    if (!aEventId) {
+      throw new Error('Expected A income event for test');
+    }
+    store.toggleCompareFamilyLock('incomeEvents');
+
+    store.setCompareActiveSlot('B');
+    expect(useAppStore.getState().incomeEvents.map((entry) => entry.id)).toEqual([aEventId]);
+    store.addIncomeEvent('pension');
+    expect(useAppStore.getState().incomeEvents.map((entry) => entry.id)).toEqual([aEventId]);
+
+    store.setCompareActiveSlot('A');
+    store.removeIncomeEvent(aEventId);
+    store.setCompareActiveSlot('B');
+    expect(useAppStore.getState().incomeEvents).toHaveLength(0);
+  });
+
+  it('supports instance-level list lock merge semantics and locked delete propagation', () => {
+    resetStore();
+    activateCompare();
+    const store = useAppStore.getState();
+
+    store.setCompareActiveSlot('A');
+    store.addIncomeEvent('socialSecurity');
+    store.addIncomeEvent('pension');
+    const [first, second] = useAppStore.getState().incomeEvents;
+    if (!first || !second) {
+      throw new Error('Expected two income events');
+    }
+    store.toggleCompareInstanceLock('incomeEvents', first.id);
+
+    store.setCompareActiveSlot('B');
+    expect(useAppStore.getState().incomeEvents.some((event) => event.id === first.id)).toBe(true);
+    expect(useAppStore.getState().incomeEvents.some((event) => event.id === second.id)).toBe(false);
+    store.addIncomeEvent('rentalIncome');
+    const localBId = useAppStore.getState().incomeEvents.find((event) => event.id !== first.id)?.id;
+    if (!localBId) {
+      throw new Error('Expected local B-only income event');
+    }
+
+    store.setCompareActiveSlot('A');
+    store.updateIncomeEvent(first.id, { amount: 9_999 });
+    store.setCompareActiveSlot('B');
+    const syncedFirst = useAppStore.getState().incomeEvents.find((event) => event.id === first.id);
+    expect(syncedFirst?.amount).toBe(9_999);
+    expect(useAppStore.getState().incomeEvents.some((event) => event.id === localBId)).toBe(true);
+
+    store.setCompareActiveSlot('A');
+    store.removeIncomeEvent(first.id);
+    store.setCompareActiveSlot('B');
+    expect(useAppStore.getState().incomeEvents.some((event) => event.id === first.id)).toBe(false);
+    expect(useAppStore.getState().incomeEvents.some((event) => event.id === localBId)).toBe(true);
+  });
+
+  it('enforces spending-phase instance locks as a contiguous prefix from phase 1', () => {
+    resetStore();
+    activateCompare();
+    const store = useAppStore.getState();
+    store.setCompareActiveSlot('A');
+    store.addSpendingPhase();
+    store.addSpendingPhase();
+    const phases = useAppStore.getState().spendingPhases;
+    const first = phases[0]?.id;
+    const second = phases[1]?.id;
+    const third = phases[2]?.id;
+    if (!first || !second || !third) {
+      throw new Error('Expected three phases');
+    }
+
+    store.toggleCompareInstanceLock('spendingPhases', third);
+    expect(useAppStore.getState().compareWorkspace.compareSync.instanceLocks.spendingPhases[third]).toBeUndefined();
+
+    store.toggleCompareInstanceLock('spendingPhases', first);
+    expect(useAppStore.getState().compareWorkspace.compareSync.instanceLocks.spendingPhases[first]).toBe(true);
+    store.toggleCompareInstanceLock('spendingPhases', third);
+    expect(useAppStore.getState().compareWorkspace.compareSync.instanceLocks.spendingPhases[third]).toBeUndefined();
+
+    store.toggleCompareInstanceLock('spendingPhases', second);
+    store.toggleCompareInstanceLock('spendingPhases', third);
+    expect(useAppStore.getState().compareWorkspace.compareSync.instanceLocks.spendingPhases[second]).toBe(true);
+    expect(useAppStore.getState().compareWorkspace.compareSync.instanceLocks.spendingPhases[third]).toBe(true);
+  });
+
+  it('unlocking a spending phase cascades unlock to later locked phases', () => {
+    resetStore();
+    activateCompare();
+    const store = useAppStore.getState();
+    store.setCompareActiveSlot('A');
+    store.addSpendingPhase();
+    store.addSpendingPhase();
+    const phases = useAppStore.getState().spendingPhases;
+    const first = phases[0]?.id;
+    const second = phases[1]?.id;
+    const third = phases[2]?.id;
+    if (!first || !second || !third) {
+      throw new Error('Expected three phases');
+    }
+
+    store.toggleCompareInstanceLock('spendingPhases', first);
+    store.toggleCompareInstanceLock('spendingPhases', second);
+    store.toggleCompareInstanceLock('spendingPhases', third);
+    expect(useAppStore.getState().compareWorkspace.compareSync.instanceLocks.spendingPhases[third]).toBe(true);
+
+    store.toggleCompareInstanceLock('spendingPhases', second);
+    const locks = useAppStore.getState().compareWorkspace.compareSync.instanceLocks.spendingPhases;
+    expect(locks[first]).toBe(true);
+    expect(locks[second]).toBeUndefined();
+    expect(locks[third]).toBeUndefined();
+  });
 });

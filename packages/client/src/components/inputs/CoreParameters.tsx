@@ -1,11 +1,13 @@
 import { NumericInput } from '../shared/NumericInput';
 import { PercentInput } from '../shared/PercentInput';
 import { MonthYearPicker } from '../shared/MonthYearPicker';
-import { useAppStore } from '../../store/useAppStore';
+import { useAppStore, useCompareFamilyLockUiState } from '../../store/useAppStore';
 
 export const CoreParameters = () => {
   const coreParams = useAppStore((state) => state.coreParams);
   const setCoreParam = useAppStore((state) => state.setCoreParam);
+  const lockState = useCompareFamilyLockUiState('coreParams');
+  const disabled = lockState.readOnly;
 
   return (
     <div className="space-y-3">
@@ -18,6 +20,7 @@ export const CoreParameters = () => {
               min={1}
               max={120}
               className="pr-10"
+              disabled={disabled}
               onChange={(value) => setCoreParam('startingAge', value)}
             />
             <span className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-sm font-semibold text-slate-400">
@@ -34,6 +37,7 @@ export const CoreParameters = () => {
               min={coreParams.startingAge}
               max={120}
               className="pr-10"
+              disabled={disabled}
               onChange={(value) => setCoreParam('withdrawalsStartAt', value)}
             />
             <span className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-sm font-semibold text-slate-400">
@@ -44,7 +48,12 @@ export const CoreParameters = () => {
 
         <label className="space-y-1">
           <p className="flex min-h-10 items-end text-xs font-medium text-slate-600">Expected Inflation</p>
-          <PercentInput value={coreParams.inflationRate} onChange={(value) => setCoreParam('inflationRate', value)} max={20} />
+          <PercentInput
+            value={coreParams.inflationRate}
+            onChange={(value) => setCoreParam('inflationRate', value)}
+            max={20}
+            disabled={disabled}
+          />
         </label>
       </div>
 
@@ -54,6 +63,7 @@ export const CoreParameters = () => {
           <MonthYearPicker
             value={coreParams.retirementStartDate}
             onChange={(value) => setCoreParam('retirementStartDate', value)}
+            disabled={disabled}
           />
         </label>
 
@@ -63,6 +73,7 @@ export const CoreParameters = () => {
             value={coreParams.retirementDuration}
             min={1}
             max={100}
+            disabled={disabled}
             onChange={(value) => setCoreParam('retirementDuration', value)}
           />
         </label>

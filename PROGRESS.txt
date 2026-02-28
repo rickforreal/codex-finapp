@@ -1425,3 +1425,139 @@ Validation run (all passing):
 Canonical docs impact:
 - `docs/SPECS.md` updated (UI affordance presentation detail).
 - No API/data model/architecture contract changes.
+
+## 2026-02-28 — Feature: Compare Portfolios v3.1 (Lockable/Syncable Inputs) | COMPLETE
+
+Implemented A-master compare lock/sync behavior for input-panel parameters across slots `A..H`.
+
+Feature docs created:
+- `docs/features/compare-portfolios-v3-1-lock-sync/FEATURE.md`
+- `docs/features/compare-portfolios-v3-1-lock-sync/PLAN.md`
+- `docs/features/compare-portfolios-v3-1-lock-sync/ACCEPTANCE.md`
+
+Implementation highlights:
+- Added compare sync model to store under `compareWorkspace.compareSync` with:
+  - family locks (`coreParams`, `startingPortfolio`, `returnAssumptions`, `spendingPhases`, `withdrawalStrategy`, `drawdownStrategy`, `incomeEvents`, `expenseEvents`)
+  - instance locks for list families (`spendingPhases`, `incomeEvents`, `expenseEvents`)
+  - per-slot unsync maps for family and instance overrides
+- Added store actions/selectors:
+  - `toggleCompareFamilyLock`
+  - `toggleCompareInstanceLock`
+  - `setCompareSlotFamilySync`
+  - `setCompareSlotInstanceSync`
+  - UI selectors for family/instance lock/read-only state
+- Added lock propagation engine (`A` as master):
+  - family-level propagation to synced followers
+  - list family global lock exact mirror behavior
+  - list instance lock merge-by-id behavior
+  - locked instance delete propagation from `A` to synced followers
+- Added follower-side edit guards for locked+synced families/instances across all input mutation paths.
+- Added UI lock/sync controls:
+  - section-level controls in sidebar collapse headers
+  - per-instance controls on Spending Phase, Income Event, Expense Event cards
+  - synced followers render read-only controls while unsynced followers are editable
+- Extended shared input components with disabled support where needed.
+
+Persistence updates:
+- Snapshot schema version bumped: `SNAPSHOT_SCHEMA_VERSION = 6`.
+- Snapshot pack/unpack includes `compareSync` and defaults missing `compareSync` for older payloads.
+- Bookmark persistence round-trips `compareSync` via snapshot payload path.
+
+Tests added/updated:
+- `packages/client/src/store/useAppStore.compare.test.ts`
+  - family lock sync/unsync/resync
+  - global list lock exact mirror + edit block
+  - instance lock merge semantics + delete propagation
+- `packages/client/src/store/snapshot.test.ts`
+  - compareSync persistence
+  - missing compareSync backward default
+- `packages/client/src/store/bookmarks.test.ts`
+  - compareSync bookmark round-trip
+
+Validation run (all passing):
+- `npm run typecheck`
+- `npm run lint`
+- `npm test`
+- `npm run build`
+
+Canonical docs impact:
+- Updated:
+  - `docs/SPECS.md` (new Affordance #78)
+  - `docs/SCENARIOS.md` (new Scenario #29)
+  - `docs/DATA_MODEL.md` (compareWorkspace v3.1 + compareSync model)
+  - `docs/ARCHITECTURE.md` (compare sync propagation architecture)
+- No API contract changes (`docs/API.md` unchanged).
+
+## 2026-02-28 — CPV31 Hotfix: Prevent Lock-UI Render Loop | COMPLETE
+
+Fixed browser runtime crash (`Maximum update depth exceeded`) introduced during compare lock/sync UI wiring.
+
+Root cause:
+- Lock UI hooks selected object literals from Zustand store in a way that could trigger unstable re-subscription/render behavior in this setup.
+
+Fix:
+- Reworked `useCompareFamilyLockUiState` and `useCompareInstanceLockUiState` to use primitive selectors and compose return values locally.
+- Removed unsupported equality-arg usage on `useAppStore` selector calls.
+
+File updated:
+- `packages/client/src/store/useAppStore.ts`
+
+Validation run (client passing):
+- `npm run typecheck -w @finapp/client`
+- `npm run lint -w @finapp/client`
+- `npm test -w @finapp/client`
+
+## 2026-02-28 — CPV31 Follow-up: Sequential Spending Phase Instance Locks | COMPLETE
+
+Implemented a targeted CPV31 follow-up to prevent non-sequential Spending Phase instance locks from creating phase gaps in follower slots.
+
+Feature update docs created:
+- `docs/features/compare-portfolios-v3-1-lock-sync-v1-1/FEATURE.md`
+- `docs/features/compare-portfolios-v3-1-lock-sync-v1-1/PLAN.md`
+- `docs/features/compare-portfolios-v3-1-lock-sync-v1-1/ACCEPTANCE.md`
+
+Implementation:
+- Added Spending Phase lock-prefix helpers in compare-sync engine:
+  - normalized lock set must be a contiguous prefix from Phase 1
+  - lock eligibility requires prior phase locked (except first phase)
+  - unlock cascades to all later locked phases
+- Applied normalization in compare-sync propagation/runtime normalization path so invalid legacy lock sets are auto-repaired.
+- Updated `toggleCompareInstanceLock('spendingPhases', ...)` to enforce eligibility and cascade-unlock tail behavior.
+- Added Slot `A` UI affordance:
+  - Spending phase lock icon is disabled when phase is not eligible to lock
+  - tooltip explains requirement (`Lock prior phase first`)
+- No behavior change for Income/Expense instance locks.
+
+Tests added/updated:
+- `packages/client/src/store/useAppStore.compare.test.ts`
+  - sequential lock eligibility
+  - lock progression 1->2->3
+  - cascade unlock behavior
+- `packages/client/src/store/snapshot.test.ts`
+  - non-prefix spending lock payload normalization on load
+
+Validation run (all passing):
+- `npm run typecheck`
+- `npm run lint`
+- `npm test`
+- `npm run build`
+
+Canonical docs impact:
+- Updated:
+  - `docs/SPECS.md`
+  - `docs/SCENARIOS.md`
+  - `docs/DATA_MODEL.md`
+  - `docs/ARCHITECTURE.md`
+- No API contract changes.
+2026-02-28 — CPV311-T4 Spending lock eligibility refresh + single-slot lock visibility | COMPLETE
+- Fixed Spending Phase instance lock eligibility UI in Slot A to use the live rendered phase list (`state.spendingPhases`), which resolves false-disabled lock icons on newly added phases when the prior phase is locked.
+- Updated compare lock control rendering to hide lock/sync icons whenever compare has only one slot (`A`).
+- Files changed:
+  - `packages/client/src/store/useAppStore.ts`
+  - `packages/client/src/components/shared/CompareSyncControl.tsx`
+  - `TASKS.md`
+- Validation run (all passing):
+  - `npm run typecheck -w @finapp/client`
+  - `npm run lint -w @finapp/client`
+  - `npm test -w @finapp/client`
+- Canonical docs impact: No canonical doc impact (bugfix + visibility polish within existing CPV31.1 behavior contract).

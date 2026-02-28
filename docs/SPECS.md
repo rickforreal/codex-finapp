@@ -364,9 +364,29 @@ Affordance index reserved for future use. No explicit app-level redo behavior is
 - Complex/list fields use deterministic summary-string rows and ignore local ids for comparison.
 - Panel is run-gated:
   - values are sourced from each active slot’s current-mode run `configSnapshot`.
-  - panel remains hidden until all active slots have current-mode snapshots.
+- panel remains hidden until all active slots have current-mode snapshots.
 - Panel is hidden when there are no differences.
 - Non-baseline cells that differ from baseline are visually highlighted.
+
+### Affordance #78 · Compare Lock/Sync Controls (A-Master)
+
+**Purpose:** Keep selected input families or list instances aligned to Slot `A` while allowing targeted divergence in follower slots.
+
+**Behavior:**
+- Section headers expose lock controls for all input families (core, portfolio, returns, spending phases, withdrawal, drawdown, income, expense).
+- In Slot `A`, lock controls toggle lock/unlock state and `A` remains editable.
+- In follower slots (`B..H`), active locks show synced/unsynced controls:
+  - Synced: follower fields are read-only and mirror `A`.
+  - Unsynced: follower fields are editable and no longer auto-updated.
+- Resync immediately overwrites follower values with current values from `A`.
+- For list families (`Spending Phases`, `Income Events`, `Expense Events`):
+  - Global lock is exact mirror of `A` for synced followers.
+  - Spending Phase instance locks are sequential only: locks must form a contiguous prefix from Phase 1.
+  - Unlocking a locked Spending Phase cascades unlock for all later locked phases.
+  - Instance-level lock is merge-by-instance-id for synced followers.
+  - Deleting a locked instance in `A` removes synced follower mirrors.
+- New slots auto-inherit all active locks as synced.
+- Lock/sync state is persisted in snapshots and bookmarks.
 
 ## Input Panel — Section: Core Parameters
 This is the first section within the input panel (sidebar). It's expanded by default on app load.

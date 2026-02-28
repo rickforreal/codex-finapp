@@ -4,7 +4,7 @@ import { AppMode, HistoricalEra, SimulationMode, ThemeId, type MonthlySimulation
 
 import { getSnapshotState, type CompareSlotId, type SnapshotState, type WorkspaceSnapshot, useAppStore } from './useAppStore';
 
-export const SNAPSHOT_SCHEMA_VERSION = 5;
+export const SNAPSHOT_SCHEMA_VERSION = 6;
 
 export const PACKED_ROW_COLUMNS = [
   'monthIndex',
@@ -73,6 +73,7 @@ type PackedCompareWorkspace = {
   activeSlotId: CompareSlotId;
   baselineSlotId: CompareSlotId;
   slotOrder: CompareSlotId[];
+  compareSync: SnapshotState['compareWorkspace']['compareSync'];
   slots: Partial<Record<CompareSlotId, PackedWorkspaceSnapshot>>;
 };
 
@@ -556,6 +557,7 @@ const packCompareWorkspace = (compareWorkspace: SnapshotState['compareWorkspace'
   activeSlotId: compareWorkspace.activeSlotId,
   baselineSlotId: compareWorkspace.baselineSlotId,
   slotOrder: [...compareWorkspace.slotOrder],
+  compareSync: compareWorkspace.compareSync,
   slots: Object.fromEntries(
     Object.entries(compareWorkspace.slots).map(([slotId, workspace]) => [
       slotId,
@@ -592,6 +594,24 @@ const defaultCompareWorkspace = (): SnapshotState['compareWorkspace'] => ({
   activeSlotId: 'A',
   baselineSlotId: 'A',
   slotOrder: ['A'],
+  compareSync: {
+    familyLocks: {
+      coreParams: false,
+      startingPortfolio: false,
+      returnAssumptions: false,
+      spendingPhases: false,
+      withdrawalStrategy: false,
+      drawdownStrategy: false,
+      incomeEvents: false,
+      expenseEvents: false,
+    },
+    instanceLocks: {
+      spendingPhases: {},
+      incomeEvents: {},
+      expenseEvents: {},
+    },
+    unsyncedBySlot: {},
+  },
   slots: {},
 });
 
@@ -626,6 +646,7 @@ const unpackCompareWorkspace = (compareWorkspace: unknown): SnapshotState['compa
       activeSlotId: legacy.activeSlot === 'right' ? 'B' : 'A',
       baselineSlotId: 'A',
       slotOrder: ['A', 'B'],
+      compareSync: defaultCompareWorkspace().compareSync,
       slots,
     };
   }
@@ -634,6 +655,7 @@ const unpackCompareWorkspace = (compareWorkspace: unknown): SnapshotState['compa
     activeSlotId?: unknown;
     baselineSlotId?: unknown;
     slotOrder?: unknown;
+    compareSync?: unknown;
     slots?: unknown;
   };
 
@@ -669,11 +691,36 @@ const unpackCompareWorkspace = (compareWorkspace: unknown): SnapshotState['compa
   const baselineSlotId = recordBaselineSlotId && resolvedOrder.includes(recordBaselineSlotId)
     ? recordBaselineSlotId
     : (resolvedOrder[0] ?? 'A');
+  const compareSyncFallback = defaultCompareWorkspace().compareSync;
+  const compareSync =
+    record.compareSync && typeof record.compareSync === 'object'
+      ? {
+          familyLocks: {
+            ...compareSyncFallback.familyLocks,
+            ...((record.compareSync as { familyLocks?: unknown }).familyLocks as Partial<typeof compareSyncFallback.familyLocks>),
+          },
+          instanceLocks: {
+            spendingPhases: {
+              ...((record.compareSync as { instanceLocks?: { spendingPhases?: Record<string, boolean> } }).instanceLocks?.spendingPhases ?? {}),
+            },
+            incomeEvents: {
+              ...((record.compareSync as { instanceLocks?: { incomeEvents?: Record<string, boolean> } }).instanceLocks?.incomeEvents ?? {}),
+            },
+            expenseEvents: {
+              ...((record.compareSync as { instanceLocks?: { expenseEvents?: Record<string, boolean> } }).instanceLocks?.expenseEvents ?? {}),
+            },
+          },
+          unsyncedBySlot: {
+            ...((record.compareSync as { unsyncedBySlot?: SnapshotState['compareWorkspace']['compareSync']['unsyncedBySlot'] }).unsyncedBySlot ?? {}),
+          },
+        }
+      : compareSyncFallback;
 
   return {
     activeSlotId,
     baselineSlotId,
     slotOrder: resolvedOrder,
+    compareSync,
     slots: normalizedSlots,
   };
 };

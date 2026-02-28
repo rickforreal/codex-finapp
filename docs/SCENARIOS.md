@@ -119,3 +119,13 @@ Priya, 64, runs a Manual simulation and sees the **Chart Panel (#74)** with two 
 Ethan, 62, is iterating quickly and wants to avoid file downloads between every experiment. He clicks **Create Bookmark (#76)**, enters `Baseline`, and saves. After changing assumptions and rerunning, he creates a second bookmark also named `Baseline` (duplicate names are allowed). In the **Bookmarks Dropdown (#77)**, the newest bookmark appears at the top. Clicking any row immediately restores the full app state with no load confirmation.
 
 Ethan hovers a bookmark row and sees a trash icon. He clicks it, confirms deletion, and only that bookmark is removed. Later, after many saves, he hits browser storage limits; trying to save again shows a clear quota error and no partial/corrupted bookmark is written.
+
+## 29. Compare Lock/Sync Workflow with A as Master
+
+Nina, 65, is comparing three portfolios (`A`, `B`, `C`) and wants all slots to share the same starting principal while testing different withdrawal strategies. In Slot **A**, she clicks the section-level lock control for **Starting Portfolio (#78)**. She edits stocks/cash in A, and when she switches to B and C those fields are read-only and match A exactly.
+
+Nina then clicks B’s **Synced** control for Starting Portfolio to unsync just that family in B. B becomes editable and she customizes the starting balances without changing A or C. Later, she clicks B’s control again to resync, and B is immediately overwritten with A’s latest values.
+
+For Income Events, Nina globally unlocks the section but instance-locks one Social Security event card in A. In B, that one event is mirrored while B’s additional local income card remains editable. When Nina deletes the locked Social Security event in A, it is automatically removed from synced followers. She saves a bookmark, reloads it, and confirms the same lock/sync states are restored.
+
+For Spending Phases, Nina learns that instance locks are sequential to avoid gaps: she can lock Phase 1, then Phase 2, then Phase 3. If she unlocks Phase 2, Phase 3 is auto-unlocked in the same action.

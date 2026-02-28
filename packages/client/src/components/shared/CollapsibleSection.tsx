@@ -5,16 +5,17 @@ type Props = {
   title: string;
   collapsed: boolean;
   onToggle: (id: string) => void;
+  headerAction?: ReactNode;
   children: ReactNode;
 };
 
-export const CollapsibleSection = ({ id, title, collapsed, onToggle, children }: Props) => (
-  <MeasuredCollapsibleSection id={id} title={title} collapsed={collapsed} onToggle={onToggle}>
+export const CollapsibleSection = ({ id, title, collapsed, onToggle, headerAction, children }: Props) => (
+  <MeasuredCollapsibleSection id={id} title={title} collapsed={collapsed} onToggle={onToggle} headerAction={headerAction}>
     {children}
   </MeasuredCollapsibleSection>
 );
 
-const MeasuredCollapsibleSection = ({ id, title, collapsed, onToggle, children }: Props) => {
+const MeasuredCollapsibleSection = ({ id, title, collapsed, onToggle, headerAction, children }: Props) => {
   const contentRef = useRef<HTMLDivElement | null>(null);
   const [expandedHeight, setExpandedHeight] = useState(0);
 
@@ -44,14 +45,26 @@ const MeasuredCollapsibleSection = ({ id, title, collapsed, onToggle, children }
 
   return (
     <section className="rounded-lg border border-brand-border bg-white">
-      <button
-        type="button"
-        onClick={() => onToggle(id)}
-        className="flex w-full items-center justify-between px-3 py-2 text-left"
-      >
-        <span className="text-sm font-semibold text-brand-navy">{title}</span>
-        <span className={`text-sm text-slate-500 transition ${collapsed ? '-rotate-90' : ''}`}>⌄</span>
-      </button>
+      <div className="flex items-center justify-between gap-2 px-3 py-2">
+        <button
+          type="button"
+          onClick={() => onToggle(id)}
+          className="min-w-0 flex-1 text-left"
+        >
+          <span className="text-sm font-semibold text-brand-navy">{title}</span>
+        </button>
+        <div className="flex shrink-0 items-center gap-1">
+          {headerAction ? <div>{headerAction}</div> : null}
+          <button
+            type="button"
+            onClick={() => onToggle(id)}
+            className="inline-flex h-7 w-7 items-center justify-center text-sm text-slate-500 transition"
+            aria-label={collapsed ? `Expand ${title}` : `Collapse ${title}`}
+          >
+            <span className={`transition ${collapsed ? '-rotate-90' : ''}`}>⌄</span>
+          </button>
+        </div>
+      </div>
       <div
         className="overflow-hidden transition-[max-height] duration-200 ease-out"
         style={{ maxHeight: collapsed ? 0 : `${expandedHeight}px` }}

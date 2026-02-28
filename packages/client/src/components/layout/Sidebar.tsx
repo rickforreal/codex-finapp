@@ -10,8 +10,9 @@ import { DrawdownStrategySection } from '../inputs/DrawdownStrategy/DrawdownStra
 import { IncomeEvents } from '../inputs/IncomeEvents/IncomeEvents';
 import { ExpenseEvents } from '../inputs/ExpenseEvents/ExpenseEvents';
 import { CollapsibleSection } from '../shared/CollapsibleSection';
+import { CompareSyncControl } from '../shared/CompareSyncControl';
 import { getCompareSlotColorVar } from '../../lib/compareSlotColors';
-import { useAppStore } from '../../store/useAppStore';
+import { useAppStore, useCompareFamilyLockUiState } from '../../store/useAppStore';
 
 const sectionIds = {
   core: 'core',
@@ -35,6 +36,16 @@ export const Sidebar = () => {
   const setCompareBaselineSlot = useAppStore((state) => state.setCompareBaselineSlot);
   const addCompareSlotFromSource = useAppStore((state) => state.addCompareSlotFromSource);
   const removeCompareSlot = useAppStore((state) => state.removeCompareSlot);
+  const toggleCompareFamilyLock = useAppStore((state) => state.toggleCompareFamilyLock);
+  const setCompareSlotFamilySync = useAppStore((state) => state.setCompareSlotFamilySync);
+  const coreSync = useCompareFamilyLockUiState('coreParams');
+  const portfolioSync = useCompareFamilyLockUiState('startingPortfolio');
+  const returnsSync = useCompareFamilyLockUiState('returnAssumptions');
+  const phasesSync = useCompareFamilyLockUiState('spendingPhases');
+  const withdrawalSync = useCompareFamilyLockUiState('withdrawalStrategy');
+  const drawdownSync = useCompareFamilyLockUiState('drawdownStrategy');
+  const incomeSync = useCompareFamilyLockUiState('incomeEvents');
+  const expenseSync = useCompareFamilyLockUiState('expenseEvents');
   const canAddCompareSlot = compareSlotOrder.length < 8;
   const canRemoveCompareSlot = compareSlotOrder.length > 1;
 
@@ -133,6 +144,15 @@ export const Sidebar = () => {
         title="Core Parameters"
         collapsed={Boolean(collapsed[sectionIds.core])}
         onToggle={toggleSection}
+        headerAction={(
+          <CompareSyncControl
+            slotId={coreSync.slotId}
+            locked={coreSync.locked}
+            synced={coreSync.synced}
+            onToggleLock={() => toggleCompareFamilyLock('coreParams')}
+            onToggleSync={(synced) => setCompareSlotFamilySync(coreSync.slotId, 'coreParams', synced)}
+          />
+        )}
       >
         <CoreParameters />
       </CollapsibleSection>
@@ -142,6 +162,15 @@ export const Sidebar = () => {
         title="Starting Portfolio"
         collapsed={Boolean(collapsed[sectionIds.portfolio])}
         onToggle={toggleSection}
+        headerAction={(
+          <CompareSyncControl
+            slotId={portfolioSync.slotId}
+            locked={portfolioSync.locked}
+            synced={portfolioSync.synced}
+            onToggleLock={() => toggleCompareFamilyLock('startingPortfolio')}
+            onToggleSync={(synced) => setCompareSlotFamilySync(portfolioSync.slotId, 'startingPortfolio', synced)}
+          />
+        )}
       >
         <StartingPortfolio />
       </CollapsibleSection>
@@ -151,6 +180,15 @@ export const Sidebar = () => {
         title={simulationMode === SimulationMode.Manual ? 'Return Assumptions' : 'Historical Data'}
         collapsed={Boolean(collapsed[sectionIds.returns])}
         onToggle={toggleSection}
+        headerAction={(
+          <CompareSyncControl
+            slotId={returnsSync.slotId}
+            locked={returnsSync.locked}
+            synced={returnsSync.synced}
+            onToggleLock={() => toggleCompareFamilyLock('returnAssumptions')}
+            onToggleSync={(synced) => setCompareSlotFamilySync(returnsSync.slotId, 'returnAssumptions', synced)}
+          />
+        )}
       >
         {simulationMode === SimulationMode.Manual ? (
           <ReturnAssumptions />
@@ -164,6 +202,15 @@ export const Sidebar = () => {
         title="Spending Phases"
         collapsed={Boolean(collapsed[sectionIds.phases])}
         onToggle={toggleSection}
+        headerAction={(
+          <CompareSyncControl
+            slotId={phasesSync.slotId}
+            locked={phasesSync.locked}
+            synced={phasesSync.synced}
+            onToggleLock={() => toggleCompareFamilyLock('spendingPhases')}
+            onToggleSync={(synced) => setCompareSlotFamilySync(phasesSync.slotId, 'spendingPhases', synced)}
+          />
+        )}
       >
         <SpendingPhases />
       </CollapsibleSection>
@@ -173,6 +220,15 @@ export const Sidebar = () => {
         title="Withdrawal Strategy"
         collapsed={Boolean(collapsed[sectionIds.withdrawal])}
         onToggle={toggleSection}
+        headerAction={(
+          <CompareSyncControl
+            slotId={withdrawalSync.slotId}
+            locked={withdrawalSync.locked}
+            synced={withdrawalSync.synced}
+            onToggleLock={() => toggleCompareFamilyLock('withdrawalStrategy')}
+            onToggleSync={(synced) => setCompareSlotFamilySync(withdrawalSync.slotId, 'withdrawalStrategy', synced)}
+          />
+        )}
       >
         <WithdrawalStrategySection />
       </CollapsibleSection>
@@ -182,6 +238,15 @@ export const Sidebar = () => {
         title="Asset Drawdown Strategy"
         collapsed={Boolean(collapsed[sectionIds.drawdown])}
         onToggle={toggleSection}
+        headerAction={(
+          <CompareSyncControl
+            slotId={drawdownSync.slotId}
+            locked={drawdownSync.locked}
+            synced={drawdownSync.synced}
+            onToggleLock={() => toggleCompareFamilyLock('drawdownStrategy')}
+            onToggleSync={(synced) => setCompareSlotFamilySync(drawdownSync.slotId, 'drawdownStrategy', synced)}
+          />
+        )}
       >
         <DrawdownStrategySection />
       </CollapsibleSection>
@@ -191,6 +256,15 @@ export const Sidebar = () => {
         title="Additional Income"
         collapsed={Boolean(collapsed[sectionIds.income])}
         onToggle={toggleSection}
+        headerAction={(
+          <CompareSyncControl
+            slotId={incomeSync.slotId}
+            locked={incomeSync.locked}
+            synced={incomeSync.synced}
+            onToggleLock={() => toggleCompareFamilyLock('incomeEvents')}
+            onToggleSync={(synced) => setCompareSlotFamilySync(incomeSync.slotId, 'incomeEvents', synced)}
+          />
+        )}
       >
         <IncomeEvents />
       </CollapsibleSection>
@@ -200,6 +274,15 @@ export const Sidebar = () => {
         title="Large Expenses"
         collapsed={Boolean(collapsed[sectionIds.expense])}
         onToggle={toggleSection}
+        headerAction={(
+          <CompareSyncControl
+            slotId={expenseSync.slotId}
+            locked={expenseSync.locked}
+            synced={expenseSync.synced}
+            onToggleLock={() => toggleCompareFamilyLock('expenseEvents')}
+            onToggleSync={(synced) => setCompareSlotFamilySync(expenseSync.slotId, 'expenseEvents', synced)}
+          />
+        )}
       >
         <ExpenseEvents />
       </CollapsibleSection>

@@ -66,6 +66,30 @@ type StressRunStatus = 'idle' | 'running' | 'complete' | 'error';
 type ThemeStatus = 'idle' | 'loading' | 'ready' | 'error';
 export const COMPARE_SLOT_IDS = ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H'] as const;
 export type CompareSlotId = (typeof COMPARE_SLOT_IDS)[number];
+export const COMPARE_SYNC_FAMILIES = [
+  'coreParams',
+  'startingPortfolio',
+  'returnAssumptions',
+  'spendingPhases',
+  'withdrawalStrategy',
+  'drawdownStrategy',
+  'incomeEvents',
+  'expenseEvents',
+] as const;
+export type CompareSyncFamilyKey = (typeof COMPARE_SYNC_FAMILIES)[number];
+export const COMPARE_SYNC_LIST_FAMILIES = ['spendingPhases', 'incomeEvents', 'expenseEvents'] as const;
+export type CompareSyncListFamilyKey = (typeof COMPARE_SYNC_LIST_FAMILIES)[number];
+
+type CompareSyncSlotOverrides = {
+  families: Partial<Record<CompareSyncFamilyKey, boolean>>;
+  instances: Record<CompareSyncListFamilyKey, Record<string, boolean>>;
+};
+
+type CompareSyncState = {
+  familyLocks: Record<CompareSyncFamilyKey, boolean>;
+  instanceLocks: Record<CompareSyncListFamilyKey, Record<string, boolean>>;
+  unsyncedBySlot: Partial<Record<CompareSlotId, CompareSyncSlotOverrides>>;
+};
 
 type WithdrawalParamKey =
   | 'initialWithdrawalRate'
@@ -164,6 +188,7 @@ export type SnapshotState = {
     baselineSlotId: CompareSlotId;
     slotOrder: CompareSlotId[];
     slots: Partial<Record<CompareSlotId, WorkspaceSnapshot>>;
+    compareSync: CompareSyncState;
   };
   simulationMode: SimulationMode;
   selectedHistoricalEra: HistoricalEra;
@@ -250,6 +275,15 @@ export type AppStore = SnapshotState & {
   setCompareBaselineSlot: (slot: CompareSlotId) => void;
   addCompareSlotFromSource: (sourceSlotId: CompareSlotId) => void;
   removeCompareSlot: (slot: CompareSlotId) => void;
+  toggleCompareFamilyLock: (family: CompareSyncFamilyKey) => void;
+  toggleCompareInstanceLock: (family: CompareSyncListFamilyKey, instanceId: string) => void;
+  setCompareSlotFamilySync: (slot: CompareSlotId, family: CompareSyncFamilyKey, synced: boolean) => void;
+  setCompareSlotInstanceSync: (
+    slot: CompareSlotId,
+    family: CompareSyncListFamilyKey,
+    instanceId: string,
+    synced: boolean,
+  ) => void;
   upsertActualOverride: (monthIndex: number, patch: Partial<ActualMonthOverride>) => void;
   clearActualRowOverrides: (monthIndex: number) => void;
   clearAllActualOverrides: () => void;
@@ -682,10 +716,334 @@ const cloneWorkspace = (workspace: WorkspaceSnapshot): WorkspaceSnapshot => ({
   },
 });
 
+const createCompareSyncSlotOverrides = (): CompareSyncSlotOverrides => ({
+  families: {},
+  instances: {
+    spendingPhases: {},
+    incomeEvents: {},
+    expenseEvents: {},
+  },
+});
+
+const getSpendingPhaseLockPrefixIds = (
+  phases: SpendingPhaseForm[],
+  locks: Record<string, boolean>,
+): string[] => {
+  const prefix: string[] = [];
+  for (let index = 0; index < phases.length; index += 1) {
+    const phase = phases[index];
+    if (!phase) {
+      break;
+    }
+    if (locks[phase.id] === true) {
+      prefix.push(phase.id);
+      continue;
+    }
+    break;
+  }
+  return prefix;
+};
+
+const normalizeSpendingPhaseInstanceLocks = (
+  compareSync: CompareSyncState,
+  masterPhases: SpendingPhaseForm[],
+  slotOrder: CompareSlotId[],
+): void => {
+  const prefixIds = new Set(
+    getSpendingPhaseLockPrefixIds(masterPhases, compareSync.instanceLocks.spendingPhases),
+  );
+  Object.keys(compareSync.instanceLocks.spendingPhases).forEach((instanceId) => {
+    if (!prefixIds.has(instanceId)) {
+      delete compareSync.instanceLocks.spendingPhases[instanceId];
+    }
+  });
+
+  slotOrder.forEach((slotId) => {
+    if (slotId === 'A') {
+      return;
+    }
+    const overrides = compareSync.unsyncedBySlot[slotId];
+    if (!overrides) {
+      return;
+    }
+    Object.keys(overrides.instances.spendingPhases).forEach((instanceId) => {
+      if (!prefixIds.has(instanceId)) {
+        delete overrides.instances.spendingPhases[instanceId];
+      }
+    });
+  });
+};
+
+const isSpendingPhaseLockEligible = (
+  instanceId: string,
+  masterPhases: SpendingPhaseForm[],
+  locks: Record<string, boolean>,
+): boolean => {
+  const index = masterPhases.findIndex((phase) => phase.id === instanceId);
+  if (index < 0) {
+    return false;
+  }
+  if (index === 0) {
+    return true;
+  }
+  const previous = masterPhases[index - 1];
+  return previous ? locks[previous.id] === true : false;
+};
+
+const defaultCompareSyncState = (): CompareSyncState => ({
+  familyLocks: {
+    coreParams: false,
+    startingPortfolio: false,
+    returnAssumptions: false,
+    spendingPhases: false,
+    withdrawalStrategy: false,
+    drawdownStrategy: false,
+    incomeEvents: false,
+    expenseEvents: false,
+  },
+  instanceLocks: {
+    spendingPhases: {},
+    incomeEvents: {},
+    expenseEvents: {},
+  },
+  unsyncedBySlot: {},
+});
+
+const cloneCompareSyncState = (compareSync: CompareSyncState): CompareSyncState => ({
+  familyLocks: { ...compareSync.familyLocks },
+  instanceLocks: {
+    spendingPhases: { ...compareSync.instanceLocks.spendingPhases },
+    incomeEvents: { ...compareSync.instanceLocks.incomeEvents },
+    expenseEvents: { ...compareSync.instanceLocks.expenseEvents },
+  },
+  unsyncedBySlot: Object.fromEntries(
+    Object.entries(compareSync.unsyncedBySlot).map(([slotId, overrides]) => [
+      slotId,
+      {
+        families: { ...(overrides?.families ?? {}) },
+        instances: {
+          spendingPhases: { ...(overrides?.instances.spendingPhases ?? {}) },
+          incomeEvents: { ...(overrides?.instances.incomeEvents ?? {}) },
+          expenseEvents: { ...(overrides?.instances.expenseEvents ?? {}) },
+        },
+      } satisfies CompareSyncSlotOverrides,
+    ]),
+  ) as Partial<Record<CompareSlotId, CompareSyncSlotOverrides>>,
+});
+
+const isSlotFamilySynced = (
+  compareSync: CompareSyncState,
+  slotId: CompareSlotId,
+  family: CompareSyncFamilyKey,
+): boolean => {
+  if (slotId === 'A') {
+    return true;
+  }
+  return compareSync.unsyncedBySlot[slotId]?.families[family] !== true;
+};
+
+const isSlotInstanceSynced = (
+  compareSync: CompareSyncState,
+  slotId: CompareSlotId,
+  family: CompareSyncListFamilyKey,
+  instanceId: string,
+): boolean => {
+  if (slotId === 'A') {
+    return true;
+  }
+  return compareSync.unsyncedBySlot[slotId]?.instances[family][instanceId] !== true;
+};
+
+const upsertSpendingPhaseById = (
+  list: SpendingPhaseForm[],
+  phase: SpendingPhaseForm,
+): SpendingPhaseForm[] => {
+  const index = list.findIndex((entry) => entry.id === phase.id);
+  if (index < 0) {
+    return [...list, { ...phase }];
+  }
+  const next = [...list];
+  next[index] = { ...phase };
+  return next;
+};
+
+const upsertIncomeEventById = (
+  list: IncomeEventForm[],
+  event: IncomeEventForm,
+): IncomeEventForm[] => {
+  const index = list.findIndex((entry) => entry.id === event.id);
+  if (index < 0) {
+    return [...list, { ...event, start: { ...event.start }, end: event.end === 'endOfRetirement' ? event.end : { ...event.end } }];
+  }
+  const next = [...list];
+  next[index] = { ...event, start: { ...event.start }, end: event.end === 'endOfRetirement' ? event.end : { ...event.end } };
+  return next;
+};
+
+const upsertExpenseEventById = (
+  list: ExpenseEventForm[],
+  event: ExpenseEventForm,
+): ExpenseEventForm[] => {
+  const index = list.findIndex((entry) => entry.id === event.id);
+  if (index < 0) {
+    return [...list, { ...event, start: { ...event.start }, end: event.end === 'endOfRetirement' ? event.end : { ...event.end } }];
+  }
+  const next = [...list];
+  next[index] = { ...event, start: { ...event.start }, end: event.end === 'endOfRetirement' ? event.end : { ...event.end } };
+  return next;
+};
+
+const applyCompareSyncFromMaster = (
+  compareWorkspace: SnapshotState['compareWorkspace'],
+): SnapshotState['compareWorkspace'] => {
+  const master = compareWorkspace.slots.A;
+  if (!master) {
+    return compareWorkspace;
+  }
+
+  const next = cloneCompareWorkspace(compareWorkspace);
+  const compareSync = next.compareSync;
+  normalizeSpendingPhaseInstanceLocks(compareSync, master.spendingPhases, next.slotOrder);
+
+  const masterIdsByFamily: Record<CompareSyncListFamilyKey, Set<string>> = {
+    spendingPhases: new Set(master.spendingPhases.map((phase) => phase.id)),
+    incomeEvents: new Set(master.incomeEvents.map((event) => event.id)),
+    expenseEvents: new Set(master.expenseEvents.map((event) => event.id)),
+  };
+
+  next.slotOrder.forEach((slotId) => {
+    if (slotId === 'A') {
+      return;
+    }
+    const workspace = next.slots[slotId];
+    if (!workspace) {
+      return;
+    }
+
+    COMPARE_SYNC_FAMILIES.forEach((family) => {
+      if (!compareSync.familyLocks[family] || !isSlotFamilySynced(compareSync, slotId, family)) {
+        return;
+      }
+
+      switch (family) {
+        case 'coreParams':
+          workspace.coreParams = {
+            ...master.coreParams,
+            retirementStartDate: { ...master.coreParams.retirementStartDate },
+          };
+          break;
+        case 'startingPortfolio':
+          workspace.portfolio = { ...master.portfolio };
+          break;
+        case 'returnAssumptions':
+          workspace.returnAssumptions = {
+            stocks: { ...master.returnAssumptions.stocks },
+            bonds: { ...master.returnAssumptions.bonds },
+            cash: { ...master.returnAssumptions.cash },
+          };
+          break;
+        case 'spendingPhases':
+          workspace.spendingPhases = master.spendingPhases.map((phase) => ({ ...phase }));
+          break;
+        case 'withdrawalStrategy':
+          workspace.withdrawalStrategy = {
+            ...master.withdrawalStrategy,
+            params: { ...master.withdrawalStrategy.params },
+          };
+          break;
+        case 'drawdownStrategy':
+          workspace.drawdownStrategy = {
+            ...master.drawdownStrategy,
+            bucketOrder: [...master.drawdownStrategy.bucketOrder],
+            rebalancing: {
+              ...master.drawdownStrategy.rebalancing,
+              targetAllocation: { ...master.drawdownStrategy.rebalancing.targetAllocation },
+              glidePath: master.drawdownStrategy.rebalancing.glidePath.map((waypoint) => ({
+                year: waypoint.year,
+                allocation: { ...waypoint.allocation },
+              })),
+            },
+          };
+          break;
+        case 'incomeEvents':
+          workspace.incomeEvents = master.incomeEvents.map((event) => ({
+            ...event,
+            start: { ...event.start },
+            end: event.end === 'endOfRetirement' ? event.end : { ...event.end },
+          }));
+          break;
+        case 'expenseEvents':
+          workspace.expenseEvents = master.expenseEvents.map((event) => ({
+            ...event,
+            start: { ...event.start },
+            end: event.end === 'endOfRetirement' ? event.end : { ...event.end },
+          }));
+          break;
+        default:
+          break;
+      }
+    });
+
+    if (!compareSync.familyLocks.spendingPhases || !isSlotFamilySynced(compareSync, slotId, 'spendingPhases')) {
+      Object.keys(compareSync.instanceLocks.spendingPhases).forEach((instanceId) => {
+        if (!isSlotInstanceSynced(compareSync, slotId, 'spendingPhases', instanceId)) {
+          return;
+        }
+        const masterPhase = master.spendingPhases.find((entry) => entry.id === instanceId);
+        if (!masterPhase) {
+          workspace.spendingPhases = workspace.spendingPhases.filter((entry) => entry.id !== instanceId);
+          return;
+        }
+        workspace.spendingPhases = upsertSpendingPhaseById(workspace.spendingPhases, masterPhase);
+      });
+    }
+
+    if (!compareSync.familyLocks.incomeEvents || !isSlotFamilySynced(compareSync, slotId, 'incomeEvents')) {
+      Object.keys(compareSync.instanceLocks.incomeEvents).forEach((instanceId) => {
+        if (!isSlotInstanceSynced(compareSync, slotId, 'incomeEvents', instanceId)) {
+          return;
+        }
+        const masterEvent = master.incomeEvents.find((entry) => entry.id === instanceId);
+        if (!masterEvent) {
+          workspace.incomeEvents = workspace.incomeEvents.filter((entry) => entry.id !== instanceId);
+          return;
+        }
+        workspace.incomeEvents = upsertIncomeEventById(workspace.incomeEvents, masterEvent);
+      });
+    }
+
+    if (!compareSync.familyLocks.expenseEvents || !isSlotFamilySynced(compareSync, slotId, 'expenseEvents')) {
+      Object.keys(compareSync.instanceLocks.expenseEvents).forEach((instanceId) => {
+        if (!isSlotInstanceSynced(compareSync, slotId, 'expenseEvents', instanceId)) {
+          return;
+        }
+        const masterEvent = master.expenseEvents.find((entry) => entry.id === instanceId);
+        if (!masterEvent) {
+          workspace.expenseEvents = workspace.expenseEvents.filter((entry) => entry.id !== instanceId);
+          return;
+        }
+        workspace.expenseEvents = upsertExpenseEventById(workspace.expenseEvents, masterEvent);
+      });
+    }
+  });
+
+  COMPARE_SYNC_LIST_FAMILIES.forEach((family) => {
+    Object.keys(compareSync.instanceLocks[family]).forEach((instanceId) => {
+      if (!masterIdsByFamily[family].has(instanceId)) {
+        delete compareSync.instanceLocks[family][instanceId];
+      }
+    });
+  });
+  normalizeSpendingPhaseInstanceLocks(compareSync, master.spendingPhases, next.slotOrder);
+
+  return next;
+};
+
 const cloneCompareWorkspace = (compareWorkspace: SnapshotState['compareWorkspace']): SnapshotState['compareWorkspace'] => ({
   activeSlotId: compareWorkspace.activeSlotId,
   baselineSlotId: compareWorkspace.baselineSlotId,
   slotOrder: [...compareWorkspace.slotOrder],
+  compareSync: cloneCompareSyncState(compareWorkspace.compareSync),
   slots: Object.fromEntries(
     Object.entries(compareWorkspace.slots).map(([slotId, workspace]) => [
       slotId,
@@ -765,10 +1123,17 @@ const normalizeCompareWorkspace = (
   const baselineSlotId = fallbackOrder.includes(compareWorkspace.baselineSlotId)
     ? compareWorkspace.baselineSlotId
     : (fallbackOrder[0] ?? 'A');
+  const compareSync = cloneCompareSyncState(compareWorkspace.compareSync ?? defaultCompareSyncState());
+  Object.keys(compareSync.unsyncedBySlot).forEach((slotId) => {
+    if (slotId === 'A' || !fallbackOrder.includes(slotId as CompareSlotId)) {
+      delete compareSync.unsyncedBySlot[slotId as CompareSlotId];
+    }
+  });
   return {
     activeSlotId,
     baselineSlotId,
     slotOrder: fallbackOrder,
+    compareSync,
     slots: normalizedSlots,
   };
 };
@@ -783,7 +1148,7 @@ const compareWorkspaceWithCurrentState = (state: AppStore): SnapshotState['compa
   if (!compareWorkspace.slotOrder.includes(compareWorkspace.activeSlotId)) {
     compareWorkspace.slotOrder = [...compareWorkspace.slotOrder, compareWorkspace.activeSlotId];
   }
-  const normalized = normalizeCompareWorkspace(compareWorkspace);
+  const normalized = applyCompareSyncFromMaster(normalizeCompareWorkspace(compareWorkspace));
   return state.mode === AppMode.Tracking
     ? normalizeTrackingCompareCanonicalFloor(normalized)
     : normalized;
@@ -982,13 +1347,48 @@ const currentInputFieldsFromState = (state: AppStore) => ({
   lastEditedMonthIndex: state.lastEditedMonthIndex,
 });
 
+const isCompareFamilyLockedAndSyncedForActiveSlot = (
+  state: Pick<AppStore, 'compareWorkspace'>,
+  family: CompareSyncFamilyKey,
+): boolean => {
+  const { activeSlotId, compareSync } = state.compareWorkspace;
+  if (activeSlotId === 'A') {
+    return false;
+  }
+  if (!compareSync.familyLocks[family]) {
+    return false;
+  }
+  return isSlotFamilySynced(compareSync, activeSlotId, family);
+};
+
+const isCompareInstanceLockedAndSyncedForActiveSlot = (
+  state: Pick<AppStore, 'compareWorkspace'>,
+  family: CompareSyncListFamilyKey,
+  instanceId: string,
+): boolean => {
+  if (isCompareFamilyLockedAndSyncedForActiveSlot(state, family)) {
+    return true;
+  }
+  const { activeSlotId, compareSync } = state.compareWorkspace;
+  if (activeSlotId === 'A') {
+    return false;
+  }
+  if (!compareSync.instanceLocks[family][instanceId]) {
+    return false;
+  }
+  return isSlotInstanceSynced(compareSync, activeSlotId, family, instanceId);
+};
+
 const cloneSnapshotState = (snapshot: SnapshotState): SnapshotState => {
+  const syncedCompareWorkspace = applyCompareSyncFromMaster(
+    normalizeCompareWorkspace(cloneCompareWorkspace(snapshot.compareWorkspace)),
+  );
   const normalizedCompareWorkspace =
     snapshot.mode === AppMode.Tracking
       ? normalizeTrackingCompareCanonicalFloor(
-          normalizeCompareWorkspace(cloneCompareWorkspace(snapshot.compareWorkspace)),
+          syncedCompareWorkspace,
         )
-      : normalizeCompareWorkspace(cloneCompareWorkspace(snapshot.compareWorkspace));
+      : syncedCompareWorkspace;
   const normalizedActiveWorkspace = normalizedCompareWorkspace.slots[normalizedCompareWorkspace.activeSlotId];
 
   return {
@@ -1210,6 +1610,7 @@ export const useAppStore = create<AppStore>((set) => ({
     activeSlotId: 'A',
     baselineSlotId: 'A',
     slotOrder: ['A'],
+    compareSync: defaultCompareSyncState(),
     slots: {},
   },
   simulationMode: SimulationMode.Manual,
@@ -1306,7 +1707,7 @@ export const useAppStore = create<AppStore>((set) => ({
         if (isCompareActiveFromWorkspace(nextCompare)) {
           nextCompare.slots[nextCompare.activeSlotId] = currentWorkspace;
         }
-        return normalizeCompareWorkspace(nextCompare);
+        return applyCompareSyncFromMaster(normalizeCompareWorkspace(nextCompare));
       })();
 
       if (mode === AppMode.Tracking) {
@@ -1401,10 +1802,11 @@ export const useAppStore = create<AppStore>((set) => ({
         return state;
       }
       nextCompareWorkspace.activeSlotId = slot;
+      const syncedWorkspace = applyCompareSyncFromMaster(normalizeCompareWorkspace(nextCompareWorkspace));
       const normalizedWorkspace =
         state.mode === AppMode.Tracking
-          ? normalizeTrackingCompareCanonicalFloor(nextCompareWorkspace)
-          : nextCompareWorkspace;
+          ? normalizeTrackingCompareCanonicalFloor(syncedWorkspace)
+          : syncedWorkspace;
 
       const targetWorkspace = normalizedWorkspace.slots[slot];
       if (!targetWorkspace) {
@@ -1454,10 +1856,12 @@ export const useAppStore = create<AppStore>((set) => ({
       nextCompareWorkspace.slotOrder = [...nextCompareWorkspace.slotOrder, nextSlotId];
       nextCompareWorkspace.slots[nextSlotId] = cloneWorkspace(sourceWorkspace);
       nextCompareWorkspace.slotOrder = sortCompareSlotOrder(nextCompareWorkspace.slotOrder);
+      nextCompareWorkspace.compareSync.unsyncedBySlot[nextSlotId] = createCompareSyncSlotOverrides();
+      const syncedWorkspace = applyCompareSyncFromMaster(normalizeCompareWorkspace(nextCompareWorkspace));
       const normalizedWorkspace =
         state.mode === AppMode.Tracking
-          ? normalizeTrackingCompareCanonicalFloor(nextCompareWorkspace)
-          : nextCompareWorkspace;
+          ? normalizeTrackingCompareCanonicalFloor(syncedWorkspace)
+          : syncedWorkspace;
       return {
         compareWorkspace: normalizedWorkspace,
       };
@@ -1477,6 +1881,7 @@ export const useAppStore = create<AppStore>((set) => ({
       nextCompareWorkspace.slotOrder = nextCompareWorkspace.slotOrder.filter((slotId) => slotId !== slot);
       nextCompareWorkspace.slotOrder = sortCompareSlotOrder(nextCompareWorkspace.slotOrder);
       delete nextCompareWorkspace.slots[slot];
+      delete nextCompareWorkspace.compareSync.unsyncedBySlot[slot];
 
       if (nextCompareWorkspace.activeSlotId === slot) {
         nextCompareWorkspace.activeSlotId = nextCompareWorkspace.slotOrder[0] ?? 'A';
@@ -1484,10 +1889,11 @@ export const useAppStore = create<AppStore>((set) => ({
       if (nextCompareWorkspace.baselineSlotId === slot) {
         nextCompareWorkspace.baselineSlotId = nextCompareWorkspace.slotOrder[0] ?? 'A';
       }
+      const syncedWorkspace = applyCompareSyncFromMaster(normalizeCompareWorkspace(nextCompareWorkspace));
       const normalizedWorkspace =
         state.mode === AppMode.Tracking
-          ? normalizeTrackingCompareCanonicalFloor(nextCompareWorkspace)
-          : nextCompareWorkspace;
+          ? normalizeTrackingCompareCanonicalFloor(syncedWorkspace)
+          : syncedWorkspace;
 
       const nextActiveWorkspace = normalizedWorkspace.slots[normalizedWorkspace.activeSlotId];
       if (!nextActiveWorkspace) {
@@ -1496,6 +1902,172 @@ export const useAppStore = create<AppStore>((set) => ({
       return {
         compareWorkspace: normalizedWorkspace,
         ...snapshotFieldsFromWorkspace(cloneWorkspace(nextActiveWorkspace)),
+      };
+    }),
+  toggleCompareFamilyLock: (family) =>
+    set((state) => {
+      const nextCompareWorkspace = compareWorkspaceWithCurrentState(state);
+      const compareSync = cloneCompareSyncState(nextCompareWorkspace.compareSync);
+      const nextLocked = !compareSync.familyLocks[family];
+      compareSync.familyLocks[family] = nextLocked;
+
+      nextCompareWorkspace.slotOrder.forEach((slotId) => {
+        if (slotId === 'A') {
+          return;
+        }
+        const overrides = compareSync.unsyncedBySlot[slotId] ?? createCompareSyncSlotOverrides();
+        delete overrides.families[family];
+        compareSync.unsyncedBySlot[slotId] = overrides;
+      });
+
+      nextCompareWorkspace.compareSync = compareSync;
+      const syncedWorkspace = applyCompareSyncFromMaster(normalizeCompareWorkspace(nextCompareWorkspace));
+      const normalizedWorkspace =
+        state.mode === AppMode.Tracking
+          ? normalizeTrackingCompareCanonicalFloor(syncedWorkspace)
+          : syncedWorkspace;
+      const activeWorkspace = normalizedWorkspace.slots[normalizedWorkspace.activeSlotId];
+      if (!activeWorkspace) {
+        return { compareWorkspace: normalizedWorkspace };
+      }
+      return {
+        compareWorkspace: normalizedWorkspace,
+        ...snapshotFieldsFromWorkspace(cloneWorkspace(activeWorkspace)),
+      };
+    }),
+  toggleCompareInstanceLock: (family, instanceId) =>
+    set((state) => {
+      if (!instanceId) {
+        return state;
+      }
+      const nextCompareWorkspace = compareWorkspaceWithCurrentState(state);
+      const compareSync = cloneCompareSyncState(nextCompareWorkspace.compareSync);
+      const nextLocked = !compareSync.instanceLocks[family][instanceId];
+      if (family === 'spendingPhases') {
+        const masterPhases = nextCompareWorkspace.slots.A?.spendingPhases ?? [];
+        normalizeSpendingPhaseInstanceLocks(compareSync, masterPhases, nextCompareWorkspace.slotOrder);
+        if (nextLocked) {
+          if (!isSpendingPhaseLockEligible(instanceId, masterPhases, compareSync.instanceLocks.spendingPhases)) {
+            return state;
+          }
+          compareSync.instanceLocks.spendingPhases[instanceId] = true;
+        } else {
+          const index = masterPhases.findIndex((phase) => phase.id === instanceId);
+          if (index >= 0) {
+            const tailIds = masterPhases.slice(index).map((phase) => phase.id);
+            tailIds.forEach((id) => {
+              delete compareSync.instanceLocks.spendingPhases[id];
+            });
+            nextCompareWorkspace.slotOrder.forEach((slotId) => {
+              if (slotId === 'A') {
+                return;
+              }
+              const overrides = compareSync.unsyncedBySlot[slotId] ?? createCompareSyncSlotOverrides();
+              tailIds.forEach((id) => {
+                delete overrides.instances.spendingPhases[id];
+              });
+              compareSync.unsyncedBySlot[slotId] = overrides;
+            });
+          } else {
+            delete compareSync.instanceLocks.spendingPhases[instanceId];
+          }
+        }
+      } else if (nextLocked) {
+        compareSync.instanceLocks[family][instanceId] = true;
+      } else {
+        delete compareSync.instanceLocks[family][instanceId];
+      }
+      nextCompareWorkspace.slotOrder.forEach((slotId) => {
+        if (slotId === 'A') {
+          return;
+        }
+        const overrides = compareSync.unsyncedBySlot[slotId] ?? createCompareSyncSlotOverrides();
+        delete overrides.instances[family][instanceId];
+        compareSync.unsyncedBySlot[slotId] = overrides;
+      });
+      nextCompareWorkspace.compareSync = compareSync;
+      const syncedWorkspace = applyCompareSyncFromMaster(normalizeCompareWorkspace(nextCompareWorkspace));
+      const normalizedWorkspace =
+        state.mode === AppMode.Tracking
+          ? normalizeTrackingCompareCanonicalFloor(syncedWorkspace)
+          : syncedWorkspace;
+      const activeWorkspace = normalizedWorkspace.slots[normalizedWorkspace.activeSlotId];
+      if (!activeWorkspace) {
+        return { compareWorkspace: normalizedWorkspace };
+      }
+      return {
+        compareWorkspace: normalizedWorkspace,
+        ...snapshotFieldsFromWorkspace(cloneWorkspace(activeWorkspace)),
+      };
+    }),
+  setCompareSlotFamilySync: (slot, family, synced) =>
+    set((state) => {
+      if (slot === 'A') {
+        return state;
+      }
+      if (!state.compareWorkspace.slotOrder.includes(slot)) {
+        return state;
+      }
+      if (!state.compareWorkspace.compareSync.familyLocks[family]) {
+        return state;
+      }
+      const nextCompareWorkspace = compareWorkspaceWithCurrentState(state);
+      const compareSync = cloneCompareSyncState(nextCompareWorkspace.compareSync);
+      const overrides = compareSync.unsyncedBySlot[slot] ?? createCompareSyncSlotOverrides();
+      if (synced) {
+        delete overrides.families[family];
+      } else {
+        overrides.families[family] = true;
+      }
+      compareSync.unsyncedBySlot[slot] = overrides;
+      nextCompareWorkspace.compareSync = compareSync;
+      const syncedWorkspace = applyCompareSyncFromMaster(normalizeCompareWorkspace(nextCompareWorkspace));
+      const normalizedWorkspace =
+        state.mode === AppMode.Tracking
+          ? normalizeTrackingCompareCanonicalFloor(syncedWorkspace)
+          : syncedWorkspace;
+      const activeWorkspace = normalizedWorkspace.slots[normalizedWorkspace.activeSlotId];
+      if (!activeWorkspace) {
+        return { compareWorkspace: normalizedWorkspace };
+      }
+      return {
+        compareWorkspace: normalizedWorkspace,
+        ...snapshotFieldsFromWorkspace(cloneWorkspace(activeWorkspace)),
+      };
+    }),
+  setCompareSlotInstanceSync: (slot, family, instanceId, synced) =>
+    set((state) => {
+      if (!instanceId || slot === 'A') {
+        return state;
+      }
+      if (!state.compareWorkspace.slotOrder.includes(slot)) {
+        return state;
+      }
+      if (!state.compareWorkspace.compareSync.instanceLocks[family][instanceId]) {
+        return state;
+      }
+      const nextCompareWorkspace = compareWorkspaceWithCurrentState(state);
+      const compareSync = cloneCompareSyncState(nextCompareWorkspace.compareSync);
+      const overrides = compareSync.unsyncedBySlot[slot] ?? createCompareSyncSlotOverrides();
+      if (synced) {
+        delete overrides.instances[family][instanceId];
+      } else {
+        overrides.instances[family][instanceId] = true;
+      }
+      compareSync.unsyncedBySlot[slot] = overrides;
+      nextCompareWorkspace.compareSync = compareSync;
+      const syncedWorkspace = applyCompareSyncFromMaster(normalizeCompareWorkspace(nextCompareWorkspace));
+      const normalizedWorkspace =
+        state.mode === AppMode.Tracking
+          ? normalizeTrackingCompareCanonicalFloor(syncedWorkspace)
+          : syncedWorkspace;
+      const activeWorkspace = normalizedWorkspace.slots[normalizedWorkspace.activeSlotId];
+      if (!activeWorkspace) {
+        return { compareWorkspace: normalizedWorkspace };
+      }
+      return {
+        compareWorkspace: normalizedWorkspace,
+        ...snapshotFieldsFromWorkspace(cloneWorkspace(activeWorkspace)),
       };
     }),
   upsertActualOverride: (monthIndex, patch) =>
@@ -1645,6 +2217,9 @@ export const useAppStore = create<AppStore>((set) => ({
     }),
   setCoreParam: (key, value) =>
     set((state) => {
+      if (isCompareFamilyLockedAndSyncedForActiveSlot(state, 'coreParams')) {
+        return state;
+      }
       const nextCore = { ...state.coreParams, [key]: value };
       if (key === 'startingAge') {
         const startingAge = Number(value);
@@ -1698,6 +2273,9 @@ export const useAppStore = create<AppStore>((set) => ({
     }),
   setPortfolioValue: (asset, value) =>
     set((state) => {
+      if (isCompareFamilyLockedAndSyncedForActiveSlot(state, 'startingPortfolio')) {
+        return state;
+      }
       const staleState = markTrackingOutputStateStale(state);
       return {
         portfolio: { ...state.portfolio, [asset]: Math.max(0, Math.round(value)) },
@@ -1706,6 +2284,9 @@ export const useAppStore = create<AppStore>((set) => ({
     }),
   setReturnAssumption: (asset, key, value) =>
     set((state) => {
+      if (isCompareFamilyLockedAndSyncedForActiveSlot(state, 'returnAssumptions')) {
+        return state;
+      }
       const staleState = markTrackingOutputStateStale(state);
       return {
         returnAssumptions: {
@@ -1717,6 +2298,9 @@ export const useAppStore = create<AppStore>((set) => ({
     }),
   addSpendingPhase: () =>
     set((state) => {
+      if (isCompareFamilyLockedAndSyncedForActiveSlot(state, 'spendingPhases')) {
+        return state;
+      }
       if (state.spendingPhases.length >= 4) {
         return state;
       }
@@ -1743,6 +2327,12 @@ export const useAppStore = create<AppStore>((set) => ({
     }),
   removeSpendingPhase: (id) =>
     set((state) => {
+      if (
+        isCompareFamilyLockedAndSyncedForActiveSlot(state, 'spendingPhases') ||
+        isCompareInstanceLockedAndSyncedForActiveSlot(state, 'spendingPhases', id)
+      ) {
+        return state;
+      }
       if (state.spendingPhases.length <= 1) {
         return state;
       }
@@ -1759,6 +2349,12 @@ export const useAppStore = create<AppStore>((set) => ({
     }),
   updateSpendingPhase: (id, patch) =>
     set((state) => {
+      if (
+        isCompareFamilyLockedAndSyncedForActiveSlot(state, 'spendingPhases') ||
+        isCompareInstanceLockedAndSyncedForActiveSlot(state, 'spendingPhases', id)
+      ) {
+        return state;
+      }
       const ordered = [...state.spendingPhases].sort((a, b) => a.startYear - b.startYear);
       const firstPhaseId = ordered[0]?.id;
       const lastPhaseId = ordered[ordered.length - 1]?.id;
@@ -1784,6 +2380,9 @@ export const useAppStore = create<AppStore>((set) => ({
     }),
   setWithdrawalStrategyType: (type) =>
     set((state) => {
+      if (isCompareFamilyLockedAndSyncedForActiveSlot(state, 'withdrawalStrategy')) {
+        return state;
+      }
       const staleState = markTrackingOutputStateStale(state);
       return {
         withdrawalStrategy: { ...state.withdrawalStrategy, type },
@@ -1792,6 +2391,9 @@ export const useAppStore = create<AppStore>((set) => ({
     }),
   setWithdrawalParam: (key, value) =>
     set((state) => {
+      if (isCompareFamilyLockedAndSyncedForActiveSlot(state, 'withdrawalStrategy')) {
+        return state;
+      }
       const staleState = markTrackingOutputStateStale(state);
       return {
         withdrawalStrategy: {
@@ -1806,6 +2408,9 @@ export const useAppStore = create<AppStore>((set) => ({
     }),
   setDrawdownType: (type) =>
     set((state) => {
+      if (isCompareFamilyLockedAndSyncedForActiveSlot(state, 'drawdownStrategy')) {
+        return state;
+      }
       const staleState = markTrackingOutputStateStale(state);
       return {
         drawdownStrategy: { ...state.drawdownStrategy, type },
@@ -1814,6 +2419,9 @@ export const useAppStore = create<AppStore>((set) => ({
     }),
   moveBucketAsset: (asset, direction) =>
     set((state) => {
+      if (isCompareFamilyLockedAndSyncedForActiveSlot(state, 'drawdownStrategy')) {
+        return state;
+      }
       const order = [...state.drawdownStrategy.bucketOrder];
       const index = order.indexOf(asset);
       if (index < 0) {
@@ -1838,6 +2446,9 @@ export const useAppStore = create<AppStore>((set) => ({
     }),
   setRebalancingTargetAllocation: (asset, value) =>
     set((state) => {
+      if (isCompareFamilyLockedAndSyncedForActiveSlot(state, 'drawdownStrategy')) {
+        return state;
+      }
       const staleState = markTrackingOutputStateStale(state);
       return {
         drawdownStrategy: {
@@ -1855,6 +2466,9 @@ export const useAppStore = create<AppStore>((set) => ({
     }),
   setGlidePathEnabled: (enabled) =>
     set((state) => {
+      if (isCompareFamilyLockedAndSyncedForActiveSlot(state, 'drawdownStrategy')) {
+        return state;
+      }
       const staleState = markTrackingOutputStateStale(state);
       return {
         drawdownStrategy: {
@@ -1876,6 +2490,9 @@ export const useAppStore = create<AppStore>((set) => ({
     }),
   addGlidePathWaypoint: () =>
     set((state) => {
+      if (isCompareFamilyLockedAndSyncedForActiveSlot(state, 'drawdownStrategy')) {
+        return state;
+      }
       const existing = [...state.drawdownStrategy.rebalancing.glidePath].sort((a, b) => a.year - b.year);
       if (existing.length < 2) {
         const staleState = markTrackingOutputStateStale(state);
@@ -1918,6 +2535,9 @@ export const useAppStore = create<AppStore>((set) => ({
     }),
   removeGlidePathWaypoint: (year) =>
     set((state) => {
+      if (isCompareFamilyLockedAndSyncedForActiveSlot(state, 'drawdownStrategy')) {
+        return state;
+      }
       const next = state.drawdownStrategy.rebalancing.glidePath.filter((waypoint) => waypoint.year !== year);
       if (next.length < 2) {
         return state;
@@ -1933,6 +2553,9 @@ export const useAppStore = create<AppStore>((set) => ({
     }),
   updateGlidePathWaypoint: (year, patch) =>
     set((state) => {
+      if (isCompareFamilyLockedAndSyncedForActiveSlot(state, 'drawdownStrategy')) {
+        return state;
+      }
       const waypoints = state.drawdownStrategy.rebalancing.glidePath.map((waypoint) => {
         if (waypoint.year !== year) {
           return waypoint;
@@ -1959,6 +2582,9 @@ export const useAppStore = create<AppStore>((set) => ({
     }),
   addIncomeEvent: (preset) =>
     set((state) => {
+      if (isCompareFamilyLockedAndSyncedForActiveSlot(state, 'incomeEvents')) {
+        return state;
+      }
       const staleState = markTrackingOutputStateStale(state);
       return {
         incomeEvents: [
@@ -1970,6 +2596,12 @@ export const useAppStore = create<AppStore>((set) => ({
     }),
   removeIncomeEvent: (id) =>
     set((state) => {
+      if (
+        isCompareFamilyLockedAndSyncedForActiveSlot(state, 'incomeEvents') ||
+        isCompareInstanceLockedAndSyncedForActiveSlot(state, 'incomeEvents', id)
+      ) {
+        return state;
+      }
       const staleState = markTrackingOutputStateStale(state);
       return {
         incomeEvents: state.incomeEvents.filter((event) => event.id !== id),
@@ -1978,6 +2610,12 @@ export const useAppStore = create<AppStore>((set) => ({
     }),
   updateIncomeEvent: (id, patch) =>
     set((state) => {
+      if (
+        isCompareFamilyLockedAndSyncedForActiveSlot(state, 'incomeEvents') ||
+        isCompareInstanceLockedAndSyncedForActiveSlot(state, 'incomeEvents', id)
+      ) {
+        return state;
+      }
       const staleState = markTrackingOutputStateStale(state);
       return {
         incomeEvents: state.incomeEvents.map((event) => (event.id === id ? { ...event, ...patch } : event)),
@@ -1986,6 +2624,9 @@ export const useAppStore = create<AppStore>((set) => ({
     }),
   addExpenseEvent: (preset) =>
     set((state) => {
+      if (isCompareFamilyLockedAndSyncedForActiveSlot(state, 'expenseEvents')) {
+        return state;
+      }
       const staleState = markTrackingOutputStateStale(state);
       return {
         expenseEvents: [
@@ -1999,6 +2640,12 @@ export const useAppStore = create<AppStore>((set) => ({
     }),
   removeExpenseEvent: (id) =>
     set((state) => {
+      if (
+        isCompareFamilyLockedAndSyncedForActiveSlot(state, 'expenseEvents') ||
+        isCompareInstanceLockedAndSyncedForActiveSlot(state, 'expenseEvents', id)
+      ) {
+        return state;
+      }
       const staleState = markTrackingOutputStateStale(state);
       return {
         expenseEvents: state.expenseEvents.filter((event) => event.id !== id),
@@ -2007,6 +2654,12 @@ export const useAppStore = create<AppStore>((set) => ({
     }),
   updateExpenseEvent: (id, patch) =>
     set((state) => {
+      if (
+        isCompareFamilyLockedAndSyncedForActiveSlot(state, 'expenseEvents') ||
+        isCompareInstanceLockedAndSyncedForActiveSlot(state, 'expenseEvents', id)
+      ) {
+        return state;
+      }
       const staleState = markTrackingOutputStateStale(state);
       return {
         expenseEvents: state.expenseEvents.map((event) => (event.id === id ? { ...event, ...patch } : event)),
@@ -2365,6 +3018,74 @@ export const useCompareSimulationResults = () => useAppStore((state) => state.co
 
 export const useIsCompareActive = () =>
   useAppStore((state) => state.compareWorkspace.slotOrder.length > 1);
+
+export const useCompareSyncState = () =>
+  useAppStore((state) => state.compareWorkspace.compareSync);
+
+export const useIsCompareMasterSlotActive = () =>
+  useAppStore((state) => state.compareWorkspace.activeSlotId === 'A');
+
+export const useCompareFamilyLockUiState = (family: CompareSyncFamilyKey) =>
+  {
+    const slotId = useAppStore((state) => state.compareWorkspace.activeSlotId);
+    const locked = useAppStore((state) => state.compareWorkspace.compareSync.familyLocks[family]);
+    const synced = useAppStore((state) =>
+      isSlotFamilySynced(state.compareWorkspace.compareSync, state.compareWorkspace.activeSlotId, family),
+    );
+    const readOnly = slotId !== 'A' && locked && synced;
+    return { slotId, locked, synced, readOnly };
+  };
+
+export const useCompareInstanceLockUiState = (
+  family: CompareSyncListFamilyKey,
+  instanceId: string,
+) =>
+  {
+    const slotId = useAppStore((state) => state.compareWorkspace.activeSlotId);
+    const familyLocked = useAppStore((state) => state.compareWorkspace.compareSync.familyLocks[family]);
+    const familySynced = useAppStore((state) =>
+      isSlotFamilySynced(state.compareWorkspace.compareSync, state.compareWorkspace.activeSlotId, family),
+    );
+    const instanceLocked = useAppStore(
+      (state) => state.compareWorkspace.compareSync.instanceLocks[family][instanceId] === true,
+    );
+    const spendingLockEligible = useAppStore((state) => {
+      if (family !== 'spendingPhases') {
+        return true;
+      }
+      if (state.compareWorkspace.activeSlotId !== 'A') {
+        return true;
+      }
+      if (state.compareWorkspace.compareSync.instanceLocks.spendingPhases[instanceId] === true) {
+        return true;
+      }
+      const masterPhases = state.spendingPhases;
+      return isSpendingPhaseLockEligible(
+        instanceId,
+        masterPhases,
+        state.compareWorkspace.compareSync.instanceLocks.spendingPhases,
+      );
+    });
+    const instanceSynced = useAppStore((state) =>
+      isSlotInstanceSynced(state.compareWorkspace.compareSync, state.compareWorkspace.activeSlotId, family, instanceId),
+    );
+    const readOnly =
+      slotId !== 'A' &&
+      ((familyLocked && familySynced) || (instanceLocked && instanceSynced));
+    return {
+      slotId,
+      familyLocked,
+      familySynced,
+      instanceLocked,
+      canToggleLock: spendingLockEligible,
+      lockDisabledReason:
+        family === 'spendingPhases' && slotId === 'A' && !spendingLockEligible
+          ? 'Lock prior phase first'
+          : null,
+      instanceSynced,
+      readOnly,
+    };
+  };
 
 export const useCompareStressResults = () =>
   useAppStore((state) => ({

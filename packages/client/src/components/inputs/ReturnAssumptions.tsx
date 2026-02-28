@@ -1,12 +1,14 @@
 import { AssetClass, SimulationMode } from '@finapp/shared';
 
 import { PercentInput } from '../shared/PercentInput';
-import { useAppStore } from '../../store/useAppStore';
+import { useAppStore, useCompareFamilyLockUiState } from '../../store/useAppStore';
 
 export const ReturnAssumptions = () => {
   const simulationMode = useAppStore((state) => state.simulationMode);
   const assumptions = useAppStore((state) => state.returnAssumptions);
   const setReturnAssumption = useAppStore((state) => state.setReturnAssumption);
+  const lockState = useCompareFamilyLockUiState('returnAssumptions');
+  const disabled = lockState.readOnly;
 
   if (simulationMode !== SimulationMode.Manual) {
     return null;
@@ -21,6 +23,7 @@ export const ReturnAssumptions = () => {
             <PercentInput
               value={assumptions[asset].expectedReturn}
               onChange={(value) => setReturnAssumption(asset, 'expectedReturn', value)}
+              disabled={disabled}
             />
           </div>
           <div>
@@ -28,6 +31,7 @@ export const ReturnAssumptions = () => {
             <PercentInput
               value={assumptions[asset].stdDev}
               onChange={(value) => setReturnAssumption(asset, 'stdDev', value)}
+              disabled={disabled}
             />
           </div>
         </div>

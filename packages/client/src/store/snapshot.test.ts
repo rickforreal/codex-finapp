@@ -172,6 +172,82 @@ describe('snapshot', () => {
     expect(() => applySnapshot(JSON.stringify(parsed))).toThrowError(/valid snapshot/i);
   });
 
+  it('persists and restores compareSync lock state', () => {
+    resetStore();
+    const store = useAppStore.getState();
+    store.addCompareSlotFromSource('A');
+    store.setCompareActiveSlot('A');
+    store.toggleCompareFamilyLock('startingPortfolio');
+    store.setCompareSlotFamilySync('B', 'startingPortfolio', false);
+
+    const { json } = serializeSnapshot('Compare Sync');
+    applySnapshot(json);
+
+    const compareSync = useAppStore.getState().compareWorkspace.compareSync;
+    expect(compareSync.familyLocks.startingPortfolio).toBe(true);
+    expect(compareSync.unsyncedBySlot.B?.families.startingPortfolio).toBe(true);
+  });
+
+  it('loads older snapshots without compareSync by defaulting lock state', () => {
+    resetStore();
+    const { json } = serializeSnapshot('Legacy Compare Sync Missing');
+    const parsed = JSON.parse(json) as {
+      data: { compareWorkspace?: Record<string, unknown> };
+    };
+    if (!parsed.data.compareWorkspace) {
+      throw new Error('Expected compare workspace in snapshot');
+    }
+    delete parsed.data.compareWorkspace.compareSync;
+
+    applySnapshot(JSON.stringify(parsed));
+    const compareSync = useAppStore.getState().compareWorkspace.compareSync;
+    expect(compareSync.familyLocks.coreParams).toBe(false);
+    expect(compareSync.familyLocks.expenseEvents).toBe(false);
+  });
+
+  it('normalizes non-prefix spending phase locks from loaded snapshot state', () => {
+    resetStore();
+    const store = useAppStore.getState();
+    store.addCompareSlotFromSource('A');
+    store.setCompareActiveSlot('A');
+    store.addSpendingPhase();
+    store.addSpendingPhase();
+    const phases = useAppStore.getState().spendingPhases;
+    const first = phases[0]?.id;
+    const third = phases[2]?.id;
+    if (!first || !third) {
+      throw new Error('Expected three phases');
+    }
+
+    const { json } = serializeSnapshot('Non Prefix Spending Locks');
+    const parsed = JSON.parse(json) as {
+      data: {
+        compareWorkspace?: {
+          compareSync?: {
+            instanceLocks?: {
+              spendingPhases?: Record<string, boolean>;
+              incomeEvents?: Record<string, boolean>;
+              expenseEvents?: Record<string, boolean>;
+            };
+          };
+        };
+      };
+    };
+    if (!parsed.data.compareWorkspace?.compareSync) {
+      throw new Error('Expected compare sync in serialized snapshot');
+    }
+    parsed.data.compareWorkspace.compareSync.instanceLocks = {
+      spendingPhases: { [first]: true, [third]: true },
+      incomeEvents: {},
+      expenseEvents: {},
+    };
+    applySnapshot(JSON.stringify(parsed));
+
+    const locks = useAppStore.getState().compareWorkspace.compareSync.instanceLocks.spendingPhases;
+    expect(locks[first]).toBe(true);
+    expect(locks[third]).toBeUndefined();
+  });
+
   it('rejects invalid files and preserves existing state', () => {
     resetStore();
     useAppStore.getState().setPortfolioValue(AssetClass.Stocks, 2_100_000);

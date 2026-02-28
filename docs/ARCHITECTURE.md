@@ -628,12 +628,22 @@ AppStore
 - Table/UI controls include `tableSpreadsheetMode` in addition to `tableGranularity` and `tableAssetColumnsEnabled`.
 - Stress state is workspace-local and includes scenario config plus latest stress result payload.
 
-**Compare alignment (v3.0):**
+**Compare alignment (v3.1):**
 
 - Compare workspace uses slot collection model (`A`..`H`) with 1..8 active slots.
 - Compare slot manager is always visible in Planning and Tracking.
 - Compare output surfaces activate when slot count is greater than 1.
 - Slot `A` is canonical and non-removable.
+- Compare workspace includes `compareSync` metadata for A-master input lock/sync behavior.
+- Locked family behavior:
+  - Slot `A` remains editable.
+  - Synced follower slots are read-only and receive propagated values from `A`.
+  - Unsynced followers stay editable and retain local values until resynced.
+- List lock behavior:
+  - Global list lock mirrors `A` exactly in synced followers.
+  - Spending Phase instance locks are normalized to a contiguous prefix from Phase 1.
+  - Unlocking a locked Spending Phase cascades unlock across later locked phases.
+  - Instance lock upserts/removes by A instance-id in synced followers.
 - In Tracking, slot `A` is the only editable ledger source of actuals. Non-`A` slot ledgers are read-only and consume `A` actual history for preserved months.
 - Compare simulation/stress caches remain slot-scoped and isolated from single-workspace caches.
 
@@ -661,6 +671,7 @@ AppStore
 6. If invalid, show an error message. Do not modify state.
 
 **Schema policy.** Snapshot loading uses strict version matching (`snapshot.schemaVersion === supportedVersion`). Files from different versions are rejected to avoid restoring incompatible cached output payloads.
+`compareSync` is persisted inside compare workspace state and defaults to unlocked when absent in older payloads.
 
 ### 6.3.1 Local Bookmark Persistence
 

@@ -2,7 +2,7 @@ import { AssetClass } from '@finapp/shared';
 
 import { CurrencyInput } from '../shared/CurrencyInput';
 import { DonutChart } from '../shared/DonutChart';
-import { useAppStore, usePortfolioTotal } from '../../store/useAppStore';
+import { useAppStore, useCompareFamilyLockUiState, usePortfolioTotal } from '../../store/useAppStore';
 
 const pct = (value: number, total: number): string => `${((value / Math.max(total, 1)) * 100).toFixed(1)}%`;
 
@@ -10,20 +10,34 @@ export const StartingPortfolio = () => {
   const portfolio = useAppStore((state) => state.portfolio);
   const setPortfolioValue = useAppStore((state) => state.setPortfolioValue);
   const total = usePortfolioTotal();
+  const lockState = useCompareFamilyLockUiState('startingPortfolio');
+  const disabled = lockState.readOnly;
 
   return (
     <div className="space-y-3">
       <div>
         <label className="mb-1 block text-xs font-medium text-slate-600">Stocks</label>
-        <CurrencyInput value={portfolio.stocks} onChange={(value) => setPortfolioValue(AssetClass.Stocks, value)} />
+        <CurrencyInput
+          value={portfolio.stocks}
+          onChange={(value) => setPortfolioValue(AssetClass.Stocks, value)}
+          disabled={disabled}
+        />
       </div>
       <div>
         <label className="mb-1 block text-xs font-medium text-slate-600">Bonds</label>
-        <CurrencyInput value={portfolio.bonds} onChange={(value) => setPortfolioValue(AssetClass.Bonds, value)} />
+        <CurrencyInput
+          value={portfolio.bonds}
+          onChange={(value) => setPortfolioValue(AssetClass.Bonds, value)}
+          disabled={disabled}
+        />
       </div>
       <div>
         <label className="mb-1 block text-xs font-medium text-slate-600">Cash</label>
-        <CurrencyInput value={portfolio.cash} onChange={(value) => setPortfolioValue(AssetClass.Cash, value)} />
+        <CurrencyInput
+          value={portfolio.cash}
+          onChange={(value) => setPortfolioValue(AssetClass.Cash, value)}
+          disabled={disabled}
+        />
       </div>
 
       <div className="flex items-center gap-3 rounded-md border border-brand-border bg-brand-surface p-2">

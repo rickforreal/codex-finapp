@@ -169,4 +169,21 @@ describe('bookmarks', () => {
       expect((error as BookmarkStorageError).code).toBe('quota_exceeded');
     }
   });
+
+  it('restores compareSync lock state through bookmark round-trip', () => {
+    const storage = new MemoryStorage();
+    resetStore();
+    const store = useAppStore.getState();
+    store.addCompareSlotFromSource('A');
+    store.toggleCompareFamilyLock('spendingPhases');
+    store.setCompareSlotFamilySync('B', 'spendingPhases', false);
+
+    createBookmark('Compare Sync', { storage, createId: () => 'bookmark-sync' });
+    store.toggleCompareFamilyLock('spendingPhases');
+
+    applyBookmark('bookmark-sync', { storage });
+    const compareSync = useAppStore.getState().compareWorkspace.compareSync;
+    expect(compareSync.familyLocks.spendingPhases).toBe(true);
+    expect(compareSync.unsyncedBySlot.B?.families.spendingPhases).toBe(true);
+  });
 });

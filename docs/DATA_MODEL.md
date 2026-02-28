@@ -582,7 +582,7 @@ Rules:
 - Quota-exceeded handling: reject save with explicit error and no partial write
 - Load behavior: decode + validate through snapshot parser before state replace
 
-## 10. Compare Workspace Model (v3.0)
+## 10. Compare Workspace Model (v3.1)
 
 ### 10.1 Compare state model
 
@@ -591,6 +591,22 @@ CompareState {
   activeSlotId: CompareSlotId;   // currently edited slot in sidebar
   baselineSlotId: CompareSlotId; // stats-card delta reference
   slotOrder: CompareSlotId[];    // active slots in UI order, length 1..8
+  compareSync: {
+    familyLocks: Record<CompareSyncFamilyKey, boolean>;
+    instanceLocks: {
+      spendingPhases: Record<string, boolean>; // keyed by Slot A phase id
+      incomeEvents: Record<string, boolean>;   // keyed by Slot A income id
+      expenseEvents: Record<string, boolean>;  // keyed by Slot A expense id
+    };
+    unsyncedBySlot: Partial<Record<CompareSlotId, {
+      families: Partial<Record<CompareSyncFamilyKey, boolean>>;
+      instances: {
+        spendingPhases: Record<string, boolean>;
+        incomeEvents: Record<string, boolean>;
+        expenseEvents: Record<string, boolean>;
+      };
+    }>>;
+  };
   slots: Partial<Record<CompareSlotId, WorkspaceSnapshot>>;
 }
 ```
@@ -604,6 +620,7 @@ Initialization rule:
   - set `slotOrder = ["A"]`
   - set `activeSlotId = "A"`
   - set `baselineSlotId = "A"`
+  - initialize `compareSync` with all family locks disabled and empty unsync maps
 
 Lifecycle rules:
 - Add slot: user clones from currently active slot; new slot receives cloned workspace.
@@ -612,12 +629,24 @@ Lifecycle rules:
 - Compare activation: compare output surfaces render when `slotOrder.length > 1`; single-portfolio surfaces render when `slotOrder.length === 1`.
 - Tracking canonical floor: slot `A.lastEditedMonthIndex` defines preserved history for all slots.
 - Slot `A` is the only source of Tracking actuals. Non-`A` slot overrides are ignored for effective runtime behavior and replaced by Slot `A` overrides.
+- Slot `A` is also the compare sync master for locked input families/instances.
+- Family lock semantics:
+  - `A` stays editable while locked.
+  - Synced follower slots are read-only for that family.
+  - Unsynced followers are editable.
+- List lock semantics:
+  - Global family lock (`spendingPhases` / `incomeEvents` / `expenseEvents`) is exact mirror from `A` for synced followers.
+  - Spending Phase instance locks are constrained to a contiguous prefix from the first phase.
+  - Unlocking a Spending Phase instance cascades unlock across all later locked phases.
+  - Instance lock (Income/Expense and eligible Spending instances) is merge-by-instance-id for synced followers.
+  - Deleting a locked instance in `A` removes synced follower mirrors.
 
 ### 10.2 Snapshot compatibility for compare workspace
 
-1. Valid snapshots persist compare workspace payload (`slotOrder` + `slots` + compare metadata) for 1..8 slots.
+1. Valid snapshots persist compare workspace payload (`slotOrder` + `slots` + `compareSync` + compare metadata) for 1..8 slots.
 2. Snapshot load is full-state replace (no per-slot targeting prompt).
 3. Legacy snapshots containing `mode: "compare"` are rejected in v3.0.
+4. Snapshots that predate `compareSync` default to unlocked compare sync state on load.
 
 ### 10.3 Stochastic parity rule in multi-slot runs
 

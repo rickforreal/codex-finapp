@@ -1,7 +1,7 @@
 import { WithdrawalStrategyType } from '@finapp/shared';
 
 import { Dropdown } from '../../shared/Dropdown';
-import { useAppStore } from '../../../store/useAppStore';
+import { useAppStore, useCompareFamilyLockUiState } from '../../../store/useAppStore';
 import { StrategyParams } from './StrategyParams';
 import { StrategyTooltip } from './StrategyTooltip';
 
@@ -24,12 +24,13 @@ const STRATEGY_OPTIONS: Array<{ value: WithdrawalStrategyType; label: string }> 
 export const WithdrawalStrategySection = () => {
   const strategy = useAppStore((state) => state.withdrawalStrategy);
   const setType = useAppStore((state) => state.setWithdrawalStrategyType);
+  const lockState = useCompareFamilyLockUiState('withdrawalStrategy');
 
   return (
-    <div className="space-y-3">
-      <Dropdown value={strategy.type} options={STRATEGY_OPTIONS} onChange={setType} />
+    <fieldset className="space-y-3" disabled={lockState.readOnly}>
+      <Dropdown value={strategy.type} options={STRATEGY_OPTIONS} onChange={setType} disabled={lockState.readOnly} />
       <StrategyParams />
       <StrategyTooltip />
-    </div>
+    </fieldset>
   );
 };

@@ -1,16 +1,17 @@
 import { DrawdownStrategyType } from '@finapp/shared';
 
 import { SegmentedToggle } from '../../shared/SegmentedToggle';
-import { useAppStore } from '../../../store/useAppStore';
+import { useAppStore, useCompareFamilyLockUiState } from '../../../store/useAppStore';
 import { BucketConfig } from './BucketConfig';
 import { RebalancingConfig } from './RebalancingConfig';
 
 export const DrawdownStrategySection = () => {
   const drawdownStrategy = useAppStore((state) => state.drawdownStrategy);
   const setDrawdownType = useAppStore((state) => state.setDrawdownType);
+  const lockState = useCompareFamilyLockUiState('drawdownStrategy');
 
   return (
-    <div className="space-y-3">
+    <fieldset className="space-y-3" disabled={lockState.readOnly}>
       <SegmentedToggle
         value={drawdownStrategy.type}
         onChange={setDrawdownType}
@@ -25,6 +26,6 @@ export const DrawdownStrategySection = () => {
       ) : (
         <RebalancingConfig />
       )}
-    </div>
+    </fieldset>
   );
 };

@@ -1298,3 +1298,87 @@ Acceptance Criteria:
 [AC1] Unit tests cover round-trip load, ordering, duplicates, targeted delete, cap eviction, payload corruption, version mismatch, and quota errors.
 [AC2] `npm run typecheck`, `npm run lint`, `npm test`, and `npm run build` pass.
 [AC3] Root docs + trackers are updated and PROGRESS includes canonical-doc impact statement.
+
+## Feature Plan — Compare Portfolios v3.1 (Lockable/Syncable Inputs)
+
+- [x] CPV31-T1: Create feature docs and lock scope
+Phase: Feature/ComparePortfolios-v3.1
+Dependencies: CPV30-T6
+Acceptance Criteria:
+[AC1] `docs/features/compare-portfolios-v3-1-lock-sync/{FEATURE,PLAN,ACCEPTANCE}.md` exist.
+[AC2] Plan includes delta from `compare-portfolios-v3-0` and lock/sync contract decisions.
+[AC3] Canonical-doc impact list is explicit.
+
+- [x] CPV31-T2: Implement compareSync model and store actions
+Phase: Feature/ComparePortfolios-v3.1
+Dependencies: CPV31-T1
+Acceptance Criteria:
+[AC1] `compareWorkspace.compareSync` added with family locks, instance locks, and per-slot unsync state.
+[AC2] Store exposes family/instance lock toggle and per-slot sync toggle actions.
+[AC3] Compare workspace normalization applies A-master propagation semantics.
+
+- [x] CPV31-T3: Wire input mutation guards and follower read-only semantics
+Phase: Feature/ComparePortfolios-v3.1
+Dependencies: CPV31-T2
+Acceptance Criteria:
+[AC1] Synced locked follower edits are blocked for all input families.
+[AC2] Unsynced followers remain editable for targeted families/instances.
+[AC3] List-family global and instance lock behavior matches exact-mirror + merge rules.
+
+- [x] CPV31-T4: Add section and instance lock/sync UI controls
+Phase: Feature/ComparePortfolios-v3.1
+Dependencies: CPV31-T3
+Acceptance Criteria:
+[AC1] Sidebar section headers expose lock/sync controls for all families.
+[AC2] Spending/Income/Expense cards expose instance lock/sync controls.
+[AC3] Synced follower controls render read-only affordances.
+
+- [x] CPV31-T5: Persist compareSync in snapshots/bookmarks with backwards default
+Phase: Feature/ComparePortfolios-v3.1
+Dependencies: CPV31-T2
+Acceptance Criteria:
+[AC1] Snapshot schema version bumped to 6 and includes compareSync payload.
+[AC2] Snapshot load defaults missing compareSync to unlocked state.
+[AC3] Bookmark round-trip restores compareSync state.
+
+- [x] CPV31-T6: Update canonical docs and run regression gate
+Phase: Feature/ComparePortfolios-v3.1
+Dependencies: CPV31-T4, CPV31-T5
+Acceptance Criteria:
+[AC1] `docs/SPECS.md`, `docs/SCENARIOS.md`, `docs/DATA_MODEL.md`, `docs/ARCHITECTURE.md` updated.
+[AC2] `npm run typecheck`, `npm run lint`, `npm test`, and `npm run build` pass.
+[AC3] `PROGRESS.txt` includes append-only completion entry with canonical-doc impact.
+
+## Feature Plan — Compare Portfolios v3.1.1 (Sequential Spending Phase Locks)
+
+- [x] CPV311-T1: Enforce sequential prefix invariant for Spending Phase instance locks
+Phase: Feature/ComparePortfolios-v3.1.1
+Dependencies: CPV31-T6
+Acceptance Criteria:
+[AC1] Locking Phase N is allowed only when N is first or N-1 is locked.
+[AC2] Unlocking Phase N cascades unlock to all later locked phases.
+[AC3] Runtime compare sync normalization removes non-prefix spending locks.
+
+- [x] CPV311-T2: Add Spending Phase lock-eligibility UI affordance and tests
+Phase: Feature/ComparePortfolios-v3.1.1
+Dependencies: CPV311-T1
+Acceptance Criteria:
+[AC1] Slot A phase lock icon is disabled when phase is not lock-eligible.
+[AC2] Unit tests cover ineligible lock no-op and cascade unlock behavior.
+[AC3] Snapshot-load normalization test covers legacy non-prefix lock payload.
+
+- [x] CPV311-T3: Update docs and run regression gate
+Phase: Feature/ComparePortfolios-v3.1.1
+Dependencies: CPV311-T1, CPV311-T2
+Acceptance Criteria:
+[AC1] SPECS/SCENARIOS/DATA_MODEL/ARCHITECTURE reflect sequential Spending lock rule.
+[AC2] `npm run typecheck`, `npm run lint`, `npm test`, and `npm run build` pass.
+[AC3] PROGRESS includes append-only completion entry and canonical-doc impact statement.
+
+- [x] CPV311-T4: Fix Spending Phase lock eligibility refresh and single-slot lock visibility
+Phase: Feature/ComparePortfolios-v3.1.1
+Dependencies: CPV311-T3
+Acceptance Criteria:
+[AC1] Newly added Spending Phase in Slot A is lock-eligible when prior phase is locked.
+[AC2] Lock/sync controls are hidden when compare has only Slot A.
+[AC3] Client typecheck, lint, and tests pass.
