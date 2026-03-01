@@ -320,6 +320,7 @@ export type SnapshotState = {
     chartZoom: { start: number; end: number } | null;
     reforecastStatus: ReforecastStatus;
     collapsedSections: Record<string, boolean>;
+    isSidebarCollapsed: boolean;
   };
 };
 
@@ -414,6 +415,7 @@ export type AppStore = SnapshotState & {
   setTableSpreadsheetMode: (enabled: boolean) => void;
   setTableSort: (sort: { column: string; direction: 'asc' | 'desc' } | null) => void;
   toggleSection: (id: string) => void;
+  toggleSidebar: () => void;
   setStateFromSnapshot: (snapshotState: SnapshotState) => void;
   setThemeState: (payload: {
     selectedThemeFamilyId?: ThemeFamilyId;
@@ -1832,6 +1834,7 @@ const cloneSnapshotState = (snapshot: SnapshotState): SnapshotState => {
       chartZoom: normalizedSnapshot.ui.chartZoom ? { ...normalizedSnapshot.ui.chartZoom } : null,
       tableSort: normalizedSnapshot.ui.tableSort ? { ...normalizedSnapshot.ui.tableSort } : null,
       collapsedSections: { ...normalizedSnapshot.ui.collapsedSections },
+      isSidebarCollapsed: normalizedSnapshot.ui.isSidebarCollapsed ?? false,
     },
   };
 };
@@ -1978,6 +1981,7 @@ export const useAppStore = create<AppStore>((set) => ({
     chartZoom: null,
     reforecastStatus: 'idle',
     collapsedSections: {},
+    isSidebarCollapsed: false,
   },
   setMode: (mode) =>
     set((state) => {
@@ -3283,6 +3287,13 @@ export const useAppStore = create<AppStore>((set) => ({
           ...state.ui.collapsedSections,
           [id]: !state.ui.collapsedSections[id],
         },
+      },
+    })),
+  toggleSidebar: () =>
+    set((state) => ({
+      ui: {
+        ...state.ui,
+        isSidebarCollapsed: !state.ui.isSidebarCollapsed,
       },
     })),
   setThemeState: (payload) =>

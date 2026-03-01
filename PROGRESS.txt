@@ -1921,3 +1921,25 @@ Validation run (all passing):
 
 Canonical docs impact:
 - Yes (strategy parameters, algorithm contract, request shape, and scenario narrative updated).
+
+2026-03-01 — Feature: Sidebar Collapse Toggle | COMPLETE
+- Implemented UX affordance to collapse/expand the input sidebar for more horizontal output space.
+- Added `isSidebarCollapsed` state and `toggleSidebar` action to `useAppStore` UI slice.
+- Updated `AppShell.tsx` layout:
+  - Sidebar (`aside`) now transitions its width from `400px` to a `24px` strip (preserving interactive edge).
+  - Content within sidebar fades out during collapse.
+  - Added a floating circular toggle button with a rotating chevron.
+  - Button is vertically aligned with the center of the "Compare Slot" card (~60px from top) for better visibility.
+  - Button remains fully accessible on the visible strip when sidebar is collapsed.
+  - Main section expands to fill the remaining horizontal space automatically.
+- Verified performance and visual transitions:
+  - Smooth 300ms CSS transitions for width and opacity.
+  - Correct z-index layering to ensure toggle button remains interactive.
+- No regressions in layout or responsiveness.
+
+Validation run (all passing):
+- `npm run typecheck`
+- `npm run lint`
+
+Canonical docs impact:
+- No canonical doc impact (purely UX enhancement).

@@ -1682,3 +1682,29 @@
       [AC1] `docs/SPECS.md`, `docs/WITHDRAWAL_STRATEGIES.md`, `docs/DATA_MODEL.md`, `docs/API.md`, and `docs/SCENARIOS.md` are updated.
       [AC2] `npm run typecheck`, `npm run lint`, `npm test`, and `npm run build` pass.
       [AC3] `PROGRESS.txt` contains append-only completion summary with canonical-doc impact.
+
+## Feature Plan — Sidebar Collapse Toggle
+
+- [x] SCT-T1: Implement isSidebarCollapsed state and toggleSidebar action
+      Phase: Feature/SidebarCollapse
+      Dependencies: none
+      Acceptance Criteria:
+      [AC1] `useAppStore` includes `isSidebarCollapsed` boolean in `ui` slice.
+      [AC2] `toggleSidebar` action correctly flips the state.
+      [AC3] `cloneSnapshotState` preserves the state for persistence.
+
+- [x] SCT-T2: Update AppShell layout with responsive toggle and transitions
+      Phase: Feature/SidebarCollapse
+      Dependencies: SCT-T1
+      Acceptance Criteria:
+      [AC1] `aside` element responds to `isSidebarCollapsed` with `w-[400px]` vs `w-0`.
+      [AC2] Floating circular toggle button with rotating chevron implemented.
+      [AC3] Smooth CSS transitions for width and content opacity.
+
+- [x] SCT-T3: Verify UX and update progress logs
+      Phase: Feature/SidebarCollapse
+      Dependencies: SCT-T2
+      Acceptance Criteria:
+      [AC1] Main content expands to fill horizontal space when sidebar is collapsed.
+      [AC2] Toggle button remains accessible and functional in both states.
+      [AC3] `PROGRESS.txt` updated with completion entry.
