@@ -432,8 +432,8 @@ const baseThemes: BaseThemeVariant[] = [
     id: ThemeVariantId.MonokaiDark,
     familyId: ThemeFamilyId.Monokai,
     appearance: ThemeAppearance.Dark,
-    name: 'Monokai',
-    description: 'VS Code Monokai-inspired dark palette with vivid chart and table accents.',
+    name: 'Circuit Breaker',
+    description: 'Market-halt dark palette with industrial neutrals and safety-signal accents.',
     version: '1.0.0',
     isHighContrast: false,
     defaultForApp: false,
@@ -441,86 +441,86 @@ const baseThemes: BaseThemeVariant[] = [
       ...baseThemeTokens,
       typography: {
         ...baseTypography,
-        letterSpacingWide: '0.12em',
+        letterSpacingWide: '0.11em',
       },
       shadow: {
-        panel: '0 1px 2px rgba(0, 0, 0, 0.45)',
-        popover: '0 10px 28px rgba(0, 0, 0, 0.52)',
-        focus: '0 0 0 3px rgba(102, 217, 239, 0.35)',
+        panel: '0 1px 2px rgba(5, 10, 18, 0.52)',
+        popover: '0 12px 30px rgba(4, 8, 14, 0.62)',
+        focus: '0 0 0 3px rgba(71, 194, 255, 0.4)',
       },
       color: {
-        neutral50: '#1E1F1C',
-        neutral100: '#23241F',
-        neutral200: '#2D2E28',
-        neutral300: '#3A3B34',
-        neutral400: '#5C5D57',
-        neutral500: '#75715E',
-        neutral600: '#A59F85',
-        neutral700: '#C8C1A3',
-        neutral800: '#E2DDD0',
-        neutral900: '#F8F8F2',
-        appBackground: '#1E1F1C',
-        surfacePrimary: '#23241F',
-        surfaceSecondary: '#2A2B24',
-        surfaceMuted: '#32332C',
-        overlay: '#23241FE6',
-        borderSubtle: '#3A3B34',
-        borderPrimary: '#4A4B43',
-        borderStrong: '#5C5D57',
-        textPrimary: '#F8F8F2',
-        textSecondary: '#DAD6C8',
-        textMuted: '#A59F85',
-        textInverse: '#1E1F1C',
-        focusRing: '#66D9EF',
-        interactivePrimary: '#66D9EF',
-        interactivePrimaryHover: '#5AC4D8',
-        interactiveSecondary: '#3A3B34',
-        interactiveSecondaryHover: '#4A4B43',
-        positive: '#A6E22E',
-        negative: '#F92672',
-        warning: '#FD971F',
-        info: '#66D9EF',
-        chartGrid: '#3A3B34',
-        chartAxis: '#5C5D57',
-        chartText: '#C8C1A3',
-        chartTooltipBackground: '#2A2B24',
-        chartTooltipBorder: '#5C5D57',
-        chartTooltipText: '#F8F8F2',
-        brandNavy: '#C8C1A3',
-        brandBlue: '#66D9EF',
-        assetStocks: '#A6E22E',
-        assetBonds: '#66D9EF',
-        assetCash: '#FD971F',
-        mcBandOuter: '#66D9EF44',
-        mcBandInner: '#66D9EF77',
-        stressBase: '#F8F8F2',
-        stressScenarioA: '#FD971F',
-        stressScenarioB: '#AE81FF',
-        stressScenarioC: '#A6E22E',
-        stressScenarioD: '#F92672',
+        neutral50: '#0F131B',
+        neutral100: '#141A24',
+        neutral200: '#1B2330',
+        neutral300: '#243041',
+        neutral400: '#33455E',
+        neutral500: '#4E6587',
+        neutral600: '#6F88AA',
+        neutral700: '#92A8C2',
+        neutral800: '#B7C7DA',
+        neutral900: '#EAF0F8',
+        appBackground: '#0B0E12',
+        surfacePrimary: '#121722',
+        surfaceSecondary: '#171E2B',
+        surfaceMuted: '#1E2736',
+        overlay: '#121722E6',
+        borderSubtle: '#243041',
+        borderPrimary: '#2F3D52',
+        borderStrong: '#445A78',
+        textPrimary: '#EAF0F8',
+        textSecondary: '#C9D5E6',
+        textMuted: '#8EA1BA',
+        textInverse: '#0B0E12',
+        focusRing: '#47C2FF',
+        interactivePrimary: '#FFB347',
+        interactivePrimaryHover: '#FFC46A',
+        interactiveSecondary: '#243041',
+        interactiveSecondaryHover: '#2F3D52',
+        positive: '#7DDC6F',
+        negative: '#FF6B6B',
+        warning: '#F6C453',
+        info: '#47C2FF',
+        chartGrid: '#243041',
+        chartAxis: '#33455E',
+        chartText: '#93A9C5',
+        chartTooltipBackground: '#171E2B',
+        chartTooltipBorder: '#445A78',
+        chartTooltipText: '#EAF0F8',
+        brandNavy: '#C9D5E6',
+        brandBlue: '#47C2FF',
+        assetStocks: '#47C2FF',
+        assetBonds: '#7DDC6F',
+        assetCash: '#FFB347',
+        mcBandOuter: '#47C2FF44',
+        mcBandInner: '#47C2FF77',
+        stressBase: '#EAF0F8',
+        stressScenarioA: '#FFB347',
+        stressScenarioB: '#47C2FF',
+        stressScenarioC: '#7DDC6F',
+        stressScenarioD: '#FF6B6B',
       },
       state: {
-        editedCellBackground: '#66D9EF26',
-        preservedRowBackground: '#2D2E28',
-        staleBackground: '#4C2F11',
-        staleText: '#FDCC8A',
-        selectedCellOutline: '#66D9EF',
+        editedCellBackground: '#47C2FF29',
+        preservedRowBackground: '#1B2330',
+        staleBackground: '#503517',
+        staleText: '#FFDDA2',
+        selectedCellOutline: '#47C2FF',
       },
       chart: {
-        manualLine: '#F8F8F2',
-        manualAreaTop: '#66D9EF4D',
-        manualAreaBottom: '#66D9EF14',
-        mcMedianLine: '#F8F8F2',
-        mcBandOuter: '#66D9EF44',
-        mcBandInner: '#66D9EF77',
-        compareSlotA: '#F8F8F2',
-        compareSlotB: '#66D9EF',
-        compareSlotC: '#A6E22E',
-        compareSlotD: '#FD971F',
-        compareSlotE: '#AE81FF',
-        compareSlotF: '#2EC4B6',
-        compareSlotG: '#F92672',
-        compareSlotH: '#C8C1A3',
+        manualLine: '#EAF0F8',
+        manualAreaTop: '#47C2FF4D',
+        manualAreaBottom: '#47C2FF14',
+        mcMedianLine: '#EAF0F8',
+        mcBandOuter: '#47C2FF44',
+        mcBandInner: '#47C2FF77',
+        compareSlotA: '#EAF0F8',
+        compareSlotB: '#47C2FF',
+        compareSlotC: '#7DDC6F',
+        compareSlotD: '#FFB347',
+        compareSlotE: '#C392FF',
+        compareSlotF: '#2CCBC2',
+        compareSlotG: '#FF6B6B',
+        compareSlotH: '#9DB1C9',
       },
     },
   },
@@ -528,8 +528,8 @@ const baseThemes: BaseThemeVariant[] = [
     id: ThemeVariantId.Synthwave84Dark,
     familyId: ThemeFamilyId.Synthwave84,
     appearance: ThemeAppearance.Dark,
-    name: "Synthwave '84",
-    description: "VS Code Synthwave '84-inspired neon dark palette by Robb Owen.",
+    name: 'Powell Pivot',
+    description: 'Macro-policy dark palette with plum depth and chartreuse-copper accents.',
     version: '1.0.0',
     isHighContrast: false,
     defaultForApp: false,
@@ -537,86 +537,86 @@ const baseThemes: BaseThemeVariant[] = [
       ...baseThemeTokens,
       typography: {
         ...baseTypography,
-        letterSpacingWide: '0.16em',
+        letterSpacingWide: '0.15em',
       },
       shadow: {
-        panel: '0 1px 2px rgba(13, 2, 33, 0.42)',
-        popover: '0 12px 30px rgba(15, 0, 36, 0.56)',
-        focus: '0 0 0 3px rgba(65, 232, 244, 0.38)',
+        panel: '0 1px 2px rgba(14, 10, 20, 0.5)',
+        popover: '0 12px 30px rgba(18, 13, 26, 0.62)',
+        focus: '0 0 0 3px rgba(200, 240, 106, 0.42)',
       },
       color: {
-        neutral50: '#0A0820',
-        neutral100: '#100C2A',
-        neutral200: '#161136',
-        neutral300: '#24184A',
-        neutral400: '#3A2A66',
-        neutral500: '#6B5A91',
-        neutral600: '#9B8BC0',
-        neutral700: '#BFB2DF',
-        neutral800: '#DDD2F2',
-        neutral900: '#F4EEFF',
-        appBackground: '#0B0A26',
-        surfacePrimary: '#120D31',
-        surfaceSecondary: '#17103C',
-        surfaceMuted: '#1F1548',
-        overlay: '#120D31E6',
-        borderSubtle: '#2A1C57',
-        borderPrimary: '#3A2A66',
-        borderStrong: '#5A4688',
-        textPrimary: '#F4EEFF',
-        textSecondary: '#DDD2F2',
-        textMuted: '#AF9BCD',
-        textInverse: '#0B0A26',
-        focusRing: '#41E8F4',
-        interactivePrimary: '#F92AAD',
-        interactivePrimaryHover: '#FF49BB',
-        interactiveSecondary: '#24184A',
-        interactiveSecondaryHover: '#34215D',
-        positive: '#75F5A7',
-        negative: '#FF5E9A',
-        warning: '#FFC96A',
-        info: '#41E8F4',
-        chartGrid: '#261B55',
-        chartAxis: '#4E3A80',
-        chartText: '#CDBFE7',
-        chartTooltipBackground: '#161136',
-        chartTooltipBorder: '#5A4688',
-        chartTooltipText: '#F4EEFF',
-        brandNavy: '#D7CAEE',
-        brandBlue: '#41E8F4',
-        assetStocks: '#41E8F4',
-        assetBonds: '#B57BFF',
-        assetCash: '#FFC96A',
-        mcBandOuter: '#41E8F440',
-        mcBandInner: '#F92AAD55',
-        stressBase: '#F4EEFF',
-        stressScenarioA: '#F92AAD',
-        stressScenarioB: '#41E8F4',
-        stressScenarioC: '#B57BFF',
-        stressScenarioD: '#FFC96A',
+        neutral50: '#120D17',
+        neutral100: '#17111E',
+        neutral200: '#21172A',
+        neutral300: '#2C1F36',
+        neutral400: '#40304D',
+        neutral500: '#5B466B',
+        neutral600: '#7A6290',
+        neutral700: '#9E86B3',
+        neutral800: '#C3B0D4',
+        neutral900: '#F4ECFA',
+        appBackground: '#140F1A',
+        surfacePrimary: '#1B1423',
+        surfaceSecondary: '#22192C',
+        surfaceMuted: '#2A1F35',
+        overlay: '#1B1423E6',
+        borderSubtle: '#3A2B47',
+        borderPrimary: '#4B3A5A',
+        borderStrong: '#655079',
+        textPrimary: '#F4ECFA',
+        textSecondary: '#DBCDE8',
+        textMuted: '#A894B8',
+        textInverse: '#140F1A',
+        focusRing: '#C8F06A',
+        interactivePrimary: '#D98C3F',
+        interactivePrimaryHover: '#E5A45E',
+        interactiveSecondary: '#2C1F36',
+        interactiveSecondaryHover: '#3A2B47',
+        positive: '#6ED3A7',
+        negative: '#E36767',
+        warning: '#E0C15B',
+        info: '#B5E853',
+        chartGrid: '#332641',
+        chartAxis: '#4B3A5A',
+        chartText: '#B8A7C8',
+        chartTooltipBackground: '#22192C',
+        chartTooltipBorder: '#655079',
+        chartTooltipText: '#F4ECFA',
+        brandNavy: '#DBCDE8',
+        brandBlue: '#B5E853',
+        assetStocks: '#B5E853',
+        assetBonds: '#7DB6FF',
+        assetCash: '#D98C3F',
+        mcBandOuter: '#B5E85340',
+        mcBandInner: '#D98C3F55',
+        stressBase: '#F4ECFA',
+        stressScenarioA: '#D98C3F',
+        stressScenarioB: '#B5E853',
+        stressScenarioC: '#7DB6FF',
+        stressScenarioD: '#E36767',
       },
       state: {
-        editedCellBackground: '#41E8F42A',
-        preservedRowBackground: '#1A1240',
-        staleBackground: '#5A2E1C',
-        staleText: '#FFD49D',
-        selectedCellOutline: '#41E8F4',
+        editedCellBackground: '#B5E8532B',
+        preservedRowBackground: '#21172A',
+        staleBackground: '#513219',
+        staleText: '#F2D3A0',
+        selectedCellOutline: '#C8F06A',
       },
       chart: {
-        manualLine: '#F4EEFF',
-        manualAreaTop: '#F92AAD3A',
-        manualAreaBottom: '#41E8F414',
-        mcMedianLine: '#F4EEFF',
-        mcBandOuter: '#41E8F440',
-        mcBandInner: '#F92AAD55',
-        compareSlotA: '#F4EEFF',
-        compareSlotB: '#41E8F4',
-        compareSlotC: '#75F5A7',
-        compareSlotD: '#FFC96A',
-        compareSlotE: '#B57BFF',
-        compareSlotF: '#27D3D9',
-        compareSlotG: '#F92AAD',
-        compareSlotH: '#DDD2F2',
+        manualLine: '#F4ECFA',
+        manualAreaTop: '#B5E8533A',
+        manualAreaBottom: '#D98C3F14',
+        mcMedianLine: '#F4ECFA',
+        mcBandOuter: '#B5E85340',
+        mcBandInner: '#D98C3F55',
+        compareSlotA: '#F4ECFA',
+        compareSlotB: '#B5E853',
+        compareSlotC: '#7DB6FF',
+        compareSlotD: '#D98C3F',
+        compareSlotE: '#C99BFF',
+        compareSlotF: '#6ED3A7',
+        compareSlotG: '#E36767',
+        compareSlotH: '#CBB9D9',
       },
     },
   },
@@ -4696,6 +4696,76 @@ const familyDarkVariants = baseThemes.filter(
     theme.familyId !== ThemeFamilyId.HighContrast,
 );
 
+const applyReplacementLightOverrides = (lightVariant: BaseThemeVariant): BaseThemeVariant => {
+  if (lightVariant.id === ThemeVariantId.MonokaiLight) {
+    const tokens = cloneTokens(lightVariant.tokens);
+    tokens.color.appBackground = '#F6F3EC';
+    tokens.color.surfacePrimary = '#FCFAF5';
+    tokens.color.surfaceSecondary = '#F2EEE4';
+    tokens.color.surfaceMuted = '#E8E1D4';
+    tokens.color.overlay = '#FCFAF5E6';
+    tokens.color.borderSubtle = '#D5CABA';
+    tokens.color.borderPrimary = '#C2B29E';
+    tokens.color.borderStrong = '#9E8B72';
+    tokens.color.textPrimary = '#1D2734';
+    tokens.color.textSecondary = '#33465B';
+    tokens.color.textMuted = '#5E7188';
+    tokens.color.chartGrid = '#DFD4C3';
+    tokens.color.chartAxis = '#C2B29E';
+    tokens.color.chartText = '#576A80';
+    tokens.color.chartTooltipBackground = '#FCFAF5';
+    tokens.color.chartTooltipBorder = '#9E8B72';
+    tokens.color.chartTooltipText = '#1D2734';
+    tokens.state.editedCellBackground = '#47C2FF20';
+    tokens.state.preservedRowBackground = '#EFE8DA';
+    tokens.state.staleBackground = '#F0D4AA';
+    tokens.state.staleText = '#6E451D';
+    tokens.chart.manualAreaTop = '#47C2FF38';
+    tokens.chart.manualAreaBottom = '#47C2FF12';
+    return {
+      ...lightVariant,
+      name: 'Circuit Breaker',
+      description: 'Warm paper light palette with slate structure and signal accents.',
+      tokens,
+    };
+  }
+
+  if (lightVariant.id === ThemeVariantId.Synthwave84Light) {
+    const tokens = cloneTokens(lightVariant.tokens);
+    tokens.color.appBackground = '#FAF5EF';
+    tokens.color.surfacePrimary = '#FFF9F3';
+    tokens.color.surfaceSecondary = '#F6EEE3';
+    tokens.color.surfaceMuted = '#ECE0D2';
+    tokens.color.overlay = '#FFF9F3E6';
+    tokens.color.borderSubtle = '#D6C3B4';
+    tokens.color.borderPrimary = '#BFA694';
+    tokens.color.borderStrong = '#9B7F6B';
+    tokens.color.textPrimary = '#2A1F33';
+    tokens.color.textSecondary = '#4A3A55';
+    tokens.color.textMuted = '#75657F';
+    tokens.color.chartGrid = '#E2D0C0';
+    tokens.color.chartAxis = '#BFA694';
+    tokens.color.chartText = '#685973';
+    tokens.color.chartTooltipBackground = '#FFF9F3';
+    tokens.color.chartTooltipBorder = '#9B7F6B';
+    tokens.color.chartTooltipText = '#2A1F33';
+    tokens.state.editedCellBackground = '#B5E85324';
+    tokens.state.preservedRowBackground = '#F2E8DB';
+    tokens.state.staleBackground = '#EDD3AB';
+    tokens.state.staleText = '#6F4420';
+    tokens.chart.manualAreaTop = '#B5E85335';
+    tokens.chart.manualAreaBottom = '#D98C3F12';
+    return {
+      ...lightVariant,
+      name: 'Powell Pivot',
+      description: 'Soft ivory-plum light palette with chartreuse-copper macro accents.',
+      tokens,
+    };
+  }
+
+  return lightVariant;
+};
+
 const generatedLightVariants: BaseThemeVariant[] = familyDarkVariants.map((darkVariant) => {
   const lightVariantIdByFamily: Record<ThemeFamilyId, ThemeVariantId> = {
     [ThemeFamilyId.Default]: ThemeVariantId.DefaultLight,
@@ -4747,7 +4817,7 @@ const generatedLightVariants: BaseThemeVariant[] = familyDarkVariants.map((darkV
   };
 
   return createLightVariantFromDark(darkVariant, lightVariantIdByFamily[darkVariant.familyId]);
-});
+}).map(applyReplacementLightOverrides);
 
 const allBaseVariants: BaseThemeVariant[] = [...baseThemes, ...generatedLightVariants];
 
@@ -4776,8 +4846,8 @@ const families: ThemeFamilyCatalogItem[] = [
   },
   {
     id: ThemeFamilyId.Monokai,
-    name: 'Monokai',
-    description: 'VS Code Monokai-inspired palette family.',
+    name: 'Circuit Breaker',
+    description: 'Risk-control palette family with industrial neutrals and signal accents.',
     version: '1.0.0',
     isHighContrast: false,
     defaultForApp: false,
@@ -4785,8 +4855,8 @@ const families: ThemeFamilyCatalogItem[] = [
   },
   {
     id: ThemeFamilyId.Synthwave84,
-    name: "Synthwave '84",
-    description: "VS Code Synthwave '84-inspired neon family.",
+    name: 'Powell Pivot',
+    description: 'Macro-policy palette family with plum depth and chartreuse-copper accents.',
     version: '1.0.0',
     isHighContrast: false,
     defaultForApp: false,
@@ -5239,16 +5309,16 @@ const catalog: ThemeCatalogItem[] = [
   },
   {
     id: ThemeId.Monokai,
-    name: 'Monokai',
-    description: 'Legacy alias for Monokai dark variant.',
+    name: 'Circuit Breaker',
+    description: 'Legacy alias for Circuit Breaker dark variant.',
     version: '1.0.0',
     isHighContrast: false,
     defaultForApp: false,
   },
   {
     id: ThemeId.Synthwave84,
-    name: "Synthwave '84",
-    description: "Legacy alias for Synthwave '84 dark variant.",
+    name: 'Powell Pivot',
+    description: 'Legacy alias for Powell Pivot dark variant.',
     version: '1.0.0',
     isHighContrast: false,
     defaultForApp: false,

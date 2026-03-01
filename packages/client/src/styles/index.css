@@ -515,6 +515,11 @@ select option {
   color: var(--theme-slot-command-bar-primary-action-text);
 }
 
+.theme-segmented-option-active:hover {
+  background-color: var(--theme-slot-command-bar-primary-action-bg);
+  color: var(--theme-slot-command-bar-primary-action-text);
+}
+
 .theme-toggle-track {
   background-color: var(--theme-color-neutral-300);
 }

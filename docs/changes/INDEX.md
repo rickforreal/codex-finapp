@@ -34,3 +34,5 @@ A request belongs in:
 | CHG-0003 | Compare slot theme-adaptive visuals | Done | 2026-02-23 | 2026-02-23 | `docs/changes/CHG-0003-compare-slot-theme-adaptive-visuals/` |
 | CHG-0004 | Compare slot A non-deletable invariant | Done | 2026-02-23 | 2026-02-23 | `docs/changes/CHG-0004-compare-slot-a-non-deletable/` |
 | CHG-0005 | Theme dropdown scroll + selected-row visibility | Done | 2026-02-28 | 2026-02-28 | `docs/changes/CHG-0005-theme-dropdown-scroll-selected-visibility/` |
+| CHG-0006 | Segmented toggle active-hover contrast fix | Done | 2026-03-01 | 2026-03-01 | `docs/changes/CHG-0006-segmented-toggle-active-hover-contrast/` |
+| CHG-0007 | Theme menu order + outside-click close | Done | 2026-03-01 | 2026-03-01 | `docs/changes/CHG-0007-theme-menu-order-and-outside-close/` |

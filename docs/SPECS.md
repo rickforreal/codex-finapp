@@ -244,8 +244,8 @@ Affordance index reserved for future use. No explicit app-level redo behavior is
 
 **Current family set:**
 - Default (Light + Dark variants)
-- Monokai
-- Synthwave '84
+- Circuit Breaker
+- Powell Pivot
 - Stay The Course
 - High Contrast (accessibility-focused, dark-only)
 

@@ -55,6 +55,23 @@ describe('GET /api/v1/themes', () => {
         ThemeFamilyId.HighContrast,
       ]),
     );
+    const familyNames = body.families.map((family: { name: string }) => family.name);
+    expect(familyNames).toEqual(expect.arrayContaining(['Circuit Breaker', 'Powell Pivot']));
+    expect(familyNames).not.toContain('Monokai');
+    expect(familyNames).not.toContain("Synthwave '84");
+
+    const monokaiAppearances = body.variants
+      .filter((variant: { familyId: ThemeFamilyId }) => variant.familyId === ThemeFamilyId.Monokai)
+      .map((variant: { appearance: ThemeAppearance }) => variant.appearance);
+    expect(monokaiAppearances).toEqual(
+      expect.arrayContaining([ThemeAppearance.Light, ThemeAppearance.Dark]),
+    );
+    const synthwaveAppearances = body.variants
+      .filter((variant: { familyId: ThemeFamilyId }) => variant.familyId === ThemeFamilyId.Synthwave84)
+      .map((variant: { appearance: ThemeAppearance }) => variant.appearance);
+    expect(synthwaveAppearances).toEqual(
+      expect.arrayContaining([ThemeAppearance.Light, ThemeAppearance.Dark]),
+    );
 
     await app.close();
   });

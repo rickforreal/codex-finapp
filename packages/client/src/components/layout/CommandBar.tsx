@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState, type ChangeEvent } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState, type ChangeEvent } from 'react';
 
 import {
   AppMode,
@@ -133,6 +133,8 @@ const withBoundaryStartAnchor = (
 export const CommandBar = () => {
   const fileInputRef = useRef<HTMLInputElement | null>(null);
   const selectedThemeRowRef = useRef<HTMLButtonElement | null>(null);
+  const bookmarksMenuRef = useRef<HTMLDivElement | null>(null);
+  const themeMenuRef = useRef<HTMLDivElement | null>(null);
   const [themeMenuOpen, setThemeMenuOpen] = useState(false);
   const [bookmarksMenuOpen, setBookmarksMenuOpen] = useState(false);
   const [bookmarks, setBookmarks] = useState<BookmarkRecord[]>([]);
@@ -189,6 +191,65 @@ export const CommandBar = () => {
     }
     selectedThemeRowRef.current?.scrollIntoView({ block: 'nearest' });
   }, [themeMenuOpen, theme.selectedThemeFamilyId]);
+
+  useEffect(() => {
+    const handleOutsidePointer = (event: MouseEvent | TouchEvent) => {
+      const target = event.target;
+      if (!(target instanceof Node)) {
+        return;
+      }
+      if (themeMenuOpen && themeMenuRef.current && !themeMenuRef.current.contains(target)) {
+        setThemeMenuOpen(false);
+      }
+      if (bookmarksMenuOpen && bookmarksMenuRef.current && !bookmarksMenuRef.current.contains(target)) {
+        setBookmarksMenuOpen(false);
+      }
+    };
+
+    document.addEventListener('mousedown', handleOutsidePointer);
+    document.addEventListener('touchstart', handleOutsidePointer);
+    return () => {
+      document.removeEventListener('mousedown', handleOutsidePointer);
+      document.removeEventListener('touchstart', handleOutsidePointer);
+    };
+  }, [bookmarksMenuOpen, themeMenuOpen]);
+
+  const orderedThemeFamilies = useMemo(() => {
+    const pinnedOrder = [
+      'default',
+      'highContrast',
+      'moneyNeverSleeps',
+      'patagoniaVest',
+      'stayTheCourse',
+    ] as const;
+    const pinnedRank = new Map<string, number>(pinnedOrder.map((id, index) => [id, index]));
+    const stableHash = (value: string): number => {
+      let hash = 0;
+      for (let index = 0; index < value.length; index += 1) {
+        hash = (hash * 31 + value.charCodeAt(index)) >>> 0;
+      }
+      return hash;
+    };
+
+    return [...theme.families].sort((left, right) => {
+      const leftRank = pinnedRank.get(left.id);
+      const rightRank = pinnedRank.get(right.id);
+      if (leftRank !== undefined || rightRank !== undefined) {
+        if (leftRank === undefined) {
+          return 1;
+        }
+        if (rightRank === undefined) {
+          return -1;
+        }
+        return leftRank - rightRank;
+      }
+      const hashDiff = stableHash(left.id) - stableHash(right.id);
+      if (hashDiff !== 0) {
+        return hashDiff;
+      }
+      return left.id.localeCompare(right.id);
+    });
+  }, [theme.families]);
 
   const getDefaultSnapshotName = () => {
     const now = new Date();
@@ -624,7 +685,7 @@ export const CommandBar = () => {
               Create Bookmark
             </span>
           </div>
-          <div className="relative">
+          <div ref={bookmarksMenuRef} className="relative">
             <button
               type="button"
               onClick={() => {
@@ -697,7 +758,7 @@ export const CommandBar = () => {
               </div>
             ) : null}
           </div>
-          <div className="relative">
+          <div ref={themeMenuRef} className="relative">
             <button
               type="button"
               onClick={() => {
@@ -719,7 +780,7 @@ export const CommandBar = () => {
               <div className="theme-commandbar-popover absolute right-0 top-11 z-30 w-64 rounded-md border p-2 shadow-lg">
                 <p className="theme-commandbar-popover-title px-2 pb-1 text-[11px] font-semibold uppercase tracking-wide">Theme</p>
                 <div className="theme-commandbar-scrollbar max-h-80 space-y-1 overflow-y-auto pr-1">
-                  {theme.families.map((family) => {
+                  {orderedThemeFamilies.map((family) => {
                     const selected = family.id === theme.selectedThemeFamilyId;
                     const supportsLight = family.supportedAppearances.includes(ThemeAppearance.Light);
                     const supportsDark = family.supportedAppearances.includes(ThemeAppearance.Dark);
@@ -820,7 +881,7 @@ export const CommandBar = () => {
                       </button>
                     );
                   })}
-                  {theme.families.length === 0 ? (
+                  {orderedThemeFamilies.length === 0 ? (
                     <p className="theme-commandbar-muted px-2 py-1 text-xs">
                       {theme.status === 'error'
                         ? (theme.errorMessage ?? 'Failed to load themes')

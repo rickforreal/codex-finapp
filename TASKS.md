@@ -1519,6 +1519,40 @@
       [AC2] PROGRESS.txt updated with implementation summary.
       [AC3] Root docs confirm theme system supports extended catalog.
 
+## Feature Plan — Theme Families + Per-Theme Appearance (Light/Dark) v1.1
+
+- [x] TFLD11-T1: Create v1.1 feature docs for replacement wave
+      Phase: Feature/ThemeFamilies-LightDark-v1.1
+      Dependencies: TFLD1-T4
+      Acceptance Criteria:
+      [AC1] `docs/features/theme-families-light-dark-v1-1/{FEATURE,PLAN,ACCEPTANCE}.md` exist.
+      [AC2] `PLAN.md` includes Delta From Baseline referencing `theme-families-light-dark-v1`.
+      [AC3] Compatibility strategy (stable IDs) is documented.
+
+- [x] TFLD11-T2: Replace Monokai/Synthwave84 dark variants with Circuit Breaker/Powell Pivot
+      Phase: Feature/ThemeFamilies-LightDark-v1.1
+      Dependencies: TFLD11-T1
+      Acceptance Criteria:
+      [AC1] `ThemeVariantId.MonokaiDark` and `ThemeVariantId.Synthwave84Dark` use replacement metadata/tokens.
+      [AC2] Family metadata and legacy catalog labels expose replacement names while keeping IDs stable.
+      [AC3] `/api/v1/themes` remains schema-compatible.
+
+- [x] TFLD11-T3: Add targeted light variant overrides for replacement families
+      Phase: Feature/ThemeFamilies-LightDark-v1.1
+      Dependencies: TFLD11-T2
+      Acceptance Criteria:
+      [AC1] `MonokaiLight` gets Circuit Breaker-specific surface/text/border/chart/state overrides.
+      [AC2] `Synthwave84Light` gets Powell Pivot-specific surface/text/border/chart/state overrides.
+      [AC3] Replacement light variants remain distinct from generic generated defaults.
+
+- [x] TFLD11-T4: Update tests/docs and run regression gate
+      Phase: Feature/ThemeFamilies-LightDark-v1.1
+      Dependencies: TFLD11-T2, TFLD11-T3
+      Acceptance Criteria:
+      [AC1] Themes route tests assert replacement family names and stable legacy IDs.
+      [AC2] `docs/SPECS.md` reflects replacement names in Affordance #66 family list.
+      [AC3] `npm run typecheck`, `npm run lint`, `npm test`, and `npm run build` pass.
+
 ## Minor Change Plan — CHG-0005 Theme Dropdown Scroll + Selected-Row Visibility
 
 - [x] CHG-0005-T1: Add bounded scroll container and selected-row auto-scroll in theme popover
@@ -1544,3 +1578,47 @@
       [AC1] Scrollbar track and thumb colors derive from command bar popover theme slots.
       [AC2] Themed scrollbar styles are applied to theme and bookmark popover scroll containers.
       [AC3] Dark themes no longer show bright white popover scrollbars.
+
+## Minor Change Plan — CHG-0006 Segmented Toggle Active Hover Contrast
+
+- [x] CHG-0006-T1: Fix segmented active-option hover specificity
+      Phase: Minor Change/CHG-0006
+      Dependencies: none
+      Acceptance Criteria:
+      [AC1] Active segmented option keeps active fill/text while hovered.
+      [AC2] Inactive segmented options preserve hover treatment.
+      [AC3] Fix applies consistently across light/dark themes.
+
+- [x] CHG-0006-T2: Update change docs/index and trackers
+      Phase: Minor Change/CHG-0006
+      Dependencies: CHG-0006-T1
+      Acceptance Criteria:
+      [AC1] `docs/changes/CHG-0006-segmented-toggle-active-hover-contrast/{CHANGE,ACCEPTANCE}.md` created.
+      [AC2] `docs/changes/INDEX.md` includes CHG-0006 row.
+      [AC3] `PROGRESS.txt` has append-only CHG-0006 completion entry.
+
+## Minor Change Plan — CHG-0007 Theme Menu Order + Outside-Click Close
+
+- [x] CHG-0007-T1: Reorder theme menu list with pinned top priorities
+      Phase: Minor Change/CHG-0007
+      Dependencies: none
+      Acceptance Criteria:
+      [AC1] Theme menu begins with Default, High Contrast, Money Never Sleeps, Patagonia Vest, Stay The Course.
+      [AC2] Remaining families use stable pseudo-random ordering.
+      [AC3] Existing selection/highlight behavior is preserved.
+
+- [x] CHG-0007-T2: Close command bar menus on outside click
+      Phase: Minor Change/CHG-0007
+      Dependencies: CHG-0007-T1
+      Acceptance Criteria:
+      [AC1] Theme menu closes on outside click/tap.
+      [AC2] Bookmarks menu closes on outside click/tap.
+      [AC3] In-menu interactions continue to function without accidental close.
+
+- [x] CHG-0007-T3: Update change docs/index and trackers
+      Phase: Minor Change/CHG-0007
+      Dependencies: CHG-0007-T2
+      Acceptance Criteria:
+      [AC1] `docs/changes/CHG-0007-theme-menu-order-and-outside-close/{CHANGE,ACCEPTANCE}.md` created.
+      [AC2] `docs/changes/INDEX.md` includes CHG-0007 row.
+      [AC3] `PROGRESS.txt` has append-only CHG-0007 completion entry.

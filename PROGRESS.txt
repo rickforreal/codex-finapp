@@ -1768,3 +1768,72 @@ Canonical docs impact:
   - `TASKS.md`
   - `docs/changes/CHG-0005-theme-dropdown-scroll-selected-visibility/CHANGE.md`
   - `docs/changes/CHG-0005-theme-dropdown-scroll-selected-visibility/ACCEPTANCE.md`
+
+2026-03-01 — TFLD11-T1/T2/T3/T4: Theme Families v1.1 replacement wave | COMPLETE
+- Created feature update docs:
+  - `docs/features/theme-families-light-dark-v1-1/FEATURE.md`
+  - `docs/features/theme-families-light-dark-v1-1/PLAN.md`
+  - `docs/features/theme-families-light-dark-v1-1/ACCEPTANCE.md`
+- Replaced user-facing legacy families while preserving stable IDs:
+  - `ThemeFamilyId.Monokai` / `ThemeVariantId.Monokai*` now render as **Circuit Breaker**.
+  - `ThemeFamilyId.Synthwave84` / `ThemeVariantId.Synthwave84*` now render as **Powell Pivot**.
+- Updated dark variant token bundles in `packages/server/src/themes/registry.ts` for both replacement families using the approved palettes.
+- Added targeted post-generation light overrides for `MonokaiLight` and `Synthwave84Light` so replacement light variants are distinct (non-generic) while retaining stable IDs.
+- Updated family metadata and legacy catalog labels in `/api/v1/themes` response payload to replacement names/descriptions.
+- Extended route tests (`packages/server/tests/routes/themes.test.ts`) to verify:
+  - replacement names present,
+  - old Monokai/Synthwave labels absent from active family names,
+  - both replacement families still expose light+dark appearances,
+  - legacy catalog IDs remain intact.
+- Updated canonical UX doc list in `docs/SPECS.md` Affordance #66 to `Circuit Breaker` and `Powell Pivot`.
+
+Validation run (all passing):
+- `npm run typecheck`
+- `npm run lint`
+- `npm test`
+- `npm run build`
+
+Canonical docs impact:
+- Updated:
+  - `docs/SPECS.md`
+- No canonical contract impact:
+  - `docs/API.md` (unchanged)
+  - `docs/DATA_MODEL.md` (unchanged)
+  - `docs/ARCHITECTURE.md` (unchanged)
+- `docs/SCENARIOS.md` unchanged (no named-family references required for this wave).
+
+2026-03-01 — CHG-0006: Segmented toggle active-hover contrast fix | COMPLETE
+- Fixed segmented toggle hover specificity so active option retains active fill/text while hovered.
+- Added explicit `.theme-segmented-option-active:hover` rule in shared client theme CSS.
+- This resolves Planning/Tracking (and other segmented controls) hover regressions in light and dark themes.
+
+Validation run (passing):
+- `npm run typecheck`
+- `npm run lint`
+
+Canonical docs impact:
+- No canonical doc impact.
+- Updated minor-change artifacts:
+  - `docs/changes/INDEX.md`
+  - `docs/changes/CHG-0006-segmented-toggle-active-hover-contrast/CHANGE.md`
+  - `docs/changes/CHG-0006-segmented-toggle-active-hover-contrast/ACCEPTANCE.md`
+  - `TASKS.md`
+
+2026-03-01 — CHG-0007: Theme menu order + outside-click close | COMPLETE
+- Updated command bar theme family ordering with pinned top priorities:
+  1) Default, 2) High Contrast, 3) Money Never Sleeps, 4) Patagonia Vest, 5) Stay The Course.
+- Added stable pseudo-random ordering for remaining theme families.
+- Added outside-click/tap dismissal for command bar Theme and Bookmarks popover menus.
+- Kept in-menu interactions intact (selection/toggles/delete actions continue to work).
+
+Validation run (passing):
+- `npm run typecheck`
+- `npm run lint`
+
+Canonical docs impact:
+- No canonical doc impact.
+- Updated minor-change artifacts:
+  - `docs/changes/INDEX.md`
+  - `docs/changes/CHG-0007-theme-menu-order-and-outside-close/CHANGE.md`
+  - `docs/changes/CHG-0007-theme-menu-order-and-outside-close/ACCEPTANCE.md`
+  - `TASKS.md`
