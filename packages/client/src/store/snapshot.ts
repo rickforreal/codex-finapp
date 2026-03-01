@@ -934,6 +934,16 @@ const unpackSnapshotState = (packed: unknown): SnapshotState => {
     stress: unpackStressState(data.stress),
   };
 
+  const rawCompareWorkspace = (data as { compareWorkspace?: unknown }).compareWorkspace;
+  const hasLegacyCompareSyncGap =
+    rawCompareWorkspace &&
+    typeof rawCompareWorkspace === 'object' &&
+    !('compareSync' in (rawCompareWorkspace as Record<string, unknown>));
+
+  if (!hasLegacyCompareSyncGap) {
+    return unpacked;
+  }
+
   const clearWorkspace = (workspace: WorkspaceSnapshot | null): WorkspaceSnapshot | null =>
     workspace
       ? {

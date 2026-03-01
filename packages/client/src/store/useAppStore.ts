@@ -1503,60 +1503,8 @@ const isCompareInstanceLockedAndSyncedForActiveSlot = (
   return isSlotInstanceSynced(compareSync, activeSlotId, family, instanceId);
 };
 
-const clearSpendingPhasesInWorkspace = (
-  workspace: WorkspaceSnapshot | null,
-): WorkspaceSnapshot | null => {
-  if (!workspace) {
-    return null;
-  }
-  return {
-    ...workspace,
-    spendingPhases: [],
-  };
-};
-
-const clearSnapshotSpendingPhases = (snapshot: SnapshotState): SnapshotState => {
-  const compareWorkspaceSlots = Object.fromEntries(
-    Object.entries(snapshot.compareWorkspace.slots).map(([slotId, workspace]) => [
-      slotId,
-      clearSpendingPhasesInWorkspace(workspace ?? null),
-    ]),
-  ) as SnapshotState['compareWorkspace']['slots'];
-
-  const compareSync = snapshot.compareWorkspace.compareSync;
-  return {
-    ...snapshot,
-    spendingPhases: [],
-    planningWorkspace: clearSpendingPhasesInWorkspace(snapshot.planningWorkspace),
-    trackingWorkspace: clearSpendingPhasesInWorkspace(snapshot.trackingWorkspace),
-    compareWorkspace: {
-      ...snapshot.compareWorkspace,
-      compareSync: {
-        ...compareSync,
-        instanceLocks: {
-          ...compareSync.instanceLocks,
-          spendingPhases: {},
-        },
-        unsyncedBySlot: Object.fromEntries(
-          Object.entries(compareSync.unsyncedBySlot).map(([slotId, overrides]) => [
-            slotId,
-            {
-              ...overrides,
-              instances: {
-                ...overrides.instances,
-                spendingPhases: {},
-              },
-            },
-          ]),
-        ) as SnapshotState['compareWorkspace']['compareSync']['unsyncedBySlot'],
-      },
-      slots: compareWorkspaceSlots,
-    },
-  };
-};
-
 const cloneSnapshotState = (snapshot: SnapshotState): SnapshotState => {
-  const normalizedSnapshot = clearSnapshotSpendingPhases(snapshot);
+  const normalizedSnapshot = snapshot;
   const syncedCompareWorkspace = applyCompareSyncFromMaster(
     normalizeCompareWorkspace(cloneCompareWorkspace(normalizedSnapshot.compareWorkspace)),
   );

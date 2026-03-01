@@ -1837,3 +1837,35 @@ Canonical docs impact:
   - `docs/changes/CHG-0007-theme-menu-order-and-outside-close/CHANGE.md`
   - `docs/changes/CHG-0007-theme-menu-order-and-outside-close/ACCEPTANCE.md`
   - `TASKS.md`
+
+## 2026-03-01 — BUGFIX: Bookmark/Snapshot Spending Phases Restore | COMPLETE
+
+Fixed a regression where loading bookmarks did not restore `spendingPhases`.
+
+Root cause:
+- Snapshot parsing was unconditionally clearing `spendingPhases` from top-level and all workspaces during load.
+- Bookmark load uses snapshot parsing internally, so bookmarks inherited the same data-loss behavior.
+
+Implementation:
+- Updated `packages/client/src/store/snapshot.ts`:
+  - preserve `spendingPhases` for current snapshot payloads.
+  - keep legacy migration behavior (clear phases) only when loading snapshots missing `compareSync` in `compareWorkspace`.
+- Updated `packages/client/src/store/useAppStore.ts`:
+  - removed destructive pre-apply normalization that cleared snapshot spending phases.
+- Added/updated regression tests:
+  - `packages/client/src/store/snapshot.test.ts`
+    - new spending phase round-trip assertion
+    - legacy-clearing behavior scoped to missing-`compareSync` snapshots
+    - spending phase lock normalization expectation adjusted for preserved phase data
+  - `packages/client/src/store/bookmarks.test.ts`
+    - new spending phase round-trip assertion through bookmark create/load
+    - legacy bookmark payload test now explicitly simulates missing `compareSync`
+
+Validation run (all passing):
+- `npm run typecheck`
+- `npm run lint`
+- `npm test`
+- `npm run build`
+
+Canonical docs impact:
+- No canonical doc impact (bugfix to runtime persistence/restore correctness).

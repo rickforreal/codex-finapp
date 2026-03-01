@@ -94,6 +94,45 @@ describe('snapshot', () => {
     expect(after.simulationResults.manual?.result.rows[0]?.endBalances.stocks).toBe(2_012_000);
   });
 
+  it('preserves spending phases on snapshot apply', () => {
+    resetStore();
+    useAppStore.setState((state) => ({
+      ...state,
+      spendingPhases: [
+        {
+          id: 'phase-a',
+          name: 'Bridge Years',
+          startYear: 1,
+          endYear: 30,
+          minMonthlySpend: 4_200,
+          maxMonthlySpend: 6_200,
+        },
+      ],
+    }));
+    const before = useAppStore.getState().spendingPhases.map((phase) => ({
+      id: phase.id,
+      name: phase.name,
+      startYear: phase.startYear,
+      endYear: phase.endYear,
+      minMonthlySpend: phase.minMonthlySpend,
+      maxMonthlySpend: phase.maxMonthlySpend,
+    }));
+
+    const { json } = serializeSnapshot('Spending Phases Snapshot');
+    resetStore();
+    applySnapshot(json);
+
+    const after = useAppStore.getState().spendingPhases.map((phase) => ({
+      id: phase.id,
+      name: phase.name,
+      startYear: phase.startYear,
+      endYear: phase.endYear,
+      minMonthlySpend: phase.minMonthlySpend,
+      maxMonthlySpend: phase.maxMonthlySpend,
+    }));
+    expect(after).toEqual(before);
+  });
+
   it('rejects strict schema version mismatches', () => {
     resetStore();
     const { json } = serializeSnapshot('Versioned Snapshot');
@@ -245,11 +284,11 @@ describe('snapshot', () => {
     applySnapshot(JSON.stringify(parsed));
 
     const locks = useAppStore.getState().compareWorkspace.compareSync.instanceLocks.spendingPhases;
-    expect(locks[first]).toBeUndefined();
+    expect(locks[first]).toBe(true);
     expect(locks[third]).toBeUndefined();
   });
 
-  it('auto-clears loaded spending phases from legacy snapshots', () => {
+  it('auto-clears loaded spending phases only for legacy snapshots missing compareSync', () => {
     resetStore();
     const store = useAppStore.getState();
     store.addSpendingPhase();
@@ -260,7 +299,14 @@ describe('snapshot', () => {
     store.addSpendingPhase();
 
     const { json } = serializeSnapshot('Legacy Spending Phases');
-    applySnapshot(json);
+    const parsed = JSON.parse(json) as {
+      data: { compareWorkspace?: Record<string, unknown> };
+    };
+    if (!parsed.data.compareWorkspace) {
+      throw new Error('Expected compare workspace in snapshot');
+    }
+    delete parsed.data.compareWorkspace.compareSync;
+    applySnapshot(JSON.stringify(parsed));
 
     const state = useAppStore.getState();
     expect(state.spendingPhases).toHaveLength(0);

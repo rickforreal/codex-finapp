@@ -1,4 +1,5 @@
 import { afterEach, describe, expect, it } from 'vitest';
+import { gzip, ungzip } from 'pako';
 
 import { AssetClass } from '@finapp/shared';
 
@@ -71,6 +72,46 @@ describe('bookmarks', () => {
     expect(beforeApply).toBe(900_000);
     expect(applied.id).toBe(created.id);
     expect(useAppStore.getState().portfolio.stocks).toBe(2_500_000);
+  });
+
+  it('preserves spending phases on bookmark create/load', () => {
+    const storage = new MemoryStorage();
+    resetStore();
+    useAppStore.setState((state) => ({
+      ...state,
+      spendingPhases: [
+        {
+          id: 'phase-a',
+          name: 'Travel Window',
+          startYear: 1,
+          endYear: 30,
+          minMonthlySpend: 5_300,
+          maxMonthlySpend: 7_100,
+        },
+      ],
+    }));
+    const before = useAppStore.getState().spendingPhases.map((phase) => ({
+      id: phase.id,
+      name: phase.name,
+      startYear: phase.startYear,
+      endYear: phase.endYear,
+      minMonthlySpend: phase.minMonthlySpend,
+      maxMonthlySpend: phase.maxMonthlySpend,
+    }));
+
+    const created = createBookmark('Phases', { storage, createId: () => 'bookmark-phases' });
+    resetStore();
+    applyBookmark(created.id, { storage });
+
+    const after = useAppStore.getState().spendingPhases.map((phase) => ({
+      id: phase.id,
+      name: phase.name,
+      startYear: phase.startYear,
+      endYear: phase.endYear,
+      minMonthlySpend: phase.minMonthlySpend,
+      maxMonthlySpend: phase.maxMonthlySpend,
+    }));
+    expect(after).toEqual(before);
   });
 
   it('keeps newest bookmarks at the top and allows duplicate names', () => {
@@ -195,6 +236,29 @@ describe('bookmarks', () => {
     store.addSpendingPhase();
     expect(useAppStore.getState().spendingPhases.length).toBeGreaterThan(0);
     createBookmark('With Phases', { storage, createId: () => 'bookmark-phases' });
+
+    const raw = storage.getItem(BOOKMARKS_STORAGE_KEY);
+    if (!raw) {
+      throw new Error('Expected bookmark payload in storage');
+    }
+    const parsed = JSON.parse(raw) as {
+      version: number;
+      bookmarks: Array<{ id: string; name: string; savedAt: string; payload: string }>;
+    };
+    const target = parsed.bookmarks.find((entry) => entry.id === 'bookmark-phases');
+    if (!target) {
+      throw new Error('Expected bookmark-phases in storage');
+    }
+    const decoded = atob(target.payload);
+    const bytes = Uint8Array.from(decoded, (char) => char.charCodeAt(0));
+    const json = ungzip(bytes, { to: 'string' });
+    const snapshot = JSON.parse(json) as { data: { compareWorkspace?: Record<string, unknown> } };
+    if (snapshot.data.compareWorkspace) {
+      delete snapshot.data.compareWorkspace.compareSync;
+    }
+    const recompressed = gzip(JSON.stringify(snapshot));
+    target.payload = btoa(String.fromCharCode(...recompressed));
+    storage.setItem(BOOKMARKS_STORAGE_KEY, JSON.stringify(parsed));
 
     store.removeSpendingPhase(useAppStore.getState().spendingPhases[0]?.id ?? '');
     applyBookmark('bookmark-phases', { storage });
