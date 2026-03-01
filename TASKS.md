@@ -1518,3 +1518,29 @@
       [AC1] Feature docs created in docs/features/meme-themes-v1/
       [AC2] PROGRESS.txt updated with implementation summary.
       [AC3] Root docs confirm theme system supports extended catalog.
+
+## Minor Change Plan — CHG-0005 Theme Dropdown Scroll + Selected-Row Visibility
+
+- [x] CHG-0005-T1: Add bounded scroll container and selected-row auto-scroll in theme popover
+      Phase: Minor Change/CHG-0005
+      Dependencies: none
+      Acceptance Criteria:
+      [AC1] Theme dropdown list has bounded height with vertical scrolling for long lists.
+      [AC2] Opening theme dropdown brings the selected family row into view.
+      [AC3] Existing theme selection and light/dark toggle behavior remains unchanged.
+
+- [x] CHG-0005-T2: Update minor-change docs/index and close trackers
+      Phase: Minor Change/CHG-0005
+      Dependencies: CHG-0005-T1
+      Acceptance Criteria:
+      [AC1] `docs/changes/CHG-0005-theme-dropdown-scroll-selected-visibility/{CHANGE,ACCEPTANCE}.md` created.
+      [AC2] `docs/changes/INDEX.md` includes CHG-0005 row.
+      [AC3] `PROGRESS.txt` has append-only CHG-0005 completion entry.
+
+- [x] CHG-0005-T3: Theme popover scrollbars with command bar slot tokens
+      Phase: Minor Change/CHG-0005
+      Dependencies: CHG-0005-T1
+      Acceptance Criteria:
+      [AC1] Scrollbar track and thumb colors derive from command bar popover theme slots.
+      [AC2] Themed scrollbar styles are applied to theme and bookmark popover scroll containers.
+      [AC3] Dark themes no longer show bright white popover scrollbars.

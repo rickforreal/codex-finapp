@@ -33,3 +33,4 @@ A request belongs in:
 | CHG-0002 | Monte Carlo Detail Ledger Start Total (p50) column | Done | 2026-02-22 | 2026-02-22 | `docs/changes/CHG-0002-mc-start-total-p50-column/` |
 | CHG-0003 | Compare slot theme-adaptive visuals | Done | 2026-02-23 | 2026-02-23 | `docs/changes/CHG-0003-compare-slot-theme-adaptive-visuals/` |
 | CHG-0004 | Compare slot A non-deletable invariant | Done | 2026-02-23 | 2026-02-23 | `docs/changes/CHG-0004-compare-slot-a-non-deletable/` |
+| CHG-0005 | Theme dropdown scroll + selected-row visibility | Done | 2026-02-28 | 2026-02-28 | `docs/changes/CHG-0005-theme-dropdown-scroll-selected-visibility/` |

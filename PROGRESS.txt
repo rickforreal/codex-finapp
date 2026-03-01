@@ -1735,3 +1735,36 @@ Canonical docs impact:
   - `docs/features/meme-themes-v1/ACCEPTANCE.md`
 - Updated:
   - `TASKS.md`
+
+2026-02-28 — CHG-0005: Theme dropdown scroll + selected-row visibility | COMPLETE
+- Added bounded scroll behavior to command bar theme popover list (`max-h-80 overflow-y-auto`).
+- Added selected-row ref + open-time auto-scroll (`scrollIntoView({ block: 'nearest' })`) so reopening the menu keeps the current theme visible.
+- Preserved existing theme family selection and light/dark appearance toggle behavior.
+
+Validation run (passing):
+- `npm run typecheck`
+- `npm run lint`
+
+Canonical docs impact:
+- No canonical doc impact.
+- Updated minor-change lane artifacts only:
+  - `docs/changes/INDEX.md`
+  - `docs/changes/CHG-0005-theme-dropdown-scroll-selected-visibility/CHANGE.md`
+  - `docs/changes/CHG-0005-theme-dropdown-scroll-selected-visibility/ACCEPTANCE.md`
+  - `TASKS.md`
+
+2026-02-28 — CHG-0005-T3: Theme popover scrollbar tokenization | COMPLETE
+- Added command bar scrollbar theme slots in `index.css` for track/thumb/hover colors.
+- Added `.theme-commandbar-scrollbar` cross-browser scrollbar styling (`scrollbar-color` + WebKit pseudo-elements).
+- Applied themed scrollbar class to both scrollable command bar popovers (Bookmarks and Theme) to eliminate bright white bars in dark themes.
+
+Validation run (passing):
+- `npm run typecheck`
+- `npm run lint`
+
+Canonical docs impact:
+- No canonical doc impact.
+- Updated minor-change artifacts:
+  - `TASKS.md`
+  - `docs/changes/CHG-0005-theme-dropdown-scroll-selected-visibility/CHANGE.md`
+  - `docs/changes/CHG-0005-theme-dropdown-scroll-selected-visibility/ACCEPTANCE.md`

@@ -104,6 +104,9 @@
   --theme-slot-command-bar-popover-item: var(--theme-color-text-secondary);
   --theme-slot-command-bar-popover-item-hover-bg: var(--theme-color-surface-secondary);
   --theme-slot-command-bar-popover-item-active-bg: var(--theme-color-surface-muted);
+  --theme-slot-command-bar-scrollbar-track: color-mix(in srgb, var(--theme-slot-command-bar-popover-bg) 92%, var(--theme-slot-command-bar-popover-border));
+  --theme-slot-command-bar-scrollbar-thumb: color-mix(in srgb, var(--theme-slot-command-bar-popover-item) 30%, var(--theme-slot-command-bar-popover-bg));
+  --theme-slot-command-bar-scrollbar-thumb-hover: color-mix(in srgb, var(--theme-slot-command-bar-popover-item) 45%, var(--theme-slot-command-bar-popover-bg));
   --theme-slot-command-bar-tooltip-bg: var(--theme-color-neutral-800);
   --theme-slot-command-bar-tooltip-text: var(--theme-color-text-inverse);
   --theme-slot-command-bar-modal-backdrop: color-mix(in srgb, var(--theme-color-text-primary) 45%, transparent);
@@ -368,6 +371,30 @@ select option {
 
 .theme-commandbar-popover-item-active {
   background-color: var(--theme-slot-command-bar-popover-item-active-bg);
+}
+
+.theme-commandbar-scrollbar {
+  scrollbar-width: thin;
+  scrollbar-color: var(--theme-slot-command-bar-scrollbar-thumb) var(--theme-slot-command-bar-scrollbar-track);
+}
+
+.theme-commandbar-scrollbar::-webkit-scrollbar {
+  width: 10px;
+}
+
+.theme-commandbar-scrollbar::-webkit-scrollbar-track {
+  background-color: var(--theme-slot-command-bar-scrollbar-track);
+  border-radius: 999px;
+}
+
+.theme-commandbar-scrollbar::-webkit-scrollbar-thumb {
+  background-color: var(--theme-slot-command-bar-scrollbar-thumb);
+  border-radius: 999px;
+  border: 2px solid var(--theme-slot-command-bar-scrollbar-track);
+}
+
+.theme-commandbar-scrollbar::-webkit-scrollbar-thumb:hover {
+  background-color: var(--theme-slot-command-bar-scrollbar-thumb-hover);
 }
 
 .theme-commandbar-popover-item-name {

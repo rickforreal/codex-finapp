@@ -132,6 +132,7 @@ const withBoundaryStartAnchor = (
 
 export const CommandBar = () => {
   const fileInputRef = useRef<HTMLInputElement | null>(null);
+  const selectedThemeRowRef = useRef<HTMLButtonElement | null>(null);
   const [themeMenuOpen, setThemeMenuOpen] = useState(false);
   const [bookmarksMenuOpen, setBookmarksMenuOpen] = useState(false);
   const [bookmarks, setBookmarks] = useState<BookmarkRecord[]>([]);
@@ -181,6 +182,13 @@ export const CommandBar = () => {
   useEffect(() => {
     refreshBookmarks();
   }, [refreshBookmarks]);
+
+  useEffect(() => {
+    if (!themeMenuOpen) {
+      return;
+    }
+    selectedThemeRowRef.current?.scrollIntoView({ block: 'nearest' });
+  }, [themeMenuOpen, theme.selectedThemeFamilyId]);
 
   const getDefaultSnapshotName = () => {
     const now = new Date();
@@ -635,7 +643,7 @@ export const CommandBar = () => {
             {bookmarksMenuOpen ? (
               <div className="theme-commandbar-popover absolute right-0 top-11 z-30 w-80 rounded-md border p-2 shadow-lg">
                 <p className="theme-commandbar-popover-title px-2 pb-1 text-[11px] font-semibold uppercase tracking-wide">Bookmarks</p>
-                <div className="max-h-72 overflow-y-auto">
+                <div className="theme-commandbar-scrollbar max-h-72 overflow-y-auto">
                   {bookmarks.length === 0 ? (
                     <p className="theme-commandbar-muted px-2 py-2 text-xs">No bookmarks saved yet.</p>
                   ) : (
@@ -710,7 +718,7 @@ export const CommandBar = () => {
             {themeMenuOpen ? (
               <div className="theme-commandbar-popover absolute right-0 top-11 z-30 w-64 rounded-md border p-2 shadow-lg">
                 <p className="theme-commandbar-popover-title px-2 pb-1 text-[11px] font-semibold uppercase tracking-wide">Theme</p>
-                <div className="space-y-1">
+                <div className="theme-commandbar-scrollbar max-h-80 space-y-1 overflow-y-auto pr-1">
                   {theme.families.map((family) => {
                     const selected = family.id === theme.selectedThemeFamilyId;
                     const supportsLight = family.supportedAppearances.includes(ThemeAppearance.Light);
@@ -719,6 +727,11 @@ export const CommandBar = () => {
                     return (
                       <button
                         key={family.id}
+                        ref={(element) => {
+                          if (selected) {
+                            selectedThemeRowRef.current = element;
+                          }
+                        }}
                         type="button"
                         onClick={() => {
                           setSelectedThemeFamilyId(family.id);
