@@ -1697,3 +1697,41 @@ Validation run (all passing):
 Canonical docs impact:
 - Updated:
   - `docs/features/themes/GUIDE.md`
+
+2026-02-28 — MT-T1: Add 40+ meme theme families to shared enums | COMPLETE
+- Added 40 new ThemeFamilyId entries to enums.ts:
+  - PatagoniaVest, MoneyNeverSleeps, Hodl, TrustMeBro, ThreePieceSuit
+  - BuyHighSellLow, ExitStrategy, Ath, Coastin, MarginCall, BigShort
+  - HoldingTheBag, Boglehead, CryptoBro, TheVillages, SeedRound
+  - Nineteen87, Ramen, ToTheMoon, Wagmi, Ngmi, BuyTheDip
+  - ThisIsFine, DeadCatBounce, RugPull, Whale, LamboLoading
+  - TheSingularity, ZoomOutBro, BlackSwan, TulipMania, Nineteen29Vibes
+  - DotComShuffle, BeanieBaby, DebtSnowball, SirThisIsAWendys
+  - Hopium, Copium, BaristaFire, ThisTimeItsDifferent, Satoshi
+- Added 80 new ThemeVariantId entries (light + dark for each family)
+- Updated client store defaults in useAppStore.ts and snapshot.ts
+
+2026-02-28 — MT-T2: Implement server registry with dark variants | COMPLETE
+- Added 40 dark theme variants with unique color tokens to registry.ts
+- Each theme has distinctive palette matching its name/personality
+- Light variants auto-generated preserving family accent colors
+- Added family definitions with descriptions
+
+2026-02-28 — MT-T3: Complete canonical docs updates | COMPLETE
+- Created feature folder docs/features/meme-themes-v1/
+- Created FEATURE.md, PLAN.md, ACCEPTANCE.md
+- Updated TASKS.md with MT-T1, MT-T2, MT-T3
+
+Validation run (all passing):
+- `npm run typecheck`
+- `npm run lint`
+- `npm test`
+- `npm run build`
+
+Canonical docs impact:
+- Created:
+  - `docs/features/meme-themes-v1/FEATURE.md`
+  - `docs/features/meme-themes-v1/PLAN.md`
+  - `docs/features/meme-themes-v1/ACCEPTANCE.md`
+- Updated:
+  - `TASKS.md`

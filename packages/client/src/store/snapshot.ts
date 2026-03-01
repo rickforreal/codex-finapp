@@ -13,7 +13,13 @@ import {
   type StressTestResult,
 } from '@finapp/shared';
 
-import { getSnapshotState, type CompareSlotId, type SnapshotState, type WorkspaceSnapshot, useAppStore } from './useAppStore';
+import {
+  getSnapshotState,
+  type CompareSlotId,
+  type SnapshotState,
+  type WorkspaceSnapshot,
+  useAppStore,
+} from './useAppStore';
 
 export const SNAPSHOT_SCHEMA_VERSION = 6;
 
@@ -57,9 +63,11 @@ type PackedStressResult = Omit<StressTestResult, 'base' | 'scenarios'> & {
   base: Omit<StressTestResult['base'], 'result'> & {
     result: PackedSinglePathResult;
   };
-  scenarios: Array<Omit<StressTestResult['scenarios'][number], 'result'> & {
-    result: PackedSinglePathResult;
-  }>;
+  scenarios: Array<
+    Omit<StressTestResult['scenarios'][number], 'result'> & {
+      result: PackedSinglePathResult;
+    }
+  >;
 };
 
 type PackedSimulationResults = {
@@ -88,7 +96,10 @@ type PackedCompareWorkspace = {
   slots: Partial<Record<CompareSlotId, PackedWorkspaceSnapshot>>;
 };
 
-type PackedSnapshotState = Omit<SnapshotState, 'planningWorkspace' | 'trackingWorkspace' | 'compareWorkspace' | 'simulationResults' | 'stress'> & {
+type PackedSnapshotState = Omit<
+  SnapshotState,
+  'planningWorkspace' | 'trackingWorkspace' | 'compareWorkspace' | 'simulationResults' | 'stress'
+> & {
   planningWorkspace: PackedWorkspaceSnapshot | null;
   trackingWorkspace: PackedWorkspaceSnapshot | null;
   compareWorkspace: PackedCompareWorkspace;
@@ -155,9 +166,15 @@ const snapshotStateSchema = z
     portfolio: assetBalancesSchema,
     returnAssumptions: z
       .object({
-        stocks: z.object({ expectedReturn: z.number().min(-1).max(1), stdDev: z.number().min(0).max(1) }).strict(),
-        bonds: z.object({ expectedReturn: z.number().min(-1).max(1), stdDev: z.number().min(0).max(1) }).strict(),
-        cash: z.object({ expectedReturn: z.number().min(-1).max(1), stdDev: z.number().min(0).max(1) }).strict(),
+        stocks: z
+          .object({ expectedReturn: z.number().min(-1).max(1), stdDev: z.number().min(0).max(1) })
+          .strict(),
+        bonds: z
+          .object({ expectedReturn: z.number().min(-1).max(1), stdDev: z.number().min(0).max(1) })
+          .strict(),
+        cash: z
+          .object({ expectedReturn: z.number().min(-1).max(1), stdDev: z.number().min(0).max(1) })
+          .strict(),
       })
       .strict(),
     spendingPhases: z.array(z.unknown()),
@@ -173,7 +190,9 @@ const snapshotStateSchema = z
     theme: z
       .object({
         selectedThemeFamilyId: z.nativeEnum(ThemeFamilyId).optional(),
-        selectedAppearanceByFamily: z.record(z.string().min(1), z.nativeEnum(ThemeAppearance)).optional(),
+        selectedAppearanceByFamily: z
+          .record(z.string().min(1), z.nativeEnum(ThemeAppearance))
+          .optional(),
         defaultThemeFamilyId: z.nativeEnum(ThemeFamilyId).optional(),
         defaultAppearance: z.nativeEnum(ThemeAppearance).optional(),
         activeVariantId: z.string().nullable().optional(),
@@ -219,7 +238,9 @@ const makeDownloadFilename = (name: string): string => {
 const invalidSnapshot = (): SnapshotLoadError =>
   new SnapshotLoadError('invalid_snapshot', "This file doesn't appear to be a valid snapshot.");
 
-const mapLegacyThemeIdToSelection = (themeId: ThemeId): { familyId: ThemeFamilyId; appearance: ThemeAppearance } => {
+const mapLegacyThemeIdToSelection = (
+  themeId: ThemeId,
+): { familyId: ThemeFamilyId; appearance: ThemeAppearance } => {
   switch (themeId) {
     case ThemeId.Light:
       return { familyId: ThemeFamilyId.Default, appearance: ThemeAppearance.Light };
@@ -415,7 +436,9 @@ const packSimulationResults = (
   errorMessage: simulationResults.errorMessage,
 });
 
-const unpackSimulationResults = (simulationResults: unknown): SnapshotState['simulationResults'] => {
+const unpackSimulationResults = (
+  simulationResults: unknown,
+): SnapshotState['simulationResults'] => {
   if (!simulationResults || typeof simulationResults !== 'object') {
     throw invalidSnapshot();
   }
@@ -489,7 +512,10 @@ const unpackStressResult = (result: unknown): StressTestResult | null => {
     timingSensitivity?: unknown;
   };
 
-  if (record.simulationMode !== SimulationMode.Manual && record.simulationMode !== SimulationMode.MonteCarlo) {
+  if (
+    record.simulationMode !== SimulationMode.Manual &&
+    record.simulationMode !== SimulationMode.MonteCarlo
+  ) {
     throw invalidSnapshot();
   }
 
@@ -510,7 +536,9 @@ const unpackStressResult = (result: unknown): StressTestResult | null => {
     if (!scenario || typeof scenario !== 'object') {
       throw invalidSnapshot();
     }
-    const entry = scenario as Omit<StressTestResult['scenarios'][number], 'result'> & { result?: unknown };
+    const entry = scenario as Omit<StressTestResult['scenarios'][number], 'result'> & {
+      result?: unknown;
+    };
     if (!entry.result) {
       throw invalidSnapshot();
     }
@@ -592,7 +620,9 @@ const packWorkspace = (workspace: WorkspaceSnapshot | null): PackedWorkspaceSnap
   };
 };
 
-const packCompareWorkspace = (compareWorkspace: SnapshotState['compareWorkspace']): PackedCompareWorkspace => ({
+const packCompareWorkspace = (
+  compareWorkspace: SnapshotState['compareWorkspace'],
+): PackedCompareWorkspace => ({
   activeSlotId: compareWorkspace.activeSlotId,
   baselineSlotId: compareWorkspace.baselineSlotId,
   slotOrder: [...compareWorkspace.slotOrder],
@@ -708,13 +738,18 @@ const unpackCompareWorkspace = (compareWorkspace: unknown): SnapshotState['compa
     throw invalidSnapshot();
   }
 
-  const slotOrder = record.slotOrder.filter((entry): entry is CompareSlotId => isCompareSlotId(entry));
+  const slotOrder = record.slotOrder.filter((entry): entry is CompareSlotId =>
+    isCompareSlotId(entry),
+  );
   if (slotOrder.length < 1 || slotOrder.length > 8) {
     throw invalidSnapshot();
   }
 
   const slots = Object.fromEntries(
-    Object.entries(record.slots as Record<string, unknown>).map(([slotId, workspace]) => [slotId, unpackWorkspace(workspace)]),
+    Object.entries(record.slots as Record<string, unknown>).map(([slotId, workspace]) => [
+      slotId,
+      unpackWorkspace(workspace),
+    ]),
   ) as SnapshotState['compareWorkspace']['slots'];
 
   const normalizedSlots = Object.fromEntries(
@@ -723,34 +758,54 @@ const unpackCompareWorkspace = (compareWorkspace: unknown): SnapshotState['compa
   const normalizedOrder = slotOrder.filter((slotId) => normalizedSlots[slotId]);
   const resolvedOrder: CompareSlotId[] = normalizedOrder.length >= 1 ? normalizedOrder : ['A'];
   const recordActiveSlotId = isCompareSlotId(record.activeSlotId) ? record.activeSlotId : null;
-  const recordBaselineSlotId = isCompareSlotId(record.baselineSlotId) ? record.baselineSlotId : null;
-  const activeSlotId = recordActiveSlotId && resolvedOrder.includes(recordActiveSlotId)
-    ? recordActiveSlotId
-    : (resolvedOrder[0] ?? 'A');
-  const baselineSlotId = recordBaselineSlotId && resolvedOrder.includes(recordBaselineSlotId)
-    ? recordBaselineSlotId
-    : (resolvedOrder[0] ?? 'A');
+  const recordBaselineSlotId = isCompareSlotId(record.baselineSlotId)
+    ? record.baselineSlotId
+    : null;
+  const activeSlotId =
+    recordActiveSlotId && resolvedOrder.includes(recordActiveSlotId)
+      ? recordActiveSlotId
+      : (resolvedOrder[0] ?? 'A');
+  const baselineSlotId =
+    recordBaselineSlotId && resolvedOrder.includes(recordBaselineSlotId)
+      ? recordBaselineSlotId
+      : (resolvedOrder[0] ?? 'A');
   const compareSyncFallback = defaultCompareWorkspace().compareSync;
   const compareSync =
     record.compareSync && typeof record.compareSync === 'object'
       ? {
           familyLocks: {
             ...compareSyncFallback.familyLocks,
-            ...((record.compareSync as { familyLocks?: unknown }).familyLocks as Partial<typeof compareSyncFallback.familyLocks>),
+            ...((record.compareSync as { familyLocks?: unknown }).familyLocks as Partial<
+              typeof compareSyncFallback.familyLocks
+            >),
           },
           instanceLocks: {
             spendingPhases: {
-              ...((record.compareSync as { instanceLocks?: { spendingPhases?: Record<string, boolean> } }).instanceLocks?.spendingPhases ?? {}),
+              ...((
+                record.compareSync as {
+                  instanceLocks?: { spendingPhases?: Record<string, boolean> };
+                }
+              ).instanceLocks?.spendingPhases ?? {}),
             },
             incomeEvents: {
-              ...((record.compareSync as { instanceLocks?: { incomeEvents?: Record<string, boolean> } }).instanceLocks?.incomeEvents ?? {}),
+              ...((
+                record.compareSync as { instanceLocks?: { incomeEvents?: Record<string, boolean> } }
+              ).instanceLocks?.incomeEvents ?? {}),
             },
             expenseEvents: {
-              ...((record.compareSync as { instanceLocks?: { expenseEvents?: Record<string, boolean> } }).instanceLocks?.expenseEvents ?? {}),
+              ...((
+                record.compareSync as {
+                  instanceLocks?: { expenseEvents?: Record<string, boolean> };
+                }
+              ).instanceLocks?.expenseEvents ?? {}),
             },
           },
           unsyncedBySlot: {
-            ...((record.compareSync as { unsyncedBySlot?: SnapshotState['compareWorkspace']['compareSync']['unsyncedBySlot'] }).unsyncedBySlot ?? {}),
+            ...((
+              record.compareSync as {
+                unsyncedBySlot?: SnapshotState['compareWorkspace']['compareSync']['unsyncedBySlot'];
+              }
+            ).unsyncedBySlot ?? {}),
           },
         }
       : compareSyncFallback;
@@ -804,12 +859,54 @@ const unpackSnapshotState = (packed: unknown): SnapshotState => {
     [ThemeFamilyId.Synthwave84]: ThemeAppearance.Dark,
     [ThemeFamilyId.StayTheCourse]: ThemeAppearance.Dark,
     [ThemeFamilyId.HighContrast]: ThemeAppearance.Dark,
+    [ThemeFamilyId.PatagoniaVest]: ThemeAppearance.Dark,
+    [ThemeFamilyId.MoneyNeverSleeps]: ThemeAppearance.Dark,
+    [ThemeFamilyId.Hodl]: ThemeAppearance.Dark,
+    [ThemeFamilyId.TrustMeBro]: ThemeAppearance.Dark,
+    [ThemeFamilyId.ThreePieceSuit]: ThemeAppearance.Dark,
+    [ThemeFamilyId.BuyHighSellLow]: ThemeAppearance.Dark,
+    [ThemeFamilyId.ExitStrategy]: ThemeAppearance.Dark,
+    [ThemeFamilyId.Ath]: ThemeAppearance.Dark,
+    [ThemeFamilyId.Coastin]: ThemeAppearance.Dark,
+    [ThemeFamilyId.MarginCall]: ThemeAppearance.Dark,
+    [ThemeFamilyId.BigShort]: ThemeAppearance.Dark,
+    [ThemeFamilyId.HoldingTheBag]: ThemeAppearance.Dark,
+    [ThemeFamilyId.Boglehead]: ThemeAppearance.Dark,
+    [ThemeFamilyId.CryptoBro]: ThemeAppearance.Dark,
+    [ThemeFamilyId.TheVillages]: ThemeAppearance.Dark,
+    [ThemeFamilyId.SeedRound]: ThemeAppearance.Dark,
+    [ThemeFamilyId.Nineteen87]: ThemeAppearance.Dark,
+    [ThemeFamilyId.Ramen]: ThemeAppearance.Dark,
+    [ThemeFamilyId.ToTheMoon]: ThemeAppearance.Dark,
+    [ThemeFamilyId.Wagmi]: ThemeAppearance.Dark,
+    [ThemeFamilyId.Ngmi]: ThemeAppearance.Dark,
+    [ThemeFamilyId.BuyTheDip]: ThemeAppearance.Dark,
+    [ThemeFamilyId.ThisIsFine]: ThemeAppearance.Dark,
+    [ThemeFamilyId.DeadCatBounce]: ThemeAppearance.Dark,
+    [ThemeFamilyId.RugPull]: ThemeAppearance.Dark,
+    [ThemeFamilyId.Whale]: ThemeAppearance.Dark,
+    [ThemeFamilyId.LamboLoading]: ThemeAppearance.Dark,
+    [ThemeFamilyId.TheSingularity]: ThemeAppearance.Dark,
+    [ThemeFamilyId.ZoomOutBro]: ThemeAppearance.Dark,
+    [ThemeFamilyId.BlackSwan]: ThemeAppearance.Dark,
+    [ThemeFamilyId.TulipMania]: ThemeAppearance.Dark,
+    [ThemeFamilyId.Nineteen29Vibes]: ThemeAppearance.Dark,
+    [ThemeFamilyId.DotComShuffle]: ThemeAppearance.Dark,
+    [ThemeFamilyId.BeanieBaby]: ThemeAppearance.Dark,
+    [ThemeFamilyId.DebtSnowball]: ThemeAppearance.Dark,
+    [ThemeFamilyId.SirThisIsAWendys]: ThemeAppearance.Dark,
+    [ThemeFamilyId.Hopium]: ThemeAppearance.Dark,
+    [ThemeFamilyId.Copium]: ThemeAppearance.Dark,
+    [ThemeFamilyId.BaristaFire]: ThemeAppearance.Dark,
+    [ThemeFamilyId.ThisTimeItsDifferent]: ThemeAppearance.Dark,
+    [ThemeFamilyId.Satoshi]: ThemeAppearance.Dark,
   };
   const selectedAppearanceByFamily = {
     ...selectedAppearanceByFamilyDefaults,
     ...(data.theme.selectedAppearanceByFamily ?? {}),
     [selectedThemeFamilyId]:
-      data.theme.selectedAppearanceByFamily?.[selectedThemeFamilyId] ?? selectionFromLegacy.appearance,
+      data.theme.selectedAppearanceByFamily?.[selectedThemeFamilyId] ??
+      selectionFromLegacy.appearance,
   } as Record<ThemeFamilyId, ThemeAppearance>;
 
   const unpacked: SnapshotState = {
@@ -859,16 +956,18 @@ const unpackSnapshotState = (packed: unknown): SnapshotState => {
           spendingPhases: {},
         },
         unsyncedBySlot: Object.fromEntries(
-          Object.entries(unpacked.compareWorkspace.compareSync.unsyncedBySlot).map(([slotId, overrides]) => [
-            slotId,
-            {
-              ...overrides,
-              instances: {
-                ...overrides.instances,
-                spendingPhases: {},
+          Object.entries(unpacked.compareWorkspace.compareSync.unsyncedBySlot).map(
+            ([slotId, overrides]) => [
+              slotId,
+              {
+                ...overrides,
+                instances: {
+                  ...overrides.instances,
+                  spendingPhases: {},
+                },
               },
-            },
-          ]),
+            ],
+          ),
         ) as SnapshotState['compareWorkspace']['compareSync']['unsyncedBySlot'],
       },
       slots: Object.fromEntries(
@@ -922,7 +1021,10 @@ export const parseSnapshot = (raw: string): SnapshotEnvelope => {
   }
 
   if (firstPass.data.schemaVersion !== SNAPSHOT_SCHEMA_VERSION) {
-    throw new SnapshotLoadError('version_mismatch', 'This snapshot version is not supported by this app.');
+    throw new SnapshotLoadError(
+      'version_mismatch',
+      'This snapshot version is not supported by this app.',
+    );
   }
 
   return {

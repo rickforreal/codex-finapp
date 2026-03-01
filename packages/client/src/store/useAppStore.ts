@@ -27,9 +27,7 @@ import {
 } from '@finapp/shared';
 
 import { createId } from '../lib/id';
-import {
-  sanitizeTrackingActualOverrides,
-} from '../lib/trackingActuals';
+import { sanitizeTrackingActualOverrides } from '../lib/trackingActuals';
 
 export type IncomeEventForm = {
   id: string;
@@ -81,7 +79,11 @@ export const COMPARE_SYNC_FAMILIES = [
   'expenseEvents',
 ] as const;
 export type CompareSyncFamilyKey = (typeof COMPARE_SYNC_FAMILIES)[number];
-export const COMPARE_SYNC_LIST_FAMILIES = ['spendingPhases', 'incomeEvents', 'expenseEvents'] as const;
+export const COMPARE_SYNC_LIST_FAMILIES = [
+  'spendingPhases',
+  'incomeEvents',
+  'expenseEvents',
+] as const;
 export type CompareSyncListFamilyKey = (typeof COMPARE_SYNC_LIST_FAMILIES)[number];
 
 type CompareSyncSlotOverrides = {
@@ -153,7 +155,10 @@ export type WorkspaceSnapshot = {
     rebalancing: {
       targetAllocation: { stocks: number; bonds: number; cash: number };
       glidePathEnabled: boolean;
-      glidePath: Array<{ year: number; allocation: { stocks: number; bonds: number; cash: number } }>;
+      glidePath: Array<{
+        year: number;
+        allocation: { stocks: number; bonds: number; cash: number };
+      }>;
     };
   };
   historicalData: {
@@ -224,7 +229,10 @@ export type SnapshotState = {
     rebalancing: {
       targetAllocation: { stocks: number; bonds: number; cash: number };
       glidePathEnabled: boolean;
-      glidePath: Array<{ year: number; allocation: { stocks: number; bonds: number; cash: number } }>;
+      glidePath: Array<{
+        year: number;
+        allocation: { stocks: number; bonds: number; cash: number };
+      }>;
     };
   };
   historicalData: {
@@ -295,7 +303,11 @@ export type AppStore = SnapshotState & {
   removeCompareSlot: (slot: CompareSlotId) => void;
   toggleCompareFamilyLock: (family: CompareSyncFamilyKey) => void;
   toggleCompareInstanceLock: (family: CompareSyncListFamilyKey, instanceId: string) => void;
-  setCompareSlotFamilySync: (slot: CompareSlotId, family: CompareSyncFamilyKey, synced: boolean) => void;
+  setCompareSlotFamilySync: (
+    slot: CompareSlotId,
+    family: CompareSyncFamilyKey,
+    synced: boolean,
+  ) => void;
   setCompareSlotInstanceSync: (
     slot: CompareSlotId,
     family: CompareSyncListFamilyKey,
@@ -307,15 +319,17 @@ export type AppStore = SnapshotState & {
   clearAllActualOverrides: () => void;
   setSimulationMode: (mode: SimulationMode) => void;
   setSelectedHistoricalEra: (era: HistoricalEra) => void;
-  setHistoricalSummaryStatus: (status: 'idle' | 'loading' | 'ready' | 'error', errorMessage?: string | null) => void;
-  setHistoricalSummary: (summary: HistoricalDataSummary) => void;
-  setCoreParam: (key: keyof AppStore['coreParams'], value: number | { month: number; year: number }) => void;
-  setPortfolioValue: (asset: AssetClass, value: number) => void;
-  setReturnAssumption: (
-    asset: AssetClass,
-    key: 'expectedReturn' | 'stdDev',
-    value: number,
+  setHistoricalSummaryStatus: (
+    status: 'idle' | 'loading' | 'ready' | 'error',
+    errorMessage?: string | null,
   ) => void;
+  setHistoricalSummary: (summary: HistoricalDataSummary) => void;
+  setCoreParam: (
+    key: keyof AppStore['coreParams'],
+    value: number | { month: number; year: number },
+  ) => void;
+  setPortfolioValue: (asset: AssetClass, value: number) => void;
+  setReturnAssumption: (asset: AssetClass, key: 'expectedReturn' | 'stdDev', value: number) => void;
   addSpendingPhase: () => void;
   removeSpendingPhase: (id: string) => void;
   updateSpendingPhase: (id: string, patch: Partial<SpendingPhaseForm>) => void;
@@ -373,24 +387,22 @@ export type AppStore = SnapshotState & {
   setTableSort: (sort: { column: string; direction: 'asc' | 'desc' } | null) => void;
   toggleSection: (id: string) => void;
   setStateFromSnapshot: (snapshotState: SnapshotState) => void;
-  setThemeState: (
-    payload: {
-      selectedThemeFamilyId?: ThemeFamilyId;
-      selectedAppearanceByFamily?: Record<ThemeFamilyId, ThemeAppearance>;
-      defaultThemeFamilyId?: ThemeFamilyId;
-      defaultAppearance?: ThemeAppearance;
-      activeVariantId?: ThemeVariantId | null;
-      variants?: ThemeDefinition[];
-      families?: ThemeFamilyCatalogItem[];
-      legacyDefaultThemeId?: ThemeId;
-      legacyThemes?: ThemeDefinition[];
-      legacyCatalog?: AppStore['theme']['legacyCatalog'];
-      slotCatalog?: ThemeSlotCatalogItem[];
-      validationIssues?: ThemeValidationIssue[];
-      status?: ThemeStatus;
-      errorMessage?: string | null;
-    },
-  ) => void;
+  setThemeState: (payload: {
+    selectedThemeFamilyId?: ThemeFamilyId;
+    selectedAppearanceByFamily?: Record<ThemeFamilyId, ThemeAppearance>;
+    defaultThemeFamilyId?: ThemeFamilyId;
+    defaultAppearance?: ThemeAppearance;
+    activeVariantId?: ThemeVariantId | null;
+    variants?: ThemeDefinition[];
+    families?: ThemeFamilyCatalogItem[];
+    legacyDefaultThemeId?: ThemeId;
+    legacyThemes?: ThemeDefinition[];
+    legacyCatalog?: AppStore['theme']['legacyCatalog'];
+    slotCatalog?: ThemeSlotCatalogItem[];
+    validationIssues?: ThemeValidationIssue[];
+    status?: ThemeStatus;
+    errorMessage?: string | null;
+  }) => void;
   setSelectedThemeFamilyId: (familyId: ThemeFamilyId) => void;
   setThemeAppearanceForFamily: (familyId: ThemeFamilyId, appearance: ThemeAppearance) => void;
 };
@@ -517,7 +529,11 @@ const createDefaultGlidePath = (
   const endingStocks = Math.max(0, target.stocks - 0.2);
   const endingBonds = target.bonds + 0.1;
   const endingCash = target.cash + 0.1;
-  const ending = normalizeAllocation({ stocks: endingStocks, bonds: endingBonds, cash: endingCash });
+  const ending = normalizeAllocation({
+    stocks: endingStocks,
+    bonds: endingBonds,
+    cash: endingCash,
+  });
   return [
     { year: 1, allocation: normalizeAllocation(target) },
     { year: retirementDuration, allocation: ending },
@@ -660,7 +676,8 @@ const recalculatePhaseBoundaries = (
   sorted.forEach((phase, index) => {
     const isLast = index === sorted.length - 1;
     const previousEndYear = recalculated[index - 1]?.endYear;
-    const startYear = index === 0 ? clampedFirstStartYear : (previousEndYear ?? clampedFirstStartYear) + 1;
+    const startYear =
+      index === 0 ? clampedFirstStartYear : (previousEndYear ?? clampedFirstStartYear) + 1;
     const remainingPhases = sorted.length - index - 1;
     const latestEndForCurrent = Math.max(startYear, retirementYears - remainingPhases);
     const endYear = isLast
@@ -675,7 +692,10 @@ const recalculatePhaseBoundaries = (
 
 const cloneWorkspace = (workspace: WorkspaceSnapshot): WorkspaceSnapshot => ({
   ...workspace,
-  coreParams: { ...workspace.coreParams, retirementStartDate: { ...workspace.coreParams.retirementStartDate } },
+  coreParams: {
+    ...workspace.coreParams,
+    retirementStartDate: { ...workspace.coreParams.retirementStartDate },
+  },
   portfolio: { ...workspace.portfolio },
   returnAssumptions: {
     stocks: { ...workspace.returnAssumptions.stocks },
@@ -714,15 +734,26 @@ const cloneWorkspace = (workspace: WorkspaceSnapshot): WorkspaceSnapshot => ({
         }
       : null,
   },
-  incomeEvents: workspace.incomeEvents.map((event) => ({ ...event, start: { ...event.start }, end: event.end === 'endOfRetirement' ? event.end : { ...event.end } })),
-  expenseEvents: workspace.expenseEvents.map((event) => ({ ...event, start: { ...event.start }, end: event.end === 'endOfRetirement' ? event.end : { ...event.end } })),
+  incomeEvents: workspace.incomeEvents.map((event) => ({
+    ...event,
+    start: { ...event.start },
+    end: event.end === 'endOfRetirement' ? event.end : { ...event.end },
+  })),
+  expenseEvents: workspace.expenseEvents.map((event) => ({
+    ...event,
+    start: { ...event.start },
+    end: event.end === 'endOfRetirement' ? event.end : { ...event.end },
+  })),
   actualOverridesByMonth: Object.fromEntries(
-    Object.entries(workspace.actualOverridesByMonth).map(([month, value]) => [month, {
-      startBalances: value.startBalances ? { ...value.startBalances } : undefined,
-      withdrawalsByAsset: value.withdrawalsByAsset ? { ...value.withdrawalsByAsset } : undefined,
-      incomeTotal: value.incomeTotal,
-      expenseTotal: value.expenseTotal,
-    }]),
+    Object.entries(workspace.actualOverridesByMonth).map(([month, value]) => [
+      month,
+      {
+        startBalances: value.startBalances ? { ...value.startBalances } : undefined,
+        withdrawalsByAsset: value.withdrawalsByAsset ? { ...value.withdrawalsByAsset } : undefined,
+        incomeTotal: value.incomeTotal,
+        expenseTotal: value.expenseTotal,
+      },
+    ]),
   ),
   simulationResults: { ...workspace.simulationResults },
   stress: {
@@ -899,10 +930,21 @@ const upsertIncomeEventById = (
 ): IncomeEventForm[] => {
   const index = list.findIndex((entry) => entry.id === event.id);
   if (index < 0) {
-    return [...list, { ...event, start: { ...event.start }, end: event.end === 'endOfRetirement' ? event.end : { ...event.end } }];
+    return [
+      ...list,
+      {
+        ...event,
+        start: { ...event.start },
+        end: event.end === 'endOfRetirement' ? event.end : { ...event.end },
+      },
+    ];
   }
   const next = [...list];
-  next[index] = { ...event, start: { ...event.start }, end: event.end === 'endOfRetirement' ? event.end : { ...event.end } };
+  next[index] = {
+    ...event,
+    start: { ...event.start },
+    end: event.end === 'endOfRetirement' ? event.end : { ...event.end },
+  };
   return next;
 };
 
@@ -912,10 +954,21 @@ const upsertExpenseEventById = (
 ): ExpenseEventForm[] => {
   const index = list.findIndex((entry) => entry.id === event.id);
   if (index < 0) {
-    return [...list, { ...event, start: { ...event.start }, end: event.end === 'endOfRetirement' ? event.end : { ...event.end } }];
+    return [
+      ...list,
+      {
+        ...event,
+        start: { ...event.start },
+        end: event.end === 'endOfRetirement' ? event.end : { ...event.end },
+      },
+    ];
   }
   const next = [...list];
-  next[index] = { ...event, start: { ...event.start }, end: event.end === 'endOfRetirement' ? event.end : { ...event.end } };
+  next[index] = {
+    ...event,
+    start: { ...event.start },
+    end: event.end === 'endOfRetirement' ? event.end : { ...event.end },
+  };
   return next;
 };
 
@@ -1010,42 +1063,57 @@ const applyCompareSyncFromMaster = (
       }
     });
 
-    if (!compareSync.familyLocks.spendingPhases || !isSlotFamilySynced(compareSync, slotId, 'spendingPhases')) {
+    if (
+      !compareSync.familyLocks.spendingPhases ||
+      !isSlotFamilySynced(compareSync, slotId, 'spendingPhases')
+    ) {
       Object.keys(compareSync.instanceLocks.spendingPhases).forEach((instanceId) => {
         if (!isSlotInstanceSynced(compareSync, slotId, 'spendingPhases', instanceId)) {
           return;
         }
         const masterPhase = master.spendingPhases.find((entry) => entry.id === instanceId);
         if (!masterPhase) {
-          workspace.spendingPhases = workspace.spendingPhases.filter((entry) => entry.id !== instanceId);
+          workspace.spendingPhases = workspace.spendingPhases.filter(
+            (entry) => entry.id !== instanceId,
+          );
           return;
         }
         workspace.spendingPhases = upsertSpendingPhaseById(workspace.spendingPhases, masterPhase);
       });
     }
 
-    if (!compareSync.familyLocks.incomeEvents || !isSlotFamilySynced(compareSync, slotId, 'incomeEvents')) {
+    if (
+      !compareSync.familyLocks.incomeEvents ||
+      !isSlotFamilySynced(compareSync, slotId, 'incomeEvents')
+    ) {
       Object.keys(compareSync.instanceLocks.incomeEvents).forEach((instanceId) => {
         if (!isSlotInstanceSynced(compareSync, slotId, 'incomeEvents', instanceId)) {
           return;
         }
         const masterEvent = master.incomeEvents.find((entry) => entry.id === instanceId);
         if (!masterEvent) {
-          workspace.incomeEvents = workspace.incomeEvents.filter((entry) => entry.id !== instanceId);
+          workspace.incomeEvents = workspace.incomeEvents.filter(
+            (entry) => entry.id !== instanceId,
+          );
           return;
         }
         workspace.incomeEvents = upsertIncomeEventById(workspace.incomeEvents, masterEvent);
       });
     }
 
-    if (!compareSync.familyLocks.expenseEvents || !isSlotFamilySynced(compareSync, slotId, 'expenseEvents')) {
+    if (
+      !compareSync.familyLocks.expenseEvents ||
+      !isSlotFamilySynced(compareSync, slotId, 'expenseEvents')
+    ) {
       Object.keys(compareSync.instanceLocks.expenseEvents).forEach((instanceId) => {
         if (!isSlotInstanceSynced(compareSync, slotId, 'expenseEvents', instanceId)) {
           return;
         }
         const masterEvent = master.expenseEvents.find((entry) => entry.id === instanceId);
         if (!masterEvent) {
-          workspace.expenseEvents = workspace.expenseEvents.filter((entry) => entry.id !== instanceId);
+          workspace.expenseEvents = workspace.expenseEvents.filter(
+            (entry) => entry.id !== instanceId,
+          );
           return;
         }
         workspace.expenseEvents = upsertExpenseEventById(workspace.expenseEvents, masterEvent);
@@ -1065,7 +1133,9 @@ const applyCompareSyncFromMaster = (
   return next;
 };
 
-const cloneCompareWorkspace = (compareWorkspace: SnapshotState['compareWorkspace']): SnapshotState['compareWorkspace'] => ({
+const cloneCompareWorkspace = (
+  compareWorkspace: SnapshotState['compareWorkspace'],
+): SnapshotState['compareWorkspace'] => ({
   activeSlotId: compareWorkspace.activeSlotId,
   baselineSlotId: compareWorkspace.baselineSlotId,
   slotOrder: [...compareWorkspace.slotOrder],
@@ -1083,8 +1153,9 @@ const sortCompareSlotOrder = (slotOrder: CompareSlotId[]): CompareSlotId[] =>
     (left, right) => COMPARE_SLOT_IDS.indexOf(left) - COMPARE_SLOT_IDS.indexOf(right),
   );
 
-const isCompareActiveFromWorkspace = (compareWorkspace: SnapshotState['compareWorkspace']): boolean =>
-  compareWorkspace.slotOrder.length > 1;
+const isCompareActiveFromWorkspace = (
+  compareWorkspace: SnapshotState['compareWorkspace'],
+): boolean => compareWorkspace.slotOrder.length > 1;
 
 const cloneActualOverride = (override: ActualMonthOverride): ActualMonthOverride => ({
   startBalances: override.startBalances ? { ...override.startBalances } : undefined,
@@ -1100,18 +1171,24 @@ const normalizeTrackingCompareCanonicalFloor = (
   if (!canonicalWorkspace) {
     return compareWorkspace;
   }
-  const canonicalOverrides = sanitizeTrackingActualOverrides(canonicalWorkspace.actualOverridesByMonth ?? {});
+  const canonicalOverrides = sanitizeTrackingActualOverrides(
+    canonicalWorkspace.actualOverridesByMonth ?? {},
+  );
   const canonicalMaxMonth = Object.keys(canonicalOverrides)
     .map((value) => Number(value))
     .filter((value) => Number.isInteger(value) && value > 0)
     .reduce((max, value) => Math.max(max, value), 0);
-  const canonicalBoundary = canonicalWorkspace.lastEditedMonthIndex ?? (canonicalMaxMonth > 0 ? canonicalMaxMonth : null);
+  const canonicalBoundary =
+    canonicalWorkspace.lastEditedMonthIndex ?? (canonicalMaxMonth > 0 ? canonicalMaxMonth : null);
 
   const next = cloneCompareWorkspace(compareWorkspace);
   const nextCanonicalWorkspace = next.slots.A;
   if (nextCanonicalWorkspace) {
     nextCanonicalWorkspace.actualOverridesByMonth = Object.fromEntries(
-      Object.entries(canonicalOverrides).map(([month, override]) => [Number(month), cloneActualOverride(override)]),
+      Object.entries(canonicalOverrides).map(([month, override]) => [
+        Number(month),
+        cloneActualOverride(override),
+      ]),
     ) as ActualOverridesByMonth;
     nextCanonicalWorkspace.lastEditedMonthIndex = canonicalBoundary;
   }
@@ -1125,7 +1202,10 @@ const normalizeTrackingCompareCanonicalFloor = (
       return;
     }
     workspace.actualOverridesByMonth = Object.fromEntries(
-      Object.entries(canonicalOverrides).map(([month, override]) => [Number(month), cloneActualOverride(override)]),
+      Object.entries(canonicalOverrides).map(([month, override]) => [
+        Number(month),
+        cloneActualOverride(override),
+      ]),
     ) as ActualOverridesByMonth;
     workspace.lastEditedMonthIndex = canonicalBoundary;
   });
@@ -1149,7 +1229,9 @@ const normalizeCompareWorkspace = (
   const baselineSlotId = fallbackOrder.includes(compareWorkspace.baselineSlotId)
     ? compareWorkspace.baselineSlotId
     : (fallbackOrder[0] ?? 'A');
-  const compareSync = cloneCompareSyncState(compareWorkspace.compareSync ?? defaultCompareSyncState());
+  const compareSync = cloneCompareSyncState(
+    compareWorkspace.compareSync ?? defaultCompareSyncState(),
+  );
   Object.keys(compareSync.unsyncedBySlot).forEach((slotId) => {
     if (slotId === 'A' || !fallbackOrder.includes(slotId as CompareSlotId)) {
       delete compareSync.unsyncedBySlot[slotId as CompareSlotId];
@@ -1183,7 +1265,10 @@ const compareWorkspaceWithCurrentState = (state: AppStore): SnapshotState['compa
 const workspaceFromState = (state: AppStore): WorkspaceSnapshot => ({
   simulationMode: state.simulationMode,
   selectedHistoricalEra: state.selectedHistoricalEra,
-  coreParams: { ...state.coreParams, retirementStartDate: { ...state.coreParams.retirementStartDate } },
+  coreParams: {
+    ...state.coreParams,
+    retirementStartDate: { ...state.coreParams.retirementStartDate },
+  },
   portfolio: { ...state.portfolio },
   returnAssumptions: {
     stocks: { ...state.returnAssumptions.stocks },
@@ -1208,8 +1293,16 @@ const workspaceFromState = (state: AppStore): WorkspaceSnapshot => ({
     },
   },
   historicalData: state.historicalData,
-  incomeEvents: state.incomeEvents.map((event) => ({ ...event, start: { ...event.start }, end: event.end === 'endOfRetirement' ? event.end : { ...event.end } })),
-  expenseEvents: state.expenseEvents.map((event) => ({ ...event, start: { ...event.start }, end: event.end === 'endOfRetirement' ? event.end : { ...event.end } })),
+  incomeEvents: state.incomeEvents.map((event) => ({
+    ...event,
+    start: { ...event.start },
+    end: event.end === 'endOfRetirement' ? event.end : { ...event.end },
+  })),
+  expenseEvents: state.expenseEvents.map((event) => ({
+    ...event,
+    start: { ...event.start },
+    end: event.end === 'endOfRetirement' ? event.end : { ...event.end },
+  })),
   actualOverridesByMonth: state.actualOverridesByMonth,
   lastEditedMonthIndex: state.lastEditedMonthIndex,
   simulationResults: { ...state.simulationResults },
@@ -1280,7 +1373,9 @@ const isEditableTrackingMonthForState = (state: AppStore, monthIndex: number): b
   return monthIndex <= getEditableTrackingMonthUpperBoundForState(state);
 };
 
-const trackingSimulationResultsCleared = (results: WorkspaceSnapshot['simulationResults']): WorkspaceSnapshot['simulationResults'] => ({
+const trackingSimulationResultsCleared = (
+  results: WorkspaceSnapshot['simulationResults'],
+): WorkspaceSnapshot['simulationResults'] => ({
   ...results,
   manual: null,
   monteCarlo: null,
@@ -1310,7 +1405,10 @@ const snapshotFieldsFromWorkspace = (workspace: WorkspaceSnapshot) => ({
 
 const currentInputFieldsFromState = (state: AppStore) => ({
   selectedHistoricalEra: state.selectedHistoricalEra,
-  coreParams: { ...state.coreParams, retirementStartDate: { ...state.coreParams.retirementStartDate } },
+  coreParams: {
+    ...state.coreParams,
+    retirementStartDate: { ...state.coreParams.retirementStartDate },
+  },
   portfolio: { ...state.portfolio },
   returnAssumptions: {
     stocks: { ...state.returnAssumptions.stocks },
@@ -1405,7 +1503,9 @@ const isCompareInstanceLockedAndSyncedForActiveSlot = (
   return isSlotInstanceSynced(compareSync, activeSlotId, family, instanceId);
 };
 
-const clearSpendingPhasesInWorkspace = (workspace: WorkspaceSnapshot | null): WorkspaceSnapshot | null => {
+const clearSpendingPhasesInWorkspace = (
+  workspace: WorkspaceSnapshot | null,
+): WorkspaceSnapshot | null => {
   if (!workspace) {
     return null;
   }
@@ -1462,226 +1562,283 @@ const cloneSnapshotState = (snapshot: SnapshotState): SnapshotState => {
   );
   const normalizedCompareWorkspace =
     normalizedSnapshot.mode === AppMode.Tracking
-      ? normalizeTrackingCompareCanonicalFloor(
-          syncedCompareWorkspace,
-        )
+      ? normalizeTrackingCompareCanonicalFloor(syncedCompareWorkspace)
       : syncedCompareWorkspace;
-  const normalizedActiveWorkspace = normalizedCompareWorkspace.slots[normalizedCompareWorkspace.activeSlotId];
+  const normalizedActiveWorkspace =
+    normalizedCompareWorkspace.slots[normalizedCompareWorkspace.activeSlotId];
 
   return {
-  mode: normalizedSnapshot.mode,
-  trackingInitialized: normalizedSnapshot.trackingInitialized,
-  planningWorkspace: normalizedSnapshot.planningWorkspace ? cloneWorkspace(normalizedSnapshot.planningWorkspace) : null,
-  trackingWorkspace: normalizedSnapshot.trackingWorkspace ? cloneWorkspace(normalizedSnapshot.trackingWorkspace) : null,
-  compareWorkspace: normalizedCompareWorkspace,
-  simulationMode: normalizedSnapshot.simulationMode,
-  selectedHistoricalEra: normalizedSnapshot.selectedHistoricalEra,
-  coreParams: {
-    ...normalizedSnapshot.coreParams,
-    retirementStartDate: { ...normalizedSnapshot.coreParams.retirementStartDate },
-  },
-  portfolio: { ...normalizedSnapshot.portfolio },
-  returnAssumptions: {
-    stocks: { ...normalizedSnapshot.returnAssumptions.stocks },
-    bonds: { ...normalizedSnapshot.returnAssumptions.bonds },
-    cash: { ...normalizedSnapshot.returnAssumptions.cash },
-  },
-  spendingPhases: normalizedSnapshot.spendingPhases.map((phase) => ({ ...phase })),
-  withdrawalStrategy: {
-    type: normalizedSnapshot.withdrawalStrategy.type,
-    params: { ...normalizedSnapshot.withdrawalStrategy.params },
-  },
-  drawdownStrategy: {
-    type: normalizedSnapshot.drawdownStrategy.type,
-    bucketOrder: [...normalizedSnapshot.drawdownStrategy.bucketOrder],
-    rebalancing: {
-      targetAllocation: { ...normalizedSnapshot.drawdownStrategy.rebalancing.targetAllocation },
-      glidePathEnabled: normalizedSnapshot.drawdownStrategy.rebalancing.glidePathEnabled,
-      glidePath: normalizedSnapshot.drawdownStrategy.rebalancing.glidePath.map((waypoint) => ({
-        year: waypoint.year,
-        allocation: { ...waypoint.allocation },
-      })),
+    mode: normalizedSnapshot.mode,
+    trackingInitialized: normalizedSnapshot.trackingInitialized,
+    planningWorkspace: normalizedSnapshot.planningWorkspace
+      ? cloneWorkspace(normalizedSnapshot.planningWorkspace)
+      : null,
+    trackingWorkspace: normalizedSnapshot.trackingWorkspace
+      ? cloneWorkspace(normalizedSnapshot.trackingWorkspace)
+      : null,
+    compareWorkspace: normalizedCompareWorkspace,
+    simulationMode: normalizedSnapshot.simulationMode,
+    selectedHistoricalEra: normalizedSnapshot.selectedHistoricalEra,
+    coreParams: {
+      ...normalizedSnapshot.coreParams,
+      retirementStartDate: { ...normalizedSnapshot.coreParams.retirementStartDate },
     },
-  },
-  historicalData: {
-    ...normalizedSnapshot.historicalData,
-    summary: normalizedSnapshot.historicalData.summary
-      ? {
-          ...normalizedSnapshot.historicalData.summary,
-          selectedEra: { ...normalizedSnapshot.historicalData.summary.selectedEra },
-          eras: normalizedSnapshot.historicalData.summary.eras.map((era) => ({ ...era })),
-          byAsset: {
-            stocks: { ...normalizedSnapshot.historicalData.summary.byAsset.stocks },
-            bonds: { ...normalizedSnapshot.historicalData.summary.byAsset.bonds },
-            cash: { ...normalizedSnapshot.historicalData.summary.byAsset.cash },
-          },
-        }
-      : null,
-  },
-  incomeEvents: normalizedSnapshot.incomeEvents.map((event) => ({
-    ...event,
-    start: { ...event.start },
-    end: event.end === 'endOfRetirement' ? event.end : { ...event.end },
-  })),
-  expenseEvents: normalizedSnapshot.expenseEvents.map((event) => ({
-    ...event,
-    start: { ...event.start },
-    end: event.end === 'endOfRetirement' ? event.end : { ...event.end },
-  })),
-  actualOverridesByMonth: normalizedActiveWorkspace
-    ? Object.fromEntries(
-        Object.entries(normalizedActiveWorkspace.actualOverridesByMonth).map(([month, value]) => [
-          month,
-          {
-            startBalances: value.startBalances ? { ...value.startBalances } : undefined,
-            withdrawalsByAsset: value.withdrawalsByAsset ? { ...value.withdrawalsByAsset } : undefined,
-            incomeTotal: value.incomeTotal,
-            expenseTotal: value.expenseTotal,
-          },
-        ]),
-      )
-    : Object.fromEntries(
-        Object.entries(normalizedSnapshot.actualOverridesByMonth).map(([month, value]) => [month, {
-          startBalances: value.startBalances ? { ...value.startBalances } : undefined,
-          withdrawalsByAsset: value.withdrawalsByAsset ? { ...value.withdrawalsByAsset } : undefined,
-          incomeTotal: value.incomeTotal,
-          expenseTotal: value.expenseTotal,
-        }]),
-      ),
-  lastEditedMonthIndex: normalizedActiveWorkspace?.lastEditedMonthIndex ?? normalizedSnapshot.lastEditedMonthIndex,
-  simulationResults: {
-    ...normalizedSnapshot.simulationResults,
-    manual: normalizedSnapshot.simulationResults.manual
-      ? {
-          ...normalizedSnapshot.simulationResults.manual,
-          result: {
-            ...normalizedSnapshot.simulationResults.manual.result,
-            rows: normalizedSnapshot.simulationResults.manual.result.rows.map((row) => ({
-              ...row,
-              startBalances: { ...row.startBalances },
-              marketChange: { ...row.marketChange },
-              withdrawals: {
-                ...row.withdrawals,
-                byAsset: { ...row.withdrawals.byAsset },
-              },
-              endBalances: { ...row.endBalances },
-            })),
-            summary: { ...normalizedSnapshot.simulationResults.manual.result.summary },
-          },
-          monteCarlo: normalizedSnapshot.simulationResults.manual.monteCarlo
-            ? {
-                ...normalizedSnapshot.simulationResults.manual.monteCarlo,
-                terminalValues: [...normalizedSnapshot.simulationResults.manual.monteCarlo.terminalValues],
-                percentileCurves: {
-                  total: { ...normalizedSnapshot.simulationResults.manual.monteCarlo.percentileCurves.total },
-                  stocks: { ...normalizedSnapshot.simulationResults.manual.monteCarlo.percentileCurves.stocks },
-                  bonds: { ...normalizedSnapshot.simulationResults.manual.monteCarlo.percentileCurves.bonds },
-                  cash: { ...normalizedSnapshot.simulationResults.manual.monteCarlo.percentileCurves.cash },
+    portfolio: { ...normalizedSnapshot.portfolio },
+    returnAssumptions: {
+      stocks: { ...normalizedSnapshot.returnAssumptions.stocks },
+      bonds: { ...normalizedSnapshot.returnAssumptions.bonds },
+      cash: { ...normalizedSnapshot.returnAssumptions.cash },
+    },
+    spendingPhases: normalizedSnapshot.spendingPhases.map((phase) => ({ ...phase })),
+    withdrawalStrategy: {
+      type: normalizedSnapshot.withdrawalStrategy.type,
+      params: { ...normalizedSnapshot.withdrawalStrategy.params },
+    },
+    drawdownStrategy: {
+      type: normalizedSnapshot.drawdownStrategy.type,
+      bucketOrder: [...normalizedSnapshot.drawdownStrategy.bucketOrder],
+      rebalancing: {
+        targetAllocation: { ...normalizedSnapshot.drawdownStrategy.rebalancing.targetAllocation },
+        glidePathEnabled: normalizedSnapshot.drawdownStrategy.rebalancing.glidePathEnabled,
+        glidePath: normalizedSnapshot.drawdownStrategy.rebalancing.glidePath.map((waypoint) => ({
+          year: waypoint.year,
+          allocation: { ...waypoint.allocation },
+        })),
+      },
+    },
+    historicalData: {
+      ...normalizedSnapshot.historicalData,
+      summary: normalizedSnapshot.historicalData.summary
+        ? {
+            ...normalizedSnapshot.historicalData.summary,
+            selectedEra: { ...normalizedSnapshot.historicalData.summary.selectedEra },
+            eras: normalizedSnapshot.historicalData.summary.eras.map((era) => ({ ...era })),
+            byAsset: {
+              stocks: { ...normalizedSnapshot.historicalData.summary.byAsset.stocks },
+              bonds: { ...normalizedSnapshot.historicalData.summary.byAsset.bonds },
+              cash: { ...normalizedSnapshot.historicalData.summary.byAsset.cash },
+            },
+          }
+        : null,
+    },
+    incomeEvents: normalizedSnapshot.incomeEvents.map((event) => ({
+      ...event,
+      start: { ...event.start },
+      end: event.end === 'endOfRetirement' ? event.end : { ...event.end },
+    })),
+    expenseEvents: normalizedSnapshot.expenseEvents.map((event) => ({
+      ...event,
+      start: { ...event.start },
+      end: event.end === 'endOfRetirement' ? event.end : { ...event.end },
+    })),
+    actualOverridesByMonth: normalizedActiveWorkspace
+      ? Object.fromEntries(
+          Object.entries(normalizedActiveWorkspace.actualOverridesByMonth).map(([month, value]) => [
+            month,
+            {
+              startBalances: value.startBalances ? { ...value.startBalances } : undefined,
+              withdrawalsByAsset: value.withdrawalsByAsset
+                ? { ...value.withdrawalsByAsset }
+                : undefined,
+              incomeTotal: value.incomeTotal,
+              expenseTotal: value.expenseTotal,
+            },
+          ]),
+        )
+      : Object.fromEntries(
+          Object.entries(normalizedSnapshot.actualOverridesByMonth).map(([month, value]) => [
+            month,
+            {
+              startBalances: value.startBalances ? { ...value.startBalances } : undefined,
+              withdrawalsByAsset: value.withdrawalsByAsset
+                ? { ...value.withdrawalsByAsset }
+                : undefined,
+              incomeTotal: value.incomeTotal,
+              expenseTotal: value.expenseTotal,
+            },
+          ]),
+        ),
+    lastEditedMonthIndex:
+      normalizedActiveWorkspace?.lastEditedMonthIndex ?? normalizedSnapshot.lastEditedMonthIndex,
+    simulationResults: {
+      ...normalizedSnapshot.simulationResults,
+      manual: normalizedSnapshot.simulationResults.manual
+        ? {
+            ...normalizedSnapshot.simulationResults.manual,
+            result: {
+              ...normalizedSnapshot.simulationResults.manual.result,
+              rows: normalizedSnapshot.simulationResults.manual.result.rows.map((row) => ({
+                ...row,
+                startBalances: { ...row.startBalances },
+                marketChange: { ...row.marketChange },
+                withdrawals: {
+                  ...row.withdrawals,
+                  byAsset: { ...row.withdrawals.byAsset },
                 },
-              }
-            : undefined,
-        }
-      : null,
-    monteCarlo: normalizedSnapshot.simulationResults.monteCarlo
-      ? {
-          ...normalizedSnapshot.simulationResults.monteCarlo,
-          result: {
-            ...normalizedSnapshot.simulationResults.monteCarlo.result,
-            rows: normalizedSnapshot.simulationResults.monteCarlo.result.rows.map((row) => ({
-              ...row,
-              startBalances: { ...row.startBalances },
-              marketChange: { ...row.marketChange },
-              withdrawals: {
-                ...row.withdrawals,
-                byAsset: { ...row.withdrawals.byAsset },
-              },
-              endBalances: { ...row.endBalances },
-            })),
-            summary: { ...normalizedSnapshot.simulationResults.monteCarlo.result.summary },
-          },
-          monteCarlo: normalizedSnapshot.simulationResults.monteCarlo.monteCarlo
-            ? {
-                ...normalizedSnapshot.simulationResults.monteCarlo.monteCarlo,
-                terminalValues: [...normalizedSnapshot.simulationResults.monteCarlo.monteCarlo.terminalValues],
-                percentileCurves: {
-                  total: { ...normalizedSnapshot.simulationResults.monteCarlo.monteCarlo.percentileCurves.total },
-                  stocks: { ...normalizedSnapshot.simulationResults.monteCarlo.monteCarlo.percentileCurves.stocks },
-                  bonds: { ...normalizedSnapshot.simulationResults.monteCarlo.monteCarlo.percentileCurves.bonds },
-                  cash: { ...normalizedSnapshot.simulationResults.monteCarlo.monteCarlo.percentileCurves.cash },
+                endBalances: { ...row.endBalances },
+              })),
+              summary: { ...normalizedSnapshot.simulationResults.manual.result.summary },
+            },
+            monteCarlo: normalizedSnapshot.simulationResults.manual.monteCarlo
+              ? {
+                  ...normalizedSnapshot.simulationResults.manual.monteCarlo,
+                  terminalValues: [
+                    ...normalizedSnapshot.simulationResults.manual.monteCarlo.terminalValues,
+                  ],
+                  percentileCurves: {
+                    total: {
+                      ...normalizedSnapshot.simulationResults.manual.monteCarlo.percentileCurves
+                        .total,
+                    },
+                    stocks: {
+                      ...normalizedSnapshot.simulationResults.manual.monteCarlo.percentileCurves
+                        .stocks,
+                    },
+                    bonds: {
+                      ...normalizedSnapshot.simulationResults.manual.monteCarlo.percentileCurves
+                        .bonds,
+                    },
+                    cash: {
+                      ...normalizedSnapshot.simulationResults.manual.monteCarlo.percentileCurves
+                        .cash,
+                    },
+                  },
+                }
+              : undefined,
+          }
+        : null,
+      monteCarlo: normalizedSnapshot.simulationResults.monteCarlo
+        ? {
+            ...normalizedSnapshot.simulationResults.monteCarlo,
+            result: {
+              ...normalizedSnapshot.simulationResults.monteCarlo.result,
+              rows: normalizedSnapshot.simulationResults.monteCarlo.result.rows.map((row) => ({
+                ...row,
+                startBalances: { ...row.startBalances },
+                marketChange: { ...row.marketChange },
+                withdrawals: {
+                  ...row.withdrawals,
+                  byAsset: { ...row.withdrawals.byAsset },
                 },
-              }
-            : undefined,
-        }
-      : null,
-    reforecast: normalizedSnapshot.simulationResults.reforecast
-      ? {
-          ...normalizedSnapshot.simulationResults.reforecast,
-          result: {
-            ...normalizedSnapshot.simulationResults.reforecast.result,
-            rows: normalizedSnapshot.simulationResults.reforecast.result.rows.map((row) => ({
-              ...row,
-              startBalances: { ...row.startBalances },
-              marketChange: { ...row.marketChange },
-              withdrawals: {
-                ...row.withdrawals,
-                byAsset: { ...row.withdrawals.byAsset },
-              },
-              endBalances: { ...row.endBalances },
-            })),
-            summary: { ...normalizedSnapshot.simulationResults.reforecast.result.summary },
-          },
-          monteCarlo: normalizedSnapshot.simulationResults.reforecast.monteCarlo
-            ? {
-                ...normalizedSnapshot.simulationResults.reforecast.monteCarlo,
-                terminalValues: [...normalizedSnapshot.simulationResults.reforecast.monteCarlo.terminalValues],
-                percentileCurves: {
-                  total: { ...normalizedSnapshot.simulationResults.reforecast.monteCarlo.percentileCurves.total },
-                  stocks: { ...normalizedSnapshot.simulationResults.reforecast.monteCarlo.percentileCurves.stocks },
-                  bonds: { ...normalizedSnapshot.simulationResults.reforecast.monteCarlo.percentileCurves.bonds },
-                  cash: { ...normalizedSnapshot.simulationResults.reforecast.monteCarlo.percentileCurves.cash },
+                endBalances: { ...row.endBalances },
+              })),
+              summary: { ...normalizedSnapshot.simulationResults.monteCarlo.result.summary },
+            },
+            monteCarlo: normalizedSnapshot.simulationResults.monteCarlo.monteCarlo
+              ? {
+                  ...normalizedSnapshot.simulationResults.monteCarlo.monteCarlo,
+                  terminalValues: [
+                    ...normalizedSnapshot.simulationResults.monteCarlo.monteCarlo.terminalValues,
+                  ],
+                  percentileCurves: {
+                    total: {
+                      ...normalizedSnapshot.simulationResults.monteCarlo.monteCarlo.percentileCurves
+                        .total,
+                    },
+                    stocks: {
+                      ...normalizedSnapshot.simulationResults.monteCarlo.monteCarlo.percentileCurves
+                        .stocks,
+                    },
+                    bonds: {
+                      ...normalizedSnapshot.simulationResults.monteCarlo.monteCarlo.percentileCurves
+                        .bonds,
+                    },
+                    cash: {
+                      ...normalizedSnapshot.simulationResults.monteCarlo.monteCarlo.percentileCurves
+                        .cash,
+                    },
+                  },
+                }
+              : undefined,
+          }
+        : null,
+      reforecast: normalizedSnapshot.simulationResults.reforecast
+        ? {
+            ...normalizedSnapshot.simulationResults.reforecast,
+            result: {
+              ...normalizedSnapshot.simulationResults.reforecast.result,
+              rows: normalizedSnapshot.simulationResults.reforecast.result.rows.map((row) => ({
+                ...row,
+                startBalances: { ...row.startBalances },
+                marketChange: { ...row.marketChange },
+                withdrawals: {
+                  ...row.withdrawals,
+                  byAsset: { ...row.withdrawals.byAsset },
                 },
-              }
-            : undefined,
-        }
-      : null,
-  },
-  stress: {
-    ...normalizedSnapshot.stress,
-    scenarios: normalizedSnapshot.stress.scenarios.map((scenario) => ({ ...scenario })),
-    result: normalizedSnapshot.stress.result
-      ? {
-          ...normalizedSnapshot.stress.result,
-          base: { ...normalizedSnapshot.stress.result.base },
-          scenarios: normalizedSnapshot.stress.result.scenarios.map((scenario) => ({ ...scenario })),
-          timingSensitivity: normalizedSnapshot.stress.result.timingSensitivity?.map((series) => ({
-            ...series,
-            points: series.points.map((point) => ({ ...point })),
-          })),
-        }
-      : null,
-  },
-  theme: {
-    selectedThemeFamilyId: normalizedSnapshot.theme.selectedThemeFamilyId,
-    selectedAppearanceByFamily: { ...normalizedSnapshot.theme.selectedAppearanceByFamily },
-    defaultThemeFamilyId: normalizedSnapshot.theme.defaultThemeFamilyId,
-    defaultAppearance: normalizedSnapshot.theme.defaultAppearance,
-    activeVariantId: normalizedSnapshot.theme.activeVariantId,
-    variants: normalizedSnapshot.theme.variants.map((theme) => ({ ...theme })),
-    families: normalizedSnapshot.theme.families.map((item) => ({ ...item })),
-    legacyDefaultThemeId: normalizedSnapshot.theme.legacyDefaultThemeId,
-    legacyThemes: normalizedSnapshot.theme.legacyThemes.map((theme) => ({ ...theme })),
-    legacyCatalog: normalizedSnapshot.theme.legacyCatalog.map((item) => ({ ...item })),
-    slotCatalog: (normalizedSnapshot.theme.slotCatalog ?? []).map((item) => ({ ...item })),
-    validationIssues: normalizedSnapshot.theme.validationIssues.map((issue) => ({ ...issue })),
-    status: normalizedSnapshot.theme.status,
-    errorMessage: normalizedSnapshot.theme.errorMessage,
-  },
-  ui: {
-    ...normalizedSnapshot.ui,
-    chartZoom: normalizedSnapshot.ui.chartZoom ? { ...normalizedSnapshot.ui.chartZoom } : null,
-    tableSort: normalizedSnapshot.ui.tableSort ? { ...normalizedSnapshot.ui.tableSort } : null,
-    collapsedSections: { ...normalizedSnapshot.ui.collapsedSections },
-  },
+                endBalances: { ...row.endBalances },
+              })),
+              summary: { ...normalizedSnapshot.simulationResults.reforecast.result.summary },
+            },
+            monteCarlo: normalizedSnapshot.simulationResults.reforecast.monteCarlo
+              ? {
+                  ...normalizedSnapshot.simulationResults.reforecast.monteCarlo,
+                  terminalValues: [
+                    ...normalizedSnapshot.simulationResults.reforecast.monteCarlo.terminalValues,
+                  ],
+                  percentileCurves: {
+                    total: {
+                      ...normalizedSnapshot.simulationResults.reforecast.monteCarlo.percentileCurves
+                        .total,
+                    },
+                    stocks: {
+                      ...normalizedSnapshot.simulationResults.reforecast.monteCarlo.percentileCurves
+                        .stocks,
+                    },
+                    bonds: {
+                      ...normalizedSnapshot.simulationResults.reforecast.monteCarlo.percentileCurves
+                        .bonds,
+                    },
+                    cash: {
+                      ...normalizedSnapshot.simulationResults.reforecast.monteCarlo.percentileCurves
+                        .cash,
+                    },
+                  },
+                }
+              : undefined,
+          }
+        : null,
+    },
+    stress: {
+      ...normalizedSnapshot.stress,
+      scenarios: normalizedSnapshot.stress.scenarios.map((scenario) => ({ ...scenario })),
+      result: normalizedSnapshot.stress.result
+        ? {
+            ...normalizedSnapshot.stress.result,
+            base: { ...normalizedSnapshot.stress.result.base },
+            scenarios: normalizedSnapshot.stress.result.scenarios.map((scenario) => ({
+              ...scenario,
+            })),
+            timingSensitivity: normalizedSnapshot.stress.result.timingSensitivity?.map(
+              (series) => ({
+                ...series,
+                points: series.points.map((point) => ({ ...point })),
+              }),
+            ),
+          }
+        : null,
+    },
+    theme: {
+      selectedThemeFamilyId: normalizedSnapshot.theme.selectedThemeFamilyId,
+      selectedAppearanceByFamily: { ...normalizedSnapshot.theme.selectedAppearanceByFamily },
+      defaultThemeFamilyId: normalizedSnapshot.theme.defaultThemeFamilyId,
+      defaultAppearance: normalizedSnapshot.theme.defaultAppearance,
+      activeVariantId: normalizedSnapshot.theme.activeVariantId,
+      variants: normalizedSnapshot.theme.variants.map((theme) => ({ ...theme })),
+      families: normalizedSnapshot.theme.families.map((item) => ({ ...item })),
+      legacyDefaultThemeId: normalizedSnapshot.theme.legacyDefaultThemeId,
+      legacyThemes: normalizedSnapshot.theme.legacyThemes.map((theme) => ({ ...theme })),
+      legacyCatalog: normalizedSnapshot.theme.legacyCatalog.map((item) => ({ ...item })),
+      slotCatalog: (normalizedSnapshot.theme.slotCatalog ?? []).map((item) => ({ ...item })),
+      validationIssues: normalizedSnapshot.theme.validationIssues.map((issue) => ({ ...issue })),
+      status: normalizedSnapshot.theme.status,
+      errorMessage: normalizedSnapshot.theme.errorMessage,
+    },
+    ui: {
+      ...normalizedSnapshot.ui,
+      chartZoom: normalizedSnapshot.ui.chartZoom ? { ...normalizedSnapshot.ui.chartZoom } : null,
+      tableSort: normalizedSnapshot.ui.tableSort ? { ...normalizedSnapshot.ui.tableSort } : null,
+      collapsedSections: { ...normalizedSnapshot.ui.collapsedSections },
+    },
   };
 };
 
@@ -1762,6 +1919,47 @@ export const useAppStore = create<AppStore>((set) => ({
       [ThemeFamilyId.Synthwave84]: ThemeAppearance.Dark,
       [ThemeFamilyId.StayTheCourse]: ThemeAppearance.Dark,
       [ThemeFamilyId.HighContrast]: ThemeAppearance.Dark,
+      [ThemeFamilyId.PatagoniaVest]: ThemeAppearance.Dark,
+      [ThemeFamilyId.MoneyNeverSleeps]: ThemeAppearance.Dark,
+      [ThemeFamilyId.Hodl]: ThemeAppearance.Dark,
+      [ThemeFamilyId.TrustMeBro]: ThemeAppearance.Dark,
+      [ThemeFamilyId.ThreePieceSuit]: ThemeAppearance.Dark,
+      [ThemeFamilyId.BuyHighSellLow]: ThemeAppearance.Dark,
+      [ThemeFamilyId.ExitStrategy]: ThemeAppearance.Dark,
+      [ThemeFamilyId.Ath]: ThemeAppearance.Dark,
+      [ThemeFamilyId.Coastin]: ThemeAppearance.Dark,
+      [ThemeFamilyId.MarginCall]: ThemeAppearance.Dark,
+      [ThemeFamilyId.BigShort]: ThemeAppearance.Dark,
+      [ThemeFamilyId.HoldingTheBag]: ThemeAppearance.Dark,
+      [ThemeFamilyId.Boglehead]: ThemeAppearance.Dark,
+      [ThemeFamilyId.CryptoBro]: ThemeAppearance.Dark,
+      [ThemeFamilyId.TheVillages]: ThemeAppearance.Dark,
+      [ThemeFamilyId.SeedRound]: ThemeAppearance.Dark,
+      [ThemeFamilyId.Nineteen87]: ThemeAppearance.Dark,
+      [ThemeFamilyId.Ramen]: ThemeAppearance.Dark,
+      [ThemeFamilyId.ToTheMoon]: ThemeAppearance.Dark,
+      [ThemeFamilyId.Wagmi]: ThemeAppearance.Dark,
+      [ThemeFamilyId.Ngmi]: ThemeAppearance.Dark,
+      [ThemeFamilyId.BuyTheDip]: ThemeAppearance.Dark,
+      [ThemeFamilyId.ThisIsFine]: ThemeAppearance.Dark,
+      [ThemeFamilyId.DeadCatBounce]: ThemeAppearance.Dark,
+      [ThemeFamilyId.RugPull]: ThemeAppearance.Dark,
+      [ThemeFamilyId.Whale]: ThemeAppearance.Dark,
+      [ThemeFamilyId.LamboLoading]: ThemeAppearance.Dark,
+      [ThemeFamilyId.TheSingularity]: ThemeAppearance.Dark,
+      [ThemeFamilyId.ZoomOutBro]: ThemeAppearance.Dark,
+      [ThemeFamilyId.BlackSwan]: ThemeAppearance.Dark,
+      [ThemeFamilyId.TulipMania]: ThemeAppearance.Dark,
+      [ThemeFamilyId.Nineteen29Vibes]: ThemeAppearance.Dark,
+      [ThemeFamilyId.DotComShuffle]: ThemeAppearance.Dark,
+      [ThemeFamilyId.BeanieBaby]: ThemeAppearance.Dark,
+      [ThemeFamilyId.DebtSnowball]: ThemeAppearance.Dark,
+      [ThemeFamilyId.SirThisIsAWendys]: ThemeAppearance.Dark,
+      [ThemeFamilyId.Hopium]: ThemeAppearance.Dark,
+      [ThemeFamilyId.Copium]: ThemeAppearance.Dark,
+      [ThemeFamilyId.BaristaFire]: ThemeAppearance.Dark,
+      [ThemeFamilyId.ThisTimeItsDifferent]: ThemeAppearance.Dark,
+      [ThemeFamilyId.Satoshi]: ThemeAppearance.Dark,
     },
     defaultThemeFamilyId: ThemeFamilyId.Default,
     defaultAppearance: ThemeAppearance.Light,
@@ -1795,7 +1993,9 @@ export const useAppStore = create<AppStore>((set) => ({
 
       const currentWorkspace = cloneWorkspace(workspaceFromState(state));
       const planningWorkspace =
-        state.mode === AppMode.Planning ? currentWorkspace : state.planningWorkspace ?? currentWorkspace;
+        state.mode === AppMode.Planning
+          ? currentWorkspace
+          : (state.planningWorkspace ?? currentWorkspace);
       const trackingWorkspace =
         state.mode === AppMode.Tracking ? currentWorkspace : state.trackingWorkspace;
 
@@ -1824,7 +2024,9 @@ export const useAppStore = create<AppStore>((set) => ({
         }
         if (!state.trackingInitialized) {
           const seededTracking = cloneWorkspace(currentWorkspace);
-          seededTracking.simulationResults = trackingSimulationResultsCleared(seededTracking.simulationResults);
+          seededTracking.simulationResults = trackingSimulationResultsCleared(
+            seededTracking.simulationResults,
+          );
           seededTracking.stress = {
             ...seededTracking.stress,
             result: null,
@@ -1899,7 +2101,9 @@ export const useAppStore = create<AppStore>((set) => ({
         return state;
       }
       nextCompareWorkspace.activeSlotId = slot;
-      const syncedWorkspace = applyCompareSyncFromMaster(normalizeCompareWorkspace(nextCompareWorkspace));
+      const syncedWorkspace = applyCompareSyncFromMaster(
+        normalizeCompareWorkspace(nextCompareWorkspace),
+      );
       const normalizedWorkspace =
         state.mode === AppMode.Tracking
           ? normalizeTrackingCompareCanonicalFloor(syncedWorkspace)
@@ -1939,11 +2143,14 @@ export const useAppStore = create<AppStore>((set) => ({
       if (!nextCompareWorkspace.slotOrder.includes(sourceSlotId)) {
         return state;
       }
-      const nextSlotId = COMPARE_SLOT_IDS.find((slotId) => !nextCompareWorkspace.slotOrder.includes(slotId));
+      const nextSlotId = COMPARE_SLOT_IDS.find(
+        (slotId) => !nextCompareWorkspace.slotOrder.includes(slotId),
+      );
       if (!nextSlotId) {
         return state;
       }
-      const sourceWorkspace = nextCompareWorkspace.slots[sourceSlotId] ?? cloneWorkspace(workspaceFromState(state));
+      const sourceWorkspace =
+        nextCompareWorkspace.slots[sourceSlotId] ?? cloneWorkspace(workspaceFromState(state));
       if (!sourceWorkspace) {
         return state;
       }
@@ -1953,8 +2160,11 @@ export const useAppStore = create<AppStore>((set) => ({
       nextCompareWorkspace.slotOrder = [...nextCompareWorkspace.slotOrder, nextSlotId];
       nextCompareWorkspace.slots[nextSlotId] = cloneWorkspace(sourceWorkspace);
       nextCompareWorkspace.slotOrder = sortCompareSlotOrder(nextCompareWorkspace.slotOrder);
-      nextCompareWorkspace.compareSync.unsyncedBySlot[nextSlotId] = createCompareSyncSlotOverrides();
-      const syncedWorkspace = applyCompareSyncFromMaster(normalizeCompareWorkspace(nextCompareWorkspace));
+      nextCompareWorkspace.compareSync.unsyncedBySlot[nextSlotId] =
+        createCompareSyncSlotOverrides();
+      const syncedWorkspace = applyCompareSyncFromMaster(
+        normalizeCompareWorkspace(nextCompareWorkspace),
+      );
       const normalizedWorkspace =
         state.mode === AppMode.Tracking
           ? normalizeTrackingCompareCanonicalFloor(syncedWorkspace)
@@ -1975,7 +2185,9 @@ export const useAppStore = create<AppStore>((set) => ({
       if (!nextCompareWorkspace.slotOrder.includes(slot)) {
         return state;
       }
-      nextCompareWorkspace.slotOrder = nextCompareWorkspace.slotOrder.filter((slotId) => slotId !== slot);
+      nextCompareWorkspace.slotOrder = nextCompareWorkspace.slotOrder.filter(
+        (slotId) => slotId !== slot,
+      );
       nextCompareWorkspace.slotOrder = sortCompareSlotOrder(nextCompareWorkspace.slotOrder);
       delete nextCompareWorkspace.slots[slot];
       delete nextCompareWorkspace.compareSync.unsyncedBySlot[slot];
@@ -1986,7 +2198,9 @@ export const useAppStore = create<AppStore>((set) => ({
       if (nextCompareWorkspace.baselineSlotId === slot) {
         nextCompareWorkspace.baselineSlotId = nextCompareWorkspace.slotOrder[0] ?? 'A';
       }
-      const syncedWorkspace = applyCompareSyncFromMaster(normalizeCompareWorkspace(nextCompareWorkspace));
+      const syncedWorkspace = applyCompareSyncFromMaster(
+        normalizeCompareWorkspace(nextCompareWorkspace),
+      );
       const normalizedWorkspace =
         state.mode === AppMode.Tracking
           ? normalizeTrackingCompareCanonicalFloor(syncedWorkspace)
@@ -2018,7 +2232,9 @@ export const useAppStore = create<AppStore>((set) => ({
       });
 
       nextCompareWorkspace.compareSync = compareSync;
-      const syncedWorkspace = applyCompareSyncFromMaster(normalizeCompareWorkspace(nextCompareWorkspace));
+      const syncedWorkspace = applyCompareSyncFromMaster(
+        normalizeCompareWorkspace(nextCompareWorkspace),
+      );
       const normalizedWorkspace =
         state.mode === AppMode.Tracking
           ? normalizeTrackingCompareCanonicalFloor(syncedWorkspace)
@@ -2042,9 +2258,19 @@ export const useAppStore = create<AppStore>((set) => ({
       const nextLocked = !compareSync.instanceLocks[family][instanceId];
       if (family === 'spendingPhases') {
         const masterPhases = nextCompareWorkspace.slots.A?.spendingPhases ?? [];
-        normalizeSpendingPhaseInstanceLocks(compareSync, masterPhases, nextCompareWorkspace.slotOrder);
+        normalizeSpendingPhaseInstanceLocks(
+          compareSync,
+          masterPhases,
+          nextCompareWorkspace.slotOrder,
+        );
         if (nextLocked) {
-          if (!isSpendingPhaseLockEligible(instanceId, masterPhases, compareSync.instanceLocks.spendingPhases)) {
+          if (
+            !isSpendingPhaseLockEligible(
+              instanceId,
+              masterPhases,
+              compareSync.instanceLocks.spendingPhases,
+            )
+          ) {
             return state;
           }
           compareSync.instanceLocks.spendingPhases[instanceId] = true;
@@ -2059,7 +2285,8 @@ export const useAppStore = create<AppStore>((set) => ({
               if (slotId === 'A') {
                 return;
               }
-              const overrides = compareSync.unsyncedBySlot[slotId] ?? createCompareSyncSlotOverrides();
+              const overrides =
+                compareSync.unsyncedBySlot[slotId] ?? createCompareSyncSlotOverrides();
               tailIds.forEach((id) => {
                 delete overrides.instances.spendingPhases[id];
               });
@@ -2083,7 +2310,9 @@ export const useAppStore = create<AppStore>((set) => ({
         compareSync.unsyncedBySlot[slotId] = overrides;
       });
       nextCompareWorkspace.compareSync = compareSync;
-      const syncedWorkspace = applyCompareSyncFromMaster(normalizeCompareWorkspace(nextCompareWorkspace));
+      const syncedWorkspace = applyCompareSyncFromMaster(
+        normalizeCompareWorkspace(nextCompareWorkspace),
+      );
       const normalizedWorkspace =
         state.mode === AppMode.Tracking
           ? normalizeTrackingCompareCanonicalFloor(syncedWorkspace)
@@ -2118,7 +2347,9 @@ export const useAppStore = create<AppStore>((set) => ({
       }
       compareSync.unsyncedBySlot[slot] = overrides;
       nextCompareWorkspace.compareSync = compareSync;
-      const syncedWorkspace = applyCompareSyncFromMaster(normalizeCompareWorkspace(nextCompareWorkspace));
+      const syncedWorkspace = applyCompareSyncFromMaster(
+        normalizeCompareWorkspace(nextCompareWorkspace),
+      );
       const normalizedWorkspace =
         state.mode === AppMode.Tracking
           ? normalizeTrackingCompareCanonicalFloor(syncedWorkspace)
@@ -2153,7 +2384,9 @@ export const useAppStore = create<AppStore>((set) => ({
       }
       compareSync.unsyncedBySlot[slot] = overrides;
       nextCompareWorkspace.compareSync = compareSync;
-      const syncedWorkspace = applyCompareSyncFromMaster(normalizeCompareWorkspace(nextCompareWorkspace));
+      const syncedWorkspace = applyCompareSyncFromMaster(
+        normalizeCompareWorkspace(nextCompareWorkspace),
+      );
       const normalizedWorkspace =
         state.mode === AppMode.Tracking
           ? normalizeTrackingCompareCanonicalFloor(syncedWorkspace)
@@ -2180,7 +2413,9 @@ export const useAppStore = create<AppStore>((set) => ({
       if (compareActive && activeSlotId !== 'A') {
         return state;
       }
-      const sanitizedPatch = sanitizeTrackingActualOverrides({ [monthIndex]: patch as ActualMonthOverride })[monthIndex];
+      const sanitizedPatch = sanitizeTrackingActualOverrides({
+        [monthIndex]: patch as ActualMonthOverride,
+      })[monthIndex];
       if (!sanitizedPatch) {
         return state;
       }
@@ -2214,8 +2449,7 @@ export const useAppStore = create<AppStore>((set) => ({
         }
         const workspace = cloneCompareWorkspace(state.compareWorkspace);
         const activeWorkspace =
-          workspace.slots[activeSlotId] ??
-          cloneWorkspace(workspaceFromState(state));
+          workspace.slots[activeSlotId] ?? cloneWorkspace(workspaceFromState(state));
         activeWorkspace.actualOverridesByMonth = nextActualOverridesByMonth;
         activeWorkspace.lastEditedMonthIndex = nextLastEditedMonthIndex;
         workspace.slots[activeSlotId] = activeWorkspace;
@@ -2252,8 +2486,7 @@ export const useAppStore = create<AppStore>((set) => ({
         }
         const workspace = cloneCompareWorkspace(state.compareWorkspace);
         const activeWorkspace =
-          workspace.slots[activeSlotId] ??
-          cloneWorkspace(workspaceFromState(state));
+          workspace.slots[activeSlotId] ?? cloneWorkspace(workspaceFromState(state));
         activeWorkspace.actualOverridesByMonth = next;
         activeWorkspace.lastEditedMonthIndex = nextLastEditedMonthIndex;
         workspace.slots[activeSlotId] = activeWorkspace;
@@ -2282,8 +2515,7 @@ export const useAppStore = create<AppStore>((set) => ({
         }
         const workspace = cloneCompareWorkspace(state.compareWorkspace);
         const activeWorkspace =
-          workspace.slots[activeSlotId] ??
-          cloneWorkspace(workspaceFromState(state));
+          workspace.slots[activeSlotId] ?? cloneWorkspace(workspaceFromState(state));
         activeWorkspace.actualOverridesByMonth = nextOverrides;
         activeWorkspace.lastEditedMonthIndex = nextLastEditedMonthIndex;
         workspace.slots[activeSlotId] = activeWorkspace;
@@ -2336,18 +2568,20 @@ export const useAppStore = create<AppStore>((set) => ({
         );
         const nextRetirementDuration = Number(nextCore.retirementDuration);
         const staleState = markTrackingOutputStateStale(state);
-        const nextGlidePath = state.drawdownStrategy.rebalancing.glidePath.map((waypoint, index, all) => {
-          if (index === 0) {
-            return { ...waypoint, year: 1 };
-          }
-          if (index === all.length - 1) {
-            return { ...waypoint, year: nextRetirementDuration };
-          }
-          return {
-            ...waypoint,
-            year: Math.max(2, Math.min(nextRetirementDuration - 1, waypoint.year)),
-          };
-        });
+        const nextGlidePath = state.drawdownStrategy.rebalancing.glidePath.map(
+          (waypoint, index, all) => {
+            if (index === 0) {
+              return { ...waypoint, year: 1 };
+            }
+            if (index === all.length - 1) {
+              return { ...waypoint, year: nextRetirementDuration };
+            }
+            return {
+              ...waypoint,
+              year: Math.max(2, Math.min(nextRetirementDuration - 1, waypoint.year)),
+            };
+          },
+        );
         return {
           coreParams: nextCore,
           spendingPhases: recalculatePhaseBoundaries(
@@ -2411,12 +2645,15 @@ export const useAppStore = create<AppStore>((set) => ({
         return state;
       }
       const staleState = markTrackingOutputStateStale(state);
-      const next = [...state.spendingPhases, {
-        ...defaultPhase(),
-        name: `Phase ${state.spendingPhases.length + 1}`,
-        startYear: retirementYears,
-        endYear: retirementYears,
-      }];
+      const next = [
+        ...state.spendingPhases,
+        {
+          ...defaultPhase(),
+          name: `Phase ${state.spendingPhases.length + 1}`,
+          startYear: retirementYears,
+          endYear: retirementYears,
+        },
+      ];
       return {
         spendingPhases: recalculatePhaseBoundaries(next, retirementYears, firstPhaseStartYear),
         ...staleState,
@@ -2443,7 +2680,11 @@ export const useAppStore = create<AppStore>((set) => ({
       );
       const staleState = markTrackingOutputStateStale(state);
       return {
-        spendingPhases: recalculatePhaseBoundaries(next, state.coreParams.retirementDuration, firstPhaseStartYear),
+        spendingPhases: recalculatePhaseBoundaries(
+          next,
+          state.coreParams.retirementDuration,
+          firstPhaseStartYear,
+        ),
         ...staleState,
       };
     }),
@@ -2474,7 +2715,11 @@ export const useAppStore = create<AppStore>((set) => ({
       );
       const staleState = markTrackingOutputStateStale(state);
       return {
-        spendingPhases: recalculatePhaseBoundaries(next, state.coreParams.retirementDuration, firstPhaseStartYear),
+        spendingPhases: recalculatePhaseBoundaries(
+          next,
+          state.coreParams.retirementDuration,
+          firstPhaseStartYear,
+        ),
         ...staleState,
       };
     }),
@@ -2593,7 +2838,9 @@ export const useAppStore = create<AppStore>((set) => ({
       if (isCompareFamilyLockedAndSyncedForActiveSlot(state, 'drawdownStrategy')) {
         return state;
       }
-      const existing = [...state.drawdownStrategy.rebalancing.glidePath].sort((a, b) => a.year - b.year);
+      const existing = [...state.drawdownStrategy.rebalancing.glidePath].sort(
+        (a, b) => a.year - b.year,
+      );
       if (existing.length < 2) {
         const staleState = markTrackingOutputStateStale(state);
         return {
@@ -2625,9 +2872,10 @@ export const useAppStore = create<AppStore>((set) => ({
           ...state.drawdownStrategy,
           rebalancing: {
             ...state.drawdownStrategy.rebalancing,
-            glidePath: [...existing, { year: nextYear, allocation: normalizeAllocation(last.allocation) }].sort(
-              (a, b) => a.year - b.year,
-            ),
+            glidePath: [
+              ...existing,
+              { year: nextYear, allocation: normalizeAllocation(last.allocation) },
+            ].sort((a, b) => a.year - b.year),
           },
         },
         ...staleState,
@@ -2638,7 +2886,9 @@ export const useAppStore = create<AppStore>((set) => ({
       if (isCompareFamilyLockedAndSyncedForActiveSlot(state, 'drawdownStrategy')) {
         return state;
       }
-      const next = state.drawdownStrategy.rebalancing.glidePath.filter((waypoint) => waypoint.year !== year);
+      const next = state.drawdownStrategy.rebalancing.glidePath.filter(
+        (waypoint) => waypoint.year !== year,
+      );
       if (next.length < 2) {
         return state;
       }
@@ -2689,7 +2939,9 @@ export const useAppStore = create<AppStore>((set) => ({
       return {
         incomeEvents: [
           ...state.incomeEvents,
-          preset ? { ...defaultIncomeEvent(), ...incomeEventPreset(preset), id: createId('income') } : defaultIncomeEvent(),
+          preset
+            ? { ...defaultIncomeEvent(), ...incomeEventPreset(preset), id: createId('income') }
+            : defaultIncomeEvent(),
         ],
         ...staleState,
       };
@@ -2718,7 +2970,9 @@ export const useAppStore = create<AppStore>((set) => ({
       }
       const staleState = markTrackingOutputStateStale(state);
       return {
-        incomeEvents: state.incomeEvents.map((event) => (event.id === id ? { ...event, ...patch } : event)),
+        incomeEvents: state.incomeEvents.map((event) =>
+          event.id === id ? { ...event, ...patch } : event,
+        ),
         ...staleState,
       };
     }),
@@ -2762,7 +3016,9 @@ export const useAppStore = create<AppStore>((set) => ({
       }
       const staleState = markTrackingOutputStateStale(state);
       return {
-        expenseEvents: state.expenseEvents.map((event) => (event.id === id ? { ...event, ...patch } : event)),
+        expenseEvents: state.expenseEvents.map((event) =>
+          event.id === id ? { ...event, ...patch } : event,
+        ),
         ...staleState,
       };
     }),
@@ -2775,16 +3031,14 @@ export const useAppStore = create<AppStore>((set) => ({
       simulationResults: {
         ...state.simulationResults,
         manual: mode === SimulationMode.Manual ? result : state.simulationResults.manual,
-        monteCarlo: mode === SimulationMode.MonteCarlo ? result : state.simulationResults.monteCarlo,
+        monteCarlo:
+          mode === SimulationMode.MonteCarlo ? result : state.simulationResults.monteCarlo,
         reforecast:
           state.mode === AppMode.Tracking && mode === SimulationMode.Manual
             ? result
             : state.simulationResults.reforecast,
         status: 'complete',
-        mcStale:
-          state.mode === AppMode.Tracking
-            ? false
-            : state.simulationResults.mcStale,
+        mcStale: state.mode === AppMode.Tracking ? false : state.simulationResults.mcStale,
         errorMessage: null,
       },
     })),
@@ -2819,13 +3073,16 @@ export const useAppStore = create<AppStore>((set) => ({
       workspace.simulationResults = {
         ...workspace.simulationResults,
         manual: mode === SimulationMode.Manual ? result : workspace.simulationResults.manual,
-        monteCarlo: mode === SimulationMode.MonteCarlo ? result : workspace.simulationResults.monteCarlo,
+        monteCarlo:
+          mode === SimulationMode.MonteCarlo ? result : workspace.simulationResults.monteCarlo,
         status: 'complete',
         mcStale: false,
         errorMessage: null,
       };
       workspace.simulationMode = mode;
-      const compareHasStale = compareWorkspace.slotOrder.some((slotId) => compareWorkspace.slots[slotId]?.simulationResults.mcStale);
+      const compareHasStale = compareWorkspace.slotOrder.some(
+        (slotId) => compareWorkspace.slots[slotId]?.simulationResults.mcStale,
+      );
 
       const activeWorkspace = compareWorkspace.activeSlotId === slot;
       return activeWorkspace
@@ -2939,7 +3196,10 @@ export const useAppStore = create<AppStore>((set) => ({
       return {
         stress: {
           ...state.stress,
-          scenarios: [...state.stress.scenarios, defaultStressScenario(state.stress.scenarios.length)],
+          scenarios: [
+            ...state.stress.scenarios,
+            defaultStressScenario(state.stress.scenarios.length),
+          ],
         },
       };
     }),
@@ -2954,9 +3214,7 @@ export const useAppStore = create<AppStore>((set) => ({
     set((state) => ({
       stress: {
         ...state.stress,
-        scenarios: state.stress.scenarios.map((entry) =>
-          entry.id === id ? scenario : entry,
-        ),
+        scenarios: state.stress.scenarios.map((entry) => (entry.id === id ? scenario : entry)),
       },
     })),
   setStressStatus: (status, errorMessage = null) =>
@@ -3027,11 +3285,14 @@ export const useAppStore = create<AppStore>((set) => ({
     set((state) => ({
       theme: {
         selectedThemeFamilyId: payload.selectedThemeFamilyId ?? state.theme.selectedThemeFamilyId,
-        selectedAppearanceByFamily: payload.selectedAppearanceByFamily ?? state.theme.selectedAppearanceByFamily,
+        selectedAppearanceByFamily:
+          payload.selectedAppearanceByFamily ?? state.theme.selectedAppearanceByFamily,
         defaultThemeFamilyId: payload.defaultThemeFamilyId ?? state.theme.defaultThemeFamilyId,
         defaultAppearance: payload.defaultAppearance ?? state.theme.defaultAppearance,
         activeVariantId:
-          payload.activeVariantId === undefined ? state.theme.activeVariantId : payload.activeVariantId,
+          payload.activeVariantId === undefined
+            ? state.theme.activeVariantId
+            : payload.activeVariantId,
         variants: payload.variants ?? state.theme.variants,
         families: payload.families ?? state.theme.families,
         legacyDefaultThemeId: payload.legacyDefaultThemeId ?? state.theme.legacyDefaultThemeId,
@@ -3137,78 +3398,92 @@ export const useCompareSimulationResults = () => useAppStore((state) => state.co
 export const useIsCompareActive = () =>
   useAppStore((state) => state.compareWorkspace.slotOrder.length > 1);
 
-export const useCompareSyncState = () =>
-  useAppStore((state) => state.compareWorkspace.compareSync);
+export const useCompareSyncState = () => useAppStore((state) => state.compareWorkspace.compareSync);
 
 export const useIsCompareMasterSlotActive = () =>
   useAppStore((state) => state.compareWorkspace.activeSlotId === 'A');
 
-export const useCompareFamilyLockUiState = (family: CompareSyncFamilyKey) =>
-  {
-    const slotId = useAppStore((state) => state.compareWorkspace.activeSlotId);
-    const locked = useAppStore((state) => state.compareWorkspace.compareSync.familyLocks[family]);
-    const synced = useAppStore((state) =>
-      isSlotFamilySynced(state.compareWorkspace.compareSync, state.compareWorkspace.activeSlotId, family),
-    );
-    const readOnly = slotId !== 'A' && locked && synced;
-    return { slotId, locked, synced, readOnly };
-  };
+export const useCompareFamilyLockUiState = (family: CompareSyncFamilyKey) => {
+  const slotId = useAppStore((state) => state.compareWorkspace.activeSlotId);
+  const locked = useAppStore((state) => state.compareWorkspace.compareSync.familyLocks[family]);
+  const synced = useAppStore((state) =>
+    isSlotFamilySynced(
+      state.compareWorkspace.compareSync,
+      state.compareWorkspace.activeSlotId,
+      family,
+    ),
+  );
+  const readOnly = slotId !== 'A' && locked && synced;
+  return { slotId, locked, synced, readOnly };
+};
 
 export const useCompareInstanceLockUiState = (
   family: CompareSyncListFamilyKey,
   instanceId: string,
-) =>
-  {
-    const slotId = useAppStore((state) => state.compareWorkspace.activeSlotId);
-    const familyLocked = useAppStore((state) => state.compareWorkspace.compareSync.familyLocks[family]);
-    const familySynced = useAppStore((state) =>
-      isSlotFamilySynced(state.compareWorkspace.compareSync, state.compareWorkspace.activeSlotId, family),
+) => {
+  const slotId = useAppStore((state) => state.compareWorkspace.activeSlotId);
+  const familyLocked = useAppStore(
+    (state) => state.compareWorkspace.compareSync.familyLocks[family],
+  );
+  const familySynced = useAppStore((state) =>
+    isSlotFamilySynced(
+      state.compareWorkspace.compareSync,
+      state.compareWorkspace.activeSlotId,
+      family,
+    ),
+  );
+  const instanceLocked = useAppStore(
+    (state) => state.compareWorkspace.compareSync.instanceLocks[family][instanceId] === true,
+  );
+  const spendingLockEligible = useAppStore((state) => {
+    if (family !== 'spendingPhases') {
+      return true;
+    }
+    if (state.compareWorkspace.activeSlotId !== 'A') {
+      return true;
+    }
+    if (state.compareWorkspace.compareSync.instanceLocks.spendingPhases[instanceId] === true) {
+      return true;
+    }
+    const masterPhases = state.spendingPhases;
+    return isSpendingPhaseLockEligible(
+      instanceId,
+      masterPhases,
+      state.compareWorkspace.compareSync.instanceLocks.spendingPhases,
     );
-    const instanceLocked = useAppStore(
-      (state) => state.compareWorkspace.compareSync.instanceLocks[family][instanceId] === true,
-    );
-    const spendingLockEligible = useAppStore((state) => {
-      if (family !== 'spendingPhases') {
-        return true;
-      }
-      if (state.compareWorkspace.activeSlotId !== 'A') {
-        return true;
-      }
-      if (state.compareWorkspace.compareSync.instanceLocks.spendingPhases[instanceId] === true) {
-        return true;
-      }
-      const masterPhases = state.spendingPhases;
-      return isSpendingPhaseLockEligible(
-        instanceId,
-        masterPhases,
-        state.compareWorkspace.compareSync.instanceLocks.spendingPhases,
-      );
-    });
-    const instanceSynced = useAppStore((state) =>
-      isSlotInstanceSynced(state.compareWorkspace.compareSync, state.compareWorkspace.activeSlotId, family, instanceId),
-    );
-    const readOnly =
-      slotId !== 'A' &&
-      ((familyLocked && familySynced) || (instanceLocked && instanceSynced));
-    return {
-      slotId,
-      familyLocked,
-      familySynced,
-      instanceLocked,
-      canToggleLock: spendingLockEligible,
-      lockDisabledReason:
-        family === 'spendingPhases' && slotId === 'A' && !spendingLockEligible
-          ? 'Lock prior phase first'
-          : null,
-      instanceSynced,
-      readOnly,
-    };
+  });
+  const instanceSynced = useAppStore((state) =>
+    isSlotInstanceSynced(
+      state.compareWorkspace.compareSync,
+      state.compareWorkspace.activeSlotId,
+      family,
+      instanceId,
+    ),
+  );
+  const readOnly =
+    slotId !== 'A' && ((familyLocked && familySynced) || (instanceLocked && instanceSynced));
+  return {
+    slotId,
+    familyLocked,
+    familySynced,
+    instanceLocked,
+    canToggleLock: spendingLockEligible,
+    lockDisabledReason:
+      family === 'spendingPhases' && slotId === 'A' && !spendingLockEligible
+        ? 'Lock prior phase first'
+        : null,
+    instanceSynced,
+    readOnly,
   };
+};
 
 export const useCompareStressResults = () =>
   useAppStore((state) => ({
     bySlot: Object.fromEntries(
-      state.compareWorkspace.slotOrder.map((slotId) => [slotId, state.compareWorkspace.slots[slotId]?.stress ?? null]),
+      state.compareWorkspace.slotOrder.map((slotId) => [
+        slotId,
+        state.compareWorkspace.slots[slotId]?.stress ?? null,
+      ]),
     ) as Partial<Record<CompareSlotId, WorkspaceSnapshot['stress'] | null>>,
     activeSlotId: state.compareWorkspace.activeSlotId,
   }));
@@ -3219,7 +3494,9 @@ export const getTrackingActualOverridesForRun = (): ActualOverridesByMonth | und
     return undefined;
   }
   if (isCompareActiveFromWorkspace(state.compareWorkspace)) {
-    return sanitizeTrackingActualOverrides(state.compareWorkspace.slots.A?.actualOverridesByMonth ?? {});
+    return sanitizeTrackingActualOverrides(
+      state.compareWorkspace.slots.A?.actualOverridesByMonth ?? {},
+    );
   }
   return sanitizeTrackingActualOverrides(state.actualOverridesByMonth);
 };
@@ -3228,98 +3505,103 @@ const snapshotStateFromStore = (state: AppStore): SnapshotState => {
   const compareWorkspace = compareWorkspaceWithCurrentState(state);
 
   return {
-  mode: state.mode,
-  trackingInitialized: state.trackingInitialized,
-  planningWorkspace: state.planningWorkspace ? cloneWorkspace(state.planningWorkspace) : null,
-  trackingWorkspace: state.trackingWorkspace ? cloneWorkspace(state.trackingWorkspace) : null,
-  compareWorkspace,
-  simulationMode: state.simulationMode,
-  selectedHistoricalEra: state.selectedHistoricalEra,
-  coreParams: {
-    ...state.coreParams,
-    retirementStartDate: { ...state.coreParams.retirementStartDate },
-  },
-  portfolio: { ...state.portfolio },
-  returnAssumptions: {
-    stocks: { ...state.returnAssumptions.stocks },
-    bonds: { ...state.returnAssumptions.bonds },
-    cash: { ...state.returnAssumptions.cash },
-  },
-  spendingPhases: state.spendingPhases.map((phase) => ({ ...phase })),
-  withdrawalStrategy: {
-    type: state.withdrawalStrategy.type,
-    params: { ...state.withdrawalStrategy.params },
-  },
-  drawdownStrategy: {
-    type: state.drawdownStrategy.type,
-    bucketOrder: [...state.drawdownStrategy.bucketOrder],
-    rebalancing: {
-      targetAllocation: { ...state.drawdownStrategy.rebalancing.targetAllocation },
-      glidePathEnabled: state.drawdownStrategy.rebalancing.glidePathEnabled,
-      glidePath: state.drawdownStrategy.rebalancing.glidePath.map((waypoint) => ({
-        year: waypoint.year,
-        allocation: { ...waypoint.allocation },
-      })),
+    mode: state.mode,
+    trackingInitialized: state.trackingInitialized,
+    planningWorkspace: state.planningWorkspace ? cloneWorkspace(state.planningWorkspace) : null,
+    trackingWorkspace: state.trackingWorkspace ? cloneWorkspace(state.trackingWorkspace) : null,
+    compareWorkspace,
+    simulationMode: state.simulationMode,
+    selectedHistoricalEra: state.selectedHistoricalEra,
+    coreParams: {
+      ...state.coreParams,
+      retirementStartDate: { ...state.coreParams.retirementStartDate },
     },
-  },
-  historicalData: {
-    ...state.historicalData,
-    summary: state.historicalData.summary
-      ? {
-          ...state.historicalData.summary,
-          selectedEra: { ...state.historicalData.summary.selectedEra },
-          eras: state.historicalData.summary.eras.map((era) => ({ ...era })),
-          byAsset: {
-            stocks: { ...state.historicalData.summary.byAsset.stocks },
-            bonds: { ...state.historicalData.summary.byAsset.bonds },
-            cash: { ...state.historicalData.summary.byAsset.cash },
-          },
-        }
-      : null,
-  },
-  incomeEvents: state.incomeEvents.map((event) => ({
-    ...event,
-    start: { ...event.start },
-    end: event.end === 'endOfRetirement' ? event.end : { ...event.end },
-  })),
-  expenseEvents: state.expenseEvents.map((event) => ({
-    ...event,
-    start: { ...event.start },
-    end: event.end === 'endOfRetirement' ? event.end : { ...event.end },
-  })),
-  actualOverridesByMonth: Object.fromEntries(
-    Object.entries(state.actualOverridesByMonth).map(([month, value]) => [month, {
-      startBalances: value.startBalances ? { ...value.startBalances } : undefined,
-      withdrawalsByAsset: value.withdrawalsByAsset ? { ...value.withdrawalsByAsset } : undefined,
-      incomeTotal: value.incomeTotal,
-      expenseTotal: value.expenseTotal,
-    }]),
-  ),
-  lastEditedMonthIndex: state.lastEditedMonthIndex,
-  simulationResults: cloneWorkspace(workspaceFromState(state)).simulationResults,
-  stress: cloneWorkspace(workspaceFromState(state)).stress,
-  theme: {
-    selectedThemeFamilyId: state.theme.selectedThemeFamilyId,
-    selectedAppearanceByFamily: { ...state.theme.selectedAppearanceByFamily },
-    defaultThemeFamilyId: state.theme.defaultThemeFamilyId,
-    defaultAppearance: state.theme.defaultAppearance,
-    activeVariantId: state.theme.activeVariantId,
-    variants: state.theme.variants.map((theme) => ({ ...theme })),
-    families: state.theme.families.map((item) => ({ ...item })),
-    legacyDefaultThemeId: state.theme.legacyDefaultThemeId,
-    legacyThemes: state.theme.legacyThemes.map((theme) => ({ ...theme })),
-    legacyCatalog: state.theme.legacyCatalog.map((item) => ({ ...item })),
-    slotCatalog: state.theme.slotCatalog.map((item) => ({ ...item })),
-    validationIssues: state.theme.validationIssues.map((issue) => ({ ...issue })),
-    status: state.theme.status,
-    errorMessage: state.theme.errorMessage,
-  },
-  ui: {
-    ...state.ui,
-    chartZoom: state.ui.chartZoom ? { ...state.ui.chartZoom } : null,
-    tableSort: state.ui.tableSort ? { ...state.ui.tableSort } : null,
-    collapsedSections: { ...state.ui.collapsedSections },
-  },
+    portfolio: { ...state.portfolio },
+    returnAssumptions: {
+      stocks: { ...state.returnAssumptions.stocks },
+      bonds: { ...state.returnAssumptions.bonds },
+      cash: { ...state.returnAssumptions.cash },
+    },
+    spendingPhases: state.spendingPhases.map((phase) => ({ ...phase })),
+    withdrawalStrategy: {
+      type: state.withdrawalStrategy.type,
+      params: { ...state.withdrawalStrategy.params },
+    },
+    drawdownStrategy: {
+      type: state.drawdownStrategy.type,
+      bucketOrder: [...state.drawdownStrategy.bucketOrder],
+      rebalancing: {
+        targetAllocation: { ...state.drawdownStrategy.rebalancing.targetAllocation },
+        glidePathEnabled: state.drawdownStrategy.rebalancing.glidePathEnabled,
+        glidePath: state.drawdownStrategy.rebalancing.glidePath.map((waypoint) => ({
+          year: waypoint.year,
+          allocation: { ...waypoint.allocation },
+        })),
+      },
+    },
+    historicalData: {
+      ...state.historicalData,
+      summary: state.historicalData.summary
+        ? {
+            ...state.historicalData.summary,
+            selectedEra: { ...state.historicalData.summary.selectedEra },
+            eras: state.historicalData.summary.eras.map((era) => ({ ...era })),
+            byAsset: {
+              stocks: { ...state.historicalData.summary.byAsset.stocks },
+              bonds: { ...state.historicalData.summary.byAsset.bonds },
+              cash: { ...state.historicalData.summary.byAsset.cash },
+            },
+          }
+        : null,
+    },
+    incomeEvents: state.incomeEvents.map((event) => ({
+      ...event,
+      start: { ...event.start },
+      end: event.end === 'endOfRetirement' ? event.end : { ...event.end },
+    })),
+    expenseEvents: state.expenseEvents.map((event) => ({
+      ...event,
+      start: { ...event.start },
+      end: event.end === 'endOfRetirement' ? event.end : { ...event.end },
+    })),
+    actualOverridesByMonth: Object.fromEntries(
+      Object.entries(state.actualOverridesByMonth).map(([month, value]) => [
+        month,
+        {
+          startBalances: value.startBalances ? { ...value.startBalances } : undefined,
+          withdrawalsByAsset: value.withdrawalsByAsset
+            ? { ...value.withdrawalsByAsset }
+            : undefined,
+          incomeTotal: value.incomeTotal,
+          expenseTotal: value.expenseTotal,
+        },
+      ]),
+    ),
+    lastEditedMonthIndex: state.lastEditedMonthIndex,
+    simulationResults: cloneWorkspace(workspaceFromState(state)).simulationResults,
+    stress: cloneWorkspace(workspaceFromState(state)).stress,
+    theme: {
+      selectedThemeFamilyId: state.theme.selectedThemeFamilyId,
+      selectedAppearanceByFamily: { ...state.theme.selectedAppearanceByFamily },
+      defaultThemeFamilyId: state.theme.defaultThemeFamilyId,
+      defaultAppearance: state.theme.defaultAppearance,
+      activeVariantId: state.theme.activeVariantId,
+      variants: state.theme.variants.map((theme) => ({ ...theme })),
+      families: state.theme.families.map((item) => ({ ...item })),
+      legacyDefaultThemeId: state.theme.legacyDefaultThemeId,
+      legacyThemes: state.theme.legacyThemes.map((theme) => ({ ...theme })),
+      legacyCatalog: state.theme.legacyCatalog.map((item) => ({ ...item })),
+      slotCatalog: state.theme.slotCatalog.map((item) => ({ ...item })),
+      validationIssues: state.theme.validationIssues.map((issue) => ({ ...issue })),
+      status: state.theme.status,
+      errorMessage: state.theme.errorMessage,
+    },
+    ui: {
+      ...state.ui,
+      chartZoom: state.ui.chartZoom ? { ...state.ui.chartZoom } : null,
+      tableSort: state.ui.tableSort ? { ...state.ui.tableSort } : null,
+      collapsedSections: { ...state.ui.collapsedSections },
+    },
   };
 };
 
@@ -3344,7 +3626,9 @@ const configFromWorkspace = (workspace: WorkspaceSnapshot, mode: AppMode): Simul
       : {
           type: DrawdownStrategyType.Rebalancing,
           rebalancing: {
-            targetAllocation: normalizeAllocation(workspace.drawdownStrategy.rebalancing.targetAllocation),
+            targetAllocation: normalizeAllocation(
+              workspace.drawdownStrategy.rebalancing.targetAllocation,
+            ),
             glidePathEnabled: workspace.drawdownStrategy.rebalancing.glidePathEnabled,
             glidePath: workspace.drawdownStrategy.rebalancing.glidePath.map((waypoint) => ({
               year: waypoint.year,
@@ -3392,7 +3676,9 @@ export const getCompareConfigs = (): Array<{ slotId: CompareSlotId; config: Simu
         config: configFromWorkspace(workspace, state.mode),
       };
     })
-    .filter((entry): entry is { slotId: CompareSlotId; config: SimulationConfig } => entry !== null);
+    .filter(
+      (entry): entry is { slotId: CompareSlotId; config: SimulationConfig } => entry !== null,
+    );
 };
 
 export const getCurrentConfig = (): SimulationConfig => {

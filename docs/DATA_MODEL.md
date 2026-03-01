@@ -3,6 +3,7 @@
 This document defines the current canonical data model used by the app.
 
 Source of truth for exact TypeScript contracts:
+
 - `packages/shared/src/domain/simulation.ts`
 - `packages/shared/src/contracts/api.ts`
 - `packages/shared/src/contracts/schemas.ts`
@@ -10,39 +11,56 @@ Source of truth for exact TypeScript contracts:
 ## 1. Core Decisions
 
 ### 1.1 Time Model
+
 - The simulation uses integer `monthIndex` values in result rows (`1..N`) and `year`/`monthInYear` fields.
 - Configuration uses retirement start date (`month`, `year`) plus `retirementDuration` in years.
 - Tracking overrides are keyed by month index in `ActualOverridesByMonth`.
 
 ### 1.2 Money Model
+
 - Money values are stored as integer dollars across inputs, overrides, and outputs.
 - Type alias in shared domain is `MoneyCents = number` (legacy name), but values are whole-dollar integers.
 
 ### 1.3 Percentage Model
+
 - Rates are decimal fractions (`0.08` = 8%).
 - Validation ranges are enforced by Zod schemas in `contracts/schemas.ts`.
 
 ## 2. Enums
 
 ```ts
-AssetClass = "stocks" | "bonds" | "cash"
+AssetClass = 'stocks' | 'bonds' | 'cash';
 WithdrawalStrategyType =
-  "constantDollar" | "percentOfPortfolio" | "oneOverN" | "vpw" |
-  "dynamicSwr" | "sensibleWithdrawals" | "ninetyFivePercent" |
-  "guytonKlinger" | "vanguardDynamic" | "endowment" |
-  "hebelerAutopilot" | "capeBased"
-DrawdownStrategyType = "bucket" | "rebalancing"
-SimulationMode = "manual" | "monteCarlo"
-AppMode = "planning" | "tracking"
+  'constantDollar' |
+  'percentOfPortfolio' |
+  'oneOverN' |
+  'vpw' |
+  'dynamicSwr' |
+  'sensibleWithdrawals' |
+  'ninetyFivePercent' |
+  'guytonKlinger' |
+  'vanguardDynamic' |
+  'endowment' |
+  'hebelerAutopilot' |
+  'capeBased';
+DrawdownStrategyType = 'bucket' | 'rebalancing';
+SimulationMode = 'manual' | 'monteCarlo';
+AppMode = 'planning' | 'tracking';
 HistoricalEra =
-  "fullHistory" | "depressionEra" | "postWarBoom" | "stagflationEra" |
-  "oilCrisis" | "post1980BullRun" | "lostDecade" | "postGfcRecovery"
+  'fullHistory' |
+  'depressionEra' |
+  'postWarBoom' |
+  'stagflationEra' |
+  'oilCrisis' |
+  'post1980BullRun' |
+  'lostDecade' |
+  'postGfcRecovery';
 ```
 
 Current compare extension:
 
 ```ts
-CompareSlotId = "A" | "B" | "C" | "D" | "E" | "F" | "G" | "H"
+CompareSlotId = 'A' | 'B' | 'C' | 'D' | 'E' | 'F' | 'G' | 'H';
 ```
 
 ## 3. SimulationConfig
@@ -87,6 +105,7 @@ SpendingPhase {
 ```
 
 Cardinality and semantics:
+
 - `spendingPhases` supports `0..4` entries.
 - `0` entries means no phase min/max bounds are active (withdrawals are strategy-only).
 - When one or more entries exist, they must form a contiguous retirement-year coverage segment via UI/store normalization.
@@ -189,6 +208,7 @@ ActualOverridesByMonth = Record<number, ActualMonthOverride>
 ```
 
 Tracking ledger contract v1.0:
+
 - Authoritative user-authored fields: `startBalances`, `withdrawalsByAsset`.
 - Deprecated legacy fields: `incomeTotal`, `expenseTotal` (retained for backward compatibility; ignored by current Tracking ledger edit path).
 - In compare Tracking runs, effective overrides are canonicalized from Slot `A` for all active slots.
@@ -393,6 +413,7 @@ StressTestResponse {
 Validation is implemented in `packages/shared/src/contracts/schemas.ts`.
 
 Key constraints include:
+
 - Spending phase bounds and ordering (`endYear >= startYear`, `max >= min`).
 - Rebalancing allocations sum to 1.0.
 - Glide path requires at least 2 waypoints when enabled.
@@ -497,7 +518,7 @@ Theme modeling (server-owned):
 ```ts
 ThemeDefinition {
   id: ThemeVariantId;               // e.g. default.light, monokai.dark
-  familyId: ThemeFamilyId;          // default | monokai | synthwave84 | stayTheCourse | highContrast
+  familyId: ThemeFamilyId;          // default | monokai | synthwave84 | stayTheCourse | highContrast | patagoniaVest | moneyNeverSleeps | hodl | trustMeBro | threePieceSuit | buyHighSellLow | exitStrategy | ath | coastin | marginCall | bigShort | holdingTheBag | boglehead | cryptoBro | theVillages | seedRound | nineteen87 | ramen | toTheMoon | wagmi | ngmi | buyTheDip | thisIsFine | deadCatBounce | rugPull | whale | lamboLoading | theSingularity | zoomOutBro | blackSwan | tulipMania | nineteen29Vibes | dotComShuffle | beanieBaby | debtSnowball | sirThisIsAWendys | hopium | copium | baristaFire | thisTimeItsDifferent | satoshi
   appearance: ThemeAppearance;      // light | dark
   name: string;
   description: string;
@@ -569,6 +590,7 @@ ThemeChartTokens {
 Compare slot color tokens provide a slot-ID-stable visual identity (`A`..`H`) that is reused in compare chart lines, sidebar chips, and compare ledger tabs.
 
 Notes:
+
 - Snapshot load validates envelope + payload using Zod.
 - `schemaVersion` must exactly match the app-supported version.
 - Invalid or incompatible files must not mutate app state.
@@ -615,6 +637,7 @@ BookmarksStorageEnvelope {
 ```
 
 Rules:
+
 - Storage key: `finapp:bookmarks:v1`
 - Max count: `100` bookmarks
 - Insert order: newest first
@@ -653,10 +676,12 @@ CompareState {
 ```
 
 Slot constraints:
+
 - Minimum active slots: `1`
 - Maximum active slots: `8`
 
 Initialization rule:
+
 - On app initialization:
   - set `slotOrder = ["A"]`
   - set `activeSlotId = "A"`
@@ -664,6 +689,7 @@ Initialization rule:
   - initialize `compareSync` with all family locks disabled and empty unsync maps
 
 Lifecycle rules:
+
 - Add slot: user clones from currently active slot; new slot receives cloned workspace.
 - Remove slot: allowed only when active slot count is greater than 1, except `A` which is non-removable.
 - Baseline fallback: if baseline slot is removed, baseline reassigns to first slot in `slotOrder`.
@@ -692,6 +718,7 @@ Lifecycle rules:
 ### 10.3 Stochastic parity rule in multi-slot runs
 
 For fairness, multi-slot compare applies the same market randomness to all active slots within a run:
+
 - Manual: one monthly stochastic return stream is shared across all active slots.
 - Monte Carlo: one seed/sampling stream is shared so each simulation index/month index maps to identical sampled market conditions across all active slots.
 
