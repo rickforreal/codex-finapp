@@ -1622,3 +1622,21 @@
       [AC1] `docs/changes/CHG-0007-theme-menu-order-and-outside-close/{CHANGE,ACCEPTANCE}.md` created.
       [AC2] `docs/changes/INDEX.md` includes CHG-0007 row.
       [AC3] `PROGRESS.txt` has append-only CHG-0007 completion entry.
+
+## Minor Change Plan — CHG-0008 MC p50 Reference Column Theme Balance
+
+- [x] CHG-0008-T1: Make MC p50 reference column use theme-balanced detail-ledger reference slots
+      Phase: Minor Change/CHG-0008
+      Dependencies: none
+      Acceptance Criteria:
+      [AC1] `Start Total (p50)` tint uses detail-ledger reference background slot instead of generic interactive-secondary token.
+      [AC2] `Start Total (p50)` text uses detail-ledger reference text slot.
+      [AC3] Column behavior remains unchanged.
+
+- [x] CHG-0008-T2: Update change docs/index and trackers
+      Phase: Minor Change/CHG-0008
+      Dependencies: CHG-0008-T1
+      Acceptance Criteria:
+      [AC1] `docs/changes/CHG-0008-mc-p50-reference-column-theme-balance/{CHANGE,ACCEPTANCE}.md` created.
+      [AC2] `docs/changes/INDEX.md` includes CHG-0008 row.
+      [AC3] `PROGRESS.txt` has append-only CHG-0008 completion entry.

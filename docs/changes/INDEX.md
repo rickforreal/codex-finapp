@@ -36,3 +36,4 @@ A request belongs in:
 | CHG-0005 | Theme dropdown scroll + selected-row visibility | Done | 2026-02-28 | 2026-02-28 | `docs/changes/CHG-0005-theme-dropdown-scroll-selected-visibility/` |
 | CHG-0006 | Segmented toggle active-hover contrast fix | Done | 2026-03-01 | 2026-03-01 | `docs/changes/CHG-0006-segmented-toggle-active-hover-contrast/` |
 | CHG-0007 | Theme menu order + outside-click close | Done | 2026-03-01 | 2026-03-01 | `docs/changes/CHG-0007-theme-menu-order-and-outside-close/` |
+| CHG-0008 | MC p50 reference column theme balance | Done | 2026-03-01 | 2026-03-01 | `docs/changes/CHG-0008-mc-p50-reference-column-theme-balance/` |

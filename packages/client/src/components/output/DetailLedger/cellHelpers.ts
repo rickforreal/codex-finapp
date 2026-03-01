@@ -50,8 +50,9 @@ export const viewportHeight = 430;
 export const overscan = 8;
 export const monteCarloReferenceTooltip =
   'Median start-of-period portfolio for this row across Monte Carlo simulations. For month m: p50(startTotal[m]).';
-export const monteCarloReferenceColumnTint = 'var(--theme-color-interactive-secondary)';
-export const monteCarloReferenceColumnText = 'var(--theme-color-text-secondary)';
+export const monteCarloReferenceColumnTint =
+  'color-mix(in srgb, var(--theme-slot-detail-ledger-reference-bg) 88%, var(--theme-slot-detail-ledger-shell-bg) 12%)';
+export const monteCarloReferenceColumnText = 'var(--theme-slot-detail-ledger-reference-text)';
 
 export const editableColumnKeys = new Set<keyof DetailRow>([
   'startStocks',

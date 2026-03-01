@@ -1869,3 +1869,22 @@ Validation run (all passing):
 
 Canonical docs impact:
 - No canonical doc impact (bugfix to runtime persistence/restore correctness).
+
+2026-03-01 — CHG-0008: MC p50 reference column theme balance | COMPLETE
+- Updated MC `Start Total (p50)` reference column styling to use detail-ledger reference slot tokens.
+- Changed tint from generic interactive secondary to:
+  - `color-mix(in srgb, var(--theme-slot-detail-ledger-reference-bg) 88%, var(--theme-slot-detail-ledger-shell-bg) 12%)`
+- Changed text color to `var(--theme-slot-detail-ledger-reference-text)`.
+- Column behavior (values, sorting, tooltip) unchanged.
+
+Validation run (passing):
+- `npm run typecheck`
+- `npm run lint`
+
+Canonical docs impact:
+- No canonical doc impact.
+- Updated minor-change artifacts:
+  - `docs/changes/INDEX.md`
+  - `docs/changes/CHG-0008-mc-p50-reference-column-theme-balance/CHANGE.md`
+  - `docs/changes/CHG-0008-mc-p50-reference-column-theme-balance/ACCEPTANCE.md`
+  - `TASKS.md`
