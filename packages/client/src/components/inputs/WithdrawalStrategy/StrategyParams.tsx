@@ -2,6 +2,7 @@ import { WithdrawalStrategyType } from '@finapp/shared';
 
 import { NumericInput } from '../../shared/NumericInput';
 import { PercentInput } from '../../shared/PercentInput';
+import { ToggleSwitch } from '../../shared/ToggleSwitch';
 import { useAppStore } from '../../../store/useAppStore';
 
 const PercentField = ({
@@ -32,7 +33,9 @@ export const StrategyParams = () => {
   );
   const setWithdrawalParam = useAppStore((state) => state.setWithdrawalParam);
 
-  const set = (key: Parameters<typeof setWithdrawalParam>[0]) => (value: number) =>
+  const setNumber = (key: Parameters<typeof setWithdrawalParam>[0]) => (value: number) =>
+    setWithdrawalParam(key, value);
+  const setBoolean = (key: Parameters<typeof setWithdrawalParam>[0]) => (value: boolean) =>
     setWithdrawalParam(key, value);
 
   if (strategy.type === WithdrawalStrategyType.OneOverN) {
@@ -50,7 +53,7 @@ export const StrategyParams = () => {
         <PercentField
           label="Initial Withdrawal Rate"
           value={strategy.params.initialWithdrawalRate}
-          onChange={set('initialWithdrawalRate')}
+          onChange={setNumber('initialWithdrawalRate')}
           min={1}
           max={10}
           step={0.1}
@@ -65,7 +68,7 @@ export const StrategyParams = () => {
       <PercentField
         label="Annual Withdrawal Rate"
         value={strategy.params.annualWithdrawalRate}
-        onChange={set('annualWithdrawalRate')}
+        onChange={setNumber('annualWithdrawalRate')}
         min={1}
         max={15}
         step={0.1}
@@ -79,7 +82,7 @@ export const StrategyParams = () => {
         <PercentField
           label="Expected Real Return"
           value={strategy.params.expectedRealReturn}
-          onChange={set('expectedRealReturn')}
+          onChange={setNumber('expectedRealReturn')}
           min={-5}
           max={15}
           step={0.1}
@@ -87,7 +90,7 @@ export const StrategyParams = () => {
         <PercentField
           label="Drawdown Target"
           value={strategy.params.drawdownTarget}
-          onChange={set('drawdownTarget')}
+          onChange={setNumber('drawdownTarget')}
           min={0}
           max={100}
           step={1}
@@ -101,7 +104,7 @@ export const StrategyParams = () => {
       <PercentField
         label="Expected Rate of Return"
         value={strategy.params.expectedRateOfReturn}
-        onChange={set('expectedRateOfReturn')}
+        onChange={setNumber('expectedRateOfReturn')}
         min={0}
         max={15}
         step={0.1}
@@ -115,7 +118,7 @@ export const StrategyParams = () => {
         <PercentField
           label="Fallback Expected Rate of Return"
           value={strategy.params.fallbackExpectedRateOfReturn}
-          onChange={set('fallbackExpectedRateOfReturn')}
+          onChange={setNumber('fallbackExpectedRateOfReturn')}
           min={1}
           max={15}
           step={0.1}
@@ -124,12 +127,36 @@ export const StrategyParams = () => {
           <p className="text-xs font-medium text-slate-600">Realized Return Lookback (months)</p>
           <NumericInput
             value={strategy.params.lookbackMonths}
-            onChange={set('lookbackMonths')}
+            onChange={setNumber('lookbackMonths')}
             min={6}
             max={60}
             step={1}
           />
         </label>
+        <div className="space-y-1">
+          <div className="flex items-center justify-between">
+            <p className="text-xs font-medium text-slate-600">Withdrawal Smoothing</p>
+            <ToggleSwitch
+              checked={strategy.params.smoothingEnabled}
+              onChange={setBoolean('smoothingEnabled')}
+            />
+          </div>
+          <label className="space-y-1">
+            <p className="text-xs font-medium text-slate-600">
+              Smoothing Blend (Prior Weight): {Math.round(strategy.params.smoothingBlend * 100)}% prior / {Math.round((1 - strategy.params.smoothingBlend) * 100)}% new
+            </p>
+            <input
+              type="range"
+              min={0}
+              max={95}
+              step={1}
+              value={Math.round(strategy.params.smoothingBlend * 100)}
+              disabled={!strategy.params.smoothingEnabled}
+              onChange={(event) => setWithdrawalParam('smoothingBlend', Number(event.target.value) / 100)}
+              className="w-full accent-brand-blue disabled:cursor-not-allowed disabled:opacity-60"
+            />
+          </label>
+        </div>
       </div>
     );
   }
@@ -140,7 +167,7 @@ export const StrategyParams = () => {
         <PercentField
           label="Base Withdrawal Rate"
           value={strategy.params.baseWithdrawalRate}
-          onChange={set('baseWithdrawalRate')}
+          onChange={setNumber('baseWithdrawalRate')}
           min={1}
           max={8}
           step={0.1}
@@ -148,7 +175,7 @@ export const StrategyParams = () => {
         <PercentField
           label="Extras Withdrawal Rate"
           value={strategy.params.extrasWithdrawalRate}
-          onChange={set('extrasWithdrawalRate')}
+          onChange={setNumber('extrasWithdrawalRate')}
           min={0}
           max={50}
           step={1}
@@ -163,7 +190,7 @@ export const StrategyParams = () => {
         <PercentField
           label="Annual Withdrawal Rate"
           value={strategy.params.annualWithdrawalRate}
-          onChange={set('annualWithdrawalRate')}
+          onChange={setNumber('annualWithdrawalRate')}
           min={1}
           max={10}
           step={0.1}
@@ -171,7 +198,7 @@ export const StrategyParams = () => {
         <PercentField
           label="Minimum Floor"
           value={strategy.params.minimumFloor}
-          onChange={set('minimumFloor')}
+          onChange={setNumber('minimumFloor')}
           min={80}
           max={100}
           step={1}
@@ -186,7 +213,7 @@ export const StrategyParams = () => {
         <PercentField
           label="Initial Withdrawal Rate"
           value={strategy.params.initialWithdrawalRate}
-          onChange={set('initialWithdrawalRate')}
+          onChange={setNumber('initialWithdrawalRate')}
           min={1}
           max={10}
           step={0.1}
@@ -194,7 +221,7 @@ export const StrategyParams = () => {
         <PercentField
           label="Capital Preservation Trigger"
           value={strategy.params.capitalPreservationTrigger}
-          onChange={set('capitalPreservationTrigger')}
+          onChange={setNumber('capitalPreservationTrigger')}
           min={0}
           max={100}
           step={1}
@@ -202,7 +229,7 @@ export const StrategyParams = () => {
         <PercentField
           label="Capital Preservation Cut"
           value={strategy.params.capitalPreservationCut}
-          onChange={set('capitalPreservationCut')}
+          onChange={setNumber('capitalPreservationCut')}
           min={0}
           max={50}
           step={1}
@@ -210,7 +237,7 @@ export const StrategyParams = () => {
         <PercentField
           label="Prosperity Trigger"
           value={strategy.params.prosperityTrigger}
-          onChange={set('prosperityTrigger')}
+          onChange={setNumber('prosperityTrigger')}
           min={0}
           max={100}
           step={1}
@@ -218,7 +245,7 @@ export const StrategyParams = () => {
         <PercentField
           label="Prosperity Raise"
           value={strategy.params.prosperityRaise}
-          onChange={set('prosperityRaise')}
+          onChange={setNumber('prosperityRaise')}
           min={0}
           max={50}
           step={1}
@@ -227,7 +254,7 @@ export const StrategyParams = () => {
           <p className="text-xs font-medium text-slate-600">Guardrails Sunset (years)</p>
           <NumericInput
             value={strategy.params.guardrailsSunset}
-            onChange={set('guardrailsSunset')}
+            onChange={setNumber('guardrailsSunset')}
             min={0}
             max={40}
             step={1}
@@ -243,7 +270,7 @@ export const StrategyParams = () => {
         <PercentField
           label="Annual Withdrawal Rate"
           value={strategy.params.annualWithdrawalRate}
-          onChange={set('annualWithdrawalRate')}
+          onChange={setNumber('annualWithdrawalRate')}
           min={1}
           max={10}
           step={0.1}
@@ -251,7 +278,7 @@ export const StrategyParams = () => {
         <PercentField
           label="Ceiling"
           value={strategy.params.ceiling}
-          onChange={set('ceiling')}
+          onChange={setNumber('ceiling')}
           min={0}
           max={15}
           step={0.5}
@@ -259,7 +286,7 @@ export const StrategyParams = () => {
         <PercentField
           label="Floor"
           value={strategy.params.floor}
-          onChange={set('floor')}
+          onChange={setNumber('floor')}
           min={0}
           max={15}
           step={0.5}
@@ -274,7 +301,7 @@ export const StrategyParams = () => {
         <PercentField
           label="Spending Rate"
           value={strategy.params.spendingRate}
-          onChange={set('spendingRate')}
+          onChange={setNumber('spendingRate')}
           min={1}
           max={10}
           step={0.1}
@@ -282,7 +309,7 @@ export const StrategyParams = () => {
         <PercentField
           label="Smoothing Weight"
           value={strategy.params.smoothingWeight}
-          onChange={set('smoothingWeight')}
+          onChange={setNumber('smoothingWeight')}
           min={0}
           max={100}
           step={1}
@@ -297,7 +324,7 @@ export const StrategyParams = () => {
         <PercentField
           label="Initial Withdrawal Rate"
           value={strategy.params.initialWithdrawalRate}
-          onChange={set('initialWithdrawalRate')}
+          onChange={setNumber('initialWithdrawalRate')}
           min={1}
           max={10}
           step={0.1}
@@ -305,7 +332,7 @@ export const StrategyParams = () => {
         <PercentField
           label="PMT Expected Return"
           value={strategy.params.pmtExpectedReturn}
-          onChange={set('pmtExpectedReturn')}
+          onChange={setNumber('pmtExpectedReturn')}
           min={-5}
           max={15}
           step={0.1}
@@ -313,7 +340,7 @@ export const StrategyParams = () => {
         <PercentField
           label="Prior Year Weight"
           value={strategy.params.priorYearWeight}
-          onChange={set('priorYearWeight')}
+          onChange={setNumber('priorYearWeight')}
           min={0}
           max={100}
           step={1}
@@ -328,7 +355,7 @@ export const StrategyParams = () => {
         <PercentField
           label="Base Withdrawal Rate"
           value={strategy.params.baseWithdrawalRate}
-          onChange={set('baseWithdrawalRate')}
+          onChange={setNumber('baseWithdrawalRate')}
           min={0}
           max={10}
           step={0.1}
@@ -337,7 +364,7 @@ export const StrategyParams = () => {
           <p className="text-xs font-medium text-slate-600">CAPE Weight</p>
           <NumericInput
             value={strategy.params.capeWeight}
-            onChange={set('capeWeight')}
+            onChange={setNumber('capeWeight')}
             min={0}
             max={2}
             step={0.1}
@@ -347,7 +374,7 @@ export const StrategyParams = () => {
           <p className="text-xs font-medium text-slate-600">Starting CAPE</p>
           <NumericInput
             value={strategy.params.startingCape}
-            onChange={set('startingCape')}
+            onChange={setNumber('startingCape')}
             min={1}
             max={60}
             step={0.5}

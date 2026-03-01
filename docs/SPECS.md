@@ -1354,13 +1354,15 @@ Each year: Withdrawal = [Portfolio × (roi − inflation)] ÷ [1 − ((1 + infla
 |---|---|---|---|---|---|---|
 | 21-5b1 | Fallback Expected Rate of Return (%) | Numeric input with % suffix | 1.0% – 15.0% | 0.1% | 6.0% | Nominal ROI assumption used only until enough realized history exists to fill lookback window. |
 | 21-5b2 | Realized Return Lookback (Months) | Numeric input | 6 – 60 | 1 | 12 | Trailing window used to compute annualized real TWR from realized monthly returns. |
+| 21-5b3 | Withdrawal Smoothing | Toggle switch | On / Off | n/a | On | When enabled, monthly target is blended with prior month final withdrawal before spending phase clamp. |
+| 21-5b4 | Smoothing Blend (Prior Weight) | Slider (0–95%) | 0% – 95% | 1% | 70% | Prior-withdrawal blend weight. 70% means `70% prior + 30% new`. Disabled when smoothing is off. |
 
-**Note:** Inflation rate is sourced from Core Parameters (#6). No extra smoothing or ROI hard-bounds are applied beyond spending phase min/max clamping.
+**Note:** Inflation rate is sourced from Core Parameters (#6). Spending phase min/max clamping remains authoritative and is applied after smoothing.
 
 **Computed helper:** _"ROI source: Fixed fallback until month L, then trailing realized real TWR (annualized)."_
 
 **Algorithm summary:**
-At each month, compute trailing realized real monthly return for each asset class over the lookback window, annualize each, aggregate with current start-of-month asset weights into a portfolio real ROI, convert to nominal ROI, then run the Dynamic SWR annuity formula using remaining horizon and convert to monthly withdrawal. Before the lookback window is available, use the fallback expected ROI.
+At each month, compute trailing realized real monthly return for each asset class over the lookback window, annualize each, aggregate with current start-of-month asset weights into a portfolio real ROI, convert to nominal ROI, then run the Dynamic SWR annuity formula using remaining horizon and convert to monthly raw withdrawal. Before the lookback window is available, use the fallback expected ROI. If smoothing is enabled, blend raw withdrawal with prior month final withdrawal (`blend * prior + (1 - blend) * raw`), then apply spending phase min/max clamp.
 
 **Formula Reference:** See *Strategy 5B* in WITHDRAWAL_STRATEGIES.md
 
@@ -1606,7 +1608,7 @@ Below is the content for each of the 13 strategies:
 
 **Dynamic SWR (Adaptive TWR):**
 > **Recalculates Dynamic SWR monthly using trailing realized real returns.**
-> Uses trailing real TWR from actual portfolio path behavior (computed per asset class and aggregated by current weights) to update the ROI assumption over time. Early months use a fallback expected ROI until enough history exists.
+> Uses trailing real TWR from actual portfolio path behavior (computed per asset class and aggregated by current weights) to update the ROI assumption over time. Early months use a fallback expected ROI until enough history exists. Optional withdrawal smoothing blends prior month final withdrawal with the new month target before spending phase clamping.
 > _Trade-off: More responsive to real-world performance, but monthly spending can be noisier than annual recalculation._
 
 **Sensible Withdrawals:**

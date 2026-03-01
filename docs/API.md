@@ -52,6 +52,8 @@ Runs Manual or Monte Carlo based on `config.simulationMode`.
   params: {
     fallbackExpectedRateOfReturn: number;
     lookbackMonths: number;
+    smoothingEnabled: boolean;
+    smoothingBlend: number; // prior-withdrawal weight in [0, 0.95]
   };
 }
 ```

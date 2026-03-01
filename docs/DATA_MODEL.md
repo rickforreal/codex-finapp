@@ -124,6 +124,8 @@ WithdrawalStrategyConfig =
       params: {
         fallbackExpectedRateOfReturn: number;
         lookbackMonths: number;
+        smoothingEnabled: boolean;
+        smoothingBlend: number; // prior-withdrawal blend weight [0, 0.95]
       };
     }
   | { type: "sensibleWithdrawals"; params: { baseWithdrawalRate: number; extrasWithdrawalRate: number } }

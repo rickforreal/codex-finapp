@@ -278,6 +278,7 @@ export const simulateRetirement = (
   let currentYearStartPortfolio = totalPortfolio(initialBalances);
   let currentYearReturnFactor = 1;
   let currentMonthlyWithdrawal = 0;
+  let previousAdaptiveFinalMonthlyWithdrawal: number | undefined;
   let totalWithdrawn = 0;
   let totalShortfall = 0;
   const adaptiveRollingReturns = isMonthlyWithdrawalStrategy(config.withdrawalStrategy)
@@ -330,6 +331,7 @@ export const simulateRetirement = (
     if (year < withdrawalStartYear) {
       previousAnnualWithdrawal = 0;
       currentMonthlyWithdrawal = 0;
+      previousAdaptiveFinalMonthlyWithdrawal = 0;
     } else if (isMonthlyWithdrawalStrategy(config.withdrawalStrategy)) {
       const annualizedRealReturnsByAsset = adaptiveRollingReturns?.annualized() ?? undefined;
       const monthlyWithdrawal = calculateAnnualWithdrawal(
@@ -340,6 +342,7 @@ export const simulateRetirement = (
           portfolioValue: totalPortfolio(balances),
           initialPortfolioValue: totalPortfolio(initialBalances),
           previousWithdrawal: previousAnnualWithdrawal,
+          previousMonthlyWithdrawal: previousAdaptiveFinalMonthlyWithdrawal,
           previousYearReturn,
           previousYearStartPortfolio,
           remainingYears: config.coreParams.retirementDuration - year + 1,
@@ -459,6 +462,10 @@ export const simulateRetirement = (
       expenseTotal: expenseResult.actualTotal,
       endBalances: { ...balances },
     });
+
+    if (isMonthlyWithdrawalStrategy(config.withdrawalStrategy)) {
+      previousAdaptiveFinalMonthlyWithdrawal = editedWithdrawals?.requested ?? currentMonthlyWithdrawal;
+    }
 
     if (adaptiveRollingReturns) {
       const inflationForMonth = inflationRateForYear(year);

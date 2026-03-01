@@ -57,13 +57,14 @@ const TOOLTIP_BY_STRATEGY: Record<WithdrawalStrategyType, StrategyGuidance> = {
     },
   [WithdrawalStrategyType.DynamicSwrAdaptive]:
     {
-      summary: 'Monthly Dynamic SWR using trailing realized real returns with a fallback ROI warm-up period.',
+      summary: 'Monthly Dynamic SWR using trailing realized real returns with fallback ROI warm-up and optional blend smoothing.',
       parameterEffects: [
         'Fallback Expected Rate of Return is used until enough realized history exists for the lookback window.',
         'Realized Return Lookback controls responsiveness: shorter windows react faster but swing more.',
+        'Withdrawal Smoothing blends prior month withdrawal with new month target to reduce min/max clamp bouncing.',
       ],
       tradeoff:
-        'Highly responsive to realized performance, but can produce noisier month-to-month spending than annual methods.',
+        'Smoothing improves stability, but higher prior-weight slows reaction to new market information.',
     },
   [WithdrawalStrategyType.SensibleWithdrawals]:
     {

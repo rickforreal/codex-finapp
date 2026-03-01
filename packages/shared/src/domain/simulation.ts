@@ -49,6 +49,8 @@ export interface DynamicSwrParams {
 export interface DynamicSwrAdaptiveParams {
   fallbackExpectedRateOfReturn: number;
   lookbackMonths: number;
+  smoothingEnabled: boolean;
+  smoothingBlend: number;
 }
 
 export interface SensibleWithdrawalsParams {

@@ -67,7 +67,12 @@ describe('simulateRetirement', () => {
       { type: WithdrawalStrategyType.DynamicSwr, params: { expectedRateOfReturn: 0.06 } },
       {
         type: WithdrawalStrategyType.DynamicSwrAdaptive,
-        params: { fallbackExpectedRateOfReturn: 0.06, lookbackMonths: 12 },
+        params: {
+          fallbackExpectedRateOfReturn: 0.06,
+          lookbackMonths: 12,
+          smoothingEnabled: true,
+          smoothingBlend: 0.7,
+        },
       },
       {
         type: WithdrawalStrategyType.SensibleWithdrawals,
@@ -134,7 +139,12 @@ describe('simulateRetirement', () => {
     config.coreParams.retirementDuration = 3;
     config.withdrawalStrategy = {
       type: WithdrawalStrategyType.DynamicSwrAdaptive,
-      params: { fallbackExpectedRateOfReturn: 0.06, lookbackMonths: 12 },
+      params: {
+        fallbackExpectedRateOfReturn: 0.06,
+        lookbackMonths: 12,
+        smoothingEnabled: true,
+        smoothingBlend: 0.7,
+      },
     };
     config.spendingPhases[0] = {
       ...config.spendingPhases[0],
@@ -165,7 +175,12 @@ describe('simulateRetirement', () => {
     config.coreParams.inflationRate = 0.12;
     config.withdrawalStrategy = {
       type: WithdrawalStrategyType.DynamicSwrAdaptive,
-      params: { fallbackExpectedRateOfReturn: 0.2, lookbackMonths: 12 },
+      params: {
+        fallbackExpectedRateOfReturn: 0.2,
+        lookbackMonths: 12,
+        smoothingEnabled: true,
+        smoothingBlend: 0.7,
+      },
     };
     config.spendingPhases[0] = {
       ...config.spendingPhases[0],

@@ -62,7 +62,14 @@ export const calculateDynamicSwrAdaptiveMonthlyWithdrawal = (
     },
     { expectedRateOfReturn: nominalRoi },
   );
-  return Math.max(0, roundToCents(annualWithdrawal / 12));
+  const rawMonthly = Math.max(0, roundToCents(annualWithdrawal / 12));
+  if (!params.smoothingEnabled) {
+    return rawMonthly;
+  }
+  const priorMonthly = context.previousMonthlyWithdrawal ?? rawMonthly;
+  const blend = params.smoothingBlend;
+  const smoothedMonthly = roundToCents(priorMonthly * blend + rawMonthly * (1 - blend));
+  return Math.max(0, smoothedMonthly);
 };
 
 export const toRealMonthlyReturn = (nominalMonthlyReturn: number, annualInflationRate: number): number => {

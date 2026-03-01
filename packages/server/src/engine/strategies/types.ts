@@ -25,6 +25,7 @@ export interface StrategyContext {
   portfolioValue: number;
   initialPortfolioValue: number;
   previousWithdrawal: number;
+  previousMonthlyWithdrawal?: number;
   previousYearReturn: number;
   previousYearStartPortfolio: number;
   remainingYears: number;

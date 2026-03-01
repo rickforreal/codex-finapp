@@ -270,7 +270,7 @@ This formula is a present-value annuity calculation that determines the level re
 ## Strategy 5B: Adaptive Dynamic SWR (Monthly Realized TWR)
 
 **Category:** Adaptive  
-**SPECS parameters:** `fallbackExpectedRateOfReturn` (21-5b1), `lookbackMonths` (21-5b2)  
+**SPECS parameters:** `fallbackExpectedRateOfReturn` (21-5b1), `lookbackMonths` (21-5b2), `smoothingEnabled` (21-5b3), `smoothingBlend` (21-5b4)  
 **Also uses:** `inflationRate` from Core Parameters (#6)
 
 ### Formula / Algorithm
@@ -314,7 +314,7 @@ if m <= L:
     roi_adaptive = fallbackExpectedRateOfReturn
 ```
 
-Compute monthly withdrawal at month `m` by applying the Dynamic SWR annuity using `roi_adaptive`, with remaining years `nₘ = Mₘ / 12`, then dividing to monthly:
+Compute monthly raw withdrawal at month `m` by applying the Dynamic SWR annuity using `roi_adaptive`, with remaining years `nₘ = Mₘ / 12`, then dividing to monthly:
 
 ```
 if roi_adaptive == i_annual:
@@ -322,16 +322,31 @@ if roi_adaptive == i_annual:
 else:
     annual_m = Pₘ × (roi_adaptive - i_annual) / (1 - ((1 + i_annual) / (1 + roi_adaptive))^nₘ)
 
-monthly_m = annual_m / 12
+monthly_raw_m = annual_m / 12
 ```
 
-Apply spending phase min/max clamping after this monthly withdrawal is computed (using the phase bounds inflation-adjusted for the current simulation year).
+Apply optional blend smoothing before clamp:
+
+```
+if smoothingEnabled:
+    monthly_smooth_m = smoothingBlend * monthly_final_(m-1) + (1 - smoothingBlend) * monthly_raw_m
+else:
+    monthly_smooth_m = monthly_raw_m
+```
+
+For `m = 1`, use `monthly_raw_1` as the prior anchor.
+
+Apply spending phase min/max clamping to `monthly_smooth_m` (using phase bounds inflation-adjusted for the current simulation year):
+
+```
+monthly_final_m = clamp(monthly_smooth_m, monthly_min_m, monthly_max_m)
+```
 
 ### Notes
 
 - Uses realized **TWR** (flow-neutral) rather than IRR/MWR.
 - Uses per-asset realized returns, aggregated each month by current portfolio weights.
-- Uses no extra smoothing or ROI hard-bounds beyond the existing spending phase min/max clamps.
+- Supports optional withdrawal smoothing via prior-withdrawal blending before clamp.
 - If `lookbackMonths = 12`, fixed fallback ROI is used through month 12 and is superseded beginning month 13.
 
 ---

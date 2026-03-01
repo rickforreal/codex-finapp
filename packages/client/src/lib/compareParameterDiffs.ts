@@ -37,6 +37,8 @@ type WithdrawalParamKey =
   | 'expectedRateOfReturn'
   | 'fallbackExpectedRateOfReturn'
   | 'lookbackMonths'
+  | 'smoothingEnabled'
+  | 'smoothingBlend'
   | 'baseWithdrawalRate'
   | 'extrasWithdrawalRate'
   | 'minimumFloor'
@@ -54,7 +56,7 @@ type WithdrawalParamKey =
   | 'capeWeight'
   | 'startingCape';
 
-type ValueKind = 'currency' | 'percent' | 'integer' | 'number' | 'text';
+type ValueKind = 'currency' | 'percent' | 'integer' | 'number' | 'text' | 'boolean';
 
 const NOT_APPLICABLE: DiffValue = {
   display: 'N/A',
@@ -95,6 +97,8 @@ const withdrawalParamCatalog: Array<{ key: WithdrawalParamKey; label: string; ki
   { key: 'expectedRateOfReturn', label: 'Expected Rate of Return', kind: 'percent' },
   { key: 'fallbackExpectedRateOfReturn', label: 'Fallback Expected Rate of Return', kind: 'percent' },
   { key: 'lookbackMonths', label: 'Lookback Months', kind: 'integer' },
+  { key: 'smoothingEnabled', label: 'Withdrawal Smoothing Enabled', kind: 'boolean' },
+  { key: 'smoothingBlend', label: 'Smoothing Blend (Prior Weight)', kind: 'percent' },
   { key: 'baseWithdrawalRate', label: 'Base Withdrawal Rate', kind: 'percent' },
   { key: 'extrasWithdrawalRate', label: 'Extras Withdrawal Rate', kind: 'percent' },
   { key: 'minimumFloor', label: 'Minimum Floor', kind: 'percent' },
@@ -141,9 +145,20 @@ const asText = (value: string): DiffValue => ({
   normalized: value,
 });
 
-const byKind = (kind: ValueKind, value: number | string): DiffValue => {
+const asBoolean = (value: boolean): DiffValue => ({
+  display: value ? 'On' : 'Off',
+  normalized: value ? 'true' : 'false',
+});
+
+const byKind = (kind: ValueKind, value: number | string | boolean): DiffValue => {
   if (typeof value === 'string') {
     return asText(value);
+  }
+  if (typeof value === 'boolean') {
+    return asBoolean(value);
+  }
+  if (kind === 'boolean') {
+    return asBoolean(Boolean(value));
   }
   switch (kind) {
     case 'currency':
@@ -386,7 +401,9 @@ const buildRowSpecs = (): RowSpec[] => {
       resolve: (config) => {
         const params = config.withdrawalStrategy.params as Record<string, unknown>;
         const value = params[param.key];
-        return typeof value === 'number' ? byKind(param.kind, value) : NOT_APPLICABLE;
+        return typeof value === 'number' || typeof value === 'boolean'
+          ? byKind(param.kind, value)
+          : NOT_APPLICABLE;
       },
     });
   });

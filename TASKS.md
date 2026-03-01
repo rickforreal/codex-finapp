@@ -1640,3 +1640,45 @@
       [AC1] `docs/changes/CHG-0008-mc-p50-reference-column-theme-balance/{CHANGE,ACCEPTANCE}.md` created.
       [AC2] `docs/changes/INDEX.md` includes CHG-0008 row.
       [AC3] `PROGRESS.txt` has append-only CHG-0008 completion entry.
+
+## Feature Plan — Adaptive TWR Smoothing
+
+- [x] ATS-T1: Create feature docs and lock smoothing contract
+      Phase: Feature/AdaptiveTwrSmoothing
+      Dependencies: none
+      Acceptance Criteria:
+      [AC1] `docs/features/adaptive-twr-smoothing/{FEATURE,PLAN,ACCEPTANCE}.md` exist.
+      [AC2] Contract locks pre-clamp blend smoothing with prior-final-withdrawal anchor.
+      [AC3] Scope remains in-place update to existing Adaptive TWR strategy.
+
+- [x] ATS-T2: Extend shared strategy types and schema validation
+      Phase: Feature/AdaptiveTwrSmoothing
+      Dependencies: ATS-T1
+      Acceptance Criteria:
+      [AC1] `DynamicSwrAdaptiveParams` includes `smoothingEnabled` and `smoothingBlend`.
+      [AC2] Request schema validates `smoothingEnabled` and `smoothingBlend in [0, 0.95]`.
+      [AC3] Shared/server/client typecheck passes for strategy contract.
+
+- [x] ATS-T3: Implement engine smoothing pipeline in deterministic and simulator flows
+      Phase: Feature/AdaptiveTwrSmoothing
+      Dependencies: ATS-T2
+      Acceptance Criteria:
+      [AC1] Adaptive strategy computes raw monthly target and optional blend to prior final monthly withdrawal.
+      [AC2] Spending-phase monthly clamp applies after smoothing.
+      [AC3] Prior anchor updates from final month withdrawal each step.
+
+- [x] ATS-T4: Add Adaptive TWR smoothing controls in UI/store and compare diffs
+      Phase: Feature/AdaptiveTwrSmoothing
+      Dependencies: ATS-T2
+      Acceptance Criteria:
+      [AC1] Strategy params include smoothing toggle and blend slider.
+      [AC2] Store defaults/normalization support legacy missing fields.
+      [AC3] Compare parameter diff table includes smoothing fields.
+
+- [x] ATS-T5: Update canonical docs and run regression gates
+      Phase: Feature/AdaptiveTwrSmoothing
+      Dependencies: ATS-T3, ATS-T4
+      Acceptance Criteria:
+      [AC1] `docs/SPECS.md`, `docs/WITHDRAWAL_STRATEGIES.md`, `docs/DATA_MODEL.md`, `docs/API.md`, and `docs/SCENARIOS.md` are updated.
+      [AC2] `npm run typecheck`, `npm run lint`, `npm test`, and `npm run build` pass.
+      [AC3] `PROGRESS.txt` contains append-only completion summary with canonical-doc impact.

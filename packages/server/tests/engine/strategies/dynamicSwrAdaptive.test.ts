@@ -14,6 +14,8 @@ describe('DynamicSWR Adaptive', () => {
     const monthly = calculateDynamicSwrAdaptiveMonthlyWithdrawal(context, {
       fallbackExpectedRateOfReturn: 0.06,
       lookbackMonths: 12,
+      smoothingEnabled: true,
+      smoothingBlend: 0.7,
     });
 
     const fallbackAnnual = calculateDynamicSwrWithdrawal(
@@ -40,6 +42,8 @@ describe('DynamicSWR Adaptive', () => {
     const monthly = calculateDynamicSwrAdaptiveMonthlyWithdrawal(context, {
       fallbackExpectedRateOfReturn: 0.02,
       lookbackMonths: 12,
+      smoothingEnabled: true,
+      smoothingBlend: 0.7,
     });
 
     const annualizedStocks = (1.01 ** 12) - 1;
@@ -74,6 +78,8 @@ describe('DynamicSWR Adaptive', () => {
     const monthly = calculateDynamicSwrAdaptiveMonthlyWithdrawal(context, {
       fallbackExpectedRateOfReturn: 0.02,
       lookbackMonths: 12,
+      smoothingEnabled: true,
+      smoothingBlend: 0.7,
     });
 
     const realRoi =
@@ -94,8 +100,70 @@ describe('DynamicSWR Adaptive', () => {
     const monthly = calculateDynamicSwrAdaptiveMonthlyWithdrawal(context, {
       fallbackExpectedRateOfReturn: 0.06,
       lookbackMonths: 12,
+      smoothingEnabled: true,
+      smoothingBlend: 0.7,
     });
 
     expect(monthly).toBe(0);
+  });
+
+  it('matches raw adaptive amount when smoothing is disabled', () => {
+    const context = createStrategyContext({
+      remainingMonths: 240,
+      inflationRate: 0.03,
+      startOfMonthWeights: { stocks: 0.6, bonds: 0.3, cash: 0.1 },
+      annualizedRealReturnsByAsset: {
+        stocks: 0.12,
+        bonds: 0.04,
+        cash: 0.02,
+      },
+      previousMonthlyWithdrawal: 700_000,
+    });
+
+    const unsmoothed = calculateDynamicSwrAdaptiveMonthlyWithdrawal(context, {
+      fallbackExpectedRateOfReturn: 0.02,
+      lookbackMonths: 12,
+      smoothingEnabled: false,
+      smoothingBlend: 0.7,
+    });
+
+    const smoothedZeroBlend = calculateDynamicSwrAdaptiveMonthlyWithdrawal(context, {
+      fallbackExpectedRateOfReturn: 0.02,
+      lookbackMonths: 12,
+      smoothingEnabled: true,
+      smoothingBlend: 0,
+    });
+
+    expect(unsmoothed).toBe(smoothedZeroBlend);
+  });
+
+  it('blends with prior final monthly withdrawal when smoothing is enabled', () => {
+    const context = createStrategyContext({
+      remainingMonths: 240,
+      inflationRate: 0.03,
+      startOfMonthWeights: { stocks: 0.6, bonds: 0.3, cash: 0.1 },
+      annualizedRealReturnsByAsset: {
+        stocks: 0.12,
+        bonds: 0.04,
+        cash: 0.02,
+      },
+      previousMonthlyWithdrawal: 1_000_000,
+    });
+
+    const raw = calculateDynamicSwrAdaptiveMonthlyWithdrawal(context, {
+      fallbackExpectedRateOfReturn: 0.02,
+      lookbackMonths: 12,
+      smoothingEnabled: false,
+      smoothingBlend: 0.7,
+    });
+
+    const blended = calculateDynamicSwrAdaptiveMonthlyWithdrawal(context, {
+      fallbackExpectedRateOfReturn: 0.02,
+      lookbackMonths: 12,
+      smoothingEnabled: true,
+      smoothingBlend: 0.7,
+    });
+
+    expect(blended).toBe(Math.round(1_000_000 * 0.7 + raw * 0.3));
   });
 });

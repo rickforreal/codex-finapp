@@ -206,6 +206,8 @@ const simulationConfigSchema = z
             .object({
               fallbackExpectedRateOfReturn: z.number().min(-1).max(1),
               lookbackMonths: z.number().int().min(6).max(60),
+              smoothingEnabled: z.boolean(),
+              smoothingBlend: z.number().min(0).max(0.95),
             })
             .strict(),
         })

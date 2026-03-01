@@ -7,3 +7,4 @@ coverage
 *.log
 /.temp
 .env
+ai-sync.sh

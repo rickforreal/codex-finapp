@@ -105,6 +105,8 @@ type WithdrawalParamKey =
   | 'expectedRateOfReturn'
   | 'fallbackExpectedRateOfReturn'
   | 'lookbackMonths'
+  | 'smoothingEnabled'
+  | 'smoothingBlend'
   | 'baseWithdrawalRate'
   | 'extrasWithdrawalRate'
   | 'minimumFloor'
@@ -122,7 +124,33 @@ type WithdrawalParamKey =
   | 'capeWeight'
   | 'startingCape';
 
-type WithdrawalStrategyParamsForm = Record<WithdrawalParamKey, number>;
+type WithdrawalStrategyParamsForm = {
+  initialWithdrawalRate: number;
+  annualWithdrawalRate: number;
+  expectedRealReturn: number;
+  drawdownTarget: number;
+  expectedRateOfReturn: number;
+  fallbackExpectedRateOfReturn: number;
+  lookbackMonths: number;
+  smoothingEnabled: boolean;
+  smoothingBlend: number;
+  baseWithdrawalRate: number;
+  extrasWithdrawalRate: number;
+  minimumFloor: number;
+  capitalPreservationTrigger: number;
+  capitalPreservationCut: number;
+  prosperityTrigger: number;
+  prosperityRaise: number;
+  guardrailsSunset: number;
+  ceiling: number;
+  floor: number;
+  spendingRate: number;
+  smoothingWeight: number;
+  pmtExpectedReturn: number;
+  priorYearWeight: number;
+  capeWeight: number;
+  startingCape: number;
+};
 
 export type WorkspaceSnapshot = {
   simulationMode: SimulationMode;
@@ -334,7 +362,7 @@ export type AppStore = SnapshotState & {
   removeSpendingPhase: (id: string) => void;
   updateSpendingPhase: (id: string, patch: Partial<SpendingPhaseForm>) => void;
   setWithdrawalStrategyType: (type: WithdrawalStrategyType) => void;
-  setWithdrawalParam: (key: WithdrawalParamKey, value: number) => void;
+  setWithdrawalParam: (key: WithdrawalParamKey, value: WithdrawalStrategyParamsForm[WithdrawalParamKey]) => void;
   setDrawdownType: (type: DrawdownStrategyType) => void;
   moveBucketAsset: (asset: AssetClass, direction: 'up' | 'down') => void;
   setRebalancingTargetAllocation: (asset: AssetClass, value: number) => void;
@@ -551,6 +579,8 @@ const defaultWithdrawalStrategyParams = (): WithdrawalStrategyParamsForm => ({
   expectedRateOfReturn: 0.06,
   fallbackExpectedRateOfReturn: 0.06,
   lookbackMonths: 12,
+  smoothingEnabled: true,
+  smoothingBlend: 0.7,
   baseWithdrawalRate: 0.03,
   extrasWithdrawalRate: 0.1,
   minimumFloor: 0.95,
@@ -568,6 +598,20 @@ const defaultWithdrawalStrategyParams = (): WithdrawalStrategyParamsForm => ({
   capeWeight: 0.5,
   startingCape: 20,
 });
+
+const normalizeWithdrawalStrategyParams = (
+  params: Partial<WithdrawalStrategyParamsForm> | undefined,
+): WithdrawalStrategyParamsForm => {
+  const defaults = defaultWithdrawalStrategyParams();
+  const merged = { ...defaults, ...(params ?? {}) };
+  return {
+    ...merged,
+    lookbackMonths: Math.round(merged.lookbackMonths),
+    guardrailsSunset: Math.round(merged.guardrailsSunset),
+    smoothingEnabled: typeof merged.smoothingEnabled === 'boolean' ? merged.smoothingEnabled : defaults.smoothingEnabled,
+    smoothingBlend: Math.max(0, Math.min(0.95, Number.isFinite(merged.smoothingBlend) ? merged.smoothingBlend : defaults.smoothingBlend)),
+  };
+};
 
 const resolveWithdrawalStrategyConfig = (
   type: WithdrawalStrategyType,
@@ -594,8 +638,10 @@ const resolveWithdrawalStrategyConfig = (
       return {
         type,
         params: {
-          fallbackExpectedRateOfReturn: params.fallbackExpectedRateOfReturn,
-          lookbackMonths: Math.round(params.lookbackMonths),
+          fallbackExpectedRateOfReturn: params.fallbackExpectedRateOfReturn ?? 0.06,
+          lookbackMonths: Math.round(params.lookbackMonths ?? 12),
+          smoothingEnabled: params.smoothingEnabled ?? true,
+          smoothingBlend: Math.max(0, Math.min(0.95, params.smoothingBlend ?? 0.7)),
         },
       };
     case WithdrawalStrategyType.SensibleWithdrawals:
@@ -705,7 +751,7 @@ const cloneWorkspace = (workspace: WorkspaceSnapshot): WorkspaceSnapshot => ({
   spendingPhases: workspace.spendingPhases.map((phase) => ({ ...phase })),
   withdrawalStrategy: {
     ...workspace.withdrawalStrategy,
-    params: { ...workspace.withdrawalStrategy.params },
+    params: normalizeWithdrawalStrategyParams(workspace.withdrawalStrategy.params),
   },
   drawdownStrategy: {
     ...workspace.drawdownStrategy,
@@ -1278,7 +1324,7 @@ const workspaceFromState = (state: AppStore): WorkspaceSnapshot => ({
   spendingPhases: state.spendingPhases.map((phase) => ({ ...phase })),
   withdrawalStrategy: {
     ...state.withdrawalStrategy,
-    params: { ...state.withdrawalStrategy.params },
+    params: normalizeWithdrawalStrategyParams(state.withdrawalStrategy.params),
   },
   drawdownStrategy: {
     ...state.drawdownStrategy,
@@ -1540,7 +1586,7 @@ const cloneSnapshotState = (snapshot: SnapshotState): SnapshotState => {
     spendingPhases: normalizedSnapshot.spendingPhases.map((phase) => ({ ...phase })),
     withdrawalStrategy: {
       type: normalizedSnapshot.withdrawalStrategy.type,
-      params: { ...normalizedSnapshot.withdrawalStrategy.params },
+      params: normalizeWithdrawalStrategyParams(normalizedSnapshot.withdrawalStrategy.params),
     },
     drawdownStrategy: {
       type: normalizedSnapshot.drawdownStrategy.type,
@@ -2687,13 +2733,23 @@ export const useAppStore = create<AppStore>((set) => ({
       if (isCompareFamilyLockedAndSyncedForActiveSlot(state, 'withdrawalStrategy')) {
         return state;
       }
+      const normalizedValue =
+        key === 'smoothingEnabled'
+          ? Boolean(value)
+          : key === 'lookbackMonths'
+            ? Math.round(Number(value))
+            : key === 'guardrailsSunset'
+              ? Math.round(Number(value))
+              : key === 'smoothingBlend'
+                ? Math.max(0, Math.min(0.95, Number(value)))
+                : Number(value);
       const staleState = markTrackingOutputStateStale(state);
       return {
         withdrawalStrategy: {
           ...state.withdrawalStrategy,
           params: {
             ...state.withdrawalStrategy.params,
-            [key]: value,
+            [key]: normalizedValue,
           },
         },
         ...staleState,

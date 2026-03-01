@@ -1888,3 +1888,36 @@ Canonical docs impact:
   - `docs/changes/CHG-0008-mc-p50-reference-column-theme-balance/CHANGE.md`
   - `docs/changes/CHG-0008-mc-p50-reference-column-theme-balance/ACCEPTANCE.md`
   - `TASKS.md`
+
+2026-03-01 — Feature: Adaptive TWR Smoothing | COMPLETE
+- Implemented configurable blend smoothing for `dynamicSwrAdaptive` (in-place strategy update).
+- Added new strategy params across shared contracts, schemas, store, and UI:
+  - `smoothingEnabled` (default `true`)
+  - `smoothingBlend` (default `0.7`, validated in `[0, 0.95]`)
+- Engine behavior updated in deterministic + simulator monthly-cadence paths:
+  - compute raw adaptive monthly target
+  - optionally blend with prior month final withdrawal (`blend * prior + (1 - blend) * raw`)
+  - apply spending phase monthly clamp after smoothing
+  - persist final monthly withdrawal as next-month blend anchor
+- Added Adaptive TWR strategy tests for smoothing-on/off parity and blend math.
+- Added UI controls in strategy panel (smoothing toggle + blend slider) and updated strategy tooltip guidance.
+- Extended compare parameter diff model to include smoothing fields.
+- Added feature docs:
+  - `docs/features/adaptive-twr-smoothing/FEATURE.md`
+  - `docs/features/adaptive-twr-smoothing/PLAN.md`
+  - `docs/features/adaptive-twr-smoothing/ACCEPTANCE.md`
+- Updated canonical docs:
+  - `docs/SPECS.md`
+  - `docs/WITHDRAWAL_STRATEGIES.md`
+  - `docs/DATA_MODEL.md`
+  - `docs/API.md`
+  - `docs/SCENARIOS.md`
+
+Validation run (all passing):
+- `npm run typecheck`
+- `npm run lint`
+- `npm test`
+- `npm run build`
+
+Canonical docs impact:
+- Yes (strategy parameters, algorithm contract, request shape, and scenario narrative updated).
