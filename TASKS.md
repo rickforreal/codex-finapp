@@ -1709,6 +1709,24 @@
       [AC2] Toggle button remains accessible and functional in both states.
       [AC3] `PROGRESS.txt` updated with completion entry.
 
+## Feature Plan — UX: Consolidate Historical Era Selection
+
+- [x] UX-CHE-T1: Move dropdown and fetching logic to HistoricalDataSummary
+      Phase: Feature/UXConsolidation
+      Dependencies: none
+      Acceptance Criteria:
+      [AC1] `HistoricalDataSummary.tsx` includes the `Dropdown` for era selection.
+      [AC2] Fetching logic is co-located in the summary component.
+      [AC3] Table and commentary update correctly on selection.
+
+- [x] UX-CHE-T2: Remove redundant controls from CommandBar
+      Phase: Feature/UXConsolidation
+      Dependencies: UX-CHE-T1
+      Acceptance Criteria:
+      [AC1] "Historical Era" section removed from `CommandBar.tsx` JSX.
+      [AC2] Unused imports and state hooks cleaned up in `CommandBar.tsx`.
+      [AC3] Client typecheck passes.
+
 - [x] CHG-0009: Add bookmark description field
       Phase: Change/CHG-0009
       Dependencies: BM-T4

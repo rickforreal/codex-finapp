@@ -1,8 +1,10 @@
-import { AssetClass } from '@finapp/shared';
-import { HistoricalEra } from '@finapp/shared';
+import { useEffect } from 'react';
+import { AssetClass, HistoricalEra, SimulationMode } from '@finapp/shared';
 
+import { fetchHistoricalSummary } from '../../api/historicalApi';
 import { formatPercent } from '../../lib/format';
 import { useAppStore } from '../../store/useAppStore';
+import { Dropdown } from '../shared/Dropdown';
 
 const assetLabel: Record<AssetClass, string> = {
   [AssetClass.Stocks]: 'Stocks',
@@ -36,22 +38,64 @@ export const HistoricalDataSummary = () => {
   const summary = useAppStore((state) => state.historicalData.summary);
   const status = useAppStore((state) => state.historicalData.status);
   const errorMessage = useAppStore((state) => state.historicalData.errorMessage);
+  const simulationMode = useAppStore((state) => state.simulationMode);
+  const selectedHistoricalEra = useAppStore((state) => state.selectedHistoricalEra);
+  const setSelectedHistoricalEra = useAppStore((state) => state.setSelectedHistoricalEra);
+  const setHistoricalSummaryStatus = useAppStore((state) => state.setHistoricalSummaryStatus);
+  const setHistoricalSummary = useAppStore((state) => state.setHistoricalSummary);
+
+  useEffect(() => {
+    if (simulationMode !== SimulationMode.MonteCarlo) {
+      return;
+    }
+
+    setHistoricalSummaryStatus('loading');
+    void fetchHistoricalSummary(selectedHistoricalEra)
+      .then((response) => {
+        setHistoricalSummary(response.summary);
+      })
+      .catch((error) => {
+        const message = error instanceof Error ? error.message : 'Failed to load historical summary';
+        setHistoricalSummaryStatus('error', message);
+      });
+  }, [
+    selectedHistoricalEra,
+    setHistoricalSummary,
+    setHistoricalSummaryStatus,
+    simulationMode,
+  ]);
 
   if (status === 'loading' && !summary) {
-    return <p className="text-xs text-slate-500">Loading historical data summary...</p>;
+    return <p className="text-xs text-slate-500 px-1">Loading historical data summary...</p>;
   }
 
   if (status === 'error') {
-    return <p className="text-xs text-rose-700">{errorMessage ?? 'Failed to load historical data summary.'}</p>;
+    return <p className="text-xs text-rose-700 px-1">{errorMessage ?? 'Failed to load historical data summary.'}</p>;
   }
 
   if (!summary) {
-    return <p className="text-xs text-slate-500">Select Monte Carlo mode to load historical data summary.</p>;
+    return <p className="text-xs text-slate-500 px-1">Select Monte Carlo mode to load historical data summary.</p>;
   }
+
+  const eraOptions = summary.eras.map((era) => ({
+    label: era.label,
+    value: era.key,
+  }));
+
+  const eraValue = eraOptions.some((option) => option.value === selectedHistoricalEra)
+    ? selectedHistoricalEra
+    : (eraOptions[0]?.value ?? selectedHistoricalEra);
 
   return (
     <div className="space-y-3 rounded-lg border border-brand-border bg-brand-surface p-3">
-      <p className="text-sm font-semibold text-slate-800">{summary.selectedEra.label}</p>
+      <div className="space-y-1">
+        <p className="theme-commandbar-section-label px-1 text-[10px] font-semibold uppercase tracking-[0.14em]">Historical Era</p>
+        <Dropdown<HistoricalEra>
+          value={eraValue}
+          onChange={setSelectedHistoricalEra}
+          options={eraOptions}
+        />
+      </div>
 
       <table className="w-full table-fixed text-xs">
         <thead>

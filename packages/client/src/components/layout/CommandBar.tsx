@@ -3,14 +3,12 @@ import { useCallback, useEffect, useMemo, useRef, useState, type ChangeEvent } f
 import {
   AppMode,
   DrawdownStrategyType,
-  HistoricalEra,
   SimulationMode,
   ThemeAppearance,
   type ActualMonthOverride,
   type ActualOverridesByMonth,
 } from '@finapp/shared';
 
-import { fetchHistoricalSummary } from '../../api/historicalApi';
 import { runSimulation } from '../../api/simulationApi';
 import {
   applyBookmark,
@@ -149,11 +147,7 @@ export const CommandBar = () => {
   const setMode = useAppStore((state) => state.setMode);
   const setSimulationMode = useAppStore((state) => state.setSimulationMode);
   const selectedHistoricalEra = useAppStore((state) => state.selectedHistoricalEra);
-  const setSelectedHistoricalEra = useAppStore((state) => state.setSelectedHistoricalEra);
   const historicalSummary = useAppStore((state) => state.historicalData.summary);
-  const historicalStatus = useAppStore((state) => state.historicalData.status);
-  const setHistoricalSummaryStatus = useAppStore((state) => state.setHistoricalSummaryStatus);
-  const setHistoricalSummary = useAppStore((state) => state.setHistoricalSummary);
   const setSimulationStatus = useAppStore((state) => state.setSimulationStatus);
   const setSimulationResult = useAppStore((state) => state.setSimulationResult);
   const setCompareSlotSimulationStatus = useAppStore(
@@ -412,31 +406,6 @@ export const CommandBar = () => {
     }
   };
 
-  useEffect(() => {
-    if (simulationMode !== SimulationMode.MonteCarlo) {
-      return;
-    }
-
-    setHistoricalSummaryStatus('loading');
-    void fetchHistoricalSummary(selectedHistoricalEra)
-      .then((response) => {
-        setHistoricalSummary(response.summary);
-      })
-      .catch((error) => {
-        const message =
-          error instanceof Error ? error.message : 'Failed to load historical summary';
-        setHistoricalSummaryStatus('error', message);
-      });
-  }, [selectedHistoricalEra, setHistoricalSummary, setHistoricalSummaryStatus, simulationMode]);
-
-  const eraOptions = (historicalSummary?.eras ?? []).map((era) => ({
-    label: era.label,
-    value: era.key,
-  }));
-  const eraValue = eraOptions.some((option) => option.value === selectedHistoricalEra)
-    ? selectedHistoricalEra
-    : (eraOptions[0]?.value ?? selectedHistoricalEra);
-
   const handleRunSimulation = async () => {
     if (!canRunActiveWorkspace) {
       setSimulationStatus('error', 'Rebalancing target allocation must sum to 100%.');
@@ -659,31 +628,6 @@ export const CommandBar = () => {
                 ]}
               />
             </div>
-
-            {simulationMode === SimulationMode.MonteCarlo ? (
-              <div className="flex min-w-[260px] flex-col gap-1">
-                <p className="theme-commandbar-section-label px-1 text-[10px] font-semibold uppercase tracking-[0.14em]">
-                  Historical Era
-                </p>
-                <div className="w-[280px] max-w-full">
-                  <Dropdown<HistoricalEra>
-                    value={eraValue}
-                    onChange={setSelectedHistoricalEra}
-                    options={
-                      eraOptions.length > 0
-                        ? eraOptions
-                        : [
-                            {
-                              label:
-                                historicalStatus === 'loading' ? 'Loading eras...' : 'Full History',
-                              value: HistoricalEra.FullHistory,
-                            },
-                          ]
-                    }
-                  />
-                </div>
-              </div>
-            ) : null}
 
             {mode === AppMode.Tracking ? (
               <div className="flex min-w-[180px] flex-col gap-1">

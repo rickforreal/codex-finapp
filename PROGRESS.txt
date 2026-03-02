@@ -1944,6 +1944,17 @@ Validation run (all passing):
 Canonical docs impact:
 - No canonical doc impact (purely UX enhancement).
 
+2026-03-01 — UX: Consolidate Historical Era Selection | COMPLETE
+- Moved "Historical Era" dropdown from navbar (`CommandBar.tsx`) to the "Historical Data" component (`HistoricalDataSummary.tsx`) in the sidebar.
+- Co-located historical data fetching logic with the selection UI for better encapsulation.
+- Ensured the summary statistics card remains intact and reactive to era selection changes.
+- Simplified navbar by removing redundant simulation-mode-specific controls.
+- Verified smooth integration and data reactivity in Monte Carlo mode.
+
+Validation run (all passing):
+- `npm run typecheck`
+- `npm run lint`
+
 2026-03-01 — CHG-0009: Bookmark Description Field | COMPLETE
 - Added optional `description` field to `BookmarkRecord` type in `bookmarks.ts`
 - Updated `createBookmark()` to accept optional description parameter
