@@ -18,7 +18,7 @@ describe('GET /api/v1/themes', () => {
     expect(body.tokenModelVersion).toBe('2');
     expect(body.defaultSelection).toEqual({
       familyId: ThemeFamilyId.Default,
-      appearance: ThemeAppearance.Light,
+      appearance: ThemeAppearance.Dark,
     });
     expect(body.defaultThemeId).toBe(ThemeId.Light);
     expect(Array.isArray(body.variants)).toBe(true);

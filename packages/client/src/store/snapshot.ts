@@ -852,12 +852,12 @@ const unpackSnapshotState = (packed: unknown): SnapshotState => {
   };
 
   const legacySelectedThemeId = data.theme.selectedThemeId ?? ThemeId.Light;
-  const legacyDefaultThemeId = data.theme.defaultThemeId ?? ThemeId.Light;
+  const legacyDefaultThemeId = data.theme.defaultThemeId ?? ThemeId.Dark;
   const selectionFromLegacy = mapLegacyThemeIdToSelection(legacySelectedThemeId);
   const defaultFromLegacy = mapLegacyThemeIdToSelection(legacyDefaultThemeId);
   const selectedThemeFamilyId = data.theme.selectedThemeFamilyId ?? selectionFromLegacy.familyId;
   const selectedAppearanceByFamilyDefaults: Record<ThemeFamilyId, ThemeAppearance> = {
-    [ThemeFamilyId.Default]: ThemeAppearance.Light,
+    [ThemeFamilyId.Default]: ThemeAppearance.Dark,
     [ThemeFamilyId.Monokai]: ThemeAppearance.Dark,
     [ThemeFamilyId.Synthwave84]: ThemeAppearance.Dark,
     [ThemeFamilyId.StayTheCourse]: ThemeAppearance.Dark,

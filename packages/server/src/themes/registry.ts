@@ -4616,7 +4616,7 @@ const baseThemes: BaseThemeVariant[] = [
       },
     },
   },
-  // Printer Goes Brrr — Fed money printing, dollar-bill green phosphor glow
+  // Fat Finger — Fed money printing, dollar-bill green phosphor glow
   {
     id: ThemeVariantId.PrinterGoesBrrrDark,
     familyId: ThemeFamilyId.PrinterGoesBrrr,
@@ -4802,7 +4802,7 @@ const baseThemes: BaseThemeVariant[] = [
       },
     },
   },
-  // Yield Curve — inverted yield curve, cool institutional slate-blue analytics
+  // Inverse Cramer — inverted yield curve, cool institutional slate-blue analytics
   {
     id: ThemeVariantId.YieldCurveDark,
     familyId: ThemeFamilyId.YieldCurve,
@@ -4895,7 +4895,7 @@ const baseThemes: BaseThemeVariant[] = [
       },
     },
   },
-  // Melt Up — market euphoria, molten orange and gold on volcanic dark
+  // Paper Hands — market euphoria, molten orange and gold on volcanic dark
   {
     id: ThemeVariantId.MeltUpDark,
     familyId: ThemeFamilyId.MeltUp,
@@ -4988,7 +4988,7 @@ const baseThemes: BaseThemeVariant[] = [
       },
     },
   },
-  // Taper Tantrum — bond market panic, institutional gray with shock magenta
+  // Diamond Hands — bond market panic, institutional gray with shock magenta
   {
     id: ThemeVariantId.TaperTantrumDark,
     familyId: ThemeFamilyId.TaperTantrum,
@@ -5174,7 +5174,7 @@ const baseThemes: BaseThemeVariant[] = [
       },
     },
   },
-  // YOLO Trade — WSB reckless energy, electric violet and hot pink on deep purple-black
+  // Gas Fee — WSB reckless energy, electric violet and hot pink on deep purple-black
   {
     id: ThemeVariantId.YoloTradeDark,
     familyId: ThemeFamilyId.YoloTrade,
@@ -5267,7 +5267,7 @@ const baseThemes: BaseThemeVariant[] = [
       },
     },
   },
-  // Infinite Money Glitch — matrix / terminal hacker aesthetic, phosphor green on near-black
+  // Soft Landing — matrix / terminal hacker aesthetic, phosphor green on near-black
   {
     id: ThemeVariantId.InfiniteMoneyGlitchDark,
     familyId: ThemeFamilyId.InfiniteMoneyGlitch,
@@ -5360,7 +5360,7 @@ const baseThemes: BaseThemeVariant[] = [
       },
     },
   },
-  // Loss Porn — WSB loss screenshots, wine-dark burgundy with crimson and bruised purple
+  // HENRY — WSB loss screenshots, wine-dark burgundy with crimson and bruised purple
   {
     id: ThemeVariantId.LossPornDark,
     familyId: ThemeFamilyId.LossPorn,
@@ -5453,7 +5453,7 @@ const baseThemes: BaseThemeVariant[] = [
       },
     },
   },
-  // Due Diligence — academic research / library warmth, parchment amber on dark leather
+  // FU Money — academic research / library warmth, parchment amber on dark leather
   {
     id: ThemeVariantId.DueDiligenceDark,
     familyId: ThemeFamilyId.DueDiligence,
@@ -5546,7 +5546,7 @@ const baseThemes: BaseThemeVariant[] = [
       },
     },
   },
-  // Short Squeeze — GME storm energy, electric cyan and lightning yellow on storm-dark
+  // House Money — GME storm energy, electric cyan and lightning yellow on storm-dark
   {
     id: ThemeVariantId.ShortSqueezeDark,
     familyId: ThemeFamilyId.ShortSqueeze,
@@ -5639,12 +5639,12 @@ const baseThemes: BaseThemeVariant[] = [
       },
     },
   },
-  // FOMO — urgent sunset atmosphere, burning anxiety
+  // Clown Town — urgent sunset atmosphere, burning anxiety
   {
     id: ThemeVariantId.FomoDark,
     familyId: ThemeFamilyId.Fomo,
     appearance: ThemeAppearance.Dark,
-    name: 'FOMO',
+    name: 'Clown Town',
     description: 'Urgent sunset atmosphere with burning coral and anxious rose.',
     version: '1.0.0',
     isHighContrast: false,
@@ -5732,12 +5732,12 @@ const baseThemes: BaseThemeVariant[] = [
       },
     },
   },
-  // Degen — neon-soaked casino darkness with electric lime and hot magenta
+  // Tendies — neon-soaked casino darkness with electric lime and hot magenta
   {
     id: ThemeVariantId.DegenDark,
     familyId: ThemeFamilyId.Degen,
     appearance: ThemeAppearance.Dark,
-    name: 'Degen',
+    name: 'Tendies',
     description: 'Neon casino vibes with electric lime and hot magenta.',
     version: '1.0.0',
     isHighContrast: false,
@@ -5830,7 +5830,7 @@ const baseThemes: BaseThemeVariant[] = [
     id: ThemeVariantId.PricedInDark,
     familyId: ThemeFamilyId.PricedIn,
     appearance: ThemeAppearance.Dark,
-    name: 'Priced In',
+    name: 'Hold The Line',
     description: 'Efficient markets calm with muted blue-gray and subtle steel.',
     version: '1.0.0',
     isHighContrast: false,
@@ -5923,7 +5923,7 @@ const baseThemes: BaseThemeVariant[] = [
     id: ThemeVariantId.NumberGoUpDark,
     familyId: ThemeFamilyId.NumberGoUp,
     appearance: ThemeAppearance.Dark,
-    name: 'Number Go Up',
+    name: 'Gamma Squeeze',
     description: 'Crypto ascending green with gold on deep forest-tech base.',
     version: '1.0.0',
     isHighContrast: false,
@@ -6011,12 +6011,12 @@ const baseThemes: BaseThemeVariant[] = [
       },
     },
   },
-  // Stonks — vaporwave retro-digital with aqua/cyan and retro pink
+  // Moonshot — vaporwave retro-digital with aqua/cyan and retro pink
   {
     id: ThemeVariantId.StonksDark,
     familyId: ThemeFamilyId.Stonks,
     appearance: ThemeAppearance.Dark,
-    name: 'Stonks',
+    name: 'Moonshot',
     description: 'Vaporwave retro-digital feel with aqua cyan and retro pink.',
     version: '1.0.0',
     isHighContrast: false,
@@ -6104,12 +6104,12 @@ const baseThemes: BaseThemeVariant[] = [
       },
     },
   },
-  // Golden Parachute — executive luxury with champagne gold and warm bronze
+  // Ponzinomics — executive luxury with champagne gold and warm bronze
   {
     id: ThemeVariantId.GoldenParachuteDark,
     familyId: ThemeFamilyId.GoldenParachute,
     appearance: ThemeAppearance.Dark,
-    name: 'Golden Parachute',
+    name: 'Ponzinomics',
     description: 'Executive luxury palette with champagne gold and warm bronze.',
     version: '1.0.0',
     isHighContrast: false,
@@ -6197,12 +6197,12 @@ const baseThemes: BaseThemeVariant[] = [
       },
     },
   },
-  // Eat The Rich — revolutionary propaganda with bold red and warning gold
+  // Flying Pigs — revolutionary propaganda with bold red and warning gold
   {
     id: ThemeVariantId.EatTheRichDark,
     familyId: ThemeFamilyId.EatTheRich,
     appearance: ThemeAppearance.Dark,
-    name: 'Eat The Rich',
+    name: 'Flying Pigs',
     description: 'Revolutionary propaganda aesthetic with bold red and warning gold.',
     version: '1.0.0',
     isHighContrast: false,
@@ -6290,12 +6290,12 @@ const baseThemes: BaseThemeVariant[] = [
       },
     },
   },
-  // Side Hustle — gig economy warmth with energetic orange and teal
+  // PermaBear — gig economy warmth with energetic orange and teal
   {
     id: ThemeVariantId.SideHustleDark,
     familyId: ThemeFamilyId.SideHustle,
     appearance: ThemeAppearance.Dark,
-    name: 'Side Hustle',
+    name: 'PermaBear',
     description: 'Gig economy warmth with energetic orange and teal accents.',
     version: '1.0.0',
     isHighContrast: false,
@@ -6383,12 +6383,12 @@ const baseThemes: BaseThemeVariant[] = [
       },
     },
   },
-  // Quiet Quitting — peaceful detachment with muted lavender and sage green
+  // PermaBull — peaceful detachment with muted lavender and sage green
   {
     id: ThemeVariantId.QuietQuittingDark,
     familyId: ThemeFamilyId.QuietQuitting,
     appearance: ThemeAppearance.Dark,
-    name: 'Quiet Quitting',
+    name: 'PermaBull',
     description: 'Peaceful low-energy palette with muted lavender and sage green.',
     version: '1.0.0',
     isHighContrast: false,
@@ -6476,12 +6476,12 @@ const baseThemes: BaseThemeVariant[] = [
       },
     },
   },
-  // Irrational Exuberance — bubble euphoria with champagne peach and rose-gold
+  // Stimmy — bubble euphoria with champagne peach and rose-gold
   {
     id: ThemeVariantId.IrrationalExuberanceDark,
     familyId: ThemeFamilyId.IrrationalExuberance,
     appearance: ThemeAppearance.Dark,
-    name: 'Irrational Exuberance',
+    name: 'Stimmy',
     description: 'Bubble euphoria with champagne peach and effervescent rose-gold.',
     version: '1.0.0',
     isHighContrast: false,
@@ -6569,12 +6569,12 @@ const baseThemes: BaseThemeVariant[] = [
       },
     },
   },
-  // Plunge Protection — institutional defense with steel blue and protective gold
+  // This Is The Way — institutional defense with steel blue and protective gold
   {
     id: ThemeVariantId.PlungeProtectionDark,
     familyId: ThemeFamilyId.PlungeProtection,
     appearance: ThemeAppearance.Dark,
-    name: 'Plunge Protection',
+    name: 'This Is The Way',
     description: 'Institutional defense palette with steel blue and protective gold.',
     version: '1.0.0',
     isHighContrast: false,
@@ -7319,7 +7319,7 @@ const families: ThemeFamilyCatalogItem[] = [
   },
   {
     id: ThemeFamilyId.PrinterGoesBrrr,
-    name: 'Printer Goes Brrr',
+    name: 'Fat Finger',
     description: 'Dollar-bill green phosphor glow with paper-money warmth.',
     version: '1.0.0',
     isHighContrast: false,
@@ -7328,7 +7328,7 @@ const families: ThemeFamilyCatalogItem[] = [
   },
   {
     id: ThemeFamilyId.Guh,
-    name: 'GUH',
+    name: 'Flash Crash',
     description: 'Blood-red visceral darkness of catastrophic loss.',
     version: '1.0.0',
     isHighContrast: false,
@@ -7337,7 +7337,7 @@ const families: ThemeFamilyCatalogItem[] = [
   },
   {
     id: ThemeFamilyId.YieldCurve,
-    name: 'Yield Curve',
+    name: 'Inverse Cramer',
     description: 'Cool institutional slate-blue with icy teal analytics.',
     version: '1.0.0',
     isHighContrast: false,
@@ -7346,7 +7346,7 @@ const families: ThemeFamilyCatalogItem[] = [
   },
   {
     id: ThemeFamilyId.MeltUp,
-    name: 'Melt Up',
+    name: 'Paper Hands',
     description: 'Volcanic molten orange and gold evoking market euphoria.',
     version: '1.0.0',
     isHighContrast: false,
@@ -7355,7 +7355,7 @@ const families: ThemeFamilyCatalogItem[] = [
   },
   {
     id: ThemeFamilyId.TaperTantrum,
-    name: 'Taper Tantrum',
+    name: 'Diamond Hands',
     description: 'Institutional gray disrupted by shock magenta panic.',
     version: '1.0.0',
     isHighContrast: false,
@@ -7364,7 +7364,7 @@ const families: ThemeFamilyCatalogItem[] = [
   },
   {
     id: ThemeFamilyId.FearAndGreed,
-    name: 'Fear & Greed',
+    name: 'Pump & Dump',
     description: 'Amber gauge-needle accent with green greed and red fear.',
     version: '1.0.0',
     isHighContrast: false,
@@ -7373,7 +7373,7 @@ const families: ThemeFamilyCatalogItem[] = [
   },
   {
     id: ThemeFamilyId.YoloTrade,
-    name: 'YOLO Trade',
+    name: 'Gas Fee',
     description: 'Electric violet and hot pink neon reckless energy.',
     version: '1.0.0',
     isHighContrast: false,
@@ -7382,7 +7382,7 @@ const families: ThemeFamilyCatalogItem[] = [
   },
   {
     id: ThemeFamilyId.InfiniteMoneyGlitch,
-    name: 'Infinite Money Glitch',
+    name: 'Soft Landing',
     description: 'Matrix phosphor green terminal with cyan digital accents.',
     version: '1.0.0',
     isHighContrast: false,
@@ -7391,7 +7391,7 @@ const families: ThemeFamilyCatalogItem[] = [
   },
   {
     id: ThemeFamilyId.LossPorn,
-    name: 'Loss Porn',
+    name: 'HENRY',
     description: 'Wine-dark burgundy with crimson and bruised purple.',
     version: '1.0.0',
     isHighContrast: false,
@@ -7400,7 +7400,7 @@ const families: ThemeFamilyCatalogItem[] = [
   },
   {
     id: ThemeFamilyId.DueDiligence,
-    name: 'Due Diligence',
+    name: 'FU Money',
     description: 'Warm leather and parchment amber with navy ink accents.',
     version: '1.0.0',
     isHighContrast: false,
@@ -7409,7 +7409,7 @@ const families: ThemeFamilyCatalogItem[] = [
   },
   {
     id: ThemeFamilyId.ShortSqueeze,
-    name: 'Short Squeeze',
+    name: 'House Money',
     description: 'Electric cyan and lightning yellow storm-squeeze energy.',
     version: '1.0.0',
     isHighContrast: false,
@@ -7418,7 +7418,7 @@ const families: ThemeFamilyCatalogItem[] = [
   },
   {
     id: ThemeFamilyId.Fomo,
-    name: 'FOMO',
+    name: 'Clown Town',
     description: 'Urgent sunset coral fading to anxious midnight rose.',
     version: '1.0.0',
     isHighContrast: false,
@@ -7427,7 +7427,7 @@ const families: ThemeFamilyCatalogItem[] = [
   },
   {
     id: ThemeFamilyId.Degen,
-    name: 'Degen',
+    name: 'Tendies',
     description: 'Neon casino darkness with electric lime and hot magenta.',
     version: '1.0.0',
     isHighContrast: false,
@@ -7436,7 +7436,7 @@ const families: ThemeFamilyCatalogItem[] = [
   },
   {
     id: ThemeFamilyId.PricedIn,
-    name: 'Priced In',
+    name: 'Hold The Line',
     description: 'Understated efficient-market calm with muted blue-gray.',
     version: '1.0.0',
     isHighContrast: false,
@@ -7445,7 +7445,7 @@ const families: ThemeFamilyCatalogItem[] = [
   },
   {
     id: ThemeFamilyId.NumberGoUp,
-    name: 'Number Go Up',
+    name: 'Gamma Squeeze',
     description: 'Ascending bright green with gold on deep forest-tech.',
     version: '1.0.0',
     isHighContrast: false,
@@ -7454,7 +7454,7 @@ const families: ThemeFamilyCatalogItem[] = [
   },
   {
     id: ThemeFamilyId.Stonks,
-    name: 'Stonks',
+    name: 'Moonshot',
     description: 'Vaporwave retro-digital with aqua cyan and retro pink.',
     version: '1.0.0',
     isHighContrast: false,
@@ -7463,7 +7463,7 @@ const families: ThemeFamilyCatalogItem[] = [
   },
   {
     id: ThemeFamilyId.GoldenParachute,
-    name: 'Golden Parachute',
+    name: 'Ponzinomics',
     description: 'Executive luxury with champagne gold and warm bronze.',
     version: '1.0.0',
     isHighContrast: false,
@@ -7472,7 +7472,7 @@ const families: ThemeFamilyCatalogItem[] = [
   },
   {
     id: ThemeFamilyId.EatTheRich,
-    name: 'Eat The Rich',
+    name: 'Flying Pigs',
     description: 'Revolutionary propaganda with bold red and warning gold.',
     version: '1.0.0',
     isHighContrast: false,
@@ -7481,7 +7481,7 @@ const families: ThemeFamilyCatalogItem[] = [
   },
   {
     id: ThemeFamilyId.SideHustle,
-    name: 'Side Hustle',
+    name: 'PermaBear',
     description: 'Gig economy warmth with energetic orange and teal.',
     version: '1.0.0',
     isHighContrast: false,
@@ -7490,7 +7490,7 @@ const families: ThemeFamilyCatalogItem[] = [
   },
   {
     id: ThemeFamilyId.QuietQuitting,
-    name: 'Quiet Quitting',
+    name: 'PermaBull',
     description: 'Peaceful low-energy lavender with sage green calm.',
     version: '1.0.0',
     isHighContrast: false,
@@ -7499,7 +7499,7 @@ const families: ThemeFamilyCatalogItem[] = [
   },
   {
     id: ThemeFamilyId.IrrationalExuberance,
-    name: 'Irrational Exuberance',
+    name: 'Stimmy',
     description: 'Bubble euphoria with champagne peach and rose-gold.',
     version: '1.0.0',
     isHighContrast: false,
@@ -7508,7 +7508,7 @@ const families: ThemeFamilyCatalogItem[] = [
   },
   {
     id: ThemeFamilyId.PlungeProtection,
-    name: 'Plunge Protection',
+    name: 'This Is The Way',
     description: 'Institutional defense with steel blue and protective gold.',
     version: '1.0.0',
     isHighContrast: false,
@@ -7519,7 +7519,7 @@ const families: ThemeFamilyCatalogItem[] = [
 
 const defaultSelection: ThemeDefaultSelection = {
   familyId: ThemeFamilyId.Default,
-  appearance: ThemeAppearance.Light,
+  appearance: ThemeAppearance.Dark,
 };
 
 const findVariant = (familyId: ThemeFamilyId, appearance: ThemeAppearance): ThemeDefinition => {
@@ -7563,7 +7563,7 @@ const catalog: ThemeCatalogItem[] = [
     description: 'Legacy default light appearance alias.',
     version: '1.0.0',
     isHighContrast: false,
-    defaultForApp: true,
+    defaultForApp: false,
   },
   {
     id: ThemeId.Dark,
@@ -7571,7 +7571,7 @@ const catalog: ThemeCatalogItem[] = [
     description: 'Legacy default dark appearance alias.',
     version: '1.0.0',
     isHighContrast: false,
-    defaultForApp: false,
+    defaultForApp: true,
   },
   {
     id: ThemeId.Monokai,

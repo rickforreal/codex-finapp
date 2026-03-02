@@ -1934,7 +1934,7 @@ export const useAppStore = create<AppStore>((set) => ({
   theme: {
     selectedThemeFamilyId: ThemeFamilyId.Default,
     selectedAppearanceByFamily: {
-      [ThemeFamilyId.Default]: ThemeAppearance.Light,
+      [ThemeFamilyId.Default]: ThemeAppearance.Dark,
       [ThemeFamilyId.Monokai]: ThemeAppearance.Dark,
       [ThemeFamilyId.Synthwave84]: ThemeAppearance.Dark,
       [ThemeFamilyId.StayTheCourse]: ThemeAppearance.Dark,
@@ -2004,11 +2004,11 @@ export const useAppStore = create<AppStore>((set) => ({
       [ThemeFamilyId.PlungeProtection]: ThemeAppearance.Dark,
     },
     defaultThemeFamilyId: ThemeFamilyId.Default,
-    defaultAppearance: ThemeAppearance.Light,
+    defaultAppearance: ThemeAppearance.Dark,
     activeVariantId: null,
     variants: [],
     families: [],
-    legacyDefaultThemeId: ThemeId.Light,
+    legacyDefaultThemeId: ThemeId.Dark,
     legacyThemes: [],
     legacyCatalog: [],
     slotCatalog: [],

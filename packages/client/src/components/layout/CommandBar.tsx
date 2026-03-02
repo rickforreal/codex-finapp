@@ -228,14 +228,8 @@ export const CommandBar = () => {
       'patagoniaVest',
       'stayTheCourse',
     ] as const;
+    const forcedLastId = 'nineteen29Vibes';
     const pinnedRank = new Map<string, number>(pinnedOrder.map((id, index) => [id, index]));
-    const stableHash = (value: string): number => {
-      let hash = 0;
-      for (let index = 0; index < value.length; index += 1) {
-        hash = (hash * 31 + value.charCodeAt(index)) >>> 0;
-      }
-      return hash;
-    };
 
     return [...theme.families].sort((left, right) => {
       const leftRank = pinnedRank.get(left.id);
@@ -249,11 +243,17 @@ export const CommandBar = () => {
         }
         return leftRank - rightRank;
       }
-      const hashDiff = stableHash(left.id) - stableHash(right.id);
-      if (hashDiff !== 0) {
-        return hashDiff;
+
+      if (left.id === forcedLastId || right.id === forcedLastId) {
+        if (left.id === forcedLastId && right.id !== forcedLastId) {
+          return 1;
+        }
+        if (right.id === forcedLastId && left.id !== forcedLastId) {
+          return -1;
+        }
       }
-      return left.id.localeCompare(right.id);
+
+      return left.name.localeCompare(right.name);
     });
   }, [theme.families]);
 
