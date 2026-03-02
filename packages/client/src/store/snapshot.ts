@@ -673,6 +673,7 @@ const defaultCompareWorkspace = (): SnapshotState['compareWorkspace'] => ({
       drawdownStrategy: false,
       incomeEvents: false,
       expenseEvents: false,
+      historicalEra: false,
     },
     instanceLocks: {
       spendingPhases: {},

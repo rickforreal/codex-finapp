@@ -34,7 +34,7 @@ const eraCommentary: Record<HistoricalEra, string> = {
     '2009 onward. Recovery and long risk-asset run-up under low-rate monetary conditions.',
 };
 
-export const HistoricalDataSummary = () => {
+export const HistoricalDataSummary = ({ readOnly }: { readOnly?: boolean }) => {
   const summary = useAppStore((state) => state.historicalData.summary);
   const status = useAppStore((state) => state.historicalData.status);
   const errorMessage = useAppStore((state) => state.historicalData.errorMessage);
@@ -94,6 +94,7 @@ export const HistoricalDataSummary = () => {
           value={eraValue}
           onChange={setSelectedHistoricalEra}
           options={eraOptions}
+          disabled={readOnly}
         />
       </div>
 

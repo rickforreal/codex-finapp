@@ -1718,6 +1718,7 @@
       [AC1] `HistoricalDataSummary.tsx` includes the `Dropdown` for era selection.
       [AC2] Fetching logic is co-located in the summary component.
       [AC3] Table and commentary update correctly on selection.
+      [AC4] Era selection is per-slot in Compare mode and supports sync/locking.
 
 - [x] UX-CHE-T2: Remove redundant controls from CommandBar
       Phase: Feature/UXConsolidation

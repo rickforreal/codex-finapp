@@ -46,6 +46,7 @@ export const Sidebar = () => {
   const drawdownSync = useCompareFamilyLockUiState('drawdownStrategy');
   const incomeSync = useCompareFamilyLockUiState('incomeEvents');
   const expenseSync = useCompareFamilyLockUiState('expenseEvents');
+  const historicalSync = useCompareFamilyLockUiState('historicalEra');
   const canAddCompareSlot = compareSlotOrder.length < 8;
   const canRemoveCompareSlot = compareSlotOrder.length > 1;
 
@@ -180,20 +181,34 @@ export const Sidebar = () => {
         title={simulationMode === SimulationMode.Manual ? 'Return Assumptions' : 'Historical Data'}
         collapsed={Boolean(collapsed[sectionIds.returns])}
         onToggle={toggleSection}
-        headerAction={(
-          <CompareSyncControl
-            slotId={returnsSync.slotId}
-            locked={returnsSync.locked}
-            synced={returnsSync.synced}
-            onToggleLock={() => toggleCompareFamilyLock('returnAssumptions')}
-            onToggleSync={(synced) => setCompareSlotFamilySync(returnsSync.slotId, 'returnAssumptions', synced)}
-          />
-        )}
+        headerAction={
+          simulationMode === SimulationMode.Manual ? (
+            <CompareSyncControl
+              slotId={returnsSync.slotId}
+              locked={returnsSync.locked}
+              synced={returnsSync.synced}
+              onToggleLock={() => toggleCompareFamilyLock('returnAssumptions')}
+              onToggleSync={(synced) =>
+                setCompareSlotFamilySync(returnsSync.slotId, 'returnAssumptions', synced)
+              }
+            />
+          ) : (
+            <CompareSyncControl
+              slotId={historicalSync.slotId}
+              locked={historicalSync.locked}
+              synced={historicalSync.synced}
+              onToggleLock={() => toggleCompareFamilyLock('historicalEra')}
+              onToggleSync={(synced) =>
+                setCompareSlotFamilySync(historicalSync.slotId, 'historicalEra', synced)
+              }
+            />
+          )
+        }
       >
         {simulationMode === SimulationMode.Manual ? (
           <ReturnAssumptions />
         ) : (
-          <HistoricalDataSummary />
+          <HistoricalDataSummary readOnly={historicalSync.readOnly} />
         )}
       </CollapsibleSection>
 

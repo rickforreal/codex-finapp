@@ -1946,10 +1946,12 @@ Canonical docs impact:
 
 2026-03-01 — UX: Consolidate Historical Era Selection | COMPLETE
 - Moved "Historical Era" dropdown from navbar (`CommandBar.tsx`) to the "Historical Data" component (`HistoricalDataSummary.tsx`) in the sidebar.
+- Enabled per-portfolio historical era selection in Compare mode by making the state slot-aware.
+- Added `historicalEra` to `COMPARE_SYNC_FAMILIES`, allowing users to lock or sync eras across all portfolios.
 - Co-located historical data fetching logic with the selection UI for better encapsulation.
 - Ensured the summary statistics card remains intact and reactive to era selection changes.
 - Simplified navbar by removing redundant simulation-mode-specific controls.
-- Verified smooth integration and data reactivity in Monte Carlo mode.
+- Verified smooth integration and data reactivity in Monte Carlo mode across multiple slots.
 
 Validation run (all passing):
 - `npm run typecheck`

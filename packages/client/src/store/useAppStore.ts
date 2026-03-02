@@ -77,6 +77,7 @@ export const COMPARE_SYNC_FAMILIES = [
   'drawdownStrategy',
   'incomeEvents',
   'expenseEvents',
+  'historicalEra',
 ] as const;
 export type CompareSyncFamilyKey = (typeof COMPARE_SYNC_FAMILIES)[number];
 export const COMPARE_SYNC_LIST_FAMILIES = [
@@ -905,6 +906,7 @@ const defaultCompareSyncState = (): CompareSyncState => ({
     drawdownStrategy: false,
     incomeEvents: false,
     expenseEvents: false,
+    historicalEra: false,
   },
   instanceLocks: {
     spendingPhases: {},
@@ -1105,6 +1107,9 @@ const applyCompareSyncFromMaster = (
             start: { ...event.start },
             end: event.end === 'endOfRetirement' ? event.end : { ...event.end },
           }));
+          break;
+        case 'historicalEra':
+          workspace.selectedHistoricalEra = master.selectedHistoricalEra;
           break;
         default:
           break;
@@ -2531,8 +2536,42 @@ export const useAppStore = create<AppStore>((set) => ({
   setSimulationMode: (simulationMode) => set({ simulationMode }),
   setSelectedHistoricalEra: (selectedHistoricalEra) =>
     set((state) => {
+      if (isCompareFamilyLockedAndSyncedForActiveSlot(state, 'historicalEra')) {
+        return state;
+      }
+
       const staleState = markTrackingOutputStateStale(state);
-      return { selectedHistoricalEra, ...staleState };
+
+      if (!isCompareActiveFromWorkspace(state.compareWorkspace)) {
+        return { selectedHistoricalEra, ...staleState };
+      }
+
+      const nextCompare = cloneCompareWorkspace(staleState.compareWorkspace);
+      const activeSlotId = nextCompare.activeSlotId;
+      const workspace = nextCompare.slots[activeSlotId];
+      if (workspace) {
+        workspace.selectedHistoricalEra = selectedHistoricalEra;
+      }
+
+      if (activeSlotId === 'A') {
+        nextCompare.slotOrder.forEach((slotId) => {
+          if (slotId === 'A') {
+            return;
+          }
+          if (isSlotFamilySynced(nextCompare.compareSync, slotId, 'historicalEra')) {
+            const slotWorkspace = nextCompare.slots[slotId];
+            if (slotWorkspace) {
+              slotWorkspace.selectedHistoricalEra = selectedHistoricalEra;
+            }
+          }
+        });
+      }
+
+      return {
+        selectedHistoricalEra,
+        compareWorkspace: nextCompare,
+        simulationResults: staleState.simulationResults,
+      };
     }),
   setHistoricalSummaryStatus: (status, errorMessage = null) =>
     set((state) => ({

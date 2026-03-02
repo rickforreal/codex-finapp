@@ -423,7 +423,6 @@ export const CommandBar = () => {
         }
         compareConfigs.forEach((entry) => {
           entry.config.simulationMode = simulationMode;
-          entry.config.selectedHistoricalEra = selectedHistoricalEra;
         });
         const hasInvalidAllocation = compareConfigs.some(({ config }) => {
           if (config.drawdownStrategy.type !== DrawdownStrategyType.Rebalancing) {
