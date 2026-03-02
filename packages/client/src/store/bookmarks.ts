@@ -12,6 +12,7 @@ export type BookmarkRecord = {
   name: string;
   savedAt: string;
   payload: string;
+  description?: string;
 };
 
 export type BookmarksStorageEnvelope = {
@@ -41,7 +42,8 @@ type BookmarkStorageOptions = {
 };
 
 const defaultCreateId = (): string =>
-  globalThis.crypto?.randomUUID?.() ?? `bookmark-${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
+  globalThis.crypto?.randomUUID?.() ??
+  `bookmark-${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
 
 const resolveStorage = (storage?: Storage): Storage => {
   if (storage) {
@@ -49,7 +51,10 @@ const resolveStorage = (storage?: Storage): Storage => {
   }
 
   if (typeof window === 'undefined' || !window.localStorage) {
-    throw new BookmarkStorageError('invalid_storage', 'Bookmark storage is not available in this environment.');
+    throw new BookmarkStorageError(
+      'invalid_storage',
+      'Bookmark storage is not available in this environment.',
+    );
   }
 
   return window.localStorage;
@@ -101,6 +106,7 @@ const asBookmarksEnvelope = (parsed: unknown): BookmarksStorageEnvelope => {
       name: entry.name,
       savedAt: entry.savedAt,
       payload: entry.payload,
+      description: typeof entry.description === 'string' ? entry.description : undefined,
     };
   });
 
@@ -123,7 +129,10 @@ const readEnvelope = (storage: Storage): BookmarksStorageEnvelope => {
   try {
     parsed = JSON.parse(raw);
   } catch {
-    throw new BookmarkStorageError('invalid_storage', 'Bookmark storage payload is not valid JSON.');
+    throw new BookmarkStorageError(
+      'invalid_storage',
+      'Bookmark storage payload is not valid JSON.',
+    );
   }
 
   return asBookmarksEnvelope(parsed);
@@ -184,33 +193,43 @@ const decodeBookmarkPayload = (payload: string): string => {
     const bytes = base64ToBytes(payload);
     return ungzip(bytes, { to: 'string' });
   } catch {
-    throw new BookmarkStorageError('invalid_bookmark_payload', 'This bookmark is invalid and could not be loaded.');
+    throw new BookmarkStorageError(
+      'invalid_bookmark_payload',
+      'This bookmark is invalid and could not be loaded.',
+    );
   }
 };
 
-export const listBookmarks = (options: Pick<BookmarkStorageOptions, 'storage'> = {}): BookmarkRecord[] => {
+export const listBookmarks = (
+  options: Pick<BookmarkStorageOptions, 'storage'> = {},
+): BookmarkRecord[] => {
   const storage = resolveStorage(options.storage);
   return [...readEnvelope(storage).bookmarks];
 };
 
-export const createBookmark = (name: string, options: BookmarkStorageOptions = {}): BookmarkRecord => {
+export const createBookmark = (
+  name: string,
+  options: BookmarkStorageOptions & { description?: string } = {},
+): BookmarkRecord => {
   const trimmedName = name.trim();
   if (!trimmedName) {
     throw new BookmarkStorageError('invalid_bookmark_payload', 'Bookmark name is required.');
   }
 
-  const storage = resolveStorage(options.storage);
-  const createId = options.createId ?? defaultCreateId;
-  const envelope = readEnvelope(storage);
+  const { description, storage, createId } = options;
+  const resolvedStorage = resolveStorage(storage);
+  const resolvedCreateId = createId ?? defaultCreateId;
+  const envelope = readEnvelope(resolvedStorage);
   const { json } = serializeSnapshot(trimmedName);
   const parsed = JSON.parse(json) as { savedAt?: unknown };
   const savedAt = typeof parsed.savedAt === 'string' ? parsed.savedAt : new Date().toISOString();
 
   const nextBookmark: BookmarkRecord = {
-    id: createId(),
+    id: resolvedCreateId(),
     name: trimmedName,
     savedAt,
     payload: encodeBookmarkPayload(json),
+    description: description?.trim() || undefined,
   };
 
   const nextEnvelope: BookmarksStorageEnvelope = {
@@ -218,11 +237,14 @@ export const createBookmark = (name: string, options: BookmarkStorageOptions = {
     bookmarks: [nextBookmark, ...envelope.bookmarks].slice(0, MAX_BOOKMARKS),
   };
 
-  writeEnvelope(storage, nextEnvelope);
+  writeEnvelope(resolvedStorage, nextEnvelope);
   return nextBookmark;
 };
 
-export const deleteBookmark = (bookmarkId: string, options: Pick<BookmarkStorageOptions, 'storage'> = {}): boolean => {
+export const deleteBookmark = (
+  bookmarkId: string,
+  options: Pick<BookmarkStorageOptions, 'storage'> = {},
+): boolean => {
   const storage = resolveStorage(options.storage);
   const envelope = readEnvelope(storage);
   const nextBookmarks = envelope.bookmarks.filter((bookmark) => bookmark.id !== bookmarkId);
@@ -247,7 +269,10 @@ export const applyBookmark = (
   const bookmark = envelope.bookmarks.find((entry) => entry.id === bookmarkId);
 
   if (!bookmark) {
-    throw new BookmarkStorageError('bookmark_not_found', 'The selected bookmark could not be found.');
+    throw new BookmarkStorageError(
+      'bookmark_not_found',
+      'The selected bookmark could not be found.',
+    );
   }
 
   const rawSnapshot = decodeBookmarkPayload(bookmark.payload);

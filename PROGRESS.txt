@@ -1943,3 +1943,15 @@ Validation run (all passing):
 
 Canonical docs impact:
 - No canonical doc impact (purely UX enhancement).
+
+2026-03-01 — CHG-0009: Bookmark Description Field | COMPLETE
+- Added optional `description` field to `BookmarkRecord` type in `bookmarks.ts`
+- Updated `createBookmark()` to accept optional description parameter
+- Added description input field to Create Bookmark modal in `CommandBar.tsx`
+- Description displays below timestamp in dropdown with `·` separator
+- Tooltip on hover shows full description
+- Added 3 tests for description functionality (save/retrieve, backwards compat, whitespace trim)
+- All validation passing: typecheck, lint, test, build
+
+Canonical docs impact:
+- No canonical doc impact (backwards compatible optional annotation).

@@ -140,6 +140,7 @@ export const CommandBar = () => {
   const [bookmarks, setBookmarks] = useState<BookmarkRecord[]>([]);
   const [bookmarkModalOpen, setBookmarkModalOpen] = useState(false);
   const [bookmarkName, setBookmarkName] = useState('');
+  const [bookmarkDescription, setBookmarkDescription] = useState('');
   const [commandMessage, setCommandMessage] = useState<string | null>(null);
   const mode = useAppStore((state) => state.mode);
   const isCompareActive = useIsCompareActive();
@@ -155,10 +156,16 @@ export const CommandBar = () => {
   const setHistoricalSummary = useAppStore((state) => state.setHistoricalSummary);
   const setSimulationStatus = useAppStore((state) => state.setSimulationStatus);
   const setSimulationResult = useAppStore((state) => state.setSimulationResult);
-  const setCompareSlotSimulationStatus = useAppStore((state) => state.setCompareSlotSimulationStatus);
-  const setCompareSlotSimulationResult = useAppStore((state) => state.setCompareSlotSimulationResult);
+  const setCompareSlotSimulationStatus = useAppStore(
+    (state) => state.setCompareSlotSimulationStatus,
+  );
+  const setCompareSlotSimulationResult = useAppStore(
+    (state) => state.setCompareSlotSimulationResult,
+  );
   const drawdownType = useAppStore((state) => state.drawdownStrategy.type);
-  const targetAllocation = useAppStore((state) => state.drawdownStrategy.rebalancing.targetAllocation);
+  const targetAllocation = useAppStore(
+    (state) => state.drawdownStrategy.rebalancing.targetAllocation,
+  );
   const lastEditedMonthIndex = useAppStore((state) => state.lastEditedMonthIndex);
   const startDate = useAppStore((state) => state.coreParams.retirementStartDate);
   const clearAllActualOverrides = useAppStore((state) => state.clearAllActualOverrides);
@@ -170,7 +177,8 @@ export const CommandBar = () => {
   const compareWorkspace = useAppStore((state) => state.compareWorkspace);
   const canRunActiveWorkspace =
     drawdownType !== DrawdownStrategyType.Rebalancing ||
-    Math.abs(targetAllocation.stocks + targetAllocation.bonds + targetAllocation.cash - 1) < 0.000001;
+    Math.abs(targetAllocation.stocks + targetAllocation.bonds + targetAllocation.cash - 1) <
+      0.000001;
 
   const refreshBookmarks = useCallback(() => {
     try {
@@ -201,7 +209,11 @@ export const CommandBar = () => {
       if (themeMenuOpen && themeMenuRef.current && !themeMenuRef.current.contains(target)) {
         setThemeMenuOpen(false);
       }
-      if (bookmarksMenuOpen && bookmarksMenuRef.current && !bookmarksMenuRef.current.contains(target)) {
+      if (
+        bookmarksMenuOpen &&
+        bookmarksMenuRef.current &&
+        !bookmarksMenuRef.current.contains(target)
+      ) {
         setBookmarksMenuOpen(false);
       }
     };
@@ -253,14 +265,22 @@ export const CommandBar = () => {
 
   const getDefaultSnapshotName = () => {
     const now = new Date();
-    const date = now.toLocaleDateString(undefined, { year: 'numeric', month: 'short', day: 'numeric' });
+    const date = now.toLocaleDateString(undefined, {
+      year: 'numeric',
+      month: 'short',
+      day: 'numeric',
+    });
     const time = now.toLocaleTimeString(undefined, { hour: 'numeric', minute: '2-digit' });
     return `Snapshot ${date} ${time}`;
   };
 
   const getDefaultBookmarkName = () => {
     const now = new Date();
-    const date = now.toLocaleDateString(undefined, { year: 'numeric', month: 'short', day: 'numeric' });
+    const date = now.toLocaleDateString(undefined, {
+      year: 'numeric',
+      month: 'short',
+      day: 'numeric',
+    });
     const time = now.toLocaleTimeString(undefined, { hour: 'numeric', minute: '2-digit' });
     return `Bookmark ${date} ${time}`;
   };
@@ -337,11 +357,13 @@ export const CommandBar = () => {
       return;
     }
 
+    const description = bookmarkDescription.trim();
     try {
-      createBookmark(name);
+      createBookmark(name, { description });
       refreshBookmarks();
       setBookmarkModalOpen(false);
       setBookmarkName('');
+      setBookmarkDescription('');
       setCommandMessage(`Saved bookmark: ${name}`);
     } catch (error) {
       const message = error instanceof Error ? error.message : 'Failed to save bookmark.';
@@ -401,24 +423,19 @@ export const CommandBar = () => {
         setHistoricalSummary(response.summary);
       })
       .catch((error) => {
-        const message = error instanceof Error ? error.message : 'Failed to load historical summary';
+        const message =
+          error instanceof Error ? error.message : 'Failed to load historical summary';
         setHistoricalSummaryStatus('error', message);
       });
-  }, [
-    selectedHistoricalEra,
-    setHistoricalSummary,
-    setHistoricalSummaryStatus,
-    simulationMode,
-  ]);
+  }, [selectedHistoricalEra, setHistoricalSummary, setHistoricalSummaryStatus, simulationMode]);
 
   const eraOptions = (historicalSummary?.eras ?? []).map((era) => ({
     label: era.label,
     value: era.key,
   }));
-  const eraValue =
-    eraOptions.some((option) => option.value === selectedHistoricalEra)
-      ? selectedHistoricalEra
-      : (eraOptions[0]?.value ?? selectedHistoricalEra);
+  const eraValue = eraOptions.some((option) => option.value === selectedHistoricalEra)
+    ? selectedHistoricalEra
+    : (eraOptions[0]?.value ?? selectedHistoricalEra);
 
   const handleRunSimulation = async () => {
     if (!canRunActiveWorkspace) {
@@ -429,7 +446,10 @@ export const CommandBar = () => {
       if (isCompareActive) {
         const compareConfigs = getCompareConfigs();
         if (compareConfigs.length <= 1) {
-          setSimulationStatus('error', 'Multi-portfolio run requires at least two configured portfolios.');
+          setSimulationStatus(
+            'error',
+            'Multi-portfolio run requires at least two configured portfolios.',
+          );
           return;
         }
         compareConfigs.forEach((entry) => {
@@ -445,15 +465,20 @@ export const CommandBar = () => {
           return Math.abs(sum - 1) >= 0.000001;
         });
         if (hasInvalidAllocation) {
-          setSimulationStatus('error', 'Rebalancing target allocation must sum to 100% for all compare portfolios.');
+          setSimulationStatus(
+            'error',
+            'Rebalancing target allocation must sum to 100% for all compare portfolios.',
+          );
           return;
         }
 
         const seed = Math.floor(Math.random() * 2_147_483_000);
-        const trackingActualOverrides = mode === AppMode.Tracking ? getTrackingActualOverridesForRun() : undefined;
-        const canonicalBoundary = mode === AppMode.Tracking
-          ? (compareWorkspace.slots.A?.lastEditedMonthIndex ?? null)
-          : null;
+        const trackingActualOverrides =
+          mode === AppMode.Tracking ? getTrackingActualOverridesForRun() : undefined;
+        const canonicalBoundary =
+          mode === AppMode.Tracking
+            ? (compareWorkspace.slots.A?.lastEditedMonthIndex ?? null)
+            : null;
         compareConfigs.forEach(({ slotId }) => setCompareSlotSimulationStatus(slotId, 'running'));
         const queue = [...compareConfigs];
         const maxParallel = 4;
@@ -475,7 +500,11 @@ export const CommandBar = () => {
                   simulationMode === SimulationMode.Manual
                     ? workspace.simulationResults.manual
                     : workspace.simulationResults.monteCarlo;
-                return preferred ?? workspace.simulationResults.manual ?? workspace.simulationResults.monteCarlo;
+                return (
+                  preferred ??
+                  workspace.simulationResults.manual ??
+                  workspace.simulationResults.monteCarlo
+                );
               })();
               const effectiveOverrides =
                 mode === AppMode.Tracking
@@ -509,7 +538,8 @@ export const CommandBar = () => {
                     summary: {
                       ...response.result.summary,
                       terminalPortfolioValue:
-                        merged.terminalPortfolioValue ?? response.result.summary.terminalPortfolioValue,
+                        merged.terminalPortfolioValue ??
+                        response.result.summary.terminalPortfolioValue,
                     },
                   },
                 };
@@ -518,7 +548,8 @@ export const CommandBar = () => {
                 setCompareSlotSimulationResult(slotId, simulationMode, response);
               }
             } catch (error) {
-              const message = error instanceof Error ? error.message : `Compare ${slotId} simulation failed`;
+              const message =
+                error instanceof Error ? error.message : `Compare ${slotId} simulation failed`;
               setCompareSlotSimulationStatus(slotId, 'error', message);
               failures.push(`${slotId}: ${message}`);
             }
@@ -533,10 +564,12 @@ export const CommandBar = () => {
 
       setSimulationStatus('running');
       const config = getCurrentConfig();
-      const trackingActualOverrides = mode === AppMode.Tracking ? getTrackingActualOverridesForRun() : undefined;
+      const trackingActualOverrides =
+        mode === AppMode.Tracking ? getTrackingActualOverridesForRun() : undefined;
       if (
         mode === AppMode.Tracking &&
-        (simulationMode === SimulationMode.Manual || simulationMode === SimulationMode.MonteCarlo) &&
+        (simulationMode === SimulationMode.Manual ||
+          simulationMode === SimulationMode.MonteCarlo) &&
         lastEditedMonthIndex !== null
       ) {
         const state = useAppStore.getState();
@@ -574,7 +607,10 @@ export const CommandBar = () => {
         return;
       }
 
-      const result = await runSimulation({ config, actualOverridesByMonth: trackingActualOverrides });
+      const result = await runSimulation({
+        config,
+        actualOverridesByMonth: trackingActualOverrides,
+      });
       setSimulationResult(simulationMode, result);
     } catch (error) {
       const message = error instanceof Error ? error.message : 'Unknown simulation error';
@@ -586,26 +622,34 @@ export const CommandBar = () => {
     <header className="theme-commandbar-shell sticky top-0 z-10 border-b px-4 py-2 shadow-panel backdrop-blur">
       <div className="flex flex-wrap items-center gap-4">
         <div className="flex h-14 w-[220px] shrink-0 items-center gap-3 border-r border-brand-border pr-4">
-          <div className="grid h-9 w-9 place-items-center rounded-lg bg-brand-blue text-lg font-bold text-white">F</div>
-          <p className="theme-commandbar-logo-text text-[2rem] font-semibold leading-none">FinApp</p>
+          <div className="grid h-9 w-9 place-items-center rounded-lg bg-brand-blue text-lg font-bold text-white">
+            F
+          </div>
+          <p className="theme-commandbar-logo-text text-[2rem] font-semibold leading-none">
+            FinApp
+          </p>
         </div>
 
         <div className="min-w-0 flex-1">
           <div className="flex flex-wrap items-end gap-x-4 gap-y-2">
             <div className="flex min-w-[160px] flex-col gap-1">
-              <p className="theme-commandbar-section-label px-1 text-[10px] font-semibold uppercase tracking-[0.14em]">View Mode</p>
-            <SegmentedToggle
-              value={mode}
-              onChange={setMode}
-              options={[
-                { label: 'Planning', value: AppMode.Planning },
-                { label: 'Tracking', value: AppMode.Tracking },
-              ]}
-            />
+              <p className="theme-commandbar-section-label px-1 text-[10px] font-semibold uppercase tracking-[0.14em]">
+                View Mode
+              </p>
+              <SegmentedToggle
+                value={mode}
+                onChange={setMode}
+                options={[
+                  { label: 'Planning', value: AppMode.Planning },
+                  { label: 'Tracking', value: AppMode.Tracking },
+                ]}
+              />
             </div>
 
             <div className="flex min-w-[210px] flex-col gap-1">
-              <p className="theme-commandbar-section-label px-1 text-[10px] font-semibold uppercase tracking-[0.14em]">Simulation Type</p>
+              <p className="theme-commandbar-section-label px-1 text-[10px] font-semibold uppercase tracking-[0.14em]">
+                Simulation Type
+              </p>
               <SegmentedToggle
                 value={simulationMode}
                 onChange={setSimulationMode}
@@ -618,7 +662,9 @@ export const CommandBar = () => {
 
             {simulationMode === SimulationMode.MonteCarlo ? (
               <div className="flex min-w-[260px] flex-col gap-1">
-                <p className="theme-commandbar-section-label px-1 text-[10px] font-semibold uppercase tracking-[0.14em]">Historical Era</p>
+                <p className="theme-commandbar-section-label px-1 text-[10px] font-semibold uppercase tracking-[0.14em]">
+                  Historical Era
+                </p>
                 <div className="w-[280px] max-w-full">
                   <Dropdown<HistoricalEra>
                     value={eraValue}
@@ -626,7 +672,13 @@ export const CommandBar = () => {
                     options={
                       eraOptions.length > 0
                         ? eraOptions
-                        : [{ label: historicalStatus === 'loading' ? 'Loading eras...' : 'Full History', value: HistoricalEra.FullHistory }]
+                        : [
+                            {
+                              label:
+                                historicalStatus === 'loading' ? 'Loading eras...' : 'Full History',
+                              value: HistoricalEra.FullHistory,
+                            },
+                          ]
                     }
                   />
                 </div>
@@ -635,7 +687,9 @@ export const CommandBar = () => {
 
             {mode === AppMode.Tracking ? (
               <div className="flex min-w-[180px] flex-col gap-1">
-                <p className="theme-commandbar-section-label px-1 text-[10px] font-semibold uppercase tracking-[0.14em]">Tracking</p>
+                <p className="theme-commandbar-section-label px-1 text-[10px] font-semibold uppercase tracking-[0.14em]">
+                  Tracking
+                </p>
                 <div className="flex flex-wrap items-center gap-2">
                   {lastEditedMonthIndex !== null ? (
                     <button
@@ -649,19 +703,23 @@ export const CommandBar = () => {
                   <p className="theme-commandbar-muted text-xs">
                     {lastEditedMonthIndex === null
                       ? 'No actuals entered'
-                      : `Actuals through: ${
-                          new Date(startDate.year, startDate.month - 1 + (lastEditedMonthIndex - 1), 1).toLocaleDateString(undefined, {
-                            month: 'short',
-                            year: 'numeric',
-                          })
-                        }`}
+                      : `Actuals through: ${new Date(
+                          startDate.year,
+                          startDate.month - 1 + (lastEditedMonthIndex - 1),
+                          1,
+                        ).toLocaleDateString(undefined, {
+                          month: 'short',
+                          year: 'numeric',
+                        })}`}
                   </p>
                 </div>
               </div>
             ) : null}
           </div>
 
-          {commandMessage ? <p className="theme-commandbar-muted mt-1 text-xs">{commandMessage}</p> : null}
+          {commandMessage ? (
+            <p className="theme-commandbar-muted mt-1 text-xs">{commandMessage}</p>
+          ) : null}
         </div>
 
         <div className="ml-auto flex items-center gap-2">
@@ -673,7 +731,14 @@ export const CommandBar = () => {
               aria-label="Create bookmark"
               title="Create Bookmark"
             >
-              <svg viewBox="0 0 24 24" className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
+              <svg
+                viewBox="0 0 24 24"
+                className="h-4 w-4"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="2"
+                strokeLinecap="round"
+              >
                 <path d="M4 7h10" />
                 <path d="M4 12h10" />
                 <path d="M4 17h7" />
@@ -697,16 +762,26 @@ export const CommandBar = () => {
               title="Bookmarks"
             >
               <span>Bookmarks</span>
-              <svg viewBox="0 0 20 20" className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth="1.8">
+              <svg
+                viewBox="0 0 20 20"
+                className="h-4 w-4"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="1.8"
+              >
                 <path d="m5 8 5 5 5-5" />
               </svg>
             </button>
             {bookmarksMenuOpen ? (
               <div className="theme-commandbar-popover absolute right-0 top-11 z-30 w-80 rounded-md border p-2 shadow-lg">
-                <p className="theme-commandbar-popover-title px-2 pb-1 text-[11px] font-semibold uppercase tracking-wide">Bookmarks</p>
+                <p className="theme-commandbar-popover-title px-2 pb-1 text-[11px] font-semibold uppercase tracking-wide">
+                  Bookmarks
+                </p>
                 <div className="theme-commandbar-scrollbar max-h-72 overflow-y-auto">
                   {bookmarks.length === 0 ? (
-                    <p className="theme-commandbar-muted px-2 py-2 text-xs">No bookmarks saved yet.</p>
+                    <p className="theme-commandbar-muted px-2 py-2 text-xs">
+                      No bookmarks saved yet.
+                    </p>
                   ) : (
                     <div className="space-y-1">
                       {bookmarks.map((bookmark) => (
@@ -715,11 +790,15 @@ export const CommandBar = () => {
                           type="button"
                           onClick={() => handleLoadBookmark(bookmark.id)}
                           className="theme-commandbar-popover-item group flex w-full items-center justify-between gap-2 rounded px-2 py-1.5 text-left transition"
+                          title={bookmark.description || undefined}
                         >
                           <span className="min-w-0">
-                            <span className="theme-commandbar-popover-item-name block truncate text-sm">{bookmark.name}</span>
+                            <span className="theme-commandbar-popover-item-name block truncate text-sm">
+                              {bookmark.name}
+                            </span>
                             <span className="theme-commandbar-muted block text-[11px]">
                               {new Date(bookmark.savedAt).toLocaleString()}
+                              {bookmark.description ? ` · ${bookmark.description}` : null}
                             </span>
                           </span>
                           <span className="shrink-0">
@@ -743,7 +822,13 @@ export const CommandBar = () => {
                               aria-label={`Delete bookmark ${bookmark.name}`}
                               title="Delete bookmark"
                             >
-                              <svg viewBox="0 0 20 20" className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth="1.8">
+                              <svg
+                                viewBox="0 0 20 20"
+                                className="h-4 w-4"
+                                fill="none"
+                                stroke="currentColor"
+                                strokeWidth="1.8"
+                              >
                                 <path d="M3.5 5.5h13" />
                                 <path d="M7.5 5.5V4A1.5 1.5 0 0 1 9 2.5h2A1.5 1.5 0 0 1 12.5 4v1.5" />
                                 <path d="m6.5 5.5.7 10a1.5 1.5 0 0 0 1.5 1.4h2.6a1.5 1.5 0 0 0 1.5-1.4l.7-10" />
@@ -769,7 +854,13 @@ export const CommandBar = () => {
               aria-label="Select theme"
               title="Select Theme"
             >
-              <svg viewBox="0 0 24 24" className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth="2">
+              <svg
+                viewBox="0 0 24 24"
+                className="h-4 w-4"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="2"
+              >
                 <path d="M12 3a9 9 0 1 0 9 9c0-1.7-1.3-3-3-3h-1.2a2.8 2.8 0 0 1-2.8-2.8V5.5A2.5 2.5 0 0 0 12 3Z" />
                 <circle cx="7.5" cy="11.5" r=".8" />
                 <circle cx="9.8" cy="7.7" r=".8" />
@@ -778,11 +869,15 @@ export const CommandBar = () => {
             </button>
             {themeMenuOpen ? (
               <div className="theme-commandbar-popover absolute right-0 top-11 z-30 w-64 rounded-md border p-2 shadow-lg">
-                <p className="theme-commandbar-popover-title px-2 pb-1 text-[11px] font-semibold uppercase tracking-wide">Theme</p>
+                <p className="theme-commandbar-popover-title px-2 pb-1 text-[11px] font-semibold uppercase tracking-wide">
+                  Theme
+                </p>
                 <div className="theme-commandbar-scrollbar max-h-80 space-y-1 overflow-y-auto pr-1">
                   {orderedThemeFamilies.map((family) => {
                     const selected = family.id === theme.selectedThemeFamilyId;
-                    const supportsLight = family.supportedAppearances.includes(ThemeAppearance.Light);
+                    const supportsLight = family.supportedAppearances.includes(
+                      ThemeAppearance.Light,
+                    );
                     const supportsDark = family.supportedAppearances.includes(ThemeAppearance.Dark);
                     const selectedAppearance = theme.selectedAppearanceByFamily[family.id];
                     return (
@@ -804,7 +899,9 @@ export const CommandBar = () => {
                       >
                         <span>{family.name}</span>
                         {family.isHighContrast ? (
-                          <span className="theme-commandbar-tag rounded px-1.5 py-0.5 text-[10px]">A11y</span>
+                          <span className="theme-commandbar-tag rounded px-1.5 py-0.5 text-[10px]">
+                            A11y
+                          </span>
                         ) : (
                           <span className="flex items-center gap-1">
                             <span
@@ -832,12 +929,20 @@ export const CommandBar = () => {
                                 setThemeAppearanceForFamily(family.id, ThemeAppearance.Light);
                               }}
                               className={`grid h-6 w-6 place-items-center rounded ${
-                                selectedAppearance === ThemeAppearance.Light ? 'theme-commandbar-popover-item-active' : ''
+                                selectedAppearance === ThemeAppearance.Light
+                                  ? 'theme-commandbar-popover-item-active'
+                                  : ''
                               } ${supportsLight ? '' : 'opacity-40'}`}
                               aria-label={`${family.name} light`}
                               title="Light appearance"
                             >
-                              <svg viewBox="0 0 20 20" className="h-3.5 w-3.5" fill="none" stroke="currentColor" strokeWidth="1.8">
+                              <svg
+                                viewBox="0 0 20 20"
+                                className="h-3.5 w-3.5"
+                                fill="none"
+                                stroke="currentColor"
+                                strokeWidth="1.8"
+                              >
                                 <circle cx="10" cy="10" r="3.2" />
                                 <path d="M10 1.8v2.1M10 16.1v2.1M1.8 10h2.1M16.1 10h2.1M4.1 4.1l1.5 1.5M14.4 14.4l1.5 1.5M15.9 4.1l-1.5 1.5M5.6 14.4l-1.5 1.5" />
                               </svg>
@@ -867,12 +972,20 @@ export const CommandBar = () => {
                                 setThemeAppearanceForFamily(family.id, ThemeAppearance.Dark);
                               }}
                               className={`grid h-6 w-6 place-items-center rounded ${
-                                selectedAppearance === ThemeAppearance.Dark ? 'theme-commandbar-popover-item-active' : ''
+                                selectedAppearance === ThemeAppearance.Dark
+                                  ? 'theme-commandbar-popover-item-active'
+                                  : ''
                               } ${supportsDark ? '' : 'opacity-40'}`}
                               aria-label={`${family.name} dark`}
                               title="Dark appearance"
                             >
-                              <svg viewBox="0 0 20 20" className="h-3.5 w-3.5" fill="none" stroke="currentColor" strokeWidth="1.8">
+                              <svg
+                                viewBox="0 0 20 20"
+                                className="h-3.5 w-3.5"
+                                fill="none"
+                                stroke="currentColor"
+                                strokeWidth="1.8"
+                              >
                                 <path d="M12.7 2.5a6.8 6.8 0 1 0 4.8 10.8A6.2 6.2 0 0 1 12.7 2.5Z" />
                               </svg>
                             </span>
@@ -900,7 +1013,13 @@ export const CommandBar = () => {
               aria-label="Save snapshot"
               title="Save Snapshot"
             >
-              <svg viewBox="0 0 24 24" className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth="2">
+              <svg
+                viewBox="0 0 24 24"
+                className="h-4 w-4"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="2"
+              >
                 <path d="M12 3v10" />
                 <path d="m8 9 4 4 4-4" />
                 <path d="M4 15v4a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-4" />
@@ -919,7 +1038,13 @@ export const CommandBar = () => {
               aria-label="Load snapshot"
               title="Load Snapshot"
             >
-              <svg viewBox="0 0 24 24" className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth="2">
+              <svg
+                viewBox="0 0 24 24"
+                className="h-4 w-4"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="2"
+              >
                 <path d="M12 21V11" />
                 <path d="m8 15 4-4 4 4" />
                 <path d="M4 9V5a2 2 0 0 1 2-2h12a2 2 0 0 1 2 2v4" />
@@ -951,9 +1076,16 @@ export const CommandBar = () => {
       {bookmarkModalOpen ? (
         <div className="theme-commandbar-modal-backdrop fixed inset-0 z-40 grid place-items-center px-4">
           <div className="theme-commandbar-modal w-full max-w-md rounded-lg border p-4 shadow-lg">
-            <h2 className="theme-commandbar-modal-title text-base font-semibold">Create Bookmark</h2>
-            <p className="theme-commandbar-modal-text mt-1 text-sm">Save the current full app state to browser bookmarks.</p>
-            <label className="theme-commandbar-section-label mt-3 block text-xs font-semibold uppercase tracking-wide" htmlFor="bookmark-name-input">
+            <h2 className="theme-commandbar-modal-title text-base font-semibold">
+              Create Bookmark
+            </h2>
+            <p className="theme-commandbar-modal-text mt-1 text-sm">
+              Save the current full app state to browser bookmarks.
+            </p>
+            <label
+              className="theme-commandbar-section-label mt-3 block text-xs font-semibold uppercase tracking-wide"
+              htmlFor="bookmark-name-input"
+            >
               Bookmark Name
             </label>
             <input
@@ -963,12 +1095,26 @@ export const CommandBar = () => {
               className="theme-input-control mt-1 h-10 w-full rounded border px-3 text-sm"
               autoFocus
             />
+            <label
+              className="theme-commandbar-section-label mt-3 block text-xs font-semibold uppercase tracking-wide"
+              htmlFor="bookmark-description-input"
+            >
+              Description (optional)
+            </label>
+            <input
+              id="bookmark-description-input"
+              value={bookmarkDescription}
+              onChange={(event) => setBookmarkDescription(event.target.value)}
+              className="theme-input-control mt-1 h-10 w-full rounded border px-3 text-sm"
+              placeholder="Add a note about this bookmark..."
+            />
             <div className="mt-4 flex justify-end gap-2">
               <button
                 type="button"
                 onClick={() => {
                   setBookmarkModalOpen(false);
                   setBookmarkName('');
+                  setBookmarkDescription('');
                 }}
                 className="theme-commandbar-action-btn rounded-md border px-3 py-1.5 text-sm font-medium"
               >

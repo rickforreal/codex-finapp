@@ -1708,3 +1708,12 @@
       [AC1] Main content expands to fill horizontal space when sidebar is collapsed.
       [AC2] Toggle button remains accessible and functional in both states.
       [AC3] `PROGRESS.txt` updated with completion entry.
+
+- [x] CHG-0009: Add bookmark description field
+      Phase: Change/CHG-0009
+      Dependencies: BM-T4
+      Acceptance Criteria:
+      [AC1] Create Bookmark modal includes optional description input field.
+      [AC2] Description saved with bookmark and displayed in dropdown + tooltip on hover.
+      [AC3] Backwards compatible with existing bookmarks.
+      [AC4] Tests added for description functionality.

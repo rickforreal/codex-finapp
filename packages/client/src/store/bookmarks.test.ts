@@ -136,7 +136,10 @@ describe('bookmarks', () => {
     const removed = deleteBookmark('bookmark-2', { storage });
 
     expect(removed).toBe(true);
-    expect(listBookmarks({ storage }).map((entry) => entry.id)).toEqual(['bookmark-3', 'bookmark-1']);
+    expect(listBookmarks({ storage }).map((entry) => entry.id)).toEqual([
+      'bookmark-3',
+      'bookmark-1',
+    ]);
   });
 
   it('evicts oldest bookmarks after reaching max capacity', () => {
@@ -263,5 +266,44 @@ describe('bookmarks', () => {
     store.removeSpendingPhase(useAppStore.getState().spendingPhases[0]?.id ?? '');
     applyBookmark('bookmark-phases', { storage });
     expect(useAppStore.getState().spendingPhases).toHaveLength(0);
+  });
+
+  it('saves and retrieves bookmark description', () => {
+    const storage = new MemoryStorage();
+    resetStore();
+    const created = createBookmark('Test Bookmark', {
+      storage,
+      createId: () => 'bookmark-desc',
+      description: 'My test description',
+    });
+
+    expect(created.description).toBe('My test description');
+
+    const list = listBookmarks({ storage });
+    expect(list[0]?.description).toBe('My test description');
+
+    const applied = applyBookmark('bookmark-desc', { storage });
+    expect(applied.description).toBe('My test description');
+  });
+
+  it('handles undefined description for backwards compatibility', () => {
+    const storage = new MemoryStorage();
+    resetStore();
+    createBookmark('Legacy Bookmark', { storage, createId: () => 'bookmark-legacy' });
+
+    const list = listBookmarks({ storage });
+    expect(list[0]?.description).toBeUndefined();
+  });
+
+  it('trims whitespace from description', () => {
+    const storage = new MemoryStorage();
+    resetStore();
+    const created = createBookmark('Trim Test', {
+      storage,
+      createId: () => 'bookmark-trim',
+      description: '  spaces around  ',
+    });
+
+    expect(created.description).toBe('spaces around');
   });
 });
