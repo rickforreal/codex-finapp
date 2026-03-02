@@ -1,5 +1,5 @@
 import { useEffect } from 'react';
-import { AssetClass, HistoricalEra, SimulationMode } from '@finapp/shared';
+import { AssetClass, HistoricalEra, SimulationMode, type HistoricalRange } from '@finapp/shared';
 
 import { fetchHistoricalSummary } from '../../api/historicalApi';
 import { formatPercent } from '../../lib/format';
@@ -15,6 +15,24 @@ const assetLabel: Record<AssetClass, string> = {
 
 const annualizeReturn = (monthlyMean: number): number => (1 + monthlyMean) ** 12 - 1;
 const annualizeStdDev = (monthlyStdDev: number): number => monthlyStdDev * Math.sqrt(12);
+const monthYearFormatter = new Intl.DateTimeFormat('en-US', { month: 'short', year: 'numeric' });
+const toMonthOrdinal = (monthYear: { month: number; year: number }): number =>
+  monthYear.year * 12 + (monthYear.month - 1);
+const fromMonthOrdinal = (ordinal: number): { month: number; year: number } => ({
+  year: Math.floor(ordinal / 12),
+  month: (ordinal % 12) + 1,
+});
+const formatMonthYear = (monthYear: { month: number; year: number }): string =>
+  monthYearFormatter.format(new Date(monthYear.year, monthYear.month - 1, 1));
+const rangeFromEraOption = (option: {
+  startYear: number;
+  startMonth?: number;
+  endYear: number;
+  endMonth?: number;
+}): HistoricalRange => ({
+  start: { year: option.startYear, month: option.startMonth ?? 1 },
+  end: { year: option.endYear, month: option.endMonth ?? 12 },
+});
 
 const eraCommentary: Record<HistoricalEra, string> = {
   [HistoricalEra.FullHistory]:
@@ -33,6 +51,8 @@ const eraCommentary: Record<HistoricalEra, string> = {
     '2000-2012. Equity-heavy allocations saw muted growth and multiple large drawdowns.',
   [HistoricalEra.PostGfcRecovery]:
     '2009 onward. Recovery and long risk-asset run-up under low-rate monetary conditions.',
+  [HistoricalEra.Custom]:
+    'Custom month-year window over the historical dataset. Useful for isolating specific market regimes and start/end boundaries.',
 };
 
 export const HistoricalDataSummary = ({ readOnly }: { readOnly?: boolean }) => {
@@ -41,7 +61,9 @@ export const HistoricalDataSummary = ({ readOnly }: { readOnly?: boolean }) => {
   const errorMessage = useAppStore((state) => state.historicalData.errorMessage);
   const simulationMode = useAppStore((state) => state.simulationMode);
   const selectedHistoricalEra = useAppStore((state) => state.selectedHistoricalEra);
+  const customHistoricalRange = useAppStore((state) => state.customHistoricalRange);
   const setSelectedHistoricalEra = useAppStore((state) => state.setSelectedHistoricalEra);
+  const setCustomHistoricalRange = useAppStore((state) => state.setCustomHistoricalRange);
   const setHistoricalSummaryStatus = useAppStore((state) => state.setHistoricalSummaryStatus);
   const setHistoricalSummary = useAppStore((state) => state.setHistoricalSummary);
   const blockBootstrapEnabled = useAppStore((state) => state.blockBootstrapEnabled);
@@ -53,9 +75,31 @@ export const HistoricalDataSummary = ({ readOnly }: { readOnly?: boolean }) => {
     if (simulationMode !== SimulationMode.MonteCarlo) {
       return;
     }
+    if (selectedHistoricalEra === HistoricalEra.Custom && !customHistoricalRange && summary) {
+      const source = summary.eras[0] ?? summary.selectedEra;
+      setCustomHistoricalRange(rangeFromEraOption(source));
+    }
+  }, [
+    customHistoricalRange,
+    selectedHistoricalEra,
+    setCustomHistoricalRange,
+    simulationMode,
+    summary,
+  ]);
+
+  useEffect(() => {
+    if (simulationMode !== SimulationMode.MonteCarlo) {
+      return;
+    }
+    if (selectedHistoricalEra === HistoricalEra.Custom && !customHistoricalRange) {
+      return;
+    }
 
     setHistoricalSummaryStatus('loading');
-    void fetchHistoricalSummary(selectedHistoricalEra)
+    void fetchHistoricalSummary(
+      selectedHistoricalEra,
+      selectedHistoricalEra === HistoricalEra.Custom ? customHistoricalRange : null,
+    )
       .then((response) => {
         setHistoricalSummary(response.summary);
       })
@@ -64,6 +108,7 @@ export const HistoricalDataSummary = ({ readOnly }: { readOnly?: boolean }) => {
         setHistoricalSummaryStatus('error', message);
       });
   }, [
+    customHistoricalRange,
     selectedHistoricalEra,
     setHistoricalSummary,
     setHistoricalSummaryStatus,
@@ -85,11 +130,50 @@ export const HistoricalDataSummary = ({ readOnly }: { readOnly?: boolean }) => {
   const eraOptions = summary.eras.map((era) => ({
     label: era.label,
     value: era.key,
-  }));
+  })).concat({
+    label:
+      customHistoricalRange
+        ? `Custom (${formatMonthYear(customHistoricalRange.start)} - ${formatMonthYear(customHistoricalRange.end)})`
+        : 'Custom',
+    value: HistoricalEra.Custom,
+  });
 
   const eraValue = eraOptions.some((option) => option.value === selectedHistoricalEra)
     ? selectedHistoricalEra
     : (eraOptions[0]?.value ?? selectedHistoricalEra);
+  const starts = summary.eras.map((era) =>
+    toMonthOrdinal({ year: era.startYear, month: era.startMonth ?? 1 }),
+  );
+  const minMonthOrdinal = starts.length > 0
+    ? Math.min(...starts)
+    : toMonthOrdinal({ year: summary.selectedEra.startYear, month: summary.selectedEra.startMonth ?? 1 });
+  const ends = summary.eras.map((era) =>
+    toMonthOrdinal({ year: era.endYear, month: era.endMonth ?? 12 }),
+  );
+  const maxMonthOrdinal = ends.length > 0
+    ? Math.max(...ends)
+    : toMonthOrdinal({ year: summary.selectedEra.endYear, month: summary.selectedEra.endMonth ?? 12 });
+  const activeCustomRange = customHistoricalRange
+    ? customHistoricalRange
+    : rangeFromEraOption(
+        summary.eras.find((candidate) => candidate.key === selectedHistoricalEra) ??
+          summary.eras[0] ??
+          summary.selectedEra,
+      );
+  const startOrdinal = toMonthOrdinal(activeCustomRange.start);
+  const endOrdinal = toMonthOrdinal(activeCustomRange.end);
+  const span = Math.max(1, maxMonthOrdinal - minMonthOrdinal);
+
+  const handleEraChange = (nextEra: HistoricalEra) => {
+    if (nextEra === HistoricalEra.Custom && !customHistoricalRange) {
+      const source =
+        summary.eras.find((candidate) => candidate.key === selectedHistoricalEra) ??
+        summary.eras[0] ??
+        summary.selectedEra;
+      setCustomHistoricalRange(rangeFromEraOption(source));
+    }
+    setSelectedHistoricalEra(nextEra);
+  };
 
   return (
     <div className="space-y-3 rounded-lg border border-brand-border bg-brand-surface p-3">
@@ -97,11 +181,71 @@ export const HistoricalDataSummary = ({ readOnly }: { readOnly?: boolean }) => {
         <p className="theme-commandbar-section-label px-1 text-[10px] font-semibold uppercase tracking-[0.14em]">Historical Era</p>
         <Dropdown<HistoricalEra>
           value={eraValue}
-          onChange={setSelectedHistoricalEra}
+          onChange={handleEraChange}
           options={eraOptions}
           disabled={readOnly}
         />
       </div>
+
+      {selectedHistoricalEra === HistoricalEra.Custom ? (
+        <div className="space-y-2 rounded border border-slate-200 bg-white p-2">
+          <div className="flex items-center justify-between text-xs text-slate-700">
+            <span>Range</span>
+            <span className="font-medium">
+              {formatMonthYear(activeCustomRange.start)} - {formatMonthYear(activeCustomRange.end)}
+            </span>
+          </div>
+          <div className="relative h-7">
+            <div className="absolute left-0 right-0 top-3 h-1 rounded-full bg-slate-200" />
+            <div
+              className="absolute top-3 h-1 rounded-full bg-brand-blue"
+              style={{
+                left: `${((startOrdinal - minMonthOrdinal) / span) * 100}%`,
+                width: `${((endOrdinal - startOrdinal) / span) * 100}%`,
+              }}
+            />
+            <input
+              type="range"
+              min={minMonthOrdinal}
+              max={maxMonthOrdinal}
+              step={1}
+              value={startOrdinal}
+              onChange={(event) => {
+                const nextStart = Math.min(Number(event.target.value), endOrdinal);
+                setCustomHistoricalRange({
+                  start: fromMonthOrdinal(nextStart),
+                  end: activeCustomRange.end,
+                });
+              }}
+              disabled={readOnly}
+              className="dual-range dual-range--start"
+            />
+            <input
+              type="range"
+              min={minMonthOrdinal}
+              max={maxMonthOrdinal}
+              step={1}
+              value={endOrdinal}
+              onChange={(event) => {
+                const nextEnd = Math.max(Number(event.target.value), startOrdinal);
+                setCustomHistoricalRange({
+                  start: activeCustomRange.start,
+                  end: fromMonthOrdinal(nextEnd),
+                });
+              }}
+              disabled={readOnly}
+              className="dual-range dual-range--end"
+            />
+          </div>
+          <div className="flex items-center justify-between text-[10px] text-slate-500">
+            <span>{formatMonthYear(fromMonthOrdinal(minMonthOrdinal))}</span>
+            <span>{formatMonthYear(fromMonthOrdinal(maxMonthOrdinal))}</span>
+          </div>
+          <p className="text-[11px] leading-snug text-slate-500">
+            Inclusive month-year range used to filter historical returns for summary statistics and Monte Carlo sampling.
+          </p>
+        </div>
+      ) : null}
 
       <div className="space-y-2">
         <div className="flex items-center justify-between px-1">

@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it } from 'vitest';
 
-import { AppMode, AssetClass } from '@finapp/shared';
+import { AppMode, AssetClass, HistoricalEra } from '@finapp/shared';
 
 import { useAppStore } from './useAppStore';
 
@@ -40,5 +40,18 @@ describe('useAppStore tracking contract', () => {
     expect(useAppStore.getState().actualOverridesByMonth[3]).toBeUndefined();
     store.upsertActualOverride(2, { startBalances: { stocks: 1_900_000 } });
     expect(useAppStore.getState().actualOverridesByMonth[2]?.startBalances?.stocks).toBe(1_900_000);
+  });
+
+  it('marks tracking outputs stale after custom historical range changes', () => {
+    resetStore();
+    const store = useAppStore.getState();
+    store.setMode(AppMode.Tracking);
+    store.setSelectedHistoricalEra(HistoricalEra.Custom);
+    store.setCustomHistoricalRange({
+      start: { year: 1995, month: 1 },
+      end: { year: 2005, month: 12 },
+    });
+
+    expect(useAppStore.getState().simulationResults.mcStale).toBe(true);
   });
 });

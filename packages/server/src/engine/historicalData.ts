@@ -4,9 +4,10 @@ import path from 'node:path';
 import {
   AssetClass,
   HISTORICAL_ERA_DEFINITIONS,
+  HistoricalEra,
+  type HistoricalRange,
   type HistoricalAssetSummary,
   type HistoricalDataSummary,
-  type HistoricalEra,
   type HistoricalEraOption,
   type MonthlyReturns,
 } from '@finapp/shared';
@@ -18,6 +19,7 @@ export type HistoricalMonth = {
 };
 
 let historicalMonthsCache: HistoricalMonth[] | null = null;
+const MONTH_LABELS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
 
 const resolveCsvPath = async (): Promise<string> => {
   const candidates = [
@@ -60,7 +62,8 @@ const parseCsv = (raw: string): HistoricalMonth[] =>
         },
       };
     })
-    .filter((row) => Number.isFinite(row.year) && Number.isFinite(row.month));
+    .filter((row) => Number.isFinite(row.year) && Number.isFinite(row.month))
+    .sort((left, right) => (left.year === right.year ? left.month - right.month : left.year - right.year));
 
 const getHistoricalMonths = async (): Promise<HistoricalMonth[]> => {
   if (historicalMonthsCache !== null) {
@@ -72,8 +75,19 @@ const getHistoricalMonths = async (): Promise<HistoricalMonth[]> => {
   return historicalMonthsCache;
 };
 
-const latestYear = (months: HistoricalMonth[]): number =>
-  months.reduce((max, row) => Math.max(max, row.year), 0);
+const firstMonth = (months: HistoricalMonth[]): HistoricalMonth => {
+  if (months.length === 0) {
+    throw new Error('No historical rows loaded');
+  }
+  return months[0] as HistoricalMonth;
+};
+
+const lastMonth = (months: HistoricalMonth[]): HistoricalMonth => {
+  if (months.length === 0) {
+    throw new Error('No historical rows loaded');
+  }
+  return months[months.length - 1] as HistoricalMonth;
+};
 
 const mean = (values: number[]): number =>
   values.length === 0 ? 0 : values.reduce((sum, value) => sum + value, 0) / values.length;
@@ -93,17 +107,77 @@ const summarizeAsset = (values: number[]): HistoricalAssetSummary => ({
   sampleSizeMonths: values.length,
 });
 
-const resolveEraOptions = (months: HistoricalMonth[]): HistoricalEraOption[] => {
-  const endYear = latestYear(months);
-  return HISTORICAL_ERA_DEFINITIONS.map((definition) => ({
-    key: definition.key,
-    label: `${definition.label} (${definition.startYear}-${definition.endYear ?? endYear})`,
-    startYear: definition.startYear,
-    endYear: definition.endYear ?? endYear,
-  }));
+const compareMonthYear = (
+  left: { year: number; month: number },
+  right: { year: number; month: number },
+): number => {
+  if (left.year !== right.year) {
+    return left.year - right.year;
+  }
+  return left.month - right.month;
 };
 
-const findEra = (era: HistoricalEra, months: HistoricalMonth[]): HistoricalEraOption => {
+const monthYearLabel = (year: number, month: number): string => `${MONTH_LABELS[month - 1]} ${year}`;
+
+const inRange = (row: HistoricalMonth, range: HistoricalRange): boolean =>
+  compareMonthYear(row, range.start) >= 0 && compareMonthYear(row, range.end) <= 0;
+
+const resolveEraOptions = (months: HistoricalMonth[]): HistoricalEraOption[] => {
+  const datasetFirst = firstMonth(months);
+  const datasetLast = lastMonth(months);
+
+  return HISTORICAL_ERA_DEFINITIONS.map((definition) => {
+    const rangeEndYear = definition.endYear ?? datasetLast.year;
+    const rows = months.filter((row) => row.year >= definition.startYear && row.year <= rangeEndYear);
+    const first = rows[0] ?? { year: definition.startYear, month: 1 };
+    const last = rows[rows.length - 1] ?? { year: rangeEndYear, month: 12 };
+
+    return {
+      key: definition.key,
+      label: `${definition.label} (${first.year}-${last.year})`,
+      startYear: first.year,
+      endYear: last.year,
+      startMonth: rows.length > 0 ? first.month : datasetFirst.month,
+      endMonth: rows.length > 0 ? last.month : datasetLast.month,
+    };
+  });
+};
+
+const resolveRangeForSelection = (
+  era: HistoricalEra,
+  customRange: HistoricalRange | null | undefined,
+  months: HistoricalMonth[],
+): HistoricalEraOption => {
+  if (era === HistoricalEra.Custom) {
+    if (!customRange) {
+      throw new Error('customHistoricalRange is required for custom historical era');
+    }
+    const { start, end } = customRange;
+    if (
+      !Number.isInteger(start.year) ||
+      !Number.isInteger(end.year) ||
+      !Number.isInteger(start.month) ||
+      !Number.isInteger(end.month) ||
+      start.month < 1 ||
+      start.month > 12 ||
+      end.month < 1 ||
+      end.month > 12
+    ) {
+      throw new Error('customHistoricalRange has invalid month/year values');
+    }
+    if (compareMonthYear(start, end) > 0) {
+      throw new Error('customHistoricalRange start must be <= end');
+    }
+    return {
+      key: HistoricalEra.Custom,
+      label: `Custom (${monthYearLabel(start.year, start.month)} - ${monthYearLabel(end.year, end.month)})`,
+      startYear: start.year,
+      endYear: end.year,
+      startMonth: start.month,
+      endMonth: end.month,
+    };
+  }
+
   const match = resolveEraOptions(months).find((option) => option.key === era);
   if (!match) {
     throw new Error(`Unknown historical era: ${era}`);
@@ -111,23 +185,32 @@ const findEra = (era: HistoricalEra, months: HistoricalMonth[]): HistoricalEraOp
   return match;
 };
 
-export const getHistoricalMonthsForEra = async (era: HistoricalEra): Promise<HistoricalMonth[]> => {
+const optionToRange = (option: HistoricalEraOption): HistoricalRange => ({
+  start: { year: option.startYear, month: option.startMonth },
+  end: { year: option.endYear, month: option.endMonth },
+});
+
+export const getHistoricalMonthsForSelection = async (
+  era: HistoricalEra,
+  customRange?: HistoricalRange | null,
+): Promise<HistoricalMonth[]> => {
   const months = await getHistoricalMonths();
-  const selectedEra = findEra(era, months);
-  return months.filter((row) => row.year >= selectedEra.startYear && row.year <= selectedEra.endYear);
+  const selected = resolveRangeForSelection(era, customRange, months);
+  return months.filter((row) => inRange(row, optionToRange(selected)));
 };
 
-export const getHistoricalDataSummaryForEra = async (era: HistoricalEra): Promise<HistoricalDataSummary> => {
+export const getHistoricalMonthsForEra = async (era: HistoricalEra): Promise<HistoricalMonth[]> =>
+  getHistoricalMonthsForSelection(era, null);
+
+export const getHistoricalDataSummaryForSelection = async (
+  era: HistoricalEra,
+  customRange?: HistoricalRange | null,
+): Promise<HistoricalDataSummary> => {
   const allMonths = await getHistoricalMonths();
   const eras = resolveEraOptions(allMonths);
-  const selectedEra = eras.find((option) => option.key === era);
-  if (!selectedEra) {
-    throw new Error(`Unknown historical era: ${era}`);
-  }
+  const selectedEra = resolveRangeForSelection(era, customRange, allMonths);
 
-  const eraMonths = allMonths.filter(
-    (row) => row.year >= selectedEra.startYear && row.year <= selectedEra.endYear,
-  );
+  const eraMonths = allMonths.filter((row) => inRange(row, optionToRange(selectedEra)));
 
   const stocks = eraMonths.map((row) => row.returns.stocks);
   const bonds = eraMonths.map((row) => row.returns.bonds);
@@ -143,3 +226,6 @@ export const getHistoricalDataSummaryForEra = async (era: HistoricalEra): Promis
     },
   };
 };
+
+export const getHistoricalDataSummaryForEra = async (era: HistoricalEra): Promise<HistoricalDataSummary> =>
+  getHistoricalDataSummaryForSelection(era, null);

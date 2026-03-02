@@ -185,4 +185,19 @@ describe('runMonteCarlo', () => {
       config.coreParams.retirementDuration * 12,
     );
   });
+
+  it('runs Monte Carlo using custom historical month-year range', async () => {
+    const config = createBaseConfig();
+    config.simulationMode = SimulationMode.MonteCarlo;
+    config.selectedHistoricalEra = HistoricalEra.Custom;
+    config.customHistoricalRange = {
+      start: { year: 2000, month: 1 },
+      end: { year: 2000, month: 12 },
+    };
+
+    const result = await runMonteCarlo(config, { runs: 80, seed: 314 });
+    expect(result.monteCarlo.simulationCount).toBe(80);
+    expect(result.monteCarlo.historicalSummary.selectedEra.key).toBe(HistoricalEra.Custom);
+    expect(result.monteCarlo.historicalSummary.byAsset.stocks.sampleSizeMonths).toBe(12);
+  });
 });

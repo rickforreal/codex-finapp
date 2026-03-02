@@ -1,13 +1,18 @@
 import {
   AssetClass,
   type ActualOverridesByMonth,
+  HistoricalEra,
   type MonthlyReturns,
   type MonteCarloPercentileCurves,
   type MonteCarloResult,
   type SimulationConfig,
 } from '@finapp/shared';
 
-import { getHistoricalDataSummaryForEra, getHistoricalMonthsForEra, type HistoricalMonth } from './historicalData';
+import {
+  getHistoricalDataSummaryForSelection,
+  getHistoricalMonthsForSelection,
+  type HistoricalMonth,
+} from './historicalData';
 import { createSeededRandom } from './helpers/returns';
 import { simulateRetirement } from './simulator';
 
@@ -89,8 +94,10 @@ export const runMonteCarlo = async (
 ): Promise<{ representativePath: ReturnType<typeof simulateRetirement>; monteCarlo: MonteCarloResult; seedUsed?: number }> => {
   const simulationCount = Math.max(1, Math.min(options.runs ?? 1000, 5000));
   const durationMonths = config.coreParams.retirementDuration * 12;
-  const historicalMonths = await getHistoricalMonthsForEra(config.selectedHistoricalEra);
-  const historicalSummary = await getHistoricalDataSummaryForEra(config.selectedHistoricalEra);
+  const customRange =
+    config.selectedHistoricalEra === HistoricalEra.Custom ? config.customHistoricalRange : null;
+  const historicalMonths = await getHistoricalMonthsForSelection(config.selectedHistoricalEra, customRange);
+  const historicalSummary = await getHistoricalDataSummaryForSelection(config.selectedHistoricalEra, customRange);
   if (historicalMonths.length === 0) {
     throw new Error('No historical data rows available for selected era');
   }

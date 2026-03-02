@@ -15,6 +15,7 @@ const baseConfig = (): SimulationConfig => ({
   mode: AppMode.Planning,
   simulationMode: SimulationMode.Manual,
   selectedHistoricalEra: HistoricalEra.FullHistory,
+  customHistoricalRange: null,
   blockBootstrapEnabled: false,
   blockBootstrapLength: 12,
   coreParams: {
@@ -248,5 +249,24 @@ describe('buildCompareParameterDiffs', () => {
     expect(blockEnabledRow?.valuesBySlot.B).toBe('On');
     expect(blockLengthRow?.valuesBySlot.A).toBe('N/A');
     expect(blockLengthRow?.valuesBySlot.B).toBe('24');
+  });
+
+  it('formats custom historical era with month-year range text', () => {
+    const configA = baseConfig();
+    const configB = baseConfig();
+    configB.selectedHistoricalEra = HistoricalEra.Custom;
+    configB.customHistoricalRange = {
+      start: { year: 1990, month: 1 },
+      end: { year: 2000, month: 12 },
+    };
+
+    const result = buildCompareParameterDiffs({
+      slotOrder: ['A', 'B'],
+      baselineSlotId: 'A',
+      slotConfigsById: { A: configA, B: configB },
+    });
+
+    const eraRow = result.rows.find((row) => row.key === 'historicalData.selectedEra');
+    expect(eraRow?.valuesBySlot.B).toBe('Custom (Jan 1990 - Dec 2000)');
   });
 });

@@ -148,4 +148,49 @@ describe('POST /api/v1/simulate', () => {
 
     await app.close();
   });
+
+  it('returns 400 when custom era is selected without customHistoricalRange', async () => {
+    const app = createApp();
+    const request = createSimulateRequest();
+    request.config.simulationMode = SimulationMode.MonteCarlo;
+    request.config.selectedHistoricalEra = HistoricalEra.Custom;
+    request.config.customHistoricalRange = null;
+
+    const response = await app.inject({
+      method: 'POST',
+      url: '/api/v1/simulate',
+      payload: request,
+    });
+
+    expect(response.statusCode).toBe(400);
+    const body = response.json();
+    expect(body.code).toBe('VALIDATION_ERROR');
+    expect(Array.isArray(body.fieldErrors)).toBe(true);
+
+    await app.close();
+  });
+
+  it('returns 400 when customHistoricalRange start is after end', async () => {
+    const app = createApp();
+    const request = createSimulateRequest();
+    request.config.simulationMode = SimulationMode.MonteCarlo;
+    request.config.selectedHistoricalEra = HistoricalEra.Custom;
+    request.config.customHistoricalRange = {
+      start: { year: 2010, month: 1 },
+      end: { year: 2000, month: 1 },
+    };
+
+    const response = await app.inject({
+      method: 'POST',
+      url: '/api/v1/simulate',
+      payload: request,
+    });
+
+    expect(response.statusCode).toBe(400);
+    const body = response.json();
+    expect(body.code).toBe('VALIDATION_ERROR');
+    expect(Array.isArray(body.fieldErrors)).toBe(true);
+
+    await app.close();
+  });
 });

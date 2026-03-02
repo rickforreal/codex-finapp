@@ -71,6 +71,15 @@ Request:
 
 `config.spendingPhases` accepts `0..4` phase entries. When empty, spending-phase min/max clamping is disabled and withdrawals follow strategy output.
 
+`config.selectedHistoricalEra` supports preset eras plus `custom`. When `custom` is selected, `config.customHistoricalRange` is required and must provide inclusive month-year bounds:
+
+```ts
+{
+  start: { month: number; year: number };
+  end: { month: number; year: number };
+}
+```
+
 `config.blockBootstrapEnabled` (boolean) and `config.blockBootstrapLength` (int, 3..36) control Monte Carlo return sampling. When enabled, the MC engine samples contiguous blocks of `blockBootstrapLength` months (with circular wrap) instead of independent draws. Defaults: `false`, `12`.
 
 Response:
@@ -85,9 +94,21 @@ Response:
 }
 ```
 
-### GET `/api/v1/historical/summary?era=<HistoricalEra>`
+### GET `/api/v1/historical/summary`
 
-Returns annualized/summary statistics for the selected historical era.
+Returns annualized/summary statistics for the selected historical range.
+
+Preset-era query:
+
+```text
+/api/v1/historical/summary?era=<HistoricalEra>
+```
+
+Custom-range query:
+
+```text
+/api/v1/historical/summary?era=custom&startMonth=<1..12>&startYear=<yyyy>&endMonth=<1..12>&endYear=<yyyy>
+```
 
 Response:
 

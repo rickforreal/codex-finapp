@@ -26,7 +26,6 @@ import {
   useIsCompareActive,
   useAppStore,
 } from '../../store/useAppStore';
-import { Dropdown } from '../shared/Dropdown';
 import { SegmentedToggle } from '../shared/SegmentedToggle';
 
 const mergeRowsWithPreservedBoundary = <
@@ -146,8 +145,6 @@ export const CommandBar = () => {
   const status = useAppStore((state) => state.simulationResults.status);
   const setMode = useAppStore((state) => state.setMode);
   const setSimulationMode = useAppStore((state) => state.setSimulationMode);
-  const selectedHistoricalEra = useAppStore((state) => state.selectedHistoricalEra);
-  const historicalSummary = useAppStore((state) => state.historicalData.summary);
   const setSimulationStatus = useAppStore((state) => state.setSimulationStatus);
   const setSimulationResult = useAppStore((state) => state.setSimulationResult);
   const setCompareSlotSimulationStatus = useAppStore(

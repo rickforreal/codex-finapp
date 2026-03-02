@@ -54,7 +54,8 @@ HistoricalEra =
   'oilCrisis' |
   'post1980BullRun' |
   'lostDecade' |
-  'postGfcRecovery';
+  'postGfcRecovery' |
+  'custom';
 ```
 
 Current compare extension:
@@ -70,6 +71,10 @@ SimulationConfig {
   mode: AppMode;
   simulationMode: SimulationMode;
   selectedHistoricalEra: HistoricalEra;
+  customHistoricalRange: {
+    start: { month: number; year: number };
+    end: { month: number; year: number };
+  } | null;                                // required when selectedHistoricalEra='custom'; inclusive month-year range
   blockBootstrapEnabled: boolean;           // when true, MC samples contiguous blocks instead of i.i.d.
   blockBootstrapLength: number;             // 3..36 months — block size for block bootstrap sampling
   coreParams: {
@@ -254,8 +259,22 @@ SinglePathResult {
 
 ```ts
 HistoricalDataSummary {
-  selectedEra: { key: HistoricalEra; label: string; startYear: number; endYear: number };
-  eras: Array<{ key: HistoricalEra; label: string; startYear: number; endYear: number }>;
+  selectedEra: {
+    key: HistoricalEra;
+    label: string;
+    startYear: number;
+    endYear: number;
+    startMonth: number;
+    endMonth: number;
+  };
+  eras: Array<{
+    key: HistoricalEra;
+    label: string;
+    startYear: number;
+    endYear: number;
+    startMonth: number;
+    endMonth: number;
+  }>; // preset eras; selectedEra may be `custom`
   byAsset: {
     stocks: { meanReturn: number; stdDev: number; sampleSizeMonths: number };
     bonds: { meanReturn: number; stdDev: number; sampleSizeMonths: number };

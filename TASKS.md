@@ -1781,3 +1781,47 @@
       [AC2] SPECS.md updated with Affordance #11b.
       [AC3] DATA_MODEL.md, API.md, ARCHITECTURE.md updated.
       [AC4] TASKS.md and PROGRESS.txt updated.
+
+## Feature Plan — Historical Era Custom Range (Month-Year)
+
+- [x] HCR-T1: Create feature docs and root task scaffold
+      Phase: Feature/HistoricalEraCustomRange
+      Dependencies: none
+      Acceptance Criteria:
+      [AC1] `docs/features/historical-era-custom-range/{FEATURE,PLAN,ACCEPTANCE}.md` exist.
+      [AC2] Plan locks Custom-era model (`HistoricalEra.Custom` + `customHistoricalRange`).
+      [AC3] Root `TASKS.md` includes `HCR-T1...HCR-T5`.
+
+- [x] HCR-T2: Extend shared contracts and server historical filtering for month-year custom ranges
+      Phase: Feature/HistoricalEraCustomRange
+      Dependencies: HCR-T1
+      Acceptance Criteria:
+      [AC1] Shared enum/type/schema include `HistoricalEra.Custom` and `customHistoricalRange` validation.
+      [AC2] Historical summary route supports custom query (`startMonth/startYear/endMonth/endYear`).
+      [AC3] MC engine and historical summary both use inclusive month-year filtering from a shared resolver.
+
+- [x] HCR-T3: Add client store/snapshot wiring and compare sync support
+      Phase: Feature/HistoricalEraCustomRange
+      Dependencies: HCR-T2
+      Acceptance Criteria:
+      [AC1] `AppStore`, `WorkspaceSnapshot`, and `SnapshotState` persist `customHistoricalRange`.
+      [AC2] Setter actions include initialization from selected preset and preserve stale-state semantics in Tracking.
+      [AC3] Compare `historicalEra` lock/sync propagates `selectedHistoricalEra`, `customHistoricalRange`, and block-bootstrap fields.
+
+- [x] HCR-T4: Implement Historical Data Summary custom two-thumb month-year slider UX
+      Phase: Feature/HistoricalEraCustomRange
+      Dependencies: HCR-T3
+      Acceptance Criteria:
+      [AC1] Historical Era dropdown includes `Custom`.
+      [AC2] Selecting Custom initializes from current preset span; switching away/back preserves prior custom range.
+      [AC3] Two-thumb slider shows live `MMM YYYY` endpoint labels and is disabled in read-only follower slots.
+      [AC4] Historical summary fetch depends on era + custom range (when custom) without auto-run simulation.
+
+- [x] HCR-T5: Add tests, update canonical docs, and pass regression gate
+      Phase: Feature/HistoricalEraCustomRange
+      Dependencies: HCR-T2, HCR-T3, HCR-T4
+      Acceptance Criteria:
+      [AC1] Shared/server/client tests cover schema constraints, month-boundary filtering, snapshot round-trip, and compare sync behavior.
+      [AC2] Canonical docs updated: `docs/SPECS.md`, `docs/SCENARIOS.md`, `docs/DATA_MODEL.md`, `docs/API.md`, `docs/ARCHITECTURE.md`.
+      [AC3] `npm run typecheck`, `npm run lint`, `npm test`, and `npm run build` pass.
+      [AC4] `PROGRESS.txt` append-only completion entry includes canonical-doc impact statement.

@@ -136,6 +136,8 @@ export type DrawdownStrategy =
 export type EventFrequency = 'monthly' | 'quarterly' | 'annual' | 'oneTime';
 export type EventDate = { month: number; year: number };
 export type EventEndDate = EventDate | 'endOfRetirement';
+export type MonthYear = { month: number; year: number };
+export type HistoricalRange = { start: MonthYear; end: MonthYear };
 
 export interface IncomeEvent {
   id: string;
@@ -163,6 +165,7 @@ export interface SimulationConfig {
   mode: AppMode;
   simulationMode: SimulationMode;
   selectedHistoricalEra: HistoricalEra;
+  customHistoricalRange: HistoricalRange | null;
   blockBootstrapEnabled: boolean;
   blockBootstrapLength: number;
   coreParams: {
@@ -227,6 +230,8 @@ export interface HistoricalEraOption {
   label: string;
   startYear: number;
   endYear: number;
+  startMonth: number;
+  endMonth: number;
 }
 
 export interface HistoricalAssetSummary {

@@ -1989,3 +1989,38 @@ Canonical docs impact:
 - `docs/DATA_MODEL.md` — added fields to SimulationConfig
 - `docs/API.md` — added block bootstrap config description to POST /api/v1/simulate
 - `docs/ARCHITECTURE.md` — updated MC sampling description with block bootstrap mode
+
+2026-03-02 — Feature: Historical Era Custom Range (Month-Year) | COMPLETE
+- Added `HistoricalEra.Custom` and `customHistoricalRange` to shared simulation contracts.
+- Extended Zod simulation schema validation:
+  - `customHistoricalRange` is required when `selectedHistoricalEra = custom`.
+  - custom range enforces month/year validity and `start <= end` ordering.
+- Refactored server historical filtering into shared month-year resolver used by both:
+  - Monte Carlo sampling source rows, and
+  - `GET /api/v1/historical/summary` responses.
+- Extended historical summary route query contract to support custom range params:
+  - `era=custom&startMonth&startYear&endMonth&endYear`.
+- Added client store/snapshot wiring for `customHistoricalRange`:
+  - Included in `AppStore`, `WorkspaceSnapshot`, `SnapshotState`, workspace/config helpers, and compare sync propagation under `historicalEra` family.
+  - Added `setCustomHistoricalRange` action with tracking stale-state behavior and compare lock/sync semantics.
+- Updated Historical Data Summary UI:
+  - Historical Era dropdown now includes `Custom`.
+  - Added two-thumb inclusive month-year slider with live `MMM YYYY` endpoints.
+  - First switch to Custom initializes from current preset span.
+  - Switching away and back preserves prior custom range.
+  - Custom controls respect compare read-only follower state.
+- Updated compare parameter differences output:
+  - Historical Era row now renders `Custom (MMM YYYY - MMM YYYY)` when applicable.
+- Added/updated tests:
+  - Server: historical data month-boundary filtering + custom summary query + MC custom-range run + route validation for missing/invalid custom range.
+  - Client: compare lock/sync propagation for custom range, tracking stale behavior on custom-range updates, snapshot legacy defaults, and custom-era diff formatting.
+
+Validation run (all passing):
+- `npm run typecheck`
+- `npm run lint`
+- `npm test`
+- `npm run build`
+
+Canonical docs impact:
+- Updated `docs/SPECS.md`, `docs/SCENARIOS.md`, `docs/DATA_MODEL.md`, `docs/API.md`, `docs/ARCHITECTURE.md`.
+- No canonical doc impact required for `docs/PRD.md` (feature is within existing product scope).

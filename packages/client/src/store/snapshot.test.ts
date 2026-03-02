@@ -143,21 +143,27 @@ describe('snapshot', () => {
     expect(() => parseSnapshot(JSON.stringify(parsed))).toThrowError(/not supported/i);
   });
 
-  it('loads schema v6 snapshots by backfilling block bootstrap defaults', () => {
+  it('loads schema v7 snapshots by backfilling custom-range and block-bootstrap defaults', () => {
     resetStore();
-    const { json } = serializeSnapshot('Legacy v6 Snapshot');
+    const { json } = serializeSnapshot('Legacy v7 Snapshot');
     const parsed = JSON.parse(json) as {
       schemaVersion: number;
       data: {
+        customHistoricalRange?: {
+          start: { month: number; year: number };
+          end: { month: number; year: number };
+        } | null;
         blockBootstrapEnabled?: boolean;
         blockBootstrapLength?: number;
       };
     };
-    parsed.schemaVersion = 6;
+    parsed.schemaVersion = 7;
+    delete parsed.data.customHistoricalRange;
     delete parsed.data.blockBootstrapEnabled;
     delete parsed.data.blockBootstrapLength;
 
     const loaded = parseSnapshot(JSON.stringify(parsed));
+    expect(loaded.data.customHistoricalRange).toBeNull();
     expect(loaded.data.blockBootstrapEnabled).toBe(false);
     expect(loaded.data.blockBootstrapLength).toBe(12);
   });

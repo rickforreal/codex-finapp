@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it } from 'vitest';
 
-import { AppMode, AssetClass } from '@finapp/shared';
+import { AppMode, AssetClass, HistoricalEra } from '@finapp/shared';
 
 import { useAppStore } from './useAppStore';
 
@@ -202,6 +202,49 @@ describe('useAppStore compare slot behavior', () => {
     expect(useAppStore.getState().portfolio.stocks).toBe(900_000);
     store.setCompareSlotFamilySync('B', 'startingPortfolio', true);
     expect(useAppStore.getState().portfolio.stocks).toBe(1_222_000);
+  });
+
+  it('propagates custom historical range through historicalEra lock/sync', () => {
+    resetStore();
+    activateCompare();
+    const store = useAppStore.getState();
+
+    store.setCompareActiveSlot('A');
+    store.toggleCompareFamilyLock('historicalEra');
+    store.setSelectedHistoricalEra(HistoricalEra.Custom);
+    store.setCustomHistoricalRange({
+      start: { year: 1990, month: 1 },
+      end: { year: 2000, month: 12 },
+    });
+
+    store.setCompareActiveSlot('B');
+    expect(useAppStore.getState().selectedHistoricalEra).toBe(HistoricalEra.Custom);
+    expect(useAppStore.getState().customHistoricalRange).toEqual({
+      start: { year: 1990, month: 1 },
+      end: { year: 2000, month: 12 },
+    });
+
+    store.setCompareSlotFamilySync('B', 'historicalEra', false);
+    store.setCustomHistoricalRange({
+      start: { year: 2001, month: 1 },
+      end: { year: 2005, month: 12 },
+    });
+    expect(useAppStore.getState().customHistoricalRange).toEqual({
+      start: { year: 2001, month: 1 },
+      end: { year: 2005, month: 12 },
+    });
+
+    store.setCompareActiveSlot('A');
+    store.setCustomHistoricalRange({
+      start: { year: 1985, month: 1 },
+      end: { year: 1995, month: 12 },
+    });
+
+    store.setCompareActiveSlot('B');
+    expect(useAppStore.getState().customHistoricalRange).toEqual({
+      start: { year: 2001, month: 1 },
+      end: { year: 2005, month: 12 },
+    });
   });
 
   it('applies global list lock as exact mirror and blocks follower edits', () => {

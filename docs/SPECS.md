@@ -864,8 +864,8 @@ When the user has selected Monte Carlo mode, this display replaces the Return As
 **Control type:** Dropdown select
 
 **Appearance:**
-* Positioned in the command bar, to the right of the Simulation Mode Selector (#2), with ~16px gap.
-* Standard dropdown: ~200px wide, ~32px height (matching the Simulation Mode Selector height), bordered, rounded corners (4px), with a chevron on the right indicating it's a dropdown.
+* Positioned inside the **Historical Data Summary** card in the sidebar.
+* Standard dropdown: full-width input style, bordered, rounded corners (4px), with a chevron on the right indicating it's a dropdown.
 * Displays the currently selected era label (e.g., "Full History (1926–2024)").
 * Visibility: Visible when Simulation Mode is Monte Carlo, regardless of whether the Mode Toggle is Planning or Tracking. 
 
@@ -880,15 +880,23 @@ When the user has selected Monte Carlo mode, this display replaces the Return As
 | Post-1980 Bull Run (1980–2024) | 1980–2024 |
 | Lost Decade (2000–2012) | 2000–2012 |
 | Post-GFC Recovery (2009–2024) | 2009–2024 |
+| Custom | User-selected month-year start/end |
 
 * Each option displays the label and date range. The dropdown menu is a standard styled list — no special formatting needed.
 * Default selection: Full History (1926–2024)
 * Behavior: Changing the selected era does not trigger a re-run of the simulation. The user must hit "Run Simulation" (#3) to execute with the new era. This is consistent with the "configure → run → review" workflow.
 * The dropdown is a simple selection — no search, no multi-select.
+* When `Custom` is selected:
+  - A two-thumb month-year range slider appears directly below the dropdown.
+  - The first switch to `Custom` initializes from the currently selected preset span.
+  - The slider range is bounded by dataset min/max months.
+  - Endpoint labels show `MMM YYYY` and updates are inclusive month-year bounds.
+  - Switching away from `Custom` and back restores the previously selected custom range.
 
 **State:**
 * selectedHistoricalEra: enum/string key identifying the era
-* The app bundles a dataset of monthly returns (stocks, bonds, cash) from 1926–2024. Each era preset is just a filter on this dataset by date range.
+* customHistoricalRange: `{ start: {month, year}, end: {month, year} } | null`
+* The app bundles a dataset of monthly returns (stocks, bonds, cash) from Jul 1926 through Dec 2025. Each era preset is a filter on this dataset.
 
 **Edge cases:**
 * Shorter eras (e.g., Oil Crisis: 1973–1982 = ~108 months) mean less data to sample from. For a 480-month retirement simulation, the same months will be sampled multiple times across the 1,000 runs — this is fine statistically (it's sampling with replacement) but worth noting: very short eras produce less diverse outcomes. No special UX handling needed, but the historical reference display (see Return Assumptions revision below) will show the sample size.

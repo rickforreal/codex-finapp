@@ -1,6 +1,7 @@
 import {
   AssetClass,
   DrawdownStrategyType,
+  HistoricalEra,
   HISTORICAL_ERA_DEFINITIONS,
   WithdrawalStrategyType,
   type SimulationConfig,
@@ -184,6 +185,11 @@ const byKind = (kind: ValueKind, value: number | string | boolean): DiffValue =>
 
 const retirementStartText = (month: number, year: number): string =>
   `${String(month).padStart(2, '0')}/${year}`;
+
+const monthYearLabel = (month: number, year: number): string =>
+  new Intl.DateTimeFormat('en-US', { month: 'short', year: 'numeric' }).format(
+    new Date(year, month - 1, 1),
+  );
 
 const eventEndText = (end: { month: number; year: number } | string): string =>
   typeof end === 'string' ? 'EOR' : retirementStartText(end.month, end.year);
@@ -396,6 +402,11 @@ const buildRowSpecs = (): RowSpec[] => {
       label: 'Historical Era',
       group: 'Historical Data',
       resolve: (config) => {
+        if (config.selectedHistoricalEra === HistoricalEra.Custom && config.customHistoricalRange) {
+          return asText(
+            `Custom (${monthYearLabel(config.customHistoricalRange.start.month, config.customHistoricalRange.start.year)} - ${monthYearLabel(config.customHistoricalRange.end.month, config.customHistoricalRange.end.year)})`,
+          );
+        }
         const era = HISTORICAL_ERA_DEFINITIONS.find((candidate) => candidate.key === config.selectedHistoricalEra);
         return asText(era ? era.label : config.selectedHistoricalEra);
       },

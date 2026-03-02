@@ -21,8 +21,9 @@ import {
   useAppStore,
 } from './useAppStore';
 
-export const SNAPSHOT_SCHEMA_VERSION = 7;
+export const SNAPSHOT_SCHEMA_VERSION = 8;
 const MIN_SUPPORTED_SNAPSHOT_SCHEMA_VERSION = 6;
+const DEFAULT_CUSTOM_HISTORICAL_RANGE = null;
 const DEFAULT_BLOCK_BOOTSTRAP_ENABLED = false;
 const DEFAULT_BLOCK_BOOTSTRAP_LENGTH = 12;
 
@@ -152,6 +153,25 @@ const snapshotStateSchema = z
     compareWorkspace: z.unknown().optional(),
     simulationMode: z.nativeEnum(SimulationMode),
     selectedHistoricalEra: z.nativeEnum(HistoricalEra),
+    customHistoricalRange: z
+      .object({
+        start: z
+          .object({
+            month: z.number().int().min(1).max(12),
+            year: z.number().int().min(1900).max(3000),
+          })
+          .strict(),
+        end: z
+          .object({
+            month: z.number().int().min(1).max(12),
+            year: z.number().int().min(1900).max(3000),
+          })
+          .strict(),
+      })
+      .strict()
+      .nullable()
+      .optional()
+      .default(DEFAULT_CUSTOM_HISTORICAL_RANGE),
     blockBootstrapEnabled: z.boolean().optional().default(DEFAULT_BLOCK_BOOTSTRAP_ENABLED),
     blockBootstrapLength: z
       .number()
@@ -655,6 +675,7 @@ const unpackWorkspace = (workspace: unknown): WorkspaceSnapshot | null => {
   }
 
   const record = workspace as Omit<WorkspaceSnapshot, 'simulationResults' | 'stress'> & {
+    customHistoricalRange?: unknown;
     blockBootstrapEnabled?: unknown;
     blockBootstrapLength?: unknown;
     simulationResults?: unknown;
@@ -667,6 +688,13 @@ const unpackWorkspace = (workspace: unknown): WorkspaceSnapshot | null => {
 
   return {
     ...record,
+    customHistoricalRange:
+      record.customHistoricalRange &&
+      typeof record.customHistoricalRange === 'object' &&
+      'start' in record.customHistoricalRange &&
+      'end' in record.customHistoricalRange
+        ? ((record.customHistoricalRange as WorkspaceSnapshot['customHistoricalRange']) ?? null)
+        : DEFAULT_CUSTOM_HISTORICAL_RANGE,
     blockBootstrapEnabled:
       typeof record.blockBootstrapEnabled === 'boolean'
         ? record.blockBootstrapEnabled
@@ -958,6 +986,7 @@ const unpackSnapshotState = (packed: unknown): SnapshotState => {
 
   const unpacked: SnapshotState = {
     ...data,
+    customHistoricalRange: data.customHistoricalRange ?? DEFAULT_CUSTOM_HISTORICAL_RANGE,
     blockBootstrapEnabled: data.blockBootstrapEnabled ?? DEFAULT_BLOCK_BOOTSTRAP_ENABLED,
     blockBootstrapLength: data.blockBootstrapLength ?? DEFAULT_BLOCK_BOOTSTRAP_LENGTH,
     theme: {

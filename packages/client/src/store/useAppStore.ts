@@ -15,6 +15,7 @@ import {
   type ActualMonthOverride,
   type ActualOverridesByMonth,
   type HistoricalDataSummary,
+  type HistoricalRange,
   type ThemeFamilyCatalogItem,
   type ThemeDefinition,
   type ThemeSlotCatalogItem,
@@ -156,6 +157,7 @@ type WithdrawalStrategyParamsForm = {
 export type WorkspaceSnapshot = {
   simulationMode: SimulationMode;
   selectedHistoricalEra: HistoricalEra;
+  customHistoricalRange: HistoricalRange | null;
   blockBootstrapEnabled: boolean;
   blockBootstrapLength: number;
   coreParams: {
@@ -232,6 +234,7 @@ export type SnapshotState = {
   };
   simulationMode: SimulationMode;
   selectedHistoricalEra: HistoricalEra;
+  customHistoricalRange: HistoricalRange | null;
   blockBootstrapEnabled: boolean;
   blockBootstrapLength: number;
   coreParams: {
@@ -353,6 +356,7 @@ export type AppStore = SnapshotState & {
   clearAllActualOverrides: () => void;
   setSimulationMode: (mode: SimulationMode) => void;
   setSelectedHistoricalEra: (era: HistoricalEra) => void;
+  setCustomHistoricalRange: (range: HistoricalRange) => void;
   setBlockBootstrapEnabled: (enabled: boolean) => void;
   setBlockBootstrapLength: (length: number) => void;
   setHistoricalSummaryStatus: (
@@ -559,6 +563,14 @@ const normalizeAllocation = (allocation: { stocks: number; bonds: number; cash: 
   };
 };
 
+const cloneHistoricalRange = (range: HistoricalRange | null): HistoricalRange | null =>
+  range
+    ? {
+        start: { ...range.start },
+        end: { ...range.end },
+      }
+    : null;
+
 const createDefaultGlidePath = (
   retirementDuration: number,
   target: { stocks: number; bonds: number; cash: number },
@@ -747,6 +759,7 @@ const recalculatePhaseBoundaries = (
 
 const cloneWorkspace = (workspace: WorkspaceSnapshot): WorkspaceSnapshot => ({
   ...workspace,
+  customHistoricalRange: cloneHistoricalRange(workspace.customHistoricalRange),
   coreParams: {
     ...workspace.coreParams,
     retirementStartDate: { ...workspace.coreParams.retirementStartDate },
@@ -1116,6 +1129,7 @@ const applyCompareSyncFromMaster = (
           break;
         case 'historicalEra':
           workspace.selectedHistoricalEra = master.selectedHistoricalEra;
+          workspace.customHistoricalRange = cloneHistoricalRange(master.customHistoricalRange);
           workspace.blockBootstrapEnabled = master.blockBootstrapEnabled;
           workspace.blockBootstrapLength = master.blockBootstrapLength;
           break;
@@ -1326,6 +1340,7 @@ const compareWorkspaceWithCurrentState = (state: AppStore): SnapshotState['compa
 const workspaceFromState = (state: AppStore): WorkspaceSnapshot => ({
   simulationMode: state.simulationMode,
   selectedHistoricalEra: state.selectedHistoricalEra,
+  customHistoricalRange: cloneHistoricalRange(state.customHistoricalRange),
   blockBootstrapEnabled: state.blockBootstrapEnabled,
   blockBootstrapLength: state.blockBootstrapLength,
   coreParams: {
@@ -1451,6 +1466,7 @@ const trackingSimulationResultsCleared = (
 const snapshotFieldsFromWorkspace = (workspace: WorkspaceSnapshot) => ({
   simulationMode: workspace.simulationMode,
   selectedHistoricalEra: workspace.selectedHistoricalEra,
+  customHistoricalRange: cloneHistoricalRange(workspace.customHistoricalRange),
   blockBootstrapEnabled: workspace.blockBootstrapEnabled,
   blockBootstrapLength: workspace.blockBootstrapLength,
   coreParams: workspace.coreParams,
@@ -1470,6 +1486,7 @@ const snapshotFieldsFromWorkspace = (workspace: WorkspaceSnapshot) => ({
 
 const currentInputFieldsFromState = (state: AppStore) => ({
   selectedHistoricalEra: state.selectedHistoricalEra,
+  customHistoricalRange: cloneHistoricalRange(state.customHistoricalRange),
   blockBootstrapEnabled: state.blockBootstrapEnabled,
   blockBootstrapLength: state.blockBootstrapLength,
   coreParams: {
@@ -1594,6 +1611,7 @@ const cloneSnapshotState = (snapshot: SnapshotState): SnapshotState => {
     compareWorkspace: normalizedCompareWorkspace,
     simulationMode: normalizedSnapshot.simulationMode,
     selectedHistoricalEra: normalizedSnapshot.selectedHistoricalEra,
+    customHistoricalRange: cloneHistoricalRange(normalizedSnapshot.customHistoricalRange),
     blockBootstrapEnabled: normalizedSnapshot.blockBootstrapEnabled,
     blockBootstrapLength: normalizedSnapshot.blockBootstrapLength,
     coreParams: {
@@ -1874,6 +1892,7 @@ export const useAppStore = create<AppStore>((set) => ({
   },
   simulationMode: SimulationMode.Manual,
   selectedHistoricalEra: HistoricalEra.FullHistory,
+  customHistoricalRange: null,
   blockBootstrapEnabled: false,
   blockBootstrapLength: 12,
   coreParams: {
@@ -2591,6 +2610,7 @@ export const useAppStore = create<AppStore>((set) => ({
       const workspace = nextCompare.slots[activeSlotId];
       if (workspace) {
         workspace.selectedHistoricalEra = selectedHistoricalEra;
+        workspace.customHistoricalRange = cloneHistoricalRange(state.customHistoricalRange);
       }
 
       if (activeSlotId === 'A') {
@@ -2602,6 +2622,7 @@ export const useAppStore = create<AppStore>((set) => ({
             const slotWorkspace = nextCompare.slots[slotId];
             if (slotWorkspace) {
               slotWorkspace.selectedHistoricalEra = selectedHistoricalEra;
+              slotWorkspace.customHistoricalRange = cloneHistoricalRange(state.customHistoricalRange);
             }
           }
         });
@@ -2609,6 +2630,46 @@ export const useAppStore = create<AppStore>((set) => ({
 
       return {
         selectedHistoricalEra,
+        customHistoricalRange: cloneHistoricalRange(state.customHistoricalRange),
+        compareWorkspace: nextCompare,
+        simulationResults: staleState.simulationResults,
+      };
+    }),
+  setCustomHistoricalRange: (customHistoricalRange) =>
+    set((state) => {
+      if (isCompareFamilyLockedAndSyncedForActiveSlot(state, 'historicalEra')) {
+        return state;
+      }
+
+      const staleState = markTrackingOutputStateStale(state);
+
+      if (!isCompareActiveFromWorkspace(state.compareWorkspace)) {
+        return { customHistoricalRange: cloneHistoricalRange(customHistoricalRange), ...staleState };
+      }
+
+      const nextCompare = cloneCompareWorkspace(staleState.compareWorkspace);
+      const activeSlotId = nextCompare.activeSlotId;
+      const workspace = nextCompare.slots[activeSlotId];
+      if (workspace) {
+        workspace.customHistoricalRange = cloneHistoricalRange(customHistoricalRange);
+      }
+
+      if (activeSlotId === 'A') {
+        nextCompare.slotOrder.forEach((slotId) => {
+          if (slotId === 'A') {
+            return;
+          }
+          if (isSlotFamilySynced(nextCompare.compareSync, slotId, 'historicalEra')) {
+            const slotWorkspace = nextCompare.slots[slotId];
+            if (slotWorkspace) {
+              slotWorkspace.customHistoricalRange = cloneHistoricalRange(customHistoricalRange);
+            }
+          }
+        });
+      }
+
+      return {
+        customHistoricalRange: cloneHistoricalRange(customHistoricalRange),
         compareWorkspace: nextCompare,
         simulationResults: staleState.simulationResults,
       };
@@ -3506,6 +3567,7 @@ export const useSimulationConfig = () =>
     mode: state.mode,
     simulationMode: state.simulationMode,
     selectedHistoricalEra: state.selectedHistoricalEra,
+    customHistoricalRange: cloneHistoricalRange(state.customHistoricalRange),
     blockBootstrapEnabled: state.blockBootstrapEnabled,
     blockBootstrapLength: state.blockBootstrapLength,
     coreParams: state.coreParams,
@@ -3686,6 +3748,7 @@ const snapshotStateFromStore = (state: AppStore): SnapshotState => {
     compareWorkspace,
     simulationMode: state.simulationMode,
     selectedHistoricalEra: state.selectedHistoricalEra,
+    customHistoricalRange: cloneHistoricalRange(state.customHistoricalRange),
     blockBootstrapEnabled: state.blockBootstrapEnabled,
     blockBootstrapLength: state.blockBootstrapLength,
     coreParams: {
@@ -3817,6 +3880,7 @@ const configFromWorkspace = (workspace: WorkspaceSnapshot, mode: AppMode): Simul
     mode,
     simulationMode: workspace.simulationMode,
     selectedHistoricalEra: workspace.selectedHistoricalEra,
+    customHistoricalRange: cloneHistoricalRange(workspace.customHistoricalRange),
     blockBootstrapEnabled: workspace.blockBootstrapEnabled,
     blockBootstrapLength: workspace.blockBootstrapLength,
     coreParams: workspace.coreParams,

@@ -62,6 +62,13 @@ const eventDateSchema = z
   })
   .strict();
 
+const historicalRangeSchema = z
+  .object({
+    start: eventDateSchema,
+    end: eventDateSchema,
+  })
+  .strict();
+
 const eventFrequencySchema = z.enum(['monthly', 'quarterly', 'annual', 'oneTime']);
 
 const allocationSchema = z
@@ -74,6 +81,16 @@ const allocationSchema = z
 
 const allocationSumsToOne = (allocation: { stocks: number; bonds: number; cash: number }): boolean =>
   Math.abs(allocation.stocks + allocation.bonds + allocation.cash - 1) < 0.000001;
+
+const compareMonthYear = (
+  left: { month: number; year: number },
+  right: { month: number; year: number },
+): number => {
+  if (left.year !== right.year) {
+    return left.year - right.year;
+  }
+  return left.month - right.month;
+};
 
 const incomeEventSchema = z
   .object({
@@ -128,6 +145,7 @@ const simulationConfigSchema = z
     mode: z.nativeEnum(AppMode),
     simulationMode: z.nativeEnum(SimulationMode),
     selectedHistoricalEra: z.nativeEnum(HistoricalEra),
+    customHistoricalRange: historicalRangeSchema.nullable(),
     blockBootstrapEnabled: z.boolean(),
     blockBootstrapLength: z.number().int().min(3).max(36),
     coreParams: z
@@ -337,7 +355,25 @@ const simulationConfigSchema = z
     incomeEvents: z.array(incomeEventSchema),
     expenseEvents: z.array(expenseEventSchema),
   })
-  .strict();
+  .strict()
+  .refine(
+    (value) =>
+      value.selectedHistoricalEra !== HistoricalEra.Custom ||
+      value.customHistoricalRange !== null,
+    {
+      message: 'customHistoricalRange is required when selectedHistoricalEra is custom',
+      path: ['customHistoricalRange'],
+    },
+  )
+  .refine(
+    (value) =>
+      value.customHistoricalRange === null ||
+      compareMonthYear(value.customHistoricalRange.start, value.customHistoricalRange.end) <= 0,
+    {
+      message: 'customHistoricalRange.start must be less than or equal to customHistoricalRange.end',
+      path: ['customHistoricalRange', 'end'],
+    },
+  );
 
 const monthlyReturnsSchema = z
   .object({

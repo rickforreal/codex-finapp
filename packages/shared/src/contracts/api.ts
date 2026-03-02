@@ -1,5 +1,6 @@
 import type {
   ActualOverridesByMonth,
+  HistoricalRange,
   HistoricalDataSummary,
   MonthlyReturns,
   MonteCarloResult,
@@ -39,6 +40,11 @@ export interface SimulateResponse {
 
 export interface HistoricalSummaryResponse {
   summary: HistoricalDataSummary;
+}
+
+export interface HistoricalSummaryQuery {
+  era: SimulationConfig['selectedHistoricalEra'];
+  customHistoricalRange?: HistoricalRange;
 }
 
 export interface ThemesResponse {

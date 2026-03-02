@@ -39,6 +39,7 @@ export enum HistoricalEra {
   Post1980BullRun = 'post1980BullRun',
   LostDecade = 'lostDecade',
   PostGfcRecovery = 'postGfcRecovery',
+  Custom = 'custom',
 }
 
 export enum AppMode {

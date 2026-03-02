@@ -858,6 +858,8 @@ function runMonteCarlo(
 This function:
 
 1. Filters historical data to the selected era.
+   - Preset eras resolve from canonical definitions.
+   - `HistoricalEra.Custom` resolves from `config.customHistoricalRange` (inclusive month-year bounds).
 2. For each of the N simulations, generates a random sequence of monthly returns using one of two sampling modes:
    - **i.i.d. (default):** each month drawn independently (with replacement) from the era's months.
    - **Block bootstrap:** when `config.blockBootstrapEnabled` is true, draws contiguous blocks of `config.blockBootstrapLength` months (with circular wrap at pool boundaries), preserving within-block sequential correlation.
@@ -885,7 +887,12 @@ At server startup:
 
 The CSV is expected to have columns: `year`, `month`, `stocks`, `bonds`, `cash`, and optionally `cape`. Returns are stored as decimals (e.g., `0.02` for a 2% monthly return).
 
-Era filtering is a simple array filter by date range, performed at request time. The filtered array is passed to the Monte Carlo runner.
+Era filtering is performed at request time by a shared month-year resolver:
+- Preset eras map to predefined ranges.
+- Custom era maps to `start/end` month-year from config/query.
+- Filtering is inclusive on both bounds.
+
+The filtered array is passed to the Monte Carlo runner and the same resolver powers historical-summary responses.
 
 ### 7.5 Stress Test Engine
 
