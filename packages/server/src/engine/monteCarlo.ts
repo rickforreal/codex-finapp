@@ -50,11 +50,11 @@ const percentileCurve = (valuesByRun: number[][]): MonteCarloPercentileCurves =>
   };
 };
 
-const sampleHistoricalReturns = (
+const sampleHistoricalReturnsIid = (
   sourceMonths: HistoricalMonth[],
   durationMonths: number,
   random: () => number,
-) =>
+): MonthlyReturns[] =>
   Array.from({ length: durationMonths }, () => {
     const index = Math.floor(random() * sourceMonths.length);
     const sampled = sourceMonths[index] ?? sourceMonths[sourceMonths.length - 1];
@@ -63,6 +63,25 @@ const sampleHistoricalReturns = (
     }
     return sampled.returns;
   });
+
+const sampleHistoricalReturnsBlock = (
+  sourceMonths: HistoricalMonth[],
+  durationMonths: number,
+  blockLength: number,
+  random: () => number,
+): MonthlyReturns[] => {
+  const result: MonthlyReturns[] = [];
+  const poolSize = sourceMonths.length;
+  while (result.length < durationMonths) {
+    const blockStart = Math.floor(random() * poolSize);
+    const take = Math.min(blockLength, durationMonths - result.length);
+    for (let offset = 0; offset < take; offset += 1) {
+      const sampled = sourceMonths[(blockStart + offset) % poolSize];
+      result.push(sampled ? sampled.returns : { stocks: 0, bonds: 0, cash: 0 });
+    }
+  }
+  return result;
+};
 
 export const runMonteCarlo = async (
   config: SimulationConfig,
@@ -90,7 +109,9 @@ export const runMonteCarlo = async (
       options.seed === undefined
         ? Math.random
         : createSeededRandom(options.seed + runIndex * 9_973);
-    const returns = sampleHistoricalReturns(historicalMonths, durationMonths, random);
+    const returns = config.blockBootstrapEnabled
+      ? sampleHistoricalReturnsBlock(historicalMonths, durationMonths, config.blockBootstrapLength, random)
+      : sampleHistoricalReturnsIid(historicalMonths, durationMonths, random);
     const transformedReturns = options.transformReturns ? options.transformReturns(returns, runIndex) : returns;
     const path = simulateRetirement(
       config,

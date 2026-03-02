@@ -858,7 +858,9 @@ function runMonteCarlo(
 This function:
 
 1. Filters historical data to the selected era.
-2. For each of the N simulations, generates a random sequence of monthly returns by sampling (with replacement) from the era's months.
+2. For each of the N simulations, generates a random sequence of monthly returns using one of two sampling modes:
+   - **i.i.d. (default):** each month drawn independently (with replacement) from the era's months.
+   - **Block bootstrap:** when `config.blockBootstrapEnabled` is true, draws contiguous blocks of `config.blockBootstrapLength` months (with circular wrap at pool boundaries), preserving within-block sequential correlation.
 3. Calls `simulateRetirement` with each sequence.
 4. Aggregates the N single-path results into percentile curves, probability of success, and summary statistics.
 

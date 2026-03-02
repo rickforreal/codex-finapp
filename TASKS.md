@@ -1736,3 +1736,48 @@
       [AC2] Description saved with bookmark and displayed in dropdown + tooltip on hover.
       [AC3] Backwards compatible with existing bookmarks.
       [AC4] Tests added for description functionality.
+
+## Feature — Block Bootstrap Sampling
+
+- [x] BB-T1: Add blockBootstrapEnabled/blockBootstrapLength to SimulationConfig and Zod schema
+      Phase: Feature/BlockBootstrap
+      Dependencies: none
+      Acceptance Criteria:
+      [AC1] `SimulationConfig` interface has both fields.
+      [AC2] Zod schema validates `blockBootstrapLength` in [3, 36].
+      [AC3] `createBaseConfig()` test fixture includes default values.
+
+- [x] BB-T2: Implement block bootstrap sampling in Monte Carlo engine
+      Phase: Feature/BlockBootstrap
+      Dependencies: BB-T1
+      Acceptance Criteria:
+      [AC1] `sampleHistoricalReturnsBlock` draws contiguous blocks with circular wrap.
+      [AC2] Call site dispatches based on `config.blockBootstrapEnabled`.
+      [AC3] 3 new tests pass: determinism, divergence from i.i.d., blockLength=1 edge case.
+
+- [x] BB-T3: Add block bootstrap state and actions to client store
+      Phase: Feature/BlockBootstrap
+      Dependencies: BB-T1
+      Acceptance Criteria:
+      [AC1] Fields in WorkspaceSnapshot, SnapshotState, initial state.
+      [AC2] Setters follow setSelectedHistoricalEra pattern with historicalEra family sync.
+      [AC3] All workspace helpers updated (workspaceFromState, snapshotFieldsFromWorkspace, configFromWorkspace, applyCompareSyncFromMaster, cloneSnapshotState, useSimulationConfig).
+      [AC4] Snapshot schema version bumped to 7.
+
+- [x] BB-T4: Add block bootstrap UI controls to HistoricalDataSummary
+      Phase: Feature/BlockBootstrap
+      Dependencies: BB-T3
+      Acceptance Criteria:
+      [AC1] Toggle + slider between era dropdown and stats table.
+      [AC2] Slider range 3..36, step 1, default 12 with dynamic helper text.
+      [AC3] Controls disabled when readOnly.
+      [AC4] Slider uses accent-brand-blue for theme alignment.
+
+- [x] BB-T5: Update canonical docs and feature docs
+      Phase: Feature/BlockBootstrap
+      Dependencies: BB-T4
+      Acceptance Criteria:
+      [AC1] Feature folder created with FEATURE.md, PLAN.md, ACCEPTANCE.md.
+      [AC2] SPECS.md updated with Affordance #11b.
+      [AC3] DATA_MODEL.md, API.md, ARCHITECTURE.md updated.
+      [AC4] TASKS.md and PROGRESS.txt updated.

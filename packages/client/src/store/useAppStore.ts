@@ -156,6 +156,8 @@ type WithdrawalStrategyParamsForm = {
 export type WorkspaceSnapshot = {
   simulationMode: SimulationMode;
   selectedHistoricalEra: HistoricalEra;
+  blockBootstrapEnabled: boolean;
+  blockBootstrapLength: number;
   coreParams: {
     startingAge: number;
     withdrawalsStartAt: number;
@@ -230,6 +232,8 @@ export type SnapshotState = {
   };
   simulationMode: SimulationMode;
   selectedHistoricalEra: HistoricalEra;
+  blockBootstrapEnabled: boolean;
+  blockBootstrapLength: number;
   coreParams: {
     startingAge: number;
     withdrawalsStartAt: number;
@@ -349,6 +353,8 @@ export type AppStore = SnapshotState & {
   clearAllActualOverrides: () => void;
   setSimulationMode: (mode: SimulationMode) => void;
   setSelectedHistoricalEra: (era: HistoricalEra) => void;
+  setBlockBootstrapEnabled: (enabled: boolean) => void;
+  setBlockBootstrapLength: (length: number) => void;
   setHistoricalSummaryStatus: (
     status: 'idle' | 'loading' | 'ready' | 'error',
     errorMessage?: string | null,
@@ -1110,6 +1116,8 @@ const applyCompareSyncFromMaster = (
           break;
         case 'historicalEra':
           workspace.selectedHistoricalEra = master.selectedHistoricalEra;
+          workspace.blockBootstrapEnabled = master.blockBootstrapEnabled;
+          workspace.blockBootstrapLength = master.blockBootstrapLength;
           break;
         default:
           break;
@@ -1318,6 +1326,8 @@ const compareWorkspaceWithCurrentState = (state: AppStore): SnapshotState['compa
 const workspaceFromState = (state: AppStore): WorkspaceSnapshot => ({
   simulationMode: state.simulationMode,
   selectedHistoricalEra: state.selectedHistoricalEra,
+  blockBootstrapEnabled: state.blockBootstrapEnabled,
+  blockBootstrapLength: state.blockBootstrapLength,
   coreParams: {
     ...state.coreParams,
     retirementStartDate: { ...state.coreParams.retirementStartDate },
@@ -1441,6 +1451,8 @@ const trackingSimulationResultsCleared = (
 const snapshotFieldsFromWorkspace = (workspace: WorkspaceSnapshot) => ({
   simulationMode: workspace.simulationMode,
   selectedHistoricalEra: workspace.selectedHistoricalEra,
+  blockBootstrapEnabled: workspace.blockBootstrapEnabled,
+  blockBootstrapLength: workspace.blockBootstrapLength,
   coreParams: workspace.coreParams,
   portfolio: workspace.portfolio,
   returnAssumptions: workspace.returnAssumptions,
@@ -1458,6 +1470,8 @@ const snapshotFieldsFromWorkspace = (workspace: WorkspaceSnapshot) => ({
 
 const currentInputFieldsFromState = (state: AppStore) => ({
   selectedHistoricalEra: state.selectedHistoricalEra,
+  blockBootstrapEnabled: state.blockBootstrapEnabled,
+  blockBootstrapLength: state.blockBootstrapLength,
   coreParams: {
     ...state.coreParams,
     retirementStartDate: { ...state.coreParams.retirementStartDate },
@@ -1580,6 +1594,8 @@ const cloneSnapshotState = (snapshot: SnapshotState): SnapshotState => {
     compareWorkspace: normalizedCompareWorkspace,
     simulationMode: normalizedSnapshot.simulationMode,
     selectedHistoricalEra: normalizedSnapshot.selectedHistoricalEra,
+    blockBootstrapEnabled: normalizedSnapshot.blockBootstrapEnabled,
+    blockBootstrapLength: normalizedSnapshot.blockBootstrapLength,
     coreParams: {
       ...normalizedSnapshot.coreParams,
       retirementStartDate: { ...normalizedSnapshot.coreParams.retirementStartDate },
@@ -1858,6 +1874,8 @@ export const useAppStore = create<AppStore>((set) => ({
   },
   simulationMode: SimulationMode.Manual,
   selectedHistoricalEra: HistoricalEra.FullHistory,
+  blockBootstrapEnabled: false,
+  blockBootstrapLength: 12,
   coreParams: {
     startingAge: 60,
     withdrawalsStartAt: 60,
@@ -2569,6 +2587,84 @@ export const useAppStore = create<AppStore>((set) => ({
 
       return {
         selectedHistoricalEra,
+        compareWorkspace: nextCompare,
+        simulationResults: staleState.simulationResults,
+      };
+    }),
+  setBlockBootstrapEnabled: (blockBootstrapEnabled) =>
+    set((state) => {
+      if (isCompareFamilyLockedAndSyncedForActiveSlot(state, 'historicalEra')) {
+        return state;
+      }
+
+      const staleState = markTrackingOutputStateStale(state);
+
+      if (!isCompareActiveFromWorkspace(state.compareWorkspace)) {
+        return { blockBootstrapEnabled, ...staleState };
+      }
+
+      const nextCompare = cloneCompareWorkspace(staleState.compareWorkspace);
+      const activeSlotId = nextCompare.activeSlotId;
+      const workspace = nextCompare.slots[activeSlotId];
+      if (workspace) {
+        workspace.blockBootstrapEnabled = blockBootstrapEnabled;
+      }
+
+      if (activeSlotId === 'A') {
+        nextCompare.slotOrder.forEach((slotId) => {
+          if (slotId === 'A') {
+            return;
+          }
+          if (isSlotFamilySynced(nextCompare.compareSync, slotId, 'historicalEra')) {
+            const slotWorkspace = nextCompare.slots[slotId];
+            if (slotWorkspace) {
+              slotWorkspace.blockBootstrapEnabled = blockBootstrapEnabled;
+            }
+          }
+        });
+      }
+
+      return {
+        blockBootstrapEnabled,
+        compareWorkspace: nextCompare,
+        simulationResults: staleState.simulationResults,
+      };
+    }),
+  setBlockBootstrapLength: (blockBootstrapLength) =>
+    set((state) => {
+      if (isCompareFamilyLockedAndSyncedForActiveSlot(state, 'historicalEra')) {
+        return state;
+      }
+
+      const staleState = markTrackingOutputStateStale(state);
+
+      if (!isCompareActiveFromWorkspace(state.compareWorkspace)) {
+        return { blockBootstrapLength, ...staleState };
+      }
+
+      const nextCompare = cloneCompareWorkspace(staleState.compareWorkspace);
+      const activeSlotId = nextCompare.activeSlotId;
+      const workspace = nextCompare.slots[activeSlotId];
+      if (workspace) {
+        workspace.blockBootstrapLength = blockBootstrapLength;
+      }
+
+      if (activeSlotId === 'A') {
+        nextCompare.slotOrder.forEach((slotId) => {
+          if (slotId === 'A') {
+            return;
+          }
+          if (isSlotFamilySynced(nextCompare.compareSync, slotId, 'historicalEra')) {
+            const slotWorkspace = nextCompare.slots[slotId];
+            if (slotWorkspace) {
+              slotWorkspace.blockBootstrapLength = blockBootstrapLength;
+            }
+          }
+        });
+      }
+
+      return {
+        blockBootstrapLength,
         compareWorkspace: nextCompare,
         simulationResults: staleState.simulationResults,
       };
@@ -3388,6 +3484,8 @@ export const useSimulationConfig = () =>
     mode: state.mode,
     simulationMode: state.simulationMode,
     selectedHistoricalEra: state.selectedHistoricalEra,
+    blockBootstrapEnabled: state.blockBootstrapEnabled,
+    blockBootstrapLength: state.blockBootstrapLength,
     coreParams: state.coreParams,
     portfolio: state.portfolio,
     returnAssumptions: state.returnAssumptions,
@@ -3566,6 +3664,8 @@ const snapshotStateFromStore = (state: AppStore): SnapshotState => {
     compareWorkspace,
     simulationMode: state.simulationMode,
     selectedHistoricalEra: state.selectedHistoricalEra,
+    blockBootstrapEnabled: state.blockBootstrapEnabled,
+    blockBootstrapLength: state.blockBootstrapLength,
     coreParams: {
       ...state.coreParams,
       retirementStartDate: { ...state.coreParams.retirementStartDate },
@@ -3695,6 +3795,8 @@ const configFromWorkspace = (workspace: WorkspaceSnapshot, mode: AppMode): Simul
     mode,
     simulationMode: workspace.simulationMode,
     selectedHistoricalEra: workspace.selectedHistoricalEra,
+    blockBootstrapEnabled: workspace.blockBootstrapEnabled,
+    blockBootstrapLength: workspace.blockBootstrapLength,
     coreParams: workspace.coreParams,
     portfolio: workspace.portfolio,
     returnAssumptions: workspace.returnAssumptions,

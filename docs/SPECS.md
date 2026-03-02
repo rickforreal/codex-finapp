@@ -893,6 +893,33 @@ When the user has selected Monte Carlo mode, this display replaces the Return As
 **Edge cases:**
 * Shorter eras (e.g., Oil Crisis: 1973–1982 = ~108 months) mean less data to sample from. For a 480-month retirement simulation, the same months will be sampled multiple times across the 1,000 runs — this is fine statistically (it's sampling with replacement) but worth noting: very short eras produce less diverse outcomes. No special UX handling needed, but the historical reference display (see Return Assumptions revision below) will show the sample size.
 
+### Affordance #11b: Block Bootstrap Sampling Controls
+
+**Purpose:** Allows the user to enable block bootstrap sampling for the Monte Carlo engine, preserving short-run return correlations within sampled blocks instead of drawing months independently.
+
+**Location:** Inside the Historical Data Summary card, between the Historical Era Selector (#11a) and the stats table.
+
+**Controls:**
+* **Toggle row:** Label "Block Bootstrap Sampling" on the left, `ToggleSwitch` on the right. Default: OFF.
+* **Slider section** (visible only when toggle is ON):
+  * Contained in a bordered sub-panel (rounded border, white background).
+  * Label row: "Block length" on left, current value + "months" on right (e.g., "12 months").
+  * Native range slider: min=3, max=36, step=1, default=12.
+  * Min/max labels: "3" and "36" below the slider ends.
+  * Helper text: "Samples contiguous blocks of {N} months from historical data, preserving short-run return correlations within each block." — updates dynamically with the current slider value.
+  * Slider uses `accent-brand-blue` for theme alignment (matching the Withdrawal Smoothing slider in Dynamic SWR Adaptive).
+
+**Behavior:**
+* Toggle OFF preserves existing i.i.d. sampling behavior.
+* Toggle ON switches the MC engine to contiguous block sampling with circular wrap.
+* Changes do not trigger a re-run; user must click Run Simulation (#3).
+* All controls disabled when `readOnly` is true (compare-synced non-master slot).
+
+**State:**
+* `blockBootstrapEnabled: boolean` — stored per-portfolio in compare mode.
+* `blockBootstrapLength: number` (3..36) — stored per-portfolio in compare mode.
+* Both fields sync with the `historicalEra` family lock in compare mode.
+
 ## Input Panel — Section: Spending Phases (#17, #18, #19)
 
 This section allows the user to optionally define spending phases across retirement, each with minimum and maximum monthly withdrawal bounds. When no phases exist, withdrawals are determined solely by the selected withdrawal strategy.

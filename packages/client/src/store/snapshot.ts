@@ -21,7 +21,7 @@ import {
   useAppStore,
 } from './useAppStore';
 
-export const SNAPSHOT_SCHEMA_VERSION = 6;
+export const SNAPSHOT_SCHEMA_VERSION = 7;
 
 export const PACKED_ROW_COLUMNS = [
   'monthIndex',
@@ -149,6 +149,8 @@ const snapshotStateSchema = z
     compareWorkspace: z.unknown().optional(),
     simulationMode: z.nativeEnum(SimulationMode),
     selectedHistoricalEra: z.nativeEnum(HistoricalEra),
+    blockBootstrapEnabled: z.boolean(),
+    blockBootstrapLength: z.number().int().min(3).max(36),
     coreParams: z
       .object({
         startingAge: z.number().int().min(1).max(120),

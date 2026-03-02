@@ -140,4 +140,49 @@ describe('runMonteCarlo', () => {
       result.representativePath.summary.totalShortfall,
     );
   });
+
+  it('block bootstrap is deterministic with the same seed', async () => {
+    const config = createBaseConfig();
+    config.simulationMode = SimulationMode.MonteCarlo;
+    config.blockBootstrapEnabled = true;
+    config.blockBootstrapLength = 12;
+
+    const a = await runMonteCarlo(config, { runs: 200, seed: 42 });
+    const b = await runMonteCarlo(config, { runs: 200, seed: 42 });
+
+    expect(a.monteCarlo.probabilityOfSuccess).toBe(b.monteCarlo.probabilityOfSuccess);
+    expect(a.monteCarlo.percentileCurves.total.p50).toEqual(b.monteCarlo.percentileCurves.total.p50);
+    expect(a.representativePath.summary.terminalPortfolioValue).toBe(
+      b.representativePath.summary.terminalPortfolioValue,
+    );
+  });
+
+  it('block bootstrap produces different results from i.i.d. with the same seed', async () => {
+    const config = createBaseConfig();
+    config.simulationMode = SimulationMode.MonteCarlo;
+
+    const iidConfig = { ...config, blockBootstrapEnabled: false };
+    const blockConfig = { ...config, blockBootstrapEnabled: true, blockBootstrapLength: 12 };
+
+    const iidResult = await runMonteCarlo(iidConfig, { runs: 200, seed: 55 });
+    const blockResult = await runMonteCarlo(blockConfig, { runs: 200, seed: 55 });
+
+    const iidP50 = iidResult.monteCarlo.percentileCurves.total.p50;
+    const blockP50 = blockResult.monteCarlo.percentileCurves.total.p50;
+
+    expect(iidP50).not.toEqual(blockP50);
+  });
+
+  it('block bootstrap with blockLength=1 runs without error', async () => {
+    const config = createBaseConfig();
+    config.simulationMode = SimulationMode.MonteCarlo;
+    config.blockBootstrapEnabled = true;
+    config.blockBootstrapLength = 1;
+
+    const result = await runMonteCarlo(config, { runs: 50, seed: 99 });
+    expect(result.monteCarlo.simulationCount).toBe(50);
+    expect(result.monteCarlo.percentileCurves.total.p50.length).toBe(
+      config.coreParams.retirementDuration * 12,
+    );
+  });
 });

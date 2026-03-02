@@ -71,6 +71,8 @@ Request:
 
 `config.spendingPhases` accepts `0..4` phase entries. When empty, spending-phase min/max clamping is disabled and withdrawals follow strategy output.
 
+`config.blockBootstrapEnabled` (boolean) and `config.blockBootstrapLength` (int, 3..36) control Monte Carlo return sampling. When enabled, the MC engine samples contiguous blocks of `blockBootstrapLength` months (with circular wrap) instead of independent draws. Defaults: `false`, `12`.
+
 Response:
 
 ```ts

@@ -163,6 +163,8 @@ export interface SimulationConfig {
   mode: AppMode;
   simulationMode: SimulationMode;
   selectedHistoricalEra: HistoricalEra;
+  blockBootstrapEnabled: boolean;
+  blockBootstrapLength: number;
   coreParams: {
     startingAge: number;
     withdrawalsStartAt: number;

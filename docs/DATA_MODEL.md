@@ -70,6 +70,8 @@ SimulationConfig {
   mode: AppMode;
   simulationMode: SimulationMode;
   selectedHistoricalEra: HistoricalEra;
+  blockBootstrapEnabled: boolean;           // when true, MC samples contiguous blocks instead of i.i.d.
+  blockBootstrapLength: number;             // 3..36 months — block size for block bootstrap sampling
   coreParams: {
     startingAge: number;
     withdrawalsStartAt: number;

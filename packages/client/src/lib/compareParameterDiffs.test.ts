@@ -15,6 +15,8 @@ const baseConfig = (): SimulationConfig => ({
   mode: AppMode.Planning,
   simulationMode: SimulationMode.Manual,
   selectedHistoricalEra: HistoricalEra.FullHistory,
+  blockBootstrapEnabled: false,
+  blockBootstrapLength: 12,
   coreParams: {
     startingAge: 48,
     withdrawalsStartAt: 56,

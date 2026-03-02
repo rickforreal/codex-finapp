@@ -5,6 +5,7 @@ import { fetchHistoricalSummary } from '../../api/historicalApi';
 import { formatPercent } from '../../lib/format';
 import { useAppStore } from '../../store/useAppStore';
 import { Dropdown } from '../shared/Dropdown';
+import { ToggleSwitch } from '../shared/ToggleSwitch';
 
 const assetLabel: Record<AssetClass, string> = {
   [AssetClass.Stocks]: 'Stocks',
@@ -43,6 +44,10 @@ export const HistoricalDataSummary = ({ readOnly }: { readOnly?: boolean }) => {
   const setSelectedHistoricalEra = useAppStore((state) => state.setSelectedHistoricalEra);
   const setHistoricalSummaryStatus = useAppStore((state) => state.setHistoricalSummaryStatus);
   const setHistoricalSummary = useAppStore((state) => state.setHistoricalSummary);
+  const blockBootstrapEnabled = useAppStore((state) => state.blockBootstrapEnabled);
+  const blockBootstrapLength = useAppStore((state) => state.blockBootstrapLength);
+  const setBlockBootstrapEnabled = useAppStore((state) => state.setBlockBootstrapEnabled);
+  const setBlockBootstrapLength = useAppStore((state) => state.setBlockBootstrapLength);
 
   useEffect(() => {
     if (simulationMode !== SimulationMode.MonteCarlo) {
@@ -96,6 +101,43 @@ export const HistoricalDataSummary = ({ readOnly }: { readOnly?: boolean }) => {
           options={eraOptions}
           disabled={readOnly}
         />
+      </div>
+
+      <div className="space-y-2">
+        <div className="flex items-center justify-between px-1">
+          <span className="text-xs font-medium text-slate-700">Block Bootstrap Sampling</span>
+          <ToggleSwitch
+            checked={blockBootstrapEnabled}
+            onChange={setBlockBootstrapEnabled}
+            disabled={readOnly}
+          />
+        </div>
+
+        {blockBootstrapEnabled && (
+          <div className="space-y-1.5 rounded border border-slate-200 bg-white p-2">
+            <div className="flex items-center justify-between text-xs text-slate-700">
+              <span>Block length</span>
+              <span className="font-medium">{blockBootstrapLength} months</span>
+            </div>
+            <input
+              type="range"
+              min={3}
+              max={36}
+              step={1}
+              value={blockBootstrapLength}
+              onChange={(e) => setBlockBootstrapLength(Number(e.target.value))}
+              disabled={readOnly}
+              className="w-full accent-brand-blue disabled:cursor-not-allowed disabled:opacity-60"
+            />
+            <div className="flex justify-between text-[10px] text-slate-400">
+              <span>3</span>
+              <span>36</span>
+            </div>
+            <p className="text-[11px] leading-snug text-slate-500">
+              Samples contiguous blocks of {blockBootstrapLength} months from historical data, preserving short-run return correlations within each block.
+            </p>
+          </div>
+        )}
       </div>
 
       <table className="w-full table-fixed text-xs">

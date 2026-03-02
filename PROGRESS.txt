@@ -1968,3 +1968,24 @@ Validation run (all passing):
 
 Canonical docs impact:
 - No canonical doc impact (backwards compatible optional annotation).
+
+2026-03-01 — Feature: Block Bootstrap Sampling | COMPLETE
+- Added `blockBootstrapEnabled` and `blockBootstrapLength` to `SimulationConfig` and Zod schema
+- Implemented `sampleHistoricalReturnsBlock` in `monteCarlo.ts` (contiguous blocks with circular wrap)
+- Updated call site to dispatch between i.i.d. and block sampling based on config
+- Added 3 new MC tests: determinism, divergence from i.i.d., blockLength=1 edge case
+- Added fields to WorkspaceSnapshot, SnapshotState, all store helpers, and compare sync (historicalEra family)
+- Added `setBlockBootstrapEnabled`/`setBlockBootstrapLength` actions mirroring `setSelectedHistoricalEra` pattern
+- Bumped snapshot schema version from 6 to 7
+- Added toggle + slider UI in HistoricalDataSummary (between era dropdown and stats table)
+- Slider uses `accent-brand-blue` for theme alignment (matching Withdrawal Smoothing slider)
+- Fixed `useSimulationConfig` hook to include block bootstrap fields
+- All validation passing: typecheck, test (179 tests), build
+
+Feature docs: `docs/features/block-bootstrap/` (FEATURE.md, PLAN.md, ACCEPTANCE.md)
+
+Canonical docs impact:
+- `docs/SPECS.md` — added Affordance #11b (Block Bootstrap Sampling Controls)
+- `docs/DATA_MODEL.md` — added fields to SimulationConfig
+- `docs/API.md` — added block bootstrap config description to POST /api/v1/simulate
+- `docs/ARCHITECTURE.md` — updated MC sampling description with block bootstrap mode
