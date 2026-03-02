@@ -1,4 +1,10 @@
-import { AssetClass, DrawdownStrategyType, WithdrawalStrategyType, type SimulationConfig } from '@finapp/shared';
+import {
+  AssetClass,
+  DrawdownStrategyType,
+  HISTORICAL_ERA_DEFINITIONS,
+  WithdrawalStrategyType,
+  type SimulationConfig,
+} from '@finapp/shared';
 
 import { formatCurrency, formatPercent } from './format';
 
@@ -384,6 +390,28 @@ const buildRowSpecs = (): RowSpec[] => {
       label: 'Cash Std Dev',
       group: 'Return Assumptions',
       resolve: (config) => asPercent(config.returnAssumptions.cash.stdDev),
+    },
+    {
+      key: 'historicalData.selectedEra',
+      label: 'Historical Era',
+      group: 'Historical Data',
+      resolve: (config) => {
+        const era = HISTORICAL_ERA_DEFINITIONS.find((candidate) => candidate.key === config.selectedHistoricalEra);
+        return asText(era ? era.label : config.selectedHistoricalEra);
+      },
+    },
+    {
+      key: 'historicalData.blockBootstrapEnabled',
+      label: 'Block Bootstrap',
+      group: 'Historical Data',
+      resolve: (config) => asBoolean(config.blockBootstrapEnabled),
+    },
+    {
+      key: 'historicalData.blockBootstrapLength',
+      label: 'Block Length (Months)',
+      group: 'Historical Data',
+      resolve: (config) =>
+        config.blockBootstrapEnabled ? asInteger(config.blockBootstrapLength) : NOT_APPLICABLE,
     },
     {
       key: 'withdrawal.type',

@@ -220,4 +220,33 @@ describe('buildCompareParameterDiffs', () => {
     expect(rowKeys.has('returns.bonds.stdDev')).toBe(true);
     expect(result.differenceCount).toBeGreaterThanOrEqual(4);
   });
+
+  it('captures historical-era and block-bootstrap parameter differences', () => {
+    const configA = baseConfig();
+    const configB = baseConfig();
+    configB.selectedHistoricalEra = HistoricalEra.OilCrisis;
+    configB.blockBootstrapEnabled = true;
+    configB.blockBootstrapLength = 24;
+
+    const result = buildCompareParameterDiffs({
+      slotOrder: ['A', 'B'],
+      baselineSlotId: 'A',
+      slotConfigsById: { A: configA, B: configB },
+    });
+
+    const eraRow = result.rows.find((row) => row.key === 'historicalData.selectedEra');
+    const blockEnabledRow = result.rows.find(
+      (row) => row.key === 'historicalData.blockBootstrapEnabled',
+    );
+    const blockLengthRow = result.rows.find(
+      (row) => row.key === 'historicalData.blockBootstrapLength',
+    );
+
+    expect(eraRow?.valuesBySlot.A).toBe('Full History');
+    expect(eraRow?.valuesBySlot.B).toBe('Oil Crisis');
+    expect(blockEnabledRow?.valuesBySlot.A).toBe('Off');
+    expect(blockEnabledRow?.valuesBySlot.B).toBe('On');
+    expect(blockLengthRow?.valuesBySlot.A).toBe('N/A');
+    expect(blockLengthRow?.valuesBySlot.B).toBe('24');
+  });
 });
