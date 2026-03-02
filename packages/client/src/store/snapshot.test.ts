@@ -133,7 +133,7 @@ describe('snapshot', () => {
     expect(after).toEqual(before);
   });
 
-  it('rejects strict schema version mismatches', () => {
+  it('rejects unsupported future snapshot versions', () => {
     resetStore();
     const { json } = serializeSnapshot('Versioned Snapshot');
     const parsed = JSON.parse(json) as { schemaVersion: number };
@@ -141,6 +141,25 @@ describe('snapshot', () => {
 
     expect(() => parseSnapshot(JSON.stringify(parsed))).toThrowError(SnapshotLoadError);
     expect(() => parseSnapshot(JSON.stringify(parsed))).toThrowError(/not supported/i);
+  });
+
+  it('loads schema v6 snapshots by backfilling block bootstrap defaults', () => {
+    resetStore();
+    const { json } = serializeSnapshot('Legacy v6 Snapshot');
+    const parsed = JSON.parse(json) as {
+      schemaVersion: number;
+      data: {
+        blockBootstrapEnabled?: boolean;
+        blockBootstrapLength?: number;
+      };
+    };
+    parsed.schemaVersion = 6;
+    delete parsed.data.blockBootstrapEnabled;
+    delete parsed.data.blockBootstrapLength;
+
+    const loaded = parseSnapshot(JSON.stringify(parsed));
+    expect(loaded.data.blockBootstrapEnabled).toBe(false);
+    expect(loaded.data.blockBootstrapLength).toBe(12);
   });
 
   it('rejects legacy compare-mode snapshots explicitly', () => {

@@ -22,6 +22,9 @@ import {
 } from './useAppStore';
 
 export const SNAPSHOT_SCHEMA_VERSION = 7;
+const MIN_SUPPORTED_SNAPSHOT_SCHEMA_VERSION = 6;
+const DEFAULT_BLOCK_BOOTSTRAP_ENABLED = false;
+const DEFAULT_BLOCK_BOOTSTRAP_LENGTH = 12;
 
 export const PACKED_ROW_COLUMNS = [
   'monthIndex',
@@ -149,8 +152,14 @@ const snapshotStateSchema = z
     compareWorkspace: z.unknown().optional(),
     simulationMode: z.nativeEnum(SimulationMode),
     selectedHistoricalEra: z.nativeEnum(HistoricalEra),
-    blockBootstrapEnabled: z.boolean(),
-    blockBootstrapLength: z.number().int().min(3).max(36),
+    blockBootstrapEnabled: z.boolean().optional().default(DEFAULT_BLOCK_BOOTSTRAP_ENABLED),
+    blockBootstrapLength: z
+      .number()
+      .int()
+      .min(3)
+      .max(36)
+      .optional()
+      .default(DEFAULT_BLOCK_BOOTSTRAP_LENGTH),
     coreParams: z
       .object({
         startingAge: z.number().int().min(1).max(120),
@@ -646,6 +655,8 @@ const unpackWorkspace = (workspace: unknown): WorkspaceSnapshot | null => {
   }
 
   const record = workspace as Omit<WorkspaceSnapshot, 'simulationResults' | 'stress'> & {
+    blockBootstrapEnabled?: unknown;
+    blockBootstrapLength?: unknown;
     simulationResults?: unknown;
     stress?: unknown;
   };
@@ -656,6 +667,17 @@ const unpackWorkspace = (workspace: unknown): WorkspaceSnapshot | null => {
 
   return {
     ...record,
+    blockBootstrapEnabled:
+      typeof record.blockBootstrapEnabled === 'boolean'
+        ? record.blockBootstrapEnabled
+        : DEFAULT_BLOCK_BOOTSTRAP_ENABLED,
+    blockBootstrapLength:
+      typeof record.blockBootstrapLength === 'number' &&
+      Number.isInteger(record.blockBootstrapLength) &&
+      record.blockBootstrapLength >= 3 &&
+      record.blockBootstrapLength <= 36
+        ? record.blockBootstrapLength
+        : DEFAULT_BLOCK_BOOTSTRAP_LENGTH,
     simulationResults: unpackSimulationResults(record.simulationResults),
     stress: unpackStressState(record.stress),
   };
@@ -936,6 +958,8 @@ const unpackSnapshotState = (packed: unknown): SnapshotState => {
 
   const unpacked: SnapshotState = {
     ...data,
+    blockBootstrapEnabled: data.blockBootstrapEnabled ?? DEFAULT_BLOCK_BOOTSTRAP_ENABLED,
+    blockBootstrapLength: data.blockBootstrapLength ?? DEFAULT_BLOCK_BOOTSTRAP_LENGTH,
     theme: {
       selectedThemeFamilyId,
       selectedAppearanceByFamily,
@@ -1055,7 +1079,10 @@ export const parseSnapshot = (raw: string): SnapshotEnvelope => {
     throw invalidSnapshot();
   }
 
-  if (firstPass.data.schemaVersion !== SNAPSHOT_SCHEMA_VERSION) {
+  if (
+    firstPass.data.schemaVersion < MIN_SUPPORTED_SNAPSHOT_SCHEMA_VERSION ||
+    firstPass.data.schemaVersion > SNAPSHOT_SCHEMA_VERSION
+  ) {
     throw new SnapshotLoadError(
       'version_mismatch',
       'This snapshot version is not supported by this app.',

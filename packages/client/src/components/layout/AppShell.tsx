@@ -30,7 +30,7 @@ export const AppShell = () => {
           </aside>
 
           <div
-            className="absolute z-50 transition-all duration-300"
+            className="absolute z-[5] transition-all duration-300"
             style={{
               top: '60px', // Center of the Compare Slot card
               right: isSidebarCollapsed ? '-16px' : '-16px',
