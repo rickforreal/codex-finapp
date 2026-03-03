@@ -2024,3 +2024,94 @@ Validation run (all passing):
 Canonical docs impact:
 - Updated `docs/SPECS.md`, `docs/SCENARIOS.md`, `docs/DATA_MODEL.md`, `docs/API.md`, `docs/ARCHITECTURE.md`.
 - No canonical doc impact required for `docs/PRD.md` (feature is within existing product scope).
+
+2026-03-02 — Feature: Historical Era Custom Range v1.1 (Event Labels) | COMPLETE
+- Added a broad historical event catalog for the custom month-year slider (`45` events, `1929-10` through `2024-01`) in `packages/client/src/lib/historicalEvents.ts`.
+- Implemented exact-match month-year lookup (`getHistoricalEventLabel`) so labels only appear on explicitly mapped event months.
+- Updated `HistoricalDataSummary` custom-range UI to render independent start/end event labels above the slider:
+  - Left label tracks the start thumb month-year.
+  - Right label tracks the end thumb month-year.
+  - Non-event months show fallback text: `No mapped event`.
+- Added unit tests for event lookup semantics and catalog integrity in `packages/client/src/lib/historicalEvents.test.ts`.
+- Added feature update docs under `docs/features/historical-era-custom-range-v1-1/` with Delta From Baseline linkage.
+
+Validation run (all passing):
+- `npm run typecheck`
+- `npm run lint`
+- `npm test`
+- `npm run build`
+
+Canonical docs impact:
+- Updated `docs/SPECS.md` (Affordance #11a custom slider event-label behavior).
+- Updated `docs/SCENARIOS.md` (Monte Carlo custom-range scenario now includes independent thumb event labels).
+- No canonical doc impact required for `docs/DATA_MODEL.md`, `docs/API.md`, `docs/ARCHITECTURE.md`, or `docs/PRD.md` (no contract/model/architecture/product-scope changes).
+
+2026-03-02 — Historical Era Event Labels fallback copy removal | COMPLETE
+- Removed `No mapped event` fallback text from custom-range slider event labels.
+- Updated `HistoricalDataSummary` to render event label text only when an exact month-year event exists.
+- Updated docs to reflect fallback behavior:
+  - `docs/SPECS.md` now states non-event months show no event label text.
+  - `docs/features/historical-era-custom-range-v1-1/PLAN.md` and `ACCEPTANCE.md` aligned.
+
+Validation run (all passing):
+- `npm run typecheck`
+- `npm run lint`
+
+2026-03-02 — Historical Era Event Labels: slider bounce fix | COMPLETE
+- Resolved slider vertical bounce caused by conditional event-label rendering.
+- Refactored custom-range slider label layout to use absolute positioning in a fixed-height wrapper above the slider lane.
+- Preserved previous thumb/track alignment by keeping the slider lane at its original geometry.
+
+Validation run (all passing):
+- `npm run typecheck -w @finapp/client`
+- `npm run lint -w @finapp/client`
+
+2026-03-02 — Snapshot/Bookmark guard: Custom Historical Era + legacy v6 load | COMPLETE
+- Added explicit snapshot regression coverage for Custom Historical Era persistence (`selectedHistoricalEra=custom` + `customHistoricalRange`) through save/load.
+- Added explicit v6 snapshot migration coverage to ensure defaults are backfilled (`customHistoricalRange=null`, `blockBootstrapEnabled=false`, `blockBootstrapLength=12`).
+- Added explicit bookmark regression coverage for Custom Historical Era persistence through bookmark create/apply.
+- Added explicit legacy v6 bookmark payload coverage by downgrading stored compressed snapshot payload to `schemaVersion=6` and validating successful load/backfill defaults.
+
+Validation run (all passing):
+- `npm run test -w @finapp/client`
+- `npm run typecheck -w @finapp/client`
+- `npm run lint -w @finapp/client`
+
+2026-03-02 — Historical Era Event Labels: decay timing polish | COMPLETE
+- Implemented per-thumb decaying event label behavior in `HistoricalDataSummary`.
+- Behavior now matches UX timing request:
+  - Exact event match shows label immediately.
+  - Leaving event month holds label for `250ms`.
+  - Label then fades out over `100ms` using opacity transition.
+- Added timer cancellation logic so fast thumb scrubbing does not queue stale fades.
+
+Validation run (all passing):
+- `npm run typecheck -w @finapp/client`
+- `npm run lint -w @finapp/client`
+- `npm run test -w @finapp/client`
+
+2026-03-02 — Hotfix: Monte Carlo mode hook-order crash in HistoricalDataSummary | COMPLETE
+- Fixed React hook-order violation (`Rendered more hooks than during the previous render`) introduced by event-label decay hook placement.
+- Moved decaying label hook invocations to a stable unconditional location in `HistoricalDataSummary` so hook count/order does not vary across loading/error/empty/ready render paths.
+- Preserved decay timing behavior (250ms hold + 100ms fade) and exact-match event semantics.
+
+Validation run (all passing):
+- `npm run typecheck -w @finapp/client`
+- `npm run lint -w @finapp/client`
+- `npm run test -w @finapp/client`
+
+2026-03-02 — Feature: Historical Era Custom Range v1.2 (Event Snap) | COMPLETE
+- Added magnetic event-month snapping helper in `packages/client/src/lib/historicalEvents.ts`:
+  - `snapToHistoricalEventOrdinal(ordinal, { minOrdinal, maxOrdinal, thresholdMonths })`
+  - Defaults to 1-month threshold and only considers in-range event months.
+- Applied snapping to both custom-range slider thumbs in `HistoricalDataSummary` before start/end clamping.
+- Added helper tests in `packages/client/src/lib/historicalEvents.test.ts` for:
+  - near-event snapping,
+  - out-of-range no-snap behavior.
+- Added docs-first update wave: `docs/features/historical-era-custom-range-v1-2/{FEATURE,PLAN,ACCEPTANCE}.md`.
+- Updated canonical spec (`docs/SPECS.md`) to document light magnetic snapping near event months.
+
+Validation run (all passing):
+- `npm run typecheck -w @finapp/client`
+- `npm run lint -w @finapp/client`
+- `npm run test -w @finapp/client`

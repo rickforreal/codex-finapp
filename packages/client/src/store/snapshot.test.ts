@@ -133,6 +133,29 @@ describe('snapshot', () => {
     expect(after).toEqual(before);
   });
 
+  it('persists and restores custom historical era range via snapshot', () => {
+    resetStore();
+    useAppStore.setState((state) => ({
+      ...state,
+      simulationMode: SimulationMode.MonteCarlo,
+      selectedHistoricalEra: HistoricalEra.Custom,
+      customHistoricalRange: {
+        start: { month: 9, year: 1939 },
+        end: { month: 2, year: 2020 },
+      },
+    }));
+
+    const before = getSnapshotState();
+    const { json } = serializeSnapshot('Custom Era Snapshot');
+    resetStore();
+    applySnapshot(json);
+
+    const after = useAppStore.getState();
+    expect(after.simulationMode).toBe(SimulationMode.MonteCarlo);
+    expect(after.selectedHistoricalEra).toBe(HistoricalEra.Custom);
+    expect(after.customHistoricalRange).toEqual(before.customHistoricalRange);
+  });
+
   it('rejects unsupported future snapshot versions', () => {
     resetStore();
     const { json } = serializeSnapshot('Versioned Snapshot');
@@ -143,9 +166,9 @@ describe('snapshot', () => {
     expect(() => parseSnapshot(JSON.stringify(parsed))).toThrowError(/not supported/i);
   });
 
-  it('loads schema v7 snapshots by backfilling custom-range and block-bootstrap defaults', () => {
+  it('loads schema v6 snapshots by backfilling custom-range and block-bootstrap defaults', () => {
     resetStore();
-    const { json } = serializeSnapshot('Legacy v7 Snapshot');
+    const { json } = serializeSnapshot('Legacy v6 Snapshot');
     const parsed = JSON.parse(json) as {
       schemaVersion: number;
       data: {
@@ -157,7 +180,7 @@ describe('snapshot', () => {
         blockBootstrapLength?: number;
       };
     };
-    parsed.schemaVersion = 7;
+    parsed.schemaVersion = 6;
     delete parsed.data.customHistoricalRange;
     delete parsed.data.blockBootstrapEnabled;
     delete parsed.data.blockBootstrapLength;

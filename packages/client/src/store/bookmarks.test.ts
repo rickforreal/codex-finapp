@@ -1,7 +1,7 @@
 import { afterEach, describe, expect, it } from 'vitest';
 import { gzip, ungzip } from 'pako';
 
-import { AssetClass } from '@finapp/shared';
+import { AssetClass, HistoricalEra, SimulationMode } from '@finapp/shared';
 
 import {
   applyBookmark,
@@ -72,6 +72,38 @@ describe('bookmarks', () => {
     expect(beforeApply).toBe(900_000);
     expect(applied.id).toBe(created.id);
     expect(useAppStore.getState().portfolio.stocks).toBe(2_500_000);
+  });
+
+  it('persists and restores custom historical era range via bookmark', () => {
+    const storage = new MemoryStorage();
+    resetStore();
+    useAppStore.setState((state) => ({
+      ...state,
+      simulationMode: SimulationMode.MonteCarlo,
+      selectedHistoricalEra: HistoricalEra.Custom,
+      customHistoricalRange: {
+        start: { month: 9, year: 1939 },
+        end: { month: 2, year: 2020 },
+      },
+    }));
+
+    createBookmark('Custom Era', { storage, createId: () => 'bookmark-custom-era' });
+
+    useAppStore.setState((state) => ({
+      ...state,
+      selectedHistoricalEra: HistoricalEra.FullHistory,
+      customHistoricalRange: null,
+    }));
+
+    applyBookmark('bookmark-custom-era', { storage });
+
+    const restored = useAppStore.getState();
+    expect(restored.simulationMode).toBe(SimulationMode.MonteCarlo);
+    expect(restored.selectedHistoricalEra).toBe(HistoricalEra.Custom);
+    expect(restored.customHistoricalRange).toEqual({
+      start: { month: 9, year: 1939 },
+      end: { month: 2, year: 2020 },
+    });
   });
 
   it('preserves spending phases on bookmark create/load', () => {
@@ -266,6 +298,51 @@ describe('bookmarks', () => {
     store.removeSpendingPhase(useAppStore.getState().spendingPhases[0]?.id ?? '');
     applyBookmark('bookmark-phases', { storage });
     expect(useAppStore.getState().spendingPhases).toHaveLength(0);
+  });
+
+  it('loads legacy v6 bookmark payloads by backfilling custom-range and block-bootstrap defaults', () => {
+    const storage = new MemoryStorage();
+    resetStore();
+    createBookmark('Legacy v6', { storage, createId: () => 'bookmark-v6' });
+
+    const raw = storage.getItem(BOOKMARKS_STORAGE_KEY);
+    if (!raw) {
+      throw new Error('Expected bookmark payload in storage');
+    }
+    const parsed = JSON.parse(raw) as {
+      version: number;
+      bookmarks: Array<{ id: string; name: string; savedAt: string; payload: string }>;
+    };
+    const target = parsed.bookmarks.find((entry) => entry.id === 'bookmark-v6');
+    if (!target) {
+      throw new Error('Expected bookmark-v6 in storage');
+    }
+
+    const decoded = atob(target.payload);
+    const bytes = Uint8Array.from(decoded, (char) => char.charCodeAt(0));
+    const json = ungzip(bytes, { to: 'string' });
+    const snapshot = JSON.parse(json) as {
+      schemaVersion: number;
+      data: {
+        customHistoricalRange?: unknown;
+        blockBootstrapEnabled?: unknown;
+        blockBootstrapLength?: unknown;
+      };
+    };
+    snapshot.schemaVersion = 6;
+    delete snapshot.data.customHistoricalRange;
+    delete snapshot.data.blockBootstrapEnabled;
+    delete snapshot.data.blockBootstrapLength;
+
+    const recompressed = gzip(JSON.stringify(snapshot));
+    target.payload = btoa(String.fromCharCode(...recompressed));
+    storage.setItem(BOOKMARKS_STORAGE_KEY, JSON.stringify(parsed));
+
+    applyBookmark('bookmark-v6', { storage });
+    const restored = useAppStore.getState();
+    expect(restored.customHistoricalRange).toBeNull();
+    expect(restored.blockBootstrapEnabled).toBe(false);
+    expect(restored.blockBootstrapLength).toBe(12);
   });
 
   it('saves and retrieves bookmark description', () => {

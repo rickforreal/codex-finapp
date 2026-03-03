@@ -890,6 +890,11 @@ When the user has selected Monte Carlo mode, this display replaces the Return As
   - A two-thumb month-year range slider appears directly below the dropdown.
   - The first switch to `Custom` initializes from the currently selected preset span.
   - The slider range is bounded by dataset min/max months.
+  - A compact event-label row appears above the slider with independent labels:
+    - left label tracks the start thumb month-year event,
+    - right label tracks the end thumb month-year event.
+  - Event labels use exact month-year matching from a curated catalog; non-event months show no event label text.
+  - Slider thumbs include light magnetic snapping near mapped event months (within ~1 month) to make event-aligned selection easier.
   - Endpoint labels show `MMM YYYY` and updates are inclusive month-year bounds.
   - Switching away from `Custom` and back restores the previously selected custom range.
 

@@ -1825,3 +1825,55 @@
       [AC2] Canonical docs updated: `docs/SPECS.md`, `docs/SCENARIOS.md`, `docs/DATA_MODEL.md`, `docs/API.md`, `docs/ARCHITECTURE.md`.
       [AC3] `npm run typecheck`, `npm run lint`, `npm test`, and `npm run build` pass.
       [AC4] `PROGRESS.txt` append-only completion entry includes canonical-doc impact statement.
+
+## Feature Plan — Historical Era Custom Range v1.1 (Event Labels)
+
+- [x] HCR11-T1: Add event catalog + exact-match resolver for custom range slider
+      Phase: Feature/HistoricalEraCustomRange-v1.1
+      Dependencies: HCR-T5
+      Acceptance Criteria:
+      [AC1] Client event catalog contains broad month-year markers within dataset bounds.
+      [AC2] Resolver returns event label only on exact month-year matches.
+      [AC3] Unit tests validate exact-match/non-match behavior and unique month-year markers.
+
+- [x] HCR11-T2: Render independent start/end event labels in HistoricalDataSummary custom slider
+      Phase: Feature/HistoricalEraCustomRange-v1.1
+      Dependencies: HCR11-T1
+      Acceptance Criteria:
+      [AC1] Start thumb and end thumb each render independent event labels above slider.
+      [AC2] Non-event months display `No mapped event`.
+      [AC3] Existing custom slider behavior (inclusive range, read-only disablement, no auto-run) remains unchanged.
+
+- [x] HCR11-T3: Update feature docs, canonical docs, and pass regression gate
+      Phase: Feature/HistoricalEraCustomRange-v1.1
+      Dependencies: HCR11-T2
+      Acceptance Criteria:
+      [AC1] Feature update folder exists: `docs/features/historical-era-custom-range-v1-1/{FEATURE,PLAN,ACCEPTANCE}.md`.
+      [AC2] Canonical docs updated: `docs/SPECS.md`, `docs/SCENARIOS.md`.
+      [AC3] `npm run typecheck`, `npm run lint`, `npm test`, and `npm run build` pass.
+
+## Feature Plan — Historical Era Custom Range v1.2 (Event Snap)
+
+- [x] HCR12-T1: Add event-month snapping helper and tests
+      Phase: Feature/HistoricalEraCustomRange-v1.2
+      Dependencies: HCR11-T3
+      Acceptance Criteria:
+      [AC1] Helper resolves nearest in-range event month ordinal with threshold snapping.
+      [AC2] Unit tests cover near-event snap and out-of-range no-snap behavior.
+      [AC3] Existing event label lookup behavior remains unchanged.
+
+- [x] HCR12-T2: Apply magnetic event snap to both custom slider thumbs
+      Phase: Feature/HistoricalEraCustomRange-v1.2
+      Dependencies: HCR12-T1
+      Acceptance Criteria:
+      [AC1] Start and end thumb drags snap to event months within threshold.
+      [AC2] Slider still supports non-event months when outside threshold.
+      [AC3] Existing start/end clamp behavior remains valid.
+
+- [x] HCR12-T3: Update feature docs + SPECS and pass client regression gate
+      Phase: Feature/HistoricalEraCustomRange-v1.2
+      Dependencies: HCR12-T2
+      Acceptance Criteria:
+      [AC1] Feature update folder exists: `docs/features/historical-era-custom-range-v1-2/{FEATURE,PLAN,ACCEPTANCE}.md`.
+      [AC2] `docs/SPECS.md` documents magnetic snapping behavior.
+      [AC3] `npm run typecheck -w @finapp/client`, `npm run lint -w @finapp/client`, and `npm run test -w @finapp/client` pass.

@@ -1,8 +1,9 @@
-import { useEffect } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { AssetClass, HistoricalEra, SimulationMode, type HistoricalRange } from '@finapp/shared';
 
 import { fetchHistoricalSummary } from '../../api/historicalApi';
 import { formatPercent } from '../../lib/format';
+import { getHistoricalEventLabel, snapToHistoricalEventOrdinal } from '../../lib/historicalEvents';
 import { useAppStore } from '../../store/useAppStore';
 import { Dropdown } from '../shared/Dropdown';
 import { ToggleSwitch } from '../shared/ToggleSwitch';
@@ -15,6 +16,8 @@ const assetLabel: Record<AssetClass, string> = {
 
 const annualizeReturn = (monthlyMean: number): number => (1 + monthlyMean) ** 12 - 1;
 const annualizeStdDev = (monthlyStdDev: number): number => monthlyStdDev * Math.sqrt(12);
+const EVENT_LABEL_HOLD_MS = 250;
+const EVENT_LABEL_FADE_MS = 100;
 const monthYearFormatter = new Intl.DateTimeFormat('en-US', { month: 'short', year: 'numeric' });
 const toMonthOrdinal = (monthYear: { month: number; year: number }): number =>
   monthYear.year * 12 + (monthYear.month - 1);
@@ -33,6 +36,61 @@ const rangeFromEraOption = (option: {
   start: { year: option.startYear, month: option.startMonth ?? 1 },
   end: { year: option.endYear, month: option.endMonth ?? 12 },
 });
+
+const useDecayingEventLabel = (eventLabel: string | null): { text: string; visible: boolean } => {
+  const [labelState, setLabelState] = useState<{ text: string; visible: boolean }>({
+    text: '',
+    visible: false,
+  });
+  const stateRef = useRef(labelState);
+  const holdTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const fadeTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  useEffect(() => {
+    stateRef.current = labelState;
+  }, [labelState]);
+
+  useEffect(() => {
+    if (holdTimeoutRef.current) {
+      clearTimeout(holdTimeoutRef.current);
+      holdTimeoutRef.current = null;
+    }
+    if (fadeTimeoutRef.current) {
+      clearTimeout(fadeTimeoutRef.current);
+      fadeTimeoutRef.current = null;
+    }
+
+    if (eventLabel) {
+      setLabelState({ text: eventLabel, visible: true });
+      return;
+    }
+
+    if (!stateRef.current.text) {
+      setLabelState({ text: '', visible: false });
+      return;
+    }
+
+    holdTimeoutRef.current = setTimeout(() => {
+      setLabelState((prev) => ({ ...prev, visible: false }));
+      fadeTimeoutRef.current = setTimeout(() => {
+        setLabelState({ text: '', visible: false });
+      }, EVENT_LABEL_FADE_MS);
+    }, EVENT_LABEL_HOLD_MS);
+
+    return () => {
+      if (holdTimeoutRef.current) {
+        clearTimeout(holdTimeoutRef.current);
+        holdTimeoutRef.current = null;
+      }
+      if (fadeTimeoutRef.current) {
+        clearTimeout(fadeTimeoutRef.current);
+        fadeTimeoutRef.current = null;
+      }
+    };
+  }, [eventLabel]);
+
+  return labelState;
+};
 
 const eraCommentary: Record<HistoricalEra, string> = {
   [HistoricalEra.FullHistory]:
@@ -70,6 +128,16 @@ export const HistoricalDataSummary = ({ readOnly }: { readOnly?: boolean }) => {
   const blockBootstrapLength = useAppStore((state) => state.blockBootstrapLength);
   const setBlockBootstrapEnabled = useAppStore((state) => state.setBlockBootstrapEnabled);
   const setBlockBootstrapLength = useAppStore((state) => state.setBlockBootstrapLength);
+  const sliderStartEventLabel =
+    selectedHistoricalEra === HistoricalEra.Custom && customHistoricalRange
+      ? getHistoricalEventLabel(customHistoricalRange.start.month, customHistoricalRange.start.year)
+      : null;
+  const sliderEndEventLabel =
+    selectedHistoricalEra === HistoricalEra.Custom && customHistoricalRange
+      ? getHistoricalEventLabel(customHistoricalRange.end.month, customHistoricalRange.end.year)
+      : null;
+  const startEventLabelState = useDecayingEventLabel(sliderStartEventLabel);
+  const endEventLabelState = useDecayingEventLabel(sliderEndEventLabel);
 
   useEffect(() => {
     if (simulationMode !== SimulationMode.MonteCarlo) {
@@ -195,47 +263,73 @@ export const HistoricalDataSummary = ({ readOnly }: { readOnly?: boolean }) => {
               {formatMonthYear(activeCustomRange.start)} - {formatMonthYear(activeCustomRange.end)}
             </span>
           </div>
-          <div className="relative h-7">
-            <div className="absolute left-0 right-0 top-3 h-1 rounded-full bg-slate-200" />
-            <div
-              className="absolute top-3 h-1 rounded-full bg-brand-blue"
-              style={{
-                left: `${((startOrdinal - minMonthOrdinal) / span) * 100}%`,
-                width: `${((endOrdinal - startOrdinal) / span) * 100}%`,
-              }}
-            />
-            <input
-              type="range"
-              min={minMonthOrdinal}
-              max={maxMonthOrdinal}
-              step={1}
-              value={startOrdinal}
-              onChange={(event) => {
-                const nextStart = Math.min(Number(event.target.value), endOrdinal);
-                setCustomHistoricalRange({
-                  start: fromMonthOrdinal(nextStart),
-                  end: activeCustomRange.end,
-                });
-              }}
-              disabled={readOnly}
-              className="dual-range dual-range--start"
-            />
-            <input
-              type="range"
-              min={minMonthOrdinal}
-              max={maxMonthOrdinal}
-              step={1}
-              value={endOrdinal}
-              onChange={(event) => {
-                const nextEnd = Math.max(Number(event.target.value), startOrdinal);
-                setCustomHistoricalRange({
-                  start: activeCustomRange.start,
-                  end: fromMonthOrdinal(nextEnd),
-                });
-              }}
-              disabled={readOnly}
-              className="dual-range dual-range--end"
-            />
+          <div className="relative h-11">
+            <div className="pointer-events-none absolute left-0 right-0 top-0 flex items-center justify-between gap-3 text-[10px] text-slate-500">
+              <span
+                className={`max-w-[48%] truncate text-left transition-opacity duration-100 ${startEventLabelState.visible ? 'opacity-100' : 'opacity-0'}`}
+                title={startEventLabelState.text || undefined}
+              >
+                {startEventLabelState.text}
+              </span>
+              <span
+                className={`max-w-[48%] truncate text-right transition-opacity duration-100 ${endEventLabelState.visible ? 'opacity-100' : 'opacity-0'}`}
+                title={endEventLabelState.text || undefined}
+              >
+                {endEventLabelState.text}
+              </span>
+            </div>
+            <div className="absolute bottom-0 left-0 right-0 h-7">
+              <div className="absolute left-0 right-0 top-3 h-1 rounded-full bg-slate-200" />
+              <div
+                className="absolute top-3 h-1 rounded-full bg-brand-blue"
+                style={{
+                  left: `${((startOrdinal - minMonthOrdinal) / span) * 100}%`,
+                  width: `${((endOrdinal - startOrdinal) / span) * 100}%`,
+                }}
+              />
+              <input
+                type="range"
+                min={minMonthOrdinal}
+                max={maxMonthOrdinal}
+                step={1}
+                value={startOrdinal}
+                onChange={(event) => {
+                  const rawStart = Number(event.target.value);
+                  const snappedStart = snapToHistoricalEventOrdinal(rawStart, {
+                    minOrdinal: minMonthOrdinal,
+                    maxOrdinal: maxMonthOrdinal,
+                  });
+                  const nextStart = Math.min(snappedStart, endOrdinal);
+                  setCustomHistoricalRange({
+                    start: fromMonthOrdinal(nextStart),
+                    end: activeCustomRange.end,
+                  });
+                }}
+                disabled={readOnly}
+                className="dual-range dual-range--start"
+              />
+              <input
+                type="range"
+                min={minMonthOrdinal}
+                max={maxMonthOrdinal}
+                step={1}
+                value={endOrdinal}
+                onChange={(event) => {
+                  const rawEnd = Number(event.target.value);
+                  const snappedEnd = snapToHistoricalEventOrdinal(rawEnd, {
+                    minOrdinal: minMonthOrdinal,
+                    maxOrdinal: maxMonthOrdinal,
+                  });
+                  const nextEnd = Math.max(snappedEnd, startOrdinal);
+                  setCustomHistoricalRange({
+                    start: activeCustomRange.start,
+                    end: fromMonthOrdinal(nextEnd),
+                  });
+                }}
+                disabled={readOnly}
+                className="dual-range dual-range--end"
+              />
+            </div>
           </div>
           <div className="flex items-center justify-between text-[10px] text-slate-500">
             <span>{formatMonthYear(fromMonthOrdinal(minMonthOrdinal))}</span>
