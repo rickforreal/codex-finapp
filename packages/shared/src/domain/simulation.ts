@@ -3,6 +3,7 @@ import {
   AssetClass,
   DrawdownStrategyType,
   HistoricalEra,
+  ReturnSource,
   SimulationMode,
   WithdrawalStrategyType,
 } from '../constants/enums';
@@ -164,6 +165,8 @@ export interface ExpenseEvent {
 export interface SimulationConfig {
   mode: AppMode;
   simulationMode: SimulationMode;
+  returnsSource?: ReturnSource;
+  simulationRuns?: number;
   selectedHistoricalEra: HistoricalEra;
   customHistoricalRange: HistoricalRange | null;
   blockBootstrapEnabled: boolean;

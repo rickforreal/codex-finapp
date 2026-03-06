@@ -30,6 +30,11 @@ export enum SimulationMode {
   MonteCarlo = 'monteCarlo',
 }
 
+export enum ReturnSource {
+  Manual = 'manual',
+  Historical = 'historical',
+}
+
 export enum HistoricalEra {
   FullHistory = 'fullHistory',
   DepressionEra = 'depressionEra',

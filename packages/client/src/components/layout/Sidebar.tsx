@@ -1,4 +1,4 @@
-import { SimulationMode } from '@finapp/shared';
+import { ReturnSource } from '@finapp/shared';
 
 import { CoreParameters } from '../inputs/CoreParameters';
 import { StartingPortfolio } from '../inputs/StartingPortfolio';
@@ -11,6 +11,7 @@ import { IncomeEvents } from '../inputs/IncomeEvents/IncomeEvents';
 import { ExpenseEvents } from '../inputs/ExpenseEvents/ExpenseEvents';
 import { CollapsibleSection } from '../shared/CollapsibleSection';
 import { CompareSyncControl } from '../shared/CompareSyncControl';
+import { SegmentedToggle } from '../shared/SegmentedToggle';
 import { getCompareSlotColorVar } from '../../lib/compareSlotColors';
 import { useAppStore, useCompareFamilyLockUiState } from '../../store/useAppStore';
 
@@ -25,10 +26,30 @@ const sectionIds = {
   expense: 'expense',
 };
 
+const SIMULATION_RUN_MIN = 1;
+const SIMULATION_RUN_MAX = 10000;
+const SIMULATION_RUN_MAGNET_STOPS = [100, 500, 1000, 5000] as const;
+
+const snapSimulationRuns = (raw: number): number => {
+  const clamped = Math.max(SIMULATION_RUN_MIN, Math.min(SIMULATION_RUN_MAX, Math.round(raw)));
+  const closestStop = SIMULATION_RUN_MAGNET_STOPS.reduce((closest, stop) =>
+    Math.abs(stop - clamped) < Math.abs(closest - clamped) ? stop : closest,
+  );
+  const snapWindow = Math.max(20, Math.round(closestStop * 0.08));
+  if (Math.abs(closestStop - clamped) <= snapWindow) {
+    return closestStop;
+  }
+  return clamped;
+};
+
 export const Sidebar = () => {
   const collapsed = useAppStore((state) => state.ui.collapsedSections);
   const toggleSection = useAppStore((state) => state.toggleSection);
-  const simulationMode = useAppStore((state) => state.simulationMode);
+  const returnsSource = useAppStore((state) => state.returnsSource);
+  const simulationRuns = useAppStore((state) => state.simulationRuns);
+  const returnAssumptions = useAppStore((state) => state.returnAssumptions);
+  const setReturnsSource = useAppStore((state) => state.setReturnsSource);
+  const setSimulationRuns = useAppStore((state) => state.setSimulationRuns);
   const compareActiveSlot = useAppStore((state) => state.compareWorkspace.activeSlotId);
   const compareSlotOrder = useAppStore((state) => state.compareWorkspace.slotOrder);
   const compareBaselineSlot = useAppStore((state) => state.compareWorkspace.baselineSlotId);
@@ -47,6 +68,12 @@ export const Sidebar = () => {
   const incomeSync = useCompareFamilyLockUiState('incomeEvents');
   const expenseSync = useCompareFamilyLockUiState('expenseEvents');
   const historicalSync = useCompareFamilyLockUiState('historicalEra');
+  const returnsControlsReadOnly = returnsSync.readOnly || historicalSync.readOnly;
+  const manualDeterministic =
+    returnsSource === ReturnSource.Manual &&
+    returnAssumptions.stocks.stdDev <= 0 &&
+    returnAssumptions.bonds.stdDev <= 0 &&
+    returnAssumptions.cash.stdDev <= 0;
   const canAddCompareSlot = compareSlotOrder.length < 8;
   const canRemoveCompareSlot = compareSlotOrder.length > 1;
 
@@ -178,11 +205,11 @@ export const Sidebar = () => {
 
       <CollapsibleSection
         id={sectionIds.returns}
-        title={simulationMode === SimulationMode.Manual ? 'Return Assumptions' : 'Historical Data'}
+        title="Returns"
         collapsed={Boolean(collapsed[sectionIds.returns])}
         onToggle={toggleSection}
         headerAction={
-          simulationMode === SimulationMode.Manual ? (
+          returnsSource === ReturnSource.Manual ? (
             <CompareSyncControl
               slotId={returnsSync.slotId}
               locked={returnsSync.locked}
@@ -205,11 +232,56 @@ export const Sidebar = () => {
           )
         }
       >
-        {simulationMode === SimulationMode.Manual ? (
-          <ReturnAssumptions />
-        ) : (
-          <HistoricalDataSummary readOnly={historicalSync.readOnly} />
-        )}
+        <div className="space-y-3">
+          <SegmentedToggle
+            value={returnsSource}
+            onChange={(nextSource) => {
+              if (returnsControlsReadOnly) {
+                return;
+              }
+              setReturnsSource(nextSource);
+            }}
+            className="w-full"
+            options={[
+              { label: 'Manual', value: ReturnSource.Manual },
+              { label: 'Historical', value: ReturnSource.Historical },
+            ]}
+          />
+          <div className="rounded border border-brand-border p-2">
+            <div className="mb-1 flex items-center justify-between gap-2">
+              <p className="text-xs font-medium text-[var(--theme-color-text-secondary)]">
+                Simulation Runs
+              </p>
+              <p className="text-[11px] text-[var(--theme-color-text-secondary)]">
+                {manualDeterministic ? 'Effective: 1' : `Effective: ${simulationRuns}`}
+              </p>
+            </div>
+            <input
+              type="range"
+              min={SIMULATION_RUN_MIN}
+              max={SIMULATION_RUN_MAX}
+              step={1}
+              value={simulationRuns}
+              onChange={(event) => setSimulationRuns(snapSimulationRuns(Number(event.target.value)))}
+              disabled={returnsControlsReadOnly}
+              className="w-full accent-brand-blue disabled:cursor-not-allowed disabled:opacity-60"
+            />
+            <div className="mt-1 flex items-center justify-between text-[10px] text-[var(--theme-color-text-secondary)]">
+              <span>1</span>
+              <span>10000</span>
+            </div>
+            {manualDeterministic ? (
+              <p className="mt-1 text-[11px] text-[var(--theme-color-text-secondary)]">
+                All Std Dev values are 0%, so runs collapse to a deterministic single path.
+              </p>
+            ) : null}
+          </div>
+          {returnsSource === ReturnSource.Manual ? (
+            <ReturnAssumptions readOnly={returnsSync.readOnly} />
+          ) : (
+            <HistoricalDataSummary readOnly={historicalSync.readOnly} />
+          )}
+        </div>
       </CollapsibleSection>
 
       <CollapsibleSection

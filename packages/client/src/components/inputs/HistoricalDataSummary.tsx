@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import { AssetClass, HistoricalEra, SimulationMode, type HistoricalRange } from '@finapp/shared';
+import { AssetClass, HistoricalEra, type HistoricalRange } from '@finapp/shared';
 
 import { fetchHistoricalSummary } from '../../api/historicalApi';
 import { formatPercent } from '../../lib/format';
@@ -117,7 +117,6 @@ export const HistoricalDataSummary = ({ readOnly }: { readOnly?: boolean }) => {
   const summary = useAppStore((state) => state.historicalData.summary);
   const status = useAppStore((state) => state.historicalData.status);
   const errorMessage = useAppStore((state) => state.historicalData.errorMessage);
-  const simulationMode = useAppStore((state) => state.simulationMode);
   const selectedHistoricalEra = useAppStore((state) => state.selectedHistoricalEra);
   const customHistoricalRange = useAppStore((state) => state.customHistoricalRange);
   const setSelectedHistoricalEra = useAppStore((state) => state.setSelectedHistoricalEra);
@@ -140,9 +139,6 @@ export const HistoricalDataSummary = ({ readOnly }: { readOnly?: boolean }) => {
   const endEventLabelState = useDecayingEventLabel(sliderEndEventLabel);
 
   useEffect(() => {
-    if (simulationMode !== SimulationMode.MonteCarlo) {
-      return;
-    }
     if (selectedHistoricalEra === HistoricalEra.Custom && !customHistoricalRange && summary) {
       const source = summary.eras[0] ?? summary.selectedEra;
       setCustomHistoricalRange(rangeFromEraOption(source));
@@ -151,14 +147,10 @@ export const HistoricalDataSummary = ({ readOnly }: { readOnly?: boolean }) => {
     customHistoricalRange,
     selectedHistoricalEra,
     setCustomHistoricalRange,
-    simulationMode,
     summary,
   ]);
 
   useEffect(() => {
-    if (simulationMode !== SimulationMode.MonteCarlo) {
-      return;
-    }
     if (selectedHistoricalEra === HistoricalEra.Custom && !customHistoricalRange) {
       return;
     }
@@ -180,7 +172,6 @@ export const HistoricalDataSummary = ({ readOnly }: { readOnly?: boolean }) => {
     selectedHistoricalEra,
     setHistoricalSummary,
     setHistoricalSummaryStatus,
-    simulationMode,
   ]);
 
   if (status === 'loading' && !summary) {
@@ -192,7 +183,7 @@ export const HistoricalDataSummary = ({ readOnly }: { readOnly?: boolean }) => {
   }
 
   if (!summary) {
-    return <p className="text-xs text-slate-500 px-1">Select Monte Carlo mode to load historical data summary.</p>;
+    return <p className="text-xs text-slate-500 px-1">Loading historical return summary...</p>;
   }
 
   const eraOptions = summary.eras.map((era) => ({

@@ -2151,3 +2151,17 @@ Validation rerun (all passing):
 - `npm run lint`
 - `npm test`
 - `npm run build`
+- RSU-T1..RSU-T5 complete: Returns source unification implemented (Manual/Historical source + run count) and command-bar simulation-type toggle removed.
+  - Shared contracts updated with `ReturnSource` and optional `simulationRuns` (`packages/shared/src/constants/enums.ts`, `packages/shared/src/domain/simulation.ts`, `packages/shared/src/contracts/schemas.ts`).
+  - Server route now normalizes effective run mode from source/runs/std-dev and returns normalized `configSnapshot` (`packages/server/src/routes/simulation.ts`).
+  - Monte Carlo engine now supports both historical sampling and manual-assumption stochastic sampling at up to 10,000 runs (`packages/server/src/engine/monteCarlo.ts`).
+  - Client sidebar now has unified `Returns` section with Manual/Historical toggle + simulation runs input, and source-specific detail panel (`packages/client/src/components/layout/Sidebar.tsx`, `packages/client/src/components/inputs/ReturnAssumptions.tsx`, `packages/client/src/components/inputs/HistoricalDataSummary.tsx`).
+  - Command bar run flow now stores results by `response.simulationMode` to avoid stale mode mismatches (`packages/client/src/components/layout/CommandBar.tsx`).
+  - Snapshot/store plumbing now persists + backfills `returnsSource` and `simulationRuns` for compatibility (`packages/client/src/store/useAppStore.ts`, `packages/client/src/store/snapshot.ts`).
+  - Server fixtures/routes tests updated for explicit manual-path requests where required (`packages/server/tests/fixtures.ts`, `packages/server/tests/routes/simulation.test.ts`).
+
+Validation run (all passing):
+- `npm run typecheck`
+- `npm run lint`
+- `npm test`
+- `npm run build`

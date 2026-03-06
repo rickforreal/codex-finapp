@@ -141,10 +141,8 @@ export const CommandBar = () => {
   const [commandMessage, setCommandMessage] = useState<string | null>(null);
   const mode = useAppStore((state) => state.mode);
   const isCompareActive = useIsCompareActive();
-  const simulationMode = useAppStore((state) => state.simulationMode);
   const status = useAppStore((state) => state.simulationResults.status);
   const setMode = useAppStore((state) => state.setMode);
-  const setSimulationMode = useAppStore((state) => state.setSimulationMode);
   const setSimulationStatus = useAppStore((state) => state.setSimulationStatus);
   const setSimulationResult = useAppStore((state) => state.setSimulationResult);
   const setCompareSlotSimulationStatus = useAppStore(
@@ -418,9 +416,6 @@ export const CommandBar = () => {
           );
           return;
         }
-        compareConfigs.forEach((entry) => {
-          entry.config.simulationMode = simulationMode;
-        });
         const hasInvalidAllocation = compareConfigs.some(({ config }) => {
           if (config.drawdownStrategy.type !== DrawdownStrategyType.Rebalancing) {
             return false;
@@ -456,13 +451,14 @@ export const CommandBar = () => {
             }
             const { slotId, config } = next;
             try {
+              const requestedMode = config.simulationMode;
               const existingResultForSlot = (() => {
                 const workspace = compareWorkspace.slots[slotId];
                 if (!workspace) {
                   return null;
                 }
                 const preferred =
-                  simulationMode === SimulationMode.Manual
+                  requestedMode === SimulationMode.Manual
                     ? workspace.simulationResults.manual
                     : workspace.simulationResults.monteCarlo;
                 return (
@@ -508,9 +504,9 @@ export const CommandBar = () => {
                     },
                   },
                 };
-                setCompareSlotSimulationResult(slotId, simulationMode, mergedResponse);
+                setCompareSlotSimulationResult(slotId, response.simulationMode, mergedResponse);
               } else {
-                setCompareSlotSimulationResult(slotId, simulationMode, response);
+                setCompareSlotSimulationResult(slotId, response.simulationMode, response);
               }
             } catch (error) {
               const message =
@@ -533,8 +529,6 @@ export const CommandBar = () => {
         mode === AppMode.Tracking ? getTrackingActualOverridesForRun() : undefined;
       if (
         mode === AppMode.Tracking &&
-        (simulationMode === SimulationMode.Manual ||
-          simulationMode === SimulationMode.MonteCarlo) &&
         lastEditedMonthIndex !== null
       ) {
         const state = useAppStore.getState();
@@ -568,7 +562,7 @@ export const CommandBar = () => {
             },
           },
         };
-        setSimulationResult(simulationMode, mergedResult);
+        setSimulationResult(result.simulationMode, mergedResult);
         return;
       }
 
@@ -576,7 +570,7 @@ export const CommandBar = () => {
         config,
         actualOverridesByMonth: trackingActualOverrides,
       });
-      setSimulationResult(simulationMode, result);
+      setSimulationResult(result.simulationMode, result);
     } catch (error) {
       const message = error instanceof Error ? error.message : 'Unknown simulation error';
       setSimulationStatus('error', message);
@@ -607,20 +601,6 @@ export const CommandBar = () => {
                 options={[
                   { label: 'Planning', value: AppMode.Planning },
                   { label: 'Tracking', value: AppMode.Tracking },
-                ]}
-              />
-            </div>
-
-            <div className="flex min-w-[210px] flex-col gap-1">
-              <p className="theme-commandbar-section-label px-1 text-[10px] font-semibold uppercase tracking-[0.14em]">
-                Simulation Type
-              </p>
-              <SegmentedToggle
-                value={simulationMode}
-                onChange={setSimulationMode}
-                options={[
-                  { label: 'Manual', value: SimulationMode.Manual },
-                  { label: 'Monte Carlo', value: SimulationMode.MonteCarlo },
                 ]}
               />
             </div>

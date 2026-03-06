@@ -5,6 +5,7 @@ import {
   AssetClass,
   DrawdownStrategyType,
   HistoricalEra,
+  ReturnSource,
   ThemeAppearance,
   ThemeFamilyId,
   SimulationMode,
@@ -144,6 +145,8 @@ const simulationConfigSchema = z
   .object({
     mode: z.nativeEnum(AppMode),
     simulationMode: z.nativeEnum(SimulationMode),
+    returnsSource: z.nativeEnum(ReturnSource).optional().default(ReturnSource.Historical),
+    simulationRuns: z.number().int().min(1).max(10000).optional().default(1000),
     selectedHistoricalEra: z.nativeEnum(HistoricalEra),
     customHistoricalRange: historicalRangeSchema.nullable(),
     blockBootstrapEnabled: z.boolean(),

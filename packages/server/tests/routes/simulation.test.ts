@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import { HistoricalEra, SimulationMode } from '@finapp/shared';
+import { HistoricalEra, ReturnSource, SimulationMode } from '@finapp/shared';
 
 import { createApp } from '../../src/app';
 import { createSimulateRequest } from '../fixtures';
@@ -8,11 +8,15 @@ import { createSimulateRequest } from '../fixtures';
 describe('POST /api/v1/simulate', () => {
   it('should return 200 and simulation response for valid request', async () => {
     const app = createApp();
+    const request = createSimulateRequest();
+    request.config.returnsSource = ReturnSource.Manual;
+    request.config.simulationRuns = 1;
+    request.config.simulationMode = SimulationMode.Manual;
 
     const response = await app.inject({
       method: 'POST',
       url: '/api/v1/simulate',
-      payload: createSimulateRequest(),
+      payload: request,
     });
 
     expect(response.statusCode).toBe(200);
@@ -86,6 +90,9 @@ describe('POST /api/v1/simulate', () => {
   it('applies manual overrides in manual mode simulation', async () => {
     const app = createApp();
     const request = createSimulateRequest();
+    request.config.returnsSource = ReturnSource.Manual;
+    request.config.simulationRuns = 1;
+    request.config.simulationMode = SimulationMode.Manual;
     request.actualOverridesByMonth = {
       1: {
         startBalances: { stocks: 1_000_000 },

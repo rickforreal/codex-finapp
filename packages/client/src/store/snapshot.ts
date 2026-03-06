@@ -3,6 +3,7 @@ import { z } from 'zod';
 import {
   AppMode,
   HistoricalEra,
+  ReturnSource,
   SimulationMode,
   ThemeAppearance,
   ThemeFamilyId,
@@ -26,6 +27,8 @@ const MIN_SUPPORTED_SNAPSHOT_SCHEMA_VERSION = 6;
 const DEFAULT_CUSTOM_HISTORICAL_RANGE = null;
 const DEFAULT_BLOCK_BOOTSTRAP_ENABLED = false;
 const DEFAULT_BLOCK_BOOTSTRAP_LENGTH = 12;
+const DEFAULT_RETURNS_SOURCE = ReturnSource.Historical;
+const DEFAULT_SIMULATION_RUNS = 1000;
 
 export const PACKED_ROW_COLUMNS = [
   'monthIndex',
@@ -152,6 +155,8 @@ const snapshotStateSchema = z
     trackingWorkspace: z.unknown().nullable(),
     compareWorkspace: z.unknown().optional(),
     simulationMode: z.nativeEnum(SimulationMode),
+    returnsSource: z.nativeEnum(ReturnSource).optional().default(DEFAULT_RETURNS_SOURCE),
+    simulationRuns: z.number().int().min(1).max(10000).optional().default(DEFAULT_SIMULATION_RUNS),
     selectedHistoricalEra: z.nativeEnum(HistoricalEra),
     customHistoricalRange: z
       .object({
@@ -675,6 +680,9 @@ const unpackWorkspace = (workspace: unknown): WorkspaceSnapshot | null => {
   }
 
   const record = workspace as Omit<WorkspaceSnapshot, 'simulationResults' | 'stress'> & {
+    returnsSource?: unknown;
+    simulationRuns?: unknown;
+    simulationMode?: unknown;
     customHistoricalRange?: unknown;
     blockBootstrapEnabled?: unknown;
     blockBootstrapLength?: unknown;
@@ -686,8 +694,30 @@ const unpackWorkspace = (workspace: unknown): WorkspaceSnapshot | null => {
     throw invalidSnapshot();
   }
 
+  const simulationRuns =
+    typeof record.simulationRuns === 'number' &&
+    Number.isInteger(record.simulationRuns) &&
+    record.simulationRuns >= 1 &&
+    record.simulationRuns <= 10000
+      ? record.simulationRuns
+      : DEFAULT_SIMULATION_RUNS;
+  const returnsSource =
+    record.returnsSource === ReturnSource.Manual || record.returnsSource === ReturnSource.Historical
+      ? record.returnsSource
+      : DEFAULT_RETURNS_SOURCE;
+  const simulationMode =
+    record.simulationMode === SimulationMode.Manual ||
+    record.simulationMode === SimulationMode.MonteCarlo
+      ? record.simulationMode
+      : simulationRuns > 1
+        ? SimulationMode.MonteCarlo
+        : SimulationMode.Manual;
+
   return {
     ...record,
+    simulationMode,
+    returnsSource,
+    simulationRuns,
     customHistoricalRange:
       record.customHistoricalRange &&
       typeof record.customHistoricalRange === 'object' &&
@@ -986,6 +1016,8 @@ const unpackSnapshotState = (packed: unknown): SnapshotState => {
 
   const unpacked: SnapshotState = {
     ...data,
+    returnsSource: data.returnsSource ?? DEFAULT_RETURNS_SOURCE,
+    simulationRuns: data.simulationRuns ?? DEFAULT_SIMULATION_RUNS,
     customHistoricalRange: data.customHistoricalRange ?? DEFAULT_CUSTOM_HISTORICAL_RANGE,
     blockBootstrapEnabled: data.blockBootstrapEnabled ?? DEFAULT_BLOCK_BOOTSTRAP_ENABLED,
     blockBootstrapLength: data.blockBootstrapLength ?? DEFAULT_BLOCK_BOOTSTRAP_LENGTH,

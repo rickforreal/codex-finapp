@@ -2,6 +2,8 @@ import {
   AssetClass,
   type ActualOverridesByMonth,
   HistoricalEra,
+  ReturnSource,
+  SimulationMode,
   type MonthlyReturns,
   type MonteCarloPercentileCurves,
   type MonteCarloResult,
@@ -14,7 +16,7 @@ import {
   type HistoricalMonth,
 } from './historicalData';
 import { createSeededRandom } from './helpers/returns';
-import { simulateRetirement } from './simulator';
+import { generateMonthlyReturnsFromAssumptions, simulateRetirement } from './simulator';
 
 type MonteCarloOptions = {
   runs?: number;
@@ -107,13 +109,21 @@ export const runMonteCarlo = async (
   config: SimulationConfig,
   options: MonteCarloOptions = {},
 ): Promise<{ representativePath: ReturnType<typeof simulateRetirement>; monteCarlo: MonteCarloResult; seedUsed?: number }> => {
-  const simulationCount = Math.max(1, Math.min(options.runs ?? 1000, 5000));
+  const simulationCount = Math.max(1, Math.min(options.runs ?? config.simulationRuns ?? 1000, 10000));
   const durationMonths = config.coreParams.retirementDuration * 12;
+  const returnsSource =
+    config.returnsSource ??
+    (config.simulationMode === SimulationMode.Manual
+      ? ReturnSource.Manual
+      : ReturnSource.Historical);
   const customRange =
     config.selectedHistoricalEra === HistoricalEra.Custom ? config.customHistoricalRange : null;
-  const historicalMonths = await getHistoricalMonthsForSelection(config.selectedHistoricalEra, customRange);
+  const historicalMonths =
+    returnsSource === ReturnSource.Historical
+      ? await getHistoricalMonthsForSelection(config.selectedHistoricalEra, customRange)
+      : [];
   const historicalSummary = await getHistoricalDataSummaryForSelection(config.selectedHistoricalEra, customRange);
-  if (historicalMonths.length === 0) {
+  if (returnsSource === ReturnSource.Historical && historicalMonths.length === 0) {
     throw new Error('No historical data rows available for selected era');
   }
 
@@ -132,9 +142,15 @@ export const runMonteCarlo = async (
       options.seed === undefined
         ? Math.random
         : createSeededRandom(options.seed + runIndex * 9_973);
-    const returns = config.blockBootstrapEnabled
-      ? sampleHistoricalReturnsBlock(historicalMonths, durationMonths, config.blockBootstrapLength, random)
-      : sampleHistoricalReturnsIid(historicalMonths, durationMonths, random);
+    const returns =
+      returnsSource === ReturnSource.Manual
+        ? generateMonthlyReturnsFromAssumptions(
+            config,
+            options.seed === undefined ? undefined : options.seed + runIndex * 9_973,
+          )
+        : config.blockBootstrapEnabled
+          ? sampleHistoricalReturnsBlock(historicalMonths, durationMonths, config.blockBootstrapLength, random)
+          : sampleHistoricalReturnsIid(historicalMonths, durationMonths, random);
     const transformedReturns = options.transformReturns ? options.transformReturns(returns, runIndex) : returns;
     const path = simulateRetirement(
       config,

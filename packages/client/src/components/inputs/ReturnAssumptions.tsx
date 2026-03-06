@@ -1,18 +1,12 @@
-import { AssetClass, SimulationMode } from '@finapp/shared';
+import { AssetClass } from '@finapp/shared';
 
 import { PercentInput } from '../shared/PercentInput';
-import { useAppStore, useCompareFamilyLockUiState } from '../../store/useAppStore';
+import { useAppStore } from '../../store/useAppStore';
 
-export const ReturnAssumptions = () => {
-  const simulationMode = useAppStore((state) => state.simulationMode);
+export const ReturnAssumptions = ({ readOnly = false }: { readOnly?: boolean }) => {
   const assumptions = useAppStore((state) => state.returnAssumptions);
   const setReturnAssumption = useAppStore((state) => state.setReturnAssumption);
-  const lockState = useCompareFamilyLockUiState('returnAssumptions');
-  const disabled = lockState.readOnly;
-
-  if (simulationMode !== SimulationMode.Manual) {
-    return null;
-  }
+  const disabled = readOnly;
 
   return (
     <div className="space-y-3">

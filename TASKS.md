@@ -1888,3 +1888,45 @@ Acceptance Criteria:
       [AC1] Feature update folder exists: `docs/features/historical-era-custom-range-v1-2/{FEATURE,PLAN,ACCEPTANCE}.md`.
       [AC2] `docs/SPECS.md` documents magnetic snapping behavior.
       [AC3] `npm run typecheck -w @finapp/client`, `npm run lint -w @finapp/client`, and `npm run test -w @finapp/client` pass.
+
+## Feature Plan — Returns Source Unification
+
+- [x] RSU-T1: Extend shared/server contracts for `returnsSource` and `simulationRuns`
+      Phase: Feature/ReturnsSourceUnification
+      Dependencies: none
+      Acceptance Criteria:
+      [AC1] `SimulationConfig` supports `returnsSource` and `simulationRuns`.
+      [AC2] Request schema validates and defaults both fields.
+      [AC3] Server normalizes effective simulation mode from source/runs/std-dev behavior.
+
+- [x] RSU-T2: Update Monte Carlo engine to support manual-assumption sampling
+      Phase: Feature/ReturnsSourceUnification
+      Dependencies: RSU-T1
+      Acceptance Criteria:
+      [AC1] MC uses historical sampling when `returnsSource=historical`.
+      [AC2] MC uses stochastic assumption sampling when `returnsSource=manual`.
+      [AC3] Simulation count supports `1..10000`.
+
+- [x] RSU-T3: Replace command-bar simulation-type toggle with source-driven returns workflow
+      Phase: Feature/ReturnsSourceUnification
+      Dependencies: RSU-T1
+      Acceptance Criteria:
+      [AC1] Command bar no longer exposes Manual/Monte Carlo selector.
+      [AC2] Sidebar returns section owns Manual/Historical source toggle.
+      [AC3] Sidebar exposes simulation run count control.
+
+- [x] RSU-T4: Wire store/snapshot compatibility for source/runs
+      Phase: Feature/ReturnsSourceUnification
+      Dependencies: RSU-T1
+      Acceptance Criteria:
+      [AC1] Workspace + snapshot state persist `returnsSource` and `simulationRuns`.
+      [AC2] Legacy snapshots load with defaults and without schema failures.
+      [AC3] Compare family sync propagates source/runs where applicable.
+
+- [x] RSU-T5: Regression pass
+      Phase: Feature/ReturnsSourceUnification
+      Dependencies: RSU-T2, RSU-T3, RSU-T4
+      Acceptance Criteria:
+      [AC1] `npm run typecheck` passes.
+      [AC2] `npm run lint` passes.
+      [AC3] `npm test` and `npm run build` pass.

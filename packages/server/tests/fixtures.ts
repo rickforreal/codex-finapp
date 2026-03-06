@@ -3,6 +3,7 @@ import {
   AssetClass,
   DrawdownStrategyType,
   HistoricalEra,
+  ReturnSource,
   SimulationMode,
   WithdrawalStrategyType,
   type MonthlyReturns,
@@ -13,6 +14,8 @@ import {
 export const createBaseConfig = (): SimulationConfig => ({
   mode: AppMode.Planning,
   simulationMode: SimulationMode.Manual,
+  returnsSource: ReturnSource.Historical,
+  simulationRuns: 1000,
   selectedHistoricalEra: HistoricalEra.FullHistory,
   customHistoricalRange: null,
   blockBootstrapEnabled: false,

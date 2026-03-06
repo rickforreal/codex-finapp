@@ -5,6 +5,7 @@ import {
   AssetClass,
   DrawdownStrategyType,
   HistoricalEra,
+  ReturnSource,
   SimulationMode,
   ThemeAppearance,
   ThemeFamilyId,
@@ -67,6 +68,9 @@ type RunStatus = 'idle' | 'running' | 'complete' | 'error';
 type ReforecastStatus = 'idle' | 'pending' | 'complete';
 type StressRunStatus = 'idle' | 'running' | 'complete' | 'error';
 type ThemeStatus = 'idle' | 'loading' | 'ready' | 'error';
+const DEFAULT_SIMULATION_RUNS = 1000;
+const MIN_SIMULATION_RUNS = 1;
+const MAX_SIMULATION_RUNS = 10000;
 export const COMPARE_SLOT_IDS = ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H'] as const;
 export type CompareSlotId = (typeof COMPARE_SLOT_IDS)[number];
 export const COMPARE_SYNC_FAMILIES = [
@@ -156,6 +160,8 @@ type WithdrawalStrategyParamsForm = {
 
 export type WorkspaceSnapshot = {
   simulationMode: SimulationMode;
+  returnsSource: ReturnSource;
+  simulationRuns: number;
   selectedHistoricalEra: HistoricalEra;
   customHistoricalRange: HistoricalRange | null;
   blockBootstrapEnabled: boolean;
@@ -233,6 +239,8 @@ export type SnapshotState = {
     compareSync: CompareSyncState;
   };
   simulationMode: SimulationMode;
+  returnsSource: ReturnSource;
+  simulationRuns: number;
   selectedHistoricalEra: HistoricalEra;
   customHistoricalRange: HistoricalRange | null;
   blockBootstrapEnabled: boolean;
@@ -355,6 +363,8 @@ export type AppStore = SnapshotState & {
   clearActualRowOverrides: (monthIndex: number) => void;
   clearAllActualOverrides: () => void;
   setSimulationMode: (mode: SimulationMode) => void;
+  setReturnsSource: (source: ReturnSource) => void;
+  setSimulationRuns: (runs: number) => void;
   setSelectedHistoricalEra: (era: HistoricalEra) => void;
   setCustomHistoricalRange: (range: HistoricalRange) => void;
   setBlockBootstrapEnabled: (enabled: boolean) => void;
@@ -1089,6 +1099,9 @@ const applyCompareSyncFromMaster = (
             bonds: { ...master.returnAssumptions.bonds },
             cash: { ...master.returnAssumptions.cash },
           };
+          workspace.returnsSource = master.returnsSource;
+          workspace.simulationRuns = master.simulationRuns;
+          workspace.simulationMode = master.simulationMode;
           break;
         case 'spendingPhases':
           workspace.spendingPhases = master.spendingPhases.map((phase) => ({ ...phase }));
@@ -1132,6 +1145,9 @@ const applyCompareSyncFromMaster = (
           workspace.customHistoricalRange = cloneHistoricalRange(master.customHistoricalRange);
           workspace.blockBootstrapEnabled = master.blockBootstrapEnabled;
           workspace.blockBootstrapLength = master.blockBootstrapLength;
+          workspace.returnsSource = master.returnsSource;
+          workspace.simulationRuns = master.simulationRuns;
+          workspace.simulationMode = master.simulationMode;
           break;
         default:
           break;
@@ -1339,6 +1355,8 @@ const compareWorkspaceWithCurrentState = (state: AppStore): SnapshotState['compa
 
 const workspaceFromState = (state: AppStore): WorkspaceSnapshot => ({
   simulationMode: state.simulationMode,
+  returnsSource: state.returnsSource,
+  simulationRuns: state.simulationRuns,
   selectedHistoricalEra: state.selectedHistoricalEra,
   customHistoricalRange: cloneHistoricalRange(state.customHistoricalRange),
   blockBootstrapEnabled: state.blockBootstrapEnabled,
@@ -1451,6 +1469,26 @@ const isEditableTrackingMonthForState = (state: AppStore, monthIndex: number): b
   return monthIndex <= getEditableTrackingMonthUpperBoundForState(state);
 };
 
+const normalizedSimulationRuns = (runs: number): number =>
+  Math.max(MIN_SIMULATION_RUNS, Math.min(Math.round(runs), MAX_SIMULATION_RUNS));
+
+const allStdDevZero = (returnAssumptions: AppStore['returnAssumptions']): boolean =>
+  returnAssumptions.stocks.stdDev <= 0 &&
+  returnAssumptions.bonds.stdDev <= 0 &&
+  returnAssumptions.cash.stdDev <= 0;
+
+const resolveEffectiveSimulationMode = (
+  returnsSource: ReturnSource,
+  simulationRuns: number,
+  returnAssumptions: AppStore['returnAssumptions'],
+): SimulationMode => {
+  const runs = normalizedSimulationRuns(simulationRuns);
+  if (returnsSource === ReturnSource.Manual && allStdDevZero(returnAssumptions)) {
+    return SimulationMode.Manual;
+  }
+  return runs > 1 ? SimulationMode.MonteCarlo : SimulationMode.Manual;
+};
+
 const trackingSimulationResultsCleared = (
   results: WorkspaceSnapshot['simulationResults'],
 ): WorkspaceSnapshot['simulationResults'] => ({
@@ -1465,6 +1503,8 @@ const trackingSimulationResultsCleared = (
 
 const snapshotFieldsFromWorkspace = (workspace: WorkspaceSnapshot) => ({
   simulationMode: workspace.simulationMode,
+  returnsSource: workspace.returnsSource,
+  simulationRuns: workspace.simulationRuns,
   selectedHistoricalEra: workspace.selectedHistoricalEra,
   customHistoricalRange: cloneHistoricalRange(workspace.customHistoricalRange),
   blockBootstrapEnabled: workspace.blockBootstrapEnabled,
@@ -1485,6 +1525,8 @@ const snapshotFieldsFromWorkspace = (workspace: WorkspaceSnapshot) => ({
 });
 
 const currentInputFieldsFromState = (state: AppStore) => ({
+  returnsSource: state.returnsSource,
+  simulationRuns: state.simulationRuns,
   selectedHistoricalEra: state.selectedHistoricalEra,
   customHistoricalRange: cloneHistoricalRange(state.customHistoricalRange),
   blockBootstrapEnabled: state.blockBootstrapEnabled,
@@ -1610,6 +1652,8 @@ const cloneSnapshotState = (snapshot: SnapshotState): SnapshotState => {
       : null,
     compareWorkspace: normalizedCompareWorkspace,
     simulationMode: normalizedSnapshot.simulationMode,
+    returnsSource: normalizedSnapshot.returnsSource,
+    simulationRuns: normalizedSimulationRuns(normalizedSnapshot.simulationRuns),
     selectedHistoricalEra: normalizedSnapshot.selectedHistoricalEra,
     customHistoricalRange: cloneHistoricalRange(normalizedSnapshot.customHistoricalRange),
     blockBootstrapEnabled: normalizedSnapshot.blockBootstrapEnabled,
@@ -1890,7 +1934,9 @@ export const useAppStore = create<AppStore>((set) => ({
     compareSync: defaultCompareSyncState(),
     slots: {},
   },
-  simulationMode: SimulationMode.Manual,
+  simulationMode: SimulationMode.MonteCarlo,
+  returnsSource: ReturnSource.Historical,
+  simulationRuns: DEFAULT_SIMULATION_RUNS,
   selectedHistoricalEra: HistoricalEra.FullHistory,
   customHistoricalRange: null,
   blockBootstrapEnabled: false,
@@ -2593,6 +2639,107 @@ export const useAppStore = create<AppStore>((set) => ({
       };
     }),
   setSimulationMode: (simulationMode) => set({ simulationMode }),
+  setReturnsSource: (returnsSource) =>
+    set((state) => {
+      const lockManual = isCompareFamilyLockedAndSyncedForActiveSlot(state, 'returnAssumptions');
+      const lockHistorical = isCompareFamilyLockedAndSyncedForActiveSlot(state, 'historicalEra');
+      if (lockManual || lockHistorical) {
+        return state;
+      }
+      const staleState = markTrackingOutputStateStale(state);
+      const simulationMode = resolveEffectiveSimulationMode(
+        returnsSource,
+        state.simulationRuns,
+        state.returnAssumptions,
+      );
+
+      if (!isCompareActiveFromWorkspace(state.compareWorkspace)) {
+        return { returnsSource, simulationMode, ...staleState };
+      }
+
+      const nextCompare = cloneCompareWorkspace(staleState.compareWorkspace);
+      const activeSlotId = nextCompare.activeSlotId;
+      const workspace = nextCompare.slots[activeSlotId];
+      if (workspace) {
+        workspace.returnsSource = returnsSource;
+        workspace.simulationMode = simulationMode;
+      }
+      if (activeSlotId === 'A') {
+        nextCompare.slotOrder.forEach((slotId) => {
+          if (slotId === 'A') {
+            return;
+          }
+          if (
+            isSlotFamilySynced(nextCompare.compareSync, slotId, 'returnAssumptions') ||
+            isSlotFamilySynced(nextCompare.compareSync, slotId, 'historicalEra')
+          ) {
+            const slotWorkspace = nextCompare.slots[slotId];
+            if (slotWorkspace) {
+              slotWorkspace.returnsSource = returnsSource;
+              slotWorkspace.simulationMode = simulationMode;
+            }
+          }
+        });
+      }
+
+      return {
+        returnsSource,
+        simulationMode,
+        compareWorkspace: nextCompare,
+        simulationResults: staleState.simulationResults,
+      };
+    }),
+  setSimulationRuns: (runs) =>
+    set((state) => {
+      const lockManual = isCompareFamilyLockedAndSyncedForActiveSlot(state, 'returnAssumptions');
+      const lockHistorical = isCompareFamilyLockedAndSyncedForActiveSlot(state, 'historicalEra');
+      if (lockManual || lockHistorical) {
+        return state;
+      }
+      const simulationRuns = normalizedSimulationRuns(runs);
+      const staleState = markTrackingOutputStateStale(state);
+      const simulationMode = resolveEffectiveSimulationMode(
+        state.returnsSource,
+        simulationRuns,
+        state.returnAssumptions,
+      );
+
+      if (!isCompareActiveFromWorkspace(state.compareWorkspace)) {
+        return { simulationRuns, simulationMode, ...staleState };
+      }
+
+      const nextCompare = cloneCompareWorkspace(staleState.compareWorkspace);
+      const activeSlotId = nextCompare.activeSlotId;
+      const workspace = nextCompare.slots[activeSlotId];
+      if (workspace) {
+        workspace.simulationRuns = simulationRuns;
+        workspace.simulationMode = simulationMode;
+      }
+      if (activeSlotId === 'A') {
+        nextCompare.slotOrder.forEach((slotId) => {
+          if (slotId === 'A') {
+            return;
+          }
+          if (
+            isSlotFamilySynced(nextCompare.compareSync, slotId, 'returnAssumptions') ||
+            isSlotFamilySynced(nextCompare.compareSync, slotId, 'historicalEra')
+          ) {
+            const slotWorkspace = nextCompare.slots[slotId];
+            if (slotWorkspace) {
+              slotWorkspace.simulationRuns = simulationRuns;
+              slotWorkspace.simulationMode = simulationMode;
+            }
+          }
+        });
+      }
+
+      return {
+        simulationRuns,
+        simulationMode,
+        compareWorkspace: nextCompare,
+        simulationResults: staleState.simulationResults,
+      };
+    }),
   setSelectedHistoricalEra: (selectedHistoricalEra) =>
     set((state) => {
       if (isCompareFamilyLockedAndSyncedForActiveSlot(state, 'historicalEra')) {
@@ -2834,12 +2981,19 @@ export const useAppStore = create<AppStore>((set) => ({
       if (isCompareFamilyLockedAndSyncedForActiveSlot(state, 'returnAssumptions')) {
         return state;
       }
+      const nextAssumptions = {
+        ...state.returnAssumptions,
+        [asset]: { ...state.returnAssumptions[asset], [key]: value },
+      };
+      const simulationMode = resolveEffectiveSimulationMode(
+        state.returnsSource,
+        state.simulationRuns,
+        nextAssumptions,
+      );
       const staleState = markTrackingOutputStateStale(state);
       return {
-        returnAssumptions: {
-          ...state.returnAssumptions,
-          [asset]: { ...state.returnAssumptions[asset], [key]: value },
-        },
+        returnAssumptions: nextAssumptions,
+        simulationMode,
         ...staleState,
       };
     }),
@@ -3566,6 +3720,8 @@ export const useSimulationConfig = () =>
   useAppStore((state) => ({
     mode: state.mode,
     simulationMode: state.simulationMode,
+    returnsSource: state.returnsSource,
+    simulationRuns: state.simulationRuns,
     selectedHistoricalEra: state.selectedHistoricalEra,
     customHistoricalRange: cloneHistoricalRange(state.customHistoricalRange),
     blockBootstrapEnabled: state.blockBootstrapEnabled,
@@ -3747,6 +3903,8 @@ const snapshotStateFromStore = (state: AppStore): SnapshotState => {
     trackingWorkspace: state.trackingWorkspace ? cloneWorkspace(state.trackingWorkspace) : null,
     compareWorkspace,
     simulationMode: state.simulationMode,
+    returnsSource: state.returnsSource,
+    simulationRuns: state.simulationRuns,
     selectedHistoricalEra: state.selectedHistoricalEra,
     customHistoricalRange: cloneHistoricalRange(state.customHistoricalRange),
     blockBootstrapEnabled: state.blockBootstrapEnabled,
@@ -3879,6 +4037,8 @@ const configFromWorkspace = (workspace: WorkspaceSnapshot, mode: AppMode): Simul
   return {
     mode,
     simulationMode: workspace.simulationMode,
+    returnsSource: workspace.returnsSource,
+    simulationRuns: workspace.simulationRuns,
     selectedHistoricalEra: workspace.selectedHistoricalEra,
     customHistoricalRange: cloneHistoricalRange(workspace.customHistoricalRange),
     blockBootstrapEnabled: workspace.blockBootstrapEnabled,
