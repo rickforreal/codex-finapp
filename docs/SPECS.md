@@ -2908,7 +2908,7 @@ All nine stat cards (#33–#41) share a common design pattern:
 ### Behavior
 
 - Computed as the statistical median of all monthly real withdrawal amounts.
-- In Monte Carlo mode: the median is computed from the **median simulation path's** monthly withdrawals (i.e., the 50th percentile path, then take the median of its monthly values). The annotation adds _"median path"_.
+- In Monte Carlo mode: computed from the month-aligned cross-run p50 withdrawal series (for each month, compute p50 across runs; then compute this card over that monthly p50 series).
 
 ### State
 
@@ -2929,7 +2929,7 @@ All nine stat cards (#33–#41) share a common design pattern:
 ### Behavior
 
 - Computed as the arithmetic mean of all monthly real withdrawal amounts.
-- In Monte Carlo mode: computed from the median simulation path (same as #35).
+- In Monte Carlo mode: computed from the month-aligned cross-run p50 withdrawal series.
 
 ### State
 
@@ -2950,7 +2950,7 @@ All nine stat cards (#33–#41) share a common design pattern:
 ### Behavior
 
 - Computed as the population standard deviation of all monthly real withdrawal amounts.
-- In Monte Carlo mode: computed from the median simulation path.
+- In Monte Carlo mode: computed from the month-aligned cross-run p50 withdrawal series.
 
 ### State
 
@@ -2971,7 +2971,7 @@ All nine stat cards (#33–#41) share a common design pattern:
 ### Behavior
 
 - Computed as the 25th percentile of the distribution of all monthly real withdrawal amounts across the retirement period.
-- In Monte Carlo mode: computed from the median simulation path.
+- In Monte Carlo mode: computed from the month-aligned cross-run p50 withdrawal series.
 
 ### State
 
@@ -2992,7 +2992,7 @@ All nine stat cards (#33–#41) share a common design pattern:
 ### Behavior
 
 - Computed as the 75th percentile, symmetric logic to #38.
-- In Monte Carlo mode: computed from the median simulation path.
+- In Monte Carlo mode: computed from the month-aligned cross-run p50 withdrawal series.
 
 ### State
 

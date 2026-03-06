@@ -94,6 +94,31 @@ Response:
 }
 ```
 
+`MonteCarloResult` includes:
+
+```ts
+{
+  simulationCount: number;
+  successCount: number;
+  probabilityOfSuccess: number;
+  terminalValues: number[];
+  withdrawalStatsReal?: {
+    medianMonthly: number;
+    meanMonthly: number;
+    stdDevMonthly: number;
+    p25Monthly: number;
+    p75Monthly: number;
+  };
+  percentileCurves: {
+    total: MonteCarloPercentileCurves;
+    stocks: MonteCarloPercentileCurves;
+    bonds: MonteCarloPercentileCurves;
+    cash: MonteCarloPercentileCurves;
+  };
+  historicalSummary: HistoricalDataSummary;
+}
+```
+
 ### GET `/api/v1/historical/summary`
 
 Returns annualized/summary statistics for the selected historical range.

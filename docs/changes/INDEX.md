@@ -38,3 +38,4 @@ A request belongs in:
 | CHG-0007  | Theme menu order + outside-click close             | Done   | 2026-03-01 | 2026-03-01 | `docs/changes/CHG-0007-theme-menu-order-and-outside-close/`        |
 | CHG-0008  | MC p50 reference column theme balance              | Done   | 2026-03-01 | 2026-03-01 | `docs/changes/CHG-0008-mc-p50-reference-column-theme-balance/`     |
 | CHG-0009  | Bookmark description field                         | Done   | 2026-03-01 | 2026-03-01 | `docs/changes/CHG-0009-bookmark-description-field/`                |
+| CHG-0010  | MC summary stats cross-run aggregation             | Done   | 2026-03-05 | 2026-03-05 | `docs/changes/CHG-0010-mc-summary-stats-cross-run-aggregation/`    |

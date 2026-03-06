@@ -291,6 +291,13 @@ MonteCarloResult {
   successCount: number;
   probabilityOfSuccess: number;
   terminalValues: number[];
+  withdrawalStatsReal?: {
+    medianMonthly: number;
+    meanMonthly: number;
+    stdDevMonthly: number;
+    p25Monthly: number;
+    p75Monthly: number;
+  };
   percentileCurves: {
     total: { p05: number[]; p10: number[]; p25: number[]; p50: number[]; p75: number[]; p90: number[]; p95: number[] };
     stocks: { p05: number[]; p10: number[]; p25: number[]; p50: number[]; p75: number[]; p90: number[]; p95: number[] };

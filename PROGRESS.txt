@@ -2115,3 +2115,39 @@ Validation run (all passing):
 - `npm run typecheck -w @finapp/client`
 - `npm run lint -w @finapp/client`
 - `npm run test -w @finapp/client`
+- CHG-0010 complete: Monte Carlo monthly withdrawal summary cards now use cross-run aggregation.
+  - Root cause confirmed: cards #35–#39 were derived from representative-path `result.rows`, causing high rerun variance.
+  - Added optional MC payload field `withdrawalStatsReal` in shared contracts (`packages/shared/src/domain/simulation.ts`).
+  - Server aggregation update (`packages/server/src/engine/monteCarlo.ts`): computes median/mean/stddev/p25/p75 of real monthly withdrawals across all simulations.
+  - Client summary update (`packages/client/src/components/output/SummaryStatsBar.tsx`): in MC mode, uses `withdrawalStatsReal` for #35–#39 in both single and compare views; manual mode remains unchanged.
+  - Tests updated:
+    - `packages/server/tests/engine/monteCarlo.test.ts`
+    - `packages/server/tests/routes/simulation.test.ts`
+  - Canonical docs updated:
+    - `docs/SPECS.md`
+    - `docs/API.md`
+    - `docs/DATA_MODEL.md`
+  - Change lane docs/tracking:
+    - `docs/changes/CHG-0010-mc-summary-stats-cross-run-aggregation/{CHANGE.md,ACCEPTANCE.md}`
+    - `docs/changes/INDEX.md`
+    - `TASKS.md` (`CHG-0010-T1`)
+
+Validation run (all passing):
+- `npm run typecheck`
+- `npm run lint`
+- `npm test`
+- `npm run build`
+- CHG-0010 refinement: monthly-withdrawal aggregation method corrected.
+  - Replaced flattened run-month sample aggregation with month-aligned cross-run p50 series aggregation in `packages/server/src/engine/monteCarlo.ts`.
+  - Rationale: flattened aggregation over-weighted outlier months/runs and produced unintuitive mean/stddev values.
+  - New method now matches expected semantics used for MC reference-series reasoning:
+    1) per-month p50 across runs,
+    2) derive summary card metrics from that monthly p50 series.
+  - Added/updated tests in `packages/server/tests/engine/monteCarlo.test.ts` for ordered quantiles and zero-withdrawal behavior.
+  - Updated semantics text in `docs/SPECS.md` and `docs/changes/CHG-0010-mc-summary-stats-cross-run-aggregation/CHANGE.md`.
+
+Validation rerun (all passing):
+- `npm run typecheck`
+- `npm run lint`
+- `npm test`
+- `npm run build`

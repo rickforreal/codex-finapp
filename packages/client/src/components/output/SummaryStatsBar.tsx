@@ -38,12 +38,34 @@ export const SummaryStatsBar = () => {
     return buildSummaryStats(rows, activeRunInflationRate);
   }, [activeRunInflationRate, result]);
 
+  const statsForDisplay = useMemo(() => {
+    if (simulationMode !== SimulationMode.MonteCarlo || !result?.monteCarlo?.withdrawalStatsReal) {
+      return stats;
+    }
+    return {
+      ...stats,
+      medianMonthlyReal: result.monteCarlo.withdrawalStatsReal.medianMonthly,
+      meanMonthlyReal: result.monteCarlo.withdrawalStatsReal.meanMonthly,
+      stdDevMonthlyReal: result.monteCarlo.withdrawalStatsReal.stdDevMonthly,
+      p25MonthlyReal: result.monteCarlo.withdrawalStatsReal.p25Monthly,
+      p75MonthlyReal: result.monteCarlo.withdrawalStatsReal.p75Monthly,
+    };
+  }, [result, simulationMode, stats]);
+
   const hasResult = Boolean(result);
   const drawdownRealPctOfNominal =
-    stats.totalDrawdownNominal > 0 ? stats.totalDrawdownReal / stats.totalDrawdownNominal : 0;
-  const meanVsMedian = stats.meanMonthlyReal - stats.medianMonthlyReal;
-  const p25PctOfMedian = stats.medianMonthlyReal > 0 ? stats.p25MonthlyReal / stats.medianMonthlyReal : 0;
-  const p75PctOfMedian = stats.medianMonthlyReal > 0 ? stats.p75MonthlyReal / stats.medianMonthlyReal : 0;
+    statsForDisplay.totalDrawdownNominal > 0
+      ? statsForDisplay.totalDrawdownReal / statsForDisplay.totalDrawdownNominal
+      : 0;
+  const meanVsMedian = statsForDisplay.meanMonthlyReal - statsForDisplay.medianMonthlyReal;
+  const p25PctOfMedian =
+    statsForDisplay.medianMonthlyReal > 0
+      ? statsForDisplay.p25MonthlyReal / statsForDisplay.medianMonthlyReal
+      : 0;
+  const p75PctOfMedian =
+    statsForDisplay.medianMonthlyReal > 0
+      ? statsForDisplay.p75MonthlyReal / statsForDisplay.medianMonthlyReal
+      : 0;
 
   const monteCarlo = result?.monteCarlo;
   const showPoS = simulationMode === SimulationMode.MonteCarlo;
@@ -95,7 +117,18 @@ export const SummaryStatsBar = () => {
       const resultForSlot = resolveSlotResult(compareResults.slots[slotId]);
       const rows = resultForSlot?.result.rows ?? [];
       const slotInflationRate = resultForSlot?.configSnapshot?.coreParams.inflationRate ?? inflationRate;
-      const statsForSlot = buildSummaryStats(rows, slotInflationRate);
+      const rawStatsForSlot = buildSummaryStats(rows, slotInflationRate);
+      const statsForSlot =
+        simulationMode === SimulationMode.MonteCarlo && resultForSlot?.monteCarlo?.withdrawalStatsReal
+          ? {
+              ...rawStatsForSlot,
+              medianMonthlyReal: resultForSlot.monteCarlo.withdrawalStatsReal.medianMonthly,
+              meanMonthlyReal: resultForSlot.monteCarlo.withdrawalStatsReal.meanMonthly,
+              stdDevMonthlyReal: resultForSlot.monteCarlo.withdrawalStatsReal.stdDevMonthly,
+              p25MonthlyReal: resultForSlot.monteCarlo.withdrawalStatsReal.p25Monthly,
+              p75MonthlyReal: resultForSlot.monteCarlo.withdrawalStatsReal.p75Monthly,
+            }
+          : rawStatsForSlot;
       const terminalNominal =
         rows.length > 0
           ? rows[rows.length - 1]!.endBalances.stocks +
@@ -252,36 +285,36 @@ export const SummaryStatsBar = () => {
         ) : null}
         <StatCard
           label={simulationMode === SimulationMode.MonteCarlo ? 'Total Drawdown (Nominal) median' : 'Total Drawdown (Nominal)'}
-          value={hasResult ? formatCompactCurrency(stats.totalDrawdownNominal) : '—'}
+          value={hasResult ? formatCompactCurrency(statsForDisplay.totalDrawdownNominal) : '—'}
         />
         <StatCard
           label={simulationMode === SimulationMode.MonteCarlo ? 'Total Drawdown (Real) median' : 'Total Drawdown (Real)'}
-          value={hasResult ? formatCompactCurrency(stats.totalDrawdownReal) : '—'}
+          value={hasResult ? formatCompactCurrency(statsForDisplay.totalDrawdownReal) : '—'}
           annotation={hasResult ? `${formatPercent(drawdownRealPctOfNominal)} of nominal` : undefined}
         />
         <StatCard
           label="Median Monthly (Real)"
-          value={hasResult ? formatCurrency(Math.round(stats.medianMonthlyReal)) : '—'}
-          annotation={hasResult ? `${formatCurrency(Math.round(stats.medianMonthlyReal * 12))} / year` : undefined}
+          value={hasResult ? formatCurrency(Math.round(statsForDisplay.medianMonthlyReal)) : '—'}
+          annotation={hasResult ? `${formatCurrency(Math.round(statsForDisplay.medianMonthlyReal * 12))} / year` : undefined}
         />
         <StatCard
           label="Mean Monthly (Real)"
-          value={hasResult ? formatCurrency(Math.round(stats.meanMonthlyReal)) : '—'}
+          value={hasResult ? formatCurrency(Math.round(statsForDisplay.meanMonthlyReal)) : '—'}
           annotation={hasResult ? `${meanVsMedian >= 0 ? '+' : '-'}${formatCurrency(Math.round(Math.abs(meanVsMedian)))} vs median` : undefined}
           valueClassName={meanVsMedian >= 0 ? 'theme-text-positive' : 'theme-text-negative'}
         />
         <StatCard
           label="Std. Deviation (Real)"
-          value={hasResult ? formatCurrency(Math.round(stats.stdDevMonthlyReal)) : '—'}
+          value={hasResult ? formatCurrency(Math.round(statsForDisplay.stdDevMonthlyReal)) : '—'}
         />
         <StatCard
           label="25th Percentile (Real)"
-          value={hasResult ? formatCurrency(Math.round(stats.p25MonthlyReal)) : '—'}
+          value={hasResult ? formatCurrency(Math.round(statsForDisplay.p25MonthlyReal)) : '—'}
           annotation={hasResult ? `${formatPercent(p25PctOfMedian)} of median` : undefined}
         />
         <StatCard
           label="75th Percentile (Real)"
-          value={hasResult ? formatCurrency(Math.round(stats.p75MonthlyReal)) : '—'}
+          value={hasResult ? formatCurrency(Math.round(statsForDisplay.p75MonthlyReal)) : '—'}
           annotation={hasResult ? `${formatPercent(p75PctOfMedian)} of median` : undefined}
         />
         <StatCard

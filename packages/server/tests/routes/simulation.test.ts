@@ -75,6 +75,8 @@ describe('POST /api/v1/simulate', () => {
     expect(body.simulationMode).toBe(SimulationMode.MonteCarlo);
     expect(body.monteCarlo).toBeDefined();
     expect(body.monteCarlo.percentileCurves.total.p50.length).toBe(360);
+    expect(body.monteCarlo.withdrawalStatsReal).toBeDefined();
+    expect(body.monteCarlo.withdrawalStatsReal.medianMonthly).toBeGreaterThanOrEqual(0);
     expect(body.monteCarlo.probabilityOfSuccess).toBeGreaterThanOrEqual(0.9);
     expect(body.monteCarlo.probabilityOfSuccess).toBeLessThanOrEqual(0.99);
 

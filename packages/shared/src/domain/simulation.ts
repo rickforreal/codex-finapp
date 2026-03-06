@@ -256,11 +256,20 @@ export interface MonteCarloPercentileCurves {
   p95: number[];
 }
 
+export interface MonteCarloWithdrawalStatsReal {
+  medianMonthly: number;
+  meanMonthly: number;
+  stdDevMonthly: number;
+  p25Monthly: number;
+  p75Monthly: number;
+}
+
 export interface MonteCarloResult {
   simulationCount: number;
   successCount: number;
   probabilityOfSuccess: number;
   terminalValues: number[];
+  withdrawalStatsReal?: MonteCarloWithdrawalStatsReal;
   percentileCurves: {
     total: MonteCarloPercentileCurves;
     stocks: MonteCarloPercentileCurves;

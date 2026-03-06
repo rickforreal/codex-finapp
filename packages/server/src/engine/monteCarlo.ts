@@ -40,6 +40,21 @@ const quantile = (sortedValues: number[], percentile: number): number => {
   return lowerValue + (upperValue - lowerValue) * weight;
 };
 
+const mean = (values: number[]): number =>
+  values.length === 0 ? 0 : values.reduce((sum, value) => sum + value, 0) / values.length;
+
+const stdDevPopulation = (values: number[]): number => {
+  if (values.length === 0) {
+    return 0;
+  }
+  const avg = mean(values);
+  const variance = values.reduce((sum, value) => sum + (value - avg) ** 2, 0) / values.length;
+  return Math.sqrt(variance);
+};
+
+const inflationFactor = (inflationRate: number, monthIndexOneBased: number): number =>
+  (1 + inflationRate) ** (monthIndexOneBased / 12);
+
 const percentileCurve = (valuesByRun: number[][]): MonteCarloPercentileCurves => {
   const curveFor = (percentile: number): number[] =>
     valuesByRun.map((values) => quantile([...values].sort((a, b) => a - b), percentile));
@@ -106,6 +121,7 @@ export const runMonteCarlo = async (
   const monthlyStocksByRun: number[][] = Array.from({ length: durationMonths }, () => []);
   const monthlyBondsByRun: number[][] = Array.from({ length: durationMonths }, () => []);
   const monthlyCashByRun: number[][] = Array.from({ length: durationMonths }, () => []);
+  const monthlyWithdrawalsRealByRun: number[][] = Array.from({ length: durationMonths }, () => []);
   const terminalValues: number[] = [];
   const totalDrawdowns: number[] = [];
   let successCount = 0;
@@ -142,6 +158,17 @@ export const runMonteCarlo = async (
     const terminalValue = path.summary.terminalPortfolioValue;
     terminalValues.push(terminalValue);
     totalDrawdowns.push(path.summary.totalWithdrawn);
+
+    const hasRequestedWithdrawals = path.rows.some((row) => row.withdrawals.requested > 0);
+    path.rows.forEach((row) => {
+      if (hasRequestedWithdrawals && row.withdrawals.requested <= 0) {
+        return;
+      }
+      monthlyWithdrawalsRealByRun[row.monthIndex - 1]?.push(
+        row.withdrawals.actual / inflationFactor(config.coreParams.inflationRate, row.monthIndex),
+      );
+    });
+
     if (terminalValue > 0) {
       successCount += 1;
     }
@@ -182,6 +209,16 @@ export const runMonteCarlo = async (
     throw new Error('Monte Carlo failed to produce any runs');
   }
 
+  const monthlyWithdrawalP50Series = monthlyWithdrawalsRealByRun
+    .map((values) => {
+      if (values.length === 0) {
+        return null;
+      }
+      return quantile([...values].sort((a, b) => a - b), 0.5);
+    })
+    .filter((value): value is number => value !== null);
+  const sortedMonthlyWithdrawalP50Series = [...monthlyWithdrawalP50Series].sort((a, b) => a - b);
+
   return {
     representativePath,
     seedUsed: options.seed,
@@ -190,6 +227,13 @@ export const runMonteCarlo = async (
       successCount,
       probabilityOfSuccess: successCount / simulationCount,
       terminalValues,
+      withdrawalStatsReal: {
+        medianMonthly: quantile(sortedMonthlyWithdrawalP50Series, 0.5),
+        meanMonthly: mean(monthlyWithdrawalP50Series),
+        stdDevMonthly: stdDevPopulation(monthlyWithdrawalP50Series),
+        p25Monthly: quantile(sortedMonthlyWithdrawalP50Series, 0.25),
+        p75Monthly: quantile(sortedMonthlyWithdrawalP50Series, 0.75),
+      },
       percentileCurves: {
         total: percentileCurve(monthlyTotalsByRun),
         stocks: percentileCurve(monthlyStocksByRun),

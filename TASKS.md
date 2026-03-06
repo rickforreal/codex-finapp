@@ -926,9 +926,20 @@
       Dependencies: none
       Acceptance Criteria:
       [AC1] Monte Carlo detail ledger includes `Start Total (p50)` between `Age` and `Start Total` in planning, tracking, and compare modes.
-      [AC2] Column styling is subtly differentiated and includes a tooltip explainer.
-      [AC3] Monthly and annual value mapping follows cross-run p50 start-of-period semantics.
-      [AC4] `npm run typecheck`, `npm run lint`, `npm test`, and `npm run build` pass.
+[AC2] Column styling is subtly differentiated and includes a tooltip explainer.
+[AC3] Monthly and annual value mapping follows cross-run p50 start-of-period semantics.
+[AC4] `npm run typecheck`, `npm run lint`, `npm test`, and `npm run build` pass.
+
+## Minor Change Plan — Monte Carlo Summary Stats Aggregation
+
+- [x] CHG-0010-T1: Derive MC monthly withdrawal summary cards from cross-run aggregates
+Phase: Change (Minor UX/metrics semantics refinement)
+Dependencies: none
+Acceptance Criteria:
+[AC1] Server MC payload includes cross-run withdrawal aggregate metrics for real monthly withdrawals.
+[AC2] Summary cards #35-#39 use MC cross-run aggregates in both single and compare modes.
+[AC3] Manual-mode summary stats remain unchanged.
+[AC4] `npm run typecheck`, `npm run lint`, `npm test`, and `npm run build` pass.
 
 ## Minor Change Plan — Compare Slot Theme-Adaptive Visuals
 

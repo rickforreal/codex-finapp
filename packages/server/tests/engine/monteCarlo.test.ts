@@ -17,6 +17,7 @@ describe('runMonteCarlo', () => {
     expect(a.monteCarlo.probabilityOfSuccess).toBe(b.monteCarlo.probabilityOfSuccess);
     expect(a.monteCarlo.percentileCurves.total.p50).toEqual(b.monteCarlo.percentileCurves.total.p50);
     expect(a.monteCarlo.percentileCurves.stocks.p50).toEqual(b.monteCarlo.percentileCurves.stocks.p50);
+    expect(a.monteCarlo.withdrawalStatsReal).toEqual(b.monteCarlo.withdrawalStatsReal);
     expect(a.representativePath.summary.terminalPortfolioValue).toBe(
       b.representativePath.summary.terminalPortfolioValue,
     );
@@ -59,6 +60,22 @@ describe('runMonteCarlo', () => {
 
     const result = await runMonteCarlo(config, { runs: 200, seed: 7 });
     expect(result.monteCarlo.probabilityOfSuccess).toBe(1);
+    expect(result.monteCarlo.withdrawalStatsReal?.medianMonthly).toBe(0);
+    expect(result.monteCarlo.withdrawalStatsReal?.meanMonthly).toBe(0);
+    expect(result.monteCarlo.withdrawalStatsReal?.stdDevMonthly).toBe(0);
+  });
+
+  it('produces ordered withdrawal quantiles for MC summary stats', async () => {
+    const config = createBaseConfig();
+    config.simulationMode = SimulationMode.MonteCarlo;
+
+    const result = await runMonteCarlo(config, { runs: 300, seed: 1234 });
+    const stats = result.monteCarlo.withdrawalStatsReal;
+
+    expect(stats).toBeDefined();
+    expect(stats!.p25Monthly).toBeLessThanOrEqual(stats!.medianMonthly);
+    expect(stats!.medianMonthly).toBeLessThanOrEqual(stats!.p75Monthly);
+    expect(stats!.stdDevMonthly).toBeGreaterThanOrEqual(0);
   });
 
   it('returns 0% probability when starting portfolio is zero', async () => {
