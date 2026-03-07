@@ -247,7 +247,19 @@ export const simulateRetirement = (
   monthlyReturnsSeries: MonthlyReturns[],
   actualOverridesByMonth: ActualOverridesByMonth = {},
   inflationOverridesByYear: Partial<Record<number, number>> = {},
+  options: {
+    includeRows?: boolean;
+    onMonthComplete?: (summary: {
+      monthIndex: number;
+      endStocks: number;
+      endBonds: number;
+      endCash: number;
+      withdrawalRequested: number;
+      withdrawalActual: number;
+    }) => void;
+  } = {},
 ): SinglePathResult => {
+  const includeRows = options.includeRows ?? true;
   const normalizedOverrides = normalizeOverrides(actualOverridesByMonth);
   const durationMonths = config.coreParams.retirementDuration * 12;
   const withdrawalStartYear = Math.max(
@@ -310,7 +322,7 @@ export const simulateRetirement = (
 
     const returns = monthlyReturnsSeries[monthIndex] ?? { stocks: 0, bonds: 0, cash: 0 };
     const afterMarket = applyMarketReturns(startBalances, returns);
-    const marketChange = diffBalances(afterMarket, startBalances);
+    const marketChange = includeRows ? diffBalances(afterMarket, startBalances) : null;
     const afterMarketValue = totalPortfolio(afterMarket);
     if (startPortfolioValue > 0) {
       currentYearReturnFactor *= afterMarketValue / startPortfolioValue;
@@ -446,25 +458,37 @@ export const simulateRetirement = (
       previousYearStartPortfolio = currentYearStartPortfolio;
     }
 
-    rows.push({
+    const requestedWithdrawal = editedWithdrawals?.requested ?? currentMonthlyWithdrawal;
+    if (includeRows) {
+      rows.push({
+        monthIndex: oneBasedMonth,
+        year,
+        monthInYear,
+        startBalances,
+        marketChange: marketChange ?? emptyAssetBalances(),
+        withdrawals: {
+          byAsset: drawdown.withdrawnByAsset,
+          requested: requestedWithdrawal,
+          actual: drawdown.totalWithdrawn,
+          shortfall: drawdown.shortfall,
+        },
+        incomeTotal,
+        expenseTotal: expenseResult.actualTotal,
+        endBalances: { ...balances },
+      });
+    }
+
+    options.onMonthComplete?.({
       monthIndex: oneBasedMonth,
-      year,
-      monthInYear,
-      startBalances,
-      marketChange,
-      withdrawals: {
-        byAsset: drawdown.withdrawnByAsset,
-        requested: editedWithdrawals?.requested ?? currentMonthlyWithdrawal,
-        actual: drawdown.totalWithdrawn,
-        shortfall: drawdown.shortfall,
-      },
-      incomeTotal,
-      expenseTotal: expenseResult.actualTotal,
-      endBalances: { ...balances },
+      endStocks: balances.stocks,
+      endBonds: balances.bonds,
+      endCash: balances.cash,
+      withdrawalRequested: requestedWithdrawal,
+      withdrawalActual: drawdown.totalWithdrawn,
     });
 
     if (isMonthlyWithdrawalStrategy(config.withdrawalStrategy)) {
-      previousAdaptiveFinalMonthlyWithdrawal = editedWithdrawals?.requested ?? currentMonthlyWithdrawal;
+      previousAdaptiveFinalMonthlyWithdrawal = requestedWithdrawal;
     }
 
     if (adaptiveRollingReturns) {

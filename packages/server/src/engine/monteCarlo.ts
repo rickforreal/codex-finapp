@@ -1,5 +1,4 @@
 import {
-  AssetClass,
   type ActualOverridesByMonth,
   HistoricalEra,
   ReturnSource,
@@ -7,6 +6,7 @@ import {
   type MonthlyReturns,
   type MonteCarloPercentileCurves,
   type MonteCarloResult,
+  type SinglePathResult,
   type SimulationConfig,
 } from '@finapp/shared';
 
@@ -16,14 +16,21 @@ import {
   type HistoricalMonth,
 } from './historicalData';
 import { createSeededRandom } from './helpers/returns';
+import { runMonteCarloRust } from './monteCarloNative';
 import { generateMonthlyReturnsFromAssumptions, simulateRetirement } from './simulator';
 
-type MonteCarloOptions = {
+export type MonteCarloOptions = {
   runs?: number;
   seed?: number;
   actualOverridesByMonth?: ActualOverridesByMonth;
   transformReturns?: (returns: MonthlyReturns[], runIndex: number) => MonthlyReturns[];
   inflationOverridesByYear?: Partial<Record<number, number>>;
+};
+
+export type MonteCarloExecutionResult = {
+  representativePath: SinglePathResult;
+  monteCarlo: MonteCarloResult;
+  seedUsed?: number;
 };
 
 type RunSummary = {
@@ -33,12 +40,17 @@ type RunSummary = {
   totalShortfall: number;
 };
 
+type NumericSeries = {
+  length: number;
+  [index: number]: number;
+};
+
 const RUN_SEED_STRIDE = 9_973;
 const MAX_SIMULATION_RUNS = 10_000;
 const DEFAULT_SIMULATION_RUNS = 1_000;
 const MAX_SEED = 2_147_483_000;
 
-const quantile = (sortedValues: number[], percentile: number): number => {
+const quantile = (sortedValues: NumericSeries, percentile: number): number => {
   if (sortedValues.length === 0) {
     return 0;
   }
@@ -77,7 +89,7 @@ const resolveSeed = (seed: number | undefined): number =>
 
 const runSeedForIndex = (seed: number, runIndex: number): number => seed + runIndex * RUN_SEED_STRIDE;
 
-const percentileCurve = (valuesByRun: number[][]): MonteCarloPercentileCurves => {
+const percentileCurve = (valuesByRun: Float64Array[]): MonteCarloPercentileCurves => {
   const curve: MonteCarloPercentileCurves = {
     p05: [],
     p10: [],
@@ -89,7 +101,7 @@ const percentileCurve = (valuesByRun: number[][]): MonteCarloPercentileCurves =>
   };
 
   for (const values of valuesByRun) {
-    values.sort((a, b) => a - b);
+    values.sort();
     curve.p05.push(quantile(values, 0.05));
     curve.p10.push(quantile(values, 0.1));
     curve.p25.push(quantile(values, 0.25));
@@ -165,6 +177,7 @@ const runPathForIndex = (
   returnsSource: ReturnSource,
   historicalMonths: HistoricalMonth[],
   durationMonths: number,
+  simulationOptions?: Parameters<typeof simulateRetirement>[4],
 ): ReturnType<typeof simulateRetirement> => {
   const returns = buildReturnsForRun(
     config,
@@ -181,6 +194,7 @@ const runPathForIndex = (
     returns,
     options.actualOverridesByMonth ?? {},
     options.inflationOverridesByYear ?? {},
+    simulationOptions,
   );
 };
 
@@ -218,10 +232,10 @@ const selectRepresentativeRun = (
     return candidate.runIndex < best.runIndex ? candidate : best;
   }, runSummaries[0]!);
 
-export const runMonteCarlo = async (
+const runMonteCarloTs = async (
   config: SimulationConfig,
   options: MonteCarloOptions = {},
-): Promise<{ representativePath: ReturnType<typeof simulateRetirement>; monteCarlo: MonteCarloResult; seedUsed?: number }> => {
+): Promise<MonteCarloExecutionResult> => {
   const simulationCount = clampSimulationRuns(options.runs ?? config.simulationRuns ?? DEFAULT_SIMULATION_RUNS);
   const seedUsed = resolveSeed(options.seed);
   const durationMonths = config.coreParams.retirementDuration * 12;
@@ -239,21 +253,21 @@ export const runMonteCarlo = async (
     throw new Error('No historical data rows available for selected era');
   }
 
-  const monthlyTotalsByRun: number[][] = Array.from(
+  const monthlyTotalsByRun: Float64Array[] = Array.from(
     { length: durationMonths },
-    () => new Array<number>(simulationCount),
+    () => new Float64Array(simulationCount),
   );
-  const monthlyStocksByRun: number[][] = Array.from(
+  const monthlyStocksByRun: Float64Array[] = Array.from(
     { length: durationMonths },
-    () => new Array<number>(simulationCount),
+    () => new Float64Array(simulationCount),
   );
-  const monthlyBondsByRun: number[][] = Array.from(
+  const monthlyBondsByRun: Float64Array[] = Array.from(
     { length: durationMonths },
-    () => new Array<number>(simulationCount),
+    () => new Float64Array(simulationCount),
   );
-  const monthlyCashByRun: number[][] = Array.from(
+  const monthlyCashByRun: Float64Array[] = Array.from(
     { length: durationMonths },
-    () => new Array<number>(simulationCount),
+    () => new Float64Array(simulationCount),
   );
   const monthlyWithdrawalsRealByRun: number[][] = Array.from({ length: durationMonths }, () => []);
   const terminalValues: number[] = new Array<number>(simulationCount);
@@ -262,6 +276,10 @@ export const runMonteCarlo = async (
   let successCount = 0;
 
   for (let runIndex = 0; runIndex < simulationCount; runIndex += 1) {
+    const requestedWithdrawalByMonth = new Uint8Array(durationMonths);
+    const actualWithdrawalRealByMonth = new Float64Array(durationMonths);
+    let hasRequestedWithdrawals = false;
+
     const path = runPathForIndex(
       config,
       options,
@@ -270,18 +288,40 @@ export const runMonteCarlo = async (
       returnsSource,
       historicalMonths,
       durationMonths,
+      {
+        includeRows: false,
+        onMonthComplete: ({
+          monthIndex,
+          endStocks,
+          endBonds,
+          endCash,
+          withdrawalRequested,
+          withdrawalActual,
+        }) => {
+          const month = monthIndex - 1;
+          const stocks = endStocks;
+          const bonds = endBonds;
+          const cash = endCash;
+          if (withdrawalRequested > 0) {
+            hasRequestedWithdrawals = true;
+            requestedWithdrawalByMonth[month] = 1;
+          }
+          actualWithdrawalRealByMonth[month] =
+            withdrawalActual / inflationFactor(config.coreParams.inflationRate, monthIndex);
+          const total = stocks + bonds + cash;
+          monthlyTotalsByRun[month]![runIndex] = total;
+          monthlyStocksByRun[month]![runIndex] = stocks;
+          monthlyBondsByRun[month]![runIndex] = bonds;
+          monthlyCashByRun[month]![runIndex] = cash;
+        },
+      },
     );
 
-    for (let monthIndex = 0; monthIndex < path.rows.length; monthIndex += 1) {
-      const row = path.rows[monthIndex]!;
-      const stocks = row.endBalances[AssetClass.Stocks];
-      const bonds = row.endBalances[AssetClass.Bonds];
-      const cash = row.endBalances[AssetClass.Cash];
-      const total = stocks + bonds + cash;
-      monthlyTotalsByRun[monthIndex]![runIndex] = total;
-      monthlyStocksByRun[monthIndex]![runIndex] = stocks;
-      monthlyBondsByRun[monthIndex]![runIndex] = bonds;
-      monthlyCashByRun[monthIndex]![runIndex] = cash;
+    for (let month = 0; month < durationMonths; month += 1) {
+      if (hasRequestedWithdrawals && requestedWithdrawalByMonth[month] !== 1) {
+        continue;
+      }
+      monthlyWithdrawalsRealByRun[month]?.push(actualWithdrawalRealByMonth[month]!);
     }
 
     const terminalValue = path.summary.terminalPortfolioValue;
@@ -294,16 +334,6 @@ export const runMonteCarlo = async (
       totalDrawdown,
       totalShortfall: path.summary.totalShortfall,
     };
-
-    const hasRequestedWithdrawals = path.rows.some((row) => row.withdrawals.requested > 0);
-    for (const row of path.rows) {
-      if (hasRequestedWithdrawals && row.withdrawals.requested <= 0) {
-        continue;
-      }
-      monthlyWithdrawalsRealByRun[row.monthIndex - 1]?.push(
-        row.withdrawals.actual / inflationFactor(config.coreParams.inflationRate, row.monthIndex),
-      );
-    }
 
     if (terminalValue > 0) {
       successCount += 1;
@@ -358,4 +388,116 @@ export const runMonteCarlo = async (
       historicalSummary,
     },
   };
+};
+
+const resolveEnginePreference = (): 'ts' | 'rust' => {
+  const value = (process.env.FINAPP_MC_ENGINE ?? 'ts').trim().toLowerCase();
+  return value === 'rust' ? 'rust' : 'ts';
+};
+
+const resolveShadowConfig = (): { enabled: boolean; sampleRate: number } => {
+  const enabled = process.env.FINAPP_MC_SHADOW_COMPARE === '1';
+  const sampleRateRaw = Number.parseFloat(process.env.FINAPP_MC_SHADOW_SAMPLE_RATE ?? '0.1');
+  const sampleRate = Number.isFinite(sampleRateRaw)
+    ? Math.min(1, Math.max(0, sampleRateRaw))
+    : 0.1;
+  return { enabled, sampleRate };
+};
+
+const logEngineEvent = (event: string, details: Record<string, unknown>): void => {
+  console.warn(
+    JSON.stringify({
+      event,
+      engine: 'monte-carlo',
+      timestamp: new Date().toISOString(),
+      ...details,
+    }),
+  );
+};
+
+const summarizeResult = (result: MonteCarloExecutionResult) => {
+  const p50 = result.monteCarlo.percentileCurves.total.p50;
+  const terminalP50 = p50[p50.length - 1] ?? 0;
+  return {
+    simulationCount: result.monteCarlo.simulationCount,
+    successCount: result.monteCarlo.successCount,
+    probabilityOfSuccess: result.monteCarlo.probabilityOfSuccess,
+    representativeTerminal: result.representativePath.summary.terminalPortfolioValue,
+    terminalP50,
+  };
+};
+
+const runShadowCompare = (
+  primaryLabel: 'ts' | 'rust',
+  primaryResult: MonteCarloExecutionResult,
+  secondaryResult: MonteCarloExecutionResult,
+): void => {
+  const primary = summarizeResult(primaryResult);
+  const secondary = summarizeResult(secondaryResult);
+  if (
+    primary.simulationCount !== secondary.simulationCount ||
+    primary.successCount !== secondary.successCount ||
+    primary.probabilityOfSuccess !== secondary.probabilityOfSuccess ||
+    primary.representativeTerminal !== secondary.representativeTerminal ||
+    primary.terminalP50 !== secondary.terminalP50
+  ) {
+    logEngineEvent('mc_shadow_mismatch', {
+      primaryEngine: primaryLabel,
+      primary,
+      secondary,
+    });
+  }
+};
+
+const runRustWithFallback = async (
+  config: SimulationConfig,
+  options: MonteCarloOptions,
+): Promise<MonteCarloExecutionResult> => {
+  try {
+    return await runMonteCarloRust(config, options);
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
+    logEngineEvent('mc_rust_fallback_to_ts', { message });
+    return runMonteCarloTs(config, options);
+  }
+};
+
+const optionsRequireTsEngine = (options: MonteCarloOptions): boolean =>
+  typeof options.transformReturns === 'function';
+
+export const runMonteCarlo = async (
+  config: SimulationConfig,
+  options: MonteCarloOptions = {},
+): Promise<MonteCarloExecutionResult> => {
+  const preferredEngine = resolveEnginePreference();
+  const { enabled: shadowEnabled, sampleRate: shadowSampleRate } = resolveShadowConfig();
+  const shouldShadow = shadowEnabled && Math.random() < shadowSampleRate;
+
+  if (preferredEngine === 'rust' && optionsRequireTsEngine(options)) {
+    logEngineEvent('mc_rust_option_unsupported_fallback', {
+      reason: 'transformReturns callback not serializable for native boundary',
+    });
+    return runMonteCarloTs(config, options);
+  }
+
+  if (preferredEngine === 'rust') {
+    const primary = await runRustWithFallback(config, options);
+    if (shouldShadow) {
+      const secondary = await runMonteCarloTs(config, options);
+      runShadowCompare('rust', primary, secondary);
+    }
+    return primary;
+  }
+
+  const primary = await runMonteCarloTs(config, options);
+  if (shouldShadow && !optionsRequireTsEngine(options)) {
+    try {
+      const secondary = await runMonteCarloRust(config, options);
+      runShadowCompare('ts', primary, secondary);
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      logEngineEvent('mc_shadow_rust_failed', { message });
+    }
+  }
+  return primary;
 };

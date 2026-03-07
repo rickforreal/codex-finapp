@@ -126,6 +126,19 @@ const resolveSlotResult = (simulationMode: SimulationMode, workspace: WorkspaceS
   return preferred ?? workspace.simulationResults.manual ?? workspace.simulationResults.monteCarlo;
 };
 
+const resolveCompareParallelism = (maxRequestedRuns: number): number => {
+  if (maxRequestedRuns >= 10_000) {
+    return 2;
+  }
+  if (maxRequestedRuns >= 5_000) {
+    return 3;
+  }
+  if (maxRequestedRuns >= 2_500) {
+    return 4;
+  }
+  return 8;
+};
+
 export const StressTestPanel = () => {
   const mode = useAppStore((state) => state.mode);
   const isCompareActive = useIsCompareActive();
@@ -230,7 +243,15 @@ export const StressTestPanel = () => {
           | { status: 'fulfilled'; slotId: CompareSlotId; response: Awaited<ReturnType<typeof runStressTest>> }
           | { status: 'rejected'; slotId: CompareSlotId; reason: unknown }
         > = [];
-        const maxParallel = 8;
+        const maxRequestedRuns =
+          simulationMode === SimulationMode.MonteCarlo
+            ? slots.reduce((max, entry) => {
+                const config = getCompareConfigForSlot(entry.slotId);
+                const runs = Math.max(1, Math.min(Math.round(config?.simulationRuns ?? 1000), 10000));
+                return Math.max(max, runs);
+              }, 1)
+            : 1;
+        const maxParallel = resolveCompareParallelism(maxRequestedRuns);
         const workers = Array.from({ length: Math.min(maxParallel, queue.length) }, async () => {
           while (queue.length > 0) {
             const next = queue.shift();

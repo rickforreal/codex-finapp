@@ -2185,3 +2185,41 @@ Validation run (all passing):
 - `npm run lint`
 - `npm test`
 - `npm run build`
+- MCPERF follow-up optimization pass (2026-03-07): reduced MC memory pressure and added adaptive compare fan-out control.
+  - `packages/server/src/engine/monteCarlo.ts` now stores per-month MC distributions in `Float64Array` buffers to reduce array overhead/GC churn during high-run workloads.
+  - Client compare fan-out now adaptively downshifts for heavy MC run counts while preserving cap-8 behavior for lighter workloads:
+    - `packages/client/src/components/layout/CommandBar.tsx`
+    - `packages/client/src/components/output/StressTestPanel.tsx`
+  - Canonical docs aligned: `docs/API.md`, `docs/ARCHITECTURE.md`.
+
+Validation rerun (all passing):
+- `npm run typecheck`
+- `npm run lint`
+- `npm test`
+- `npm run build`
+- MCPERF deep-path optimization (2026-03-07): Monte Carlo now uses simulator fast path for non-representative runs.
+  - `packages/server/src/engine/simulator.ts`:
+    - Added optional `includeRows` + `onMonthComplete` execution options to `simulateRetirement`.
+    - Default behavior unchanged (`includeRows=true`) for API/manual/representative-path callers.
+  - `packages/server/src/engine/monteCarlo.ts`:
+    - Non-representative MC runs execute with `includeRows=false` and stream month-end balances/withdrawals via callback.
+    - Eliminates per-run row-array/object materialization during 10,000-path aggregation while preserving output semantics.
+
+Validation rerun (all passing):
+- `npm run typecheck`
+- `npm run lint`
+- `npm test`
+- `npm run build`
+- RUSTMC-T1 kickoff (2026-03-07): docs-first Rust migration wave created at `docs/features/monte-carlo-rust-napi/` with feature plan to add in-process N-API engine selector/fallback/shadow parity controls.
+- RUSTMC completion pass (2026-03-07): implemented Rust Monte Carlo compute core in `packages/native-mc/src/lib.rs` and wired native adapter payloads for pre-resolved historical inputs (`historicalMonthsJson`, `historicalSummaryJson`).
+  - Rust core now executes MC sampling, month-by-month simulation, withdrawal strategy dispatch, drawdown/events, percentile aggregation, and representative-path replay.
+  - Server native adapter now fetches historical months/summary and passes them to Rust while retaining existing TS fallback and shadow-compare controls.
+  - Root task tracker updated: `RUSTMC-T1..RUSTMC-T6` marked complete in `TASKS.md`.
+  - Canonical-doc impact: no additional canonical doc changes beyond prior `docs/API.md` and `docs/ARCHITECTURE.md` runtime-selector updates.
+
+Validation rerun (all passing):
+- `npm run typecheck`
+- `npm run lint`
+- `npm test`
+- `npm run build`
+- Native compilation not executed locally because cargo toolchain is unavailable in this environment; native hooks safely skipped.

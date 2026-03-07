@@ -1,0 +1,21 @@
+{
+  "name": "@finapp/native-mc",
+  "version": "0.1.0",
+  "private": true,
+  "main": "index.js",
+  "files": [
+    "index.js",
+    "index.d.ts",
+    "index.node",
+    "Cargo.toml",
+    "src",
+    "build.rs",
+    "scripts"
+  ],
+  "scripts": {
+    "build": "node ./scripts/build.mjs",
+    "test": "node ./scripts/test.mjs",
+    "typecheck": "node -e \"console.log('native-mc: no TypeScript typecheck')\"",
+    "lint": "node -e \"console.log('native-mc: no lint step')\""
+  }
+}

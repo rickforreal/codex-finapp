@@ -127,6 +127,19 @@ const withBoundaryStartAnchor = (
   return nextOverrides;
 };
 
+const resolveCompareParallelism = (maxRequestedRuns: number): number => {
+  if (maxRequestedRuns >= 10_000) {
+    return 2;
+  }
+  if (maxRequestedRuns >= 5_000) {
+    return 3;
+  }
+  if (maxRequestedRuns >= 2_500) {
+    return 4;
+  }
+  return 8;
+};
+
 export const CommandBar = () => {
   const fileInputRef = useRef<HTMLInputElement | null>(null);
   const selectedThemeRowRef = useRef<HTMLButtonElement | null>(null);
@@ -441,7 +454,14 @@ export const CommandBar = () => {
             : null;
         compareConfigs.forEach(({ slotId }) => setCompareSlotSimulationStatus(slotId, 'running'));
         const queue = [...compareConfigs];
-        const maxParallel = 8;
+        const maxRequestedRuns = compareConfigs.reduce((max, { config }) => {
+          if (config.simulationMode !== SimulationMode.MonteCarlo) {
+            return max;
+          }
+          const runs = Math.max(1, Math.min(Math.round(config.simulationRuns ?? 1000), 10000));
+          return Math.max(max, runs);
+        }, 1);
+        const maxParallel = resolveCompareParallelism(maxRequestedRuns);
         const failures: string[] = [];
         const workers = Array.from({ length: Math.min(maxParallel, queue.length) }, async () => {
           while (queue.length > 0) {

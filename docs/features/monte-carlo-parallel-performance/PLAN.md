@@ -10,6 +10,7 @@ Implement a server-first performance wave focused on (1) reducing Monte Carlo co
 - Replace full `runResults` path retention with compact per-run summary retention (`terminal`, `drawdown`, `shortfall`, `runIndex`).
 - Select representative run index from summary metrics after global medians are known.
 - Deterministically replay only the selected run to produce `representativePath`.
+- Add simulator fast path (`includeRows=false`) so non-representative Monte Carlo runs stream month-end metrics without materializing full row objects.
 
 ### 2. Stress Monte Carlo run-count parity
 - In `packages/server/src/engine/stress.ts`, replace fixed `runs: 1000` with run-count resolution from `config.simulationRuns` (clamped `1..10000`).
@@ -21,7 +22,7 @@ Implement a server-first performance wave focused on (1) reducing Monte Carlo co
 - Keep test/runtime safety: do not cluster under test mode.
 
 ### 4. Client fan-out tuning
-- Raise compare and compare-stress bounded parallelism from 4 to 8 in:
+- Raise compare and compare-stress bounded parallelism from 4 to 8 with adaptive downshifting for very high Monte Carlo run counts in:
   - `packages/client/src/components/layout/CommandBar.tsx`
   - `packages/client/src/components/output/StressTestPanel.tsx`
 - Preserve bounded queue behavior (no unbounded request bursts).

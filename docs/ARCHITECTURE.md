@@ -920,6 +920,12 @@ For each scenario, the function:
 
 Representative baseline timings remain request-shape dependent: a single Manual run is typically near-instant, while Monte Carlo and stress workloads scale with run count and retirement horizon.
 
+**Monte Carlo runtime selector.** The Monte Carlo engine supports an internal backend selector:
+- `FINAPP_MC_ENGINE=ts|rust` (`ts` default).
+- Rust path uses an in-process N-API boundary.
+- On native load/execute failures, server logs a structured warning and falls back to TS compute.
+- Optional sampled shadow compare (`FINAPP_MC_SHADOW_COMPARE=1`) runs both engines for parity diagnostics without changing external API shape.
+
 **Future: async with job IDs.** If Monte Carlo or stress test computation times grow beyond acceptable synchronous thresholds (>10 seconds), the architecture supports a migration to async processing: the API returns a job ID immediately, and the client polls (or uses Server-Sent Events) for the result. This change is isolated to the route handler and API contract — the engine itself doesn't change.
 
 ### 7.7 Error Handling and Validation
@@ -1007,7 +1013,7 @@ User clicks Run Simulation with compare-active slot set (slot count > 1)
     → For fairness, all slot requests share identical stochastic inputs
       → Manual: shared monthly return stream
       → Monte Carlo: shared seed/sampling stream
-        → Sends POST /api/v1/simulate per active slot via bounded-parallel queue (cap: 8)
+        → Sends POST /api/v1/simulate per active slot via bounded-parallel queue (cap: 8, adaptively reduced for heavy MC run counts)
           → Store updates compare outputs per slot
             → Shared compare chart/stats/ledger tabs re-render
 ```

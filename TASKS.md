@@ -1972,3 +1972,53 @@ Acceptance Criteria:
       [AC1] Canonical docs updated: `docs/ARCHITECTURE.md`, `docs/API.md`.
       [AC2] `npm run typecheck`, `npm run lint`, `npm test`, and `npm run build` pass.
       [AC3] `PROGRESS.txt` append-only completion entry includes canonical-doc impact statement.
+
+## Feature Plan — Monte Carlo Rust N-API Migration
+
+- [x] RUSTMC-T1: Create docs-first Rust migration artifacts and root tracker entries
+      Phase: Feature/MonteCarloRustNapi
+      Dependencies: none
+      Acceptance Criteria:
+      [AC1] `docs/features/monte-carlo-rust-napi/{FEATURE,PLAN,ACCEPTANCE}.md` exist.
+      [AC2] Root `TASKS.md` includes `RUSTMC-T1..RUSTMC-T6`.
+      [AC3] `PROGRESS.txt` includes append-only kickoff entry.
+
+- [x] RUSTMC-T2: Add native MC workspace package scaffold with napi-rs Rust crate and JS loader
+      Phase: Feature/MonteCarloRustNapi
+      Dependencies: RUSTMC-T1
+      Acceptance Criteria:
+      [AC1] `packages/native-mc` exists with `Cargo.toml`, Rust source, package metadata, and loader entry.
+      [AC2] Native package exports `runMonteCarloJson` boundary function.
+      [AC3] Native package build/test scripts are callable from npm workspace.
+
+- [x] RUSTMC-T3: Add server Rust adapter + engine selector/fallback/shadow controls
+      Phase: Feature/MonteCarloRustNapi
+      Dependencies: RUSTMC-T2
+      Acceptance Criteria:
+      [AC1] `FINAPP_MC_ENGINE=ts|rust` supported with default `ts`.
+      [AC2] Rust load/execute failures fallback to TS with structured warning logs.
+      [AC3] `FINAPP_MC_SHADOW_COMPARE=1` runs sampled dual-engine compares and logs deltas.
+
+- [x] RUSTMC-T4: Ensure stress and compare paths consume unified selector behavior
+      Phase: Feature/MonteCarloRustNapi
+      Dependencies: RUSTMC-T3
+      Acceptance Criteria:
+      [AC1] Stress MC calls use shared `runMonteCarlo` selector path.
+      [AC2] No API contract changes required for compare/stress callers.
+      [AC3] Existing stress/compare tests remain passing.
+
+- [x] RUSTMC-T5: Add native parity/fallback tests and toolchain-aware build hooks
+      Phase: Feature/MonteCarloRustNapi
+      Dependencies: RUSTMC-T3
+      Acceptance Criteria:
+      [AC1] Server tests cover rust-selector fallback and shadow-compare non-failure behavior.
+      [AC2] Root scripts include native build/test hooks with safe skip when cargo is unavailable.
+      [AC3] Existing regression suites remain green.
+
+- [x] RUSTMC-T6: Add CI workflow and canonical docs updates
+      Phase: Feature/MonteCarloRustNapi
+      Dependencies: RUSTMC-T2, RUSTMC-T3
+      Acceptance Criteria:
+      [AC1] GitHub workflow runs native build/test matrix for darwin-arm64 + linux-x64.
+      [AC2] `docs/ARCHITECTURE.md` and `docs/API.md` updated for runtime selector/fallback model.
+      [AC3] `PROGRESS.txt` append-only completion entry includes canonical-doc impact statement.
