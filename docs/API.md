@@ -8,7 +8,7 @@ Note: CSV export is not part of the current release scope and there is no CSV ex
 
 Multi-slot compare uses existing endpoints (`/simulate` and `/stress-test`) with client-side slot orchestration. No dedicated compare endpoint is required.
 
-Bookmark persistence is client-only (`localStorage`) in the current release. There are no bookmark create/list/load/delete API endpoints.
+Bookmark persistence uses a server-side SQLite database. Clients can list, create, and delete bookmarks via the `/bookmarks` endpoints.
 
 ## Base URL
 
@@ -128,6 +128,44 @@ Response:
   historicalSummary: HistoricalDataSummary;
 }
 ```
+
+### GET `/api/v1/bookmarks`
+
+Returns all saved bookmarks.
+
+Response:
+
+```ts
+BookmarkRecord[]
+```
+
+### POST `/api/v1/bookmarks`
+
+Creates a new bookmark.
+
+Request:
+
+```ts
+{
+  name: string;
+  payload: string;      // gzip+Base64 compressed snapshot
+  description?: string;
+  id?: string;          // optional, server will generate if missing
+  savedAt?: string;     // optional, server will generate if missing
+}
+```
+
+Response:
+
+```ts
+BookmarkRecord
+```
+
+### DELETE `/api/v1/bookmarks/:id`
+
+Deletes a bookmark by ID.
+
+Response: `204 No Content`
 
 ### GET `/api/v1/historical/summary`
 

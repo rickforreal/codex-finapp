@@ -2074,3 +2074,15 @@ Acceptance Criteria:
       [AC2] Regression gate passes: `npm run typecheck`, `npm run lint`, `npm test`, `npm run build`.
       [AC3] Native gate passes: `npm run build -w @finapp/native-mc`, `npm run test -w @finapp/native-mc`.
       [AC4] `PROGRESS.txt` completion entry includes canonical-doc impact statement.
+
+## Phase: SQLite Bookmarks Persistence
+
+- [x] SQLBM-T1: Migrate bookmarks from localStorage to SQLite
+      Phase: Feature/SQLiteBookmarks
+      Dependencies: none
+      Acceptance Criteria:
+      [AC1] better-sqlite3 integrated in @finapp/server.
+      [AC2] BookmarkRepository implemented with CRUD operations.
+      [AC3] GET/POST/DELETE /api/v1/bookmarks endpoints active and validated.
+      [AC4] Client refactored to use async API and auto-migrate existing bookmarks.
+      [AC5] All tests pass and documentation updated.

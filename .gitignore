@@ -8,3 +8,6 @@ coverage
 /.temp
 .env
 ai-sync.sh
+
+# SQLite data files
+packages/server/data/*.db*

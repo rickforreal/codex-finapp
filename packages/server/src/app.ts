@@ -7,6 +7,7 @@ import { reforecastRoutes } from './routes/reforecast';
 import { simulationRoutes } from './routes/simulation';
 import { stressTestRoutes } from './routes/stress';
 import { themeRoutes } from './routes/themes';
+import { bookmarkRoutes } from './routes/bookmarks';
 
 export const createApp = () => {
   const app = fastify({
@@ -22,6 +23,7 @@ export const createApp = () => {
   app.register(simulationRoutes, { prefix: '/api/v1' });
   app.register(stressTestRoutes, { prefix: '/api/v1' });
   app.register(themeRoutes, { prefix: '/api/v1' });
+  app.register(bookmarkRoutes, { prefix: '/api/v1' });
 
   return app;
 };

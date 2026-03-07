@@ -5,3 +5,5 @@ export * from './contracts/schemas';
 export * from './domain/simulation';
 export * from './domain/theme';
 export * from './ui/colors';
+export * from './domain/bookmarks';
+export * from './contracts/bookmarks';

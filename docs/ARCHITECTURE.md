@@ -81,7 +81,9 @@ This document defines the technical architecture for the Retirement Forecasting 
 
 ### 2.2 Design Principles
 
-**Stateless server.** The server holds no per-user state. Every API request contains the complete simulation configuration. The server computes results and returns them. There is no database, no sessions, no authentication. The server is a pure computation service.
+**Stateful server foundation.** While the simulation engine remains stateless (accepting full configuration per request), the server now includes a persistence layer using **SQLite** for user-generated data that benefits from cross-session reliability, starting with Bookmarks.
+
+**SQLite persistence.** Bookmark records are stored in a local SQLite database (`packages/server/data/finapp.db`) managed via `better-sqlite3`. This provides a more reliable and higher-capacity alternative to browser `localStorage`.
 
 **API-first boundary.** All server functionality is exposed through versioned REST endpoints. The React web client is the first consumer, but the API is designed to be consumed by any HTTP client — a future iOS app, Android app, or CLI tool would call the same endpoints.
 
@@ -130,6 +132,7 @@ TypeScript strict mode is non-negotiable. The simulation engine handles financia
 | Concern | Choice | Rationale |
 |---|---|---|
 | HTTP framework | Fastify | ≥ 4.x. High performance, first-class TypeScript support, schema-based validation, structured logging. |
+| Persistence | SQLite (`better-sqlite3`) | Fast, local file-based SQL database for bookmarks and future stateful features. |
 | Validation | Zod | Define schemas as TypeScript-first, derive both runtime validation and static types. Shared with the client via the shared types package. |
 | Historical data | Static CSV file | Loaded and parsed into memory at server startup. ~1,200 rows × 3–4 columns. Negligible memory footprint. |
 | CSV parsing | papaparse or csv-parse | One-time parse at startup. |
@@ -673,22 +676,19 @@ AppStore
 **Schema policy.** Snapshot loading uses strict version matching (`snapshot.schemaVersion === supportedVersion`). Files from different versions are rejected to avoid restoring incompatible cached output payloads.
 `compareSync` is persisted inside compare workspace state and defaults to unlocked when absent in older payloads.
 
-### 6.3.1 Local Bookmark Persistence
+### 6.3.1 Persistent Bookmark Storage
 
 Bookmarks provide in-browser, no-file-dialog state recall and are distinct from snapshot file save/load.
 
-- Storage key: `finapp:bookmarks:v1`
-- Envelope shape: `{ version, bookmarks[] }`
-- Bookmark record: `{ id, name, savedAt, payload }`
-- `payload` is gzip+Base64 compressed snapshot JSON produced by the same snapshot serializer path used for `.json` downloads.
+- Persistence: Server-side SQLite database (`bookmarks` table).
+- API endpoints: `GET /api/v1/bookmarks`, `POST /api/v1/bookmarks`, `DELETE /api/v1/bookmarks/:id`.
+- Bookmark record: `{ id, name, savedAt, payload, description? }`.
+- `payload` is gzip+Base64 compressed snapshot JSON.
 
 Behavior:
-1. Create bookmark captures full app state and inserts at the top of list.
-2. List ordering is newest-first by insertion/saved time.
-3. Max 100 bookmarks; entries beyond cap are evicted from the oldest end.
-4. Loading a bookmark performs immediate full-state replace (same semantics as successful snapshot load, without a file picker).
-5. Deletion is client-side local storage mutation only.
-6. Quota exceeded errors are surfaced to the UI and do not partially write data.
+1. Create bookmark captures current app state and persists it to the database.
+2. Loading a bookmark performs immediate full-state replace (same semantics as successful snapshot load).
+3. Migration: On app load, the client checks for legacy `localStorage` bookmarks (`finapp:bookmarks:v1`). If found, it automatically uploads them to the server and clears the local key.
 
 ### 6.4 Simulation Result Caching
 

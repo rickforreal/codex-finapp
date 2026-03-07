@@ -15,6 +15,7 @@ import {
   createBookmark,
   deleteBookmark,
   listBookmarks,
+  migrateLocalStorageToDatabase,
   type BookmarkRecord,
   BookmarkStorageError,
 } from '../../store/bookmarks';
@@ -23,6 +24,7 @@ import {
   getTrackingActualOverridesForRun,
   getCompareConfigs,
   getCurrentConfig,
+  getSnapshotState,
   useIsCompareActive,
   useAppStore,
 } from '../../store/useAppStore';
@@ -182,9 +184,10 @@ export const CommandBar = () => {
     Math.abs(targetAllocation.stocks + targetAllocation.bonds + targetAllocation.cash - 1) <
       0.000001;
 
-  const refreshBookmarks = useCallback(() => {
+  const refreshBookmarks = useCallback(async () => {
     try {
-      setBookmarks(listBookmarks());
+      const list = await listBookmarks();
+      setBookmarks(list);
     } catch (error) {
       const message = error instanceof Error ? error.message : 'Failed to load bookmarks.';
       setCommandMessage(message);
@@ -192,7 +195,11 @@ export const CommandBar = () => {
   }, []);
 
   useEffect(() => {
-    refreshBookmarks();
+    const init = async () => {
+      await migrateLocalStorageToDatabase();
+      await refreshBookmarks();
+    };
+    void init();
   }, [refreshBookmarks]);
 
   useEffect(() => {
@@ -294,7 +301,8 @@ export const CommandBar = () => {
       return;
     }
 
-    const { json, filename } = serializeSnapshot(name);
+    const state = getSnapshotState();
+    const { json, filename } = serializeSnapshot(name, state);
     const blob = new Blob([json], { type: 'application/json' });
     const url = URL.createObjectURL(blob);
     const anchor = document.createElement('a');
@@ -353,7 +361,7 @@ export const CommandBar = () => {
     setThemeMenuOpen(false);
   };
 
-  const handleCreateBookmark = () => {
+  const handleCreateBookmark = async () => {
     const name = bookmarkName.trim();
     if (!name) {
       return;
@@ -361,8 +369,9 @@ export const CommandBar = () => {
 
     const description = bookmarkDescription.trim();
     try {
-      createBookmark(name, { description });
-      refreshBookmarks();
+      const state = getSnapshotState();
+      await createBookmark(name, state, { description });
+      await refreshBookmarks();
       setBookmarkModalOpen(false);
       setBookmarkName('');
       setBookmarkDescription('');
@@ -373,9 +382,10 @@ export const CommandBar = () => {
     }
   };
 
-  const handleLoadBookmark = (bookmarkId: string) => {
+  const handleLoadBookmark = async (bookmarkId: string) => {
     try {
-      const loaded = applyBookmark(bookmarkId);
+      const { bookmark, data } = await applyBookmark(bookmarkId);
+      setStateFromSnapshot(data);
       setThemeState({
         variants: [],
         families: [],
@@ -387,7 +397,7 @@ export const CommandBar = () => {
         errorMessage: null,
       });
       setBookmarksMenuOpen(false);
-      setCommandMessage(`Loaded bookmark: ${loaded.name}`);
+      setCommandMessage(`Loaded bookmark: ${bookmark.name}`);
     } catch (error) {
       if (error instanceof BookmarkStorageError || error instanceof SnapshotLoadError) {
         setCommandMessage(error.message);
@@ -397,15 +407,15 @@ export const CommandBar = () => {
     }
   };
 
-  const handleDeleteBookmark = (bookmark: BookmarkRecord) => {
+  const handleDeleteBookmark = async (bookmark: BookmarkRecord) => {
     if (!window.confirm(`Delete bookmark "${bookmark.name}"?`)) {
       return;
     }
 
     try {
-      const removed = deleteBookmark(bookmark.id);
+      const removed = await deleteBookmark(bookmark.id);
       if (removed) {
-        refreshBookmarks();
+        await refreshBookmarks();
         setCommandMessage(`Deleted bookmark: ${bookmark.name}`);
       }
     } catch (error) {

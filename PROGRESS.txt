@@ -2255,3 +2255,14 @@ Validation rerun (all passing):
 
 Validation rerun (passing):
 - `npm run test -w @finapp/server`
+
+## 2026-03-07 02:15 — Persistent Bookmarks (SQLite) | COMPLETE
+
+- Migrated bookmark persistence from client-side localStorage to a server-side SQLite database (data/finapp.db).
+- Introduced better-sqlite3 in @finapp/server with a BookmarkRepository abstraction.
+- Expanded Fastify API with GET/POST/DELETE /api/v1/bookmarks endpoints.
+- Moved bookmark types and Zod schemas to @finapp/shared for cross-package type safety.
+- Refactored client store/bookmarks.ts to use the new asynchronous API.
+- Implemented a transparent one-time migration that moves existing localStorage bookmarks to the database on first load.
+- Updated CommandBar.tsx to handle asynchronous bookmark operations and trigger migration.
+- Verified with comprehensive test suite updates in @finapp/client and existing server tests.

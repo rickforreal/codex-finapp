@@ -1,31 +1,21 @@
 import { gzip, ungzip } from 'pako';
+import {
+  BookmarkRecord,
+  BOOKMARKS_STORAGE_KEY,
+  BOOKMARKS_STORAGE_VERSION,
+  BookmarksStorageEnvelope,
+} from '@finapp/shared';
 
+import * as bookmarksApi from '../api/bookmarksApi';
 import { parseSnapshot, serializeSnapshot } from './snapshot';
-import { useAppStore } from './useAppStore';
-
-export const BOOKMARKS_STORAGE_KEY = 'finapp:bookmarks:v1';
-export const BOOKMARKS_STORAGE_VERSION = 1;
-export const MAX_BOOKMARKS = 100;
-
-export type BookmarkRecord = {
-  id: string;
-  name: string;
-  savedAt: string;
-  payload: string;
-  description?: string;
-};
-
-export type BookmarksStorageEnvelope = {
-  version: number;
-  bookmarks: BookmarkRecord[];
-};
 
 type BookmarkStorageErrorCode =
   | 'invalid_storage'
   | 'version_mismatch'
   | 'bookmark_not_found'
   | 'invalid_bookmark_payload'
-  | 'quota_exceeded';
+  | 'quota_exceeded'
+  | 'api_error';
 
 export class BookmarkStorageError extends Error {
   code: BookmarkStorageErrorCode;
@@ -36,41 +26,32 @@ export class BookmarkStorageError extends Error {
   }
 }
 
-type BookmarkStorageOptions = {
-  storage?: Storage;
-  createId?: () => string;
+// Robust Base64 implementation for all characters
+const bytesToBase64 = (bytes: Uint8Array): string => {
+  const binString = Array.from(bytes, (byte) => String.fromCharCode(byte)).join('');
+  return btoa(binString);
 };
 
-const defaultCreateId = (): string =>
-  globalThis.crypto?.randomUUID?.() ??
-  `bookmark-${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
+const base64ToBytes = (encoded: string): Uint8Array => {
+  const binString = atob(encoded);
+  return Uint8Array.from(binString, (m) => m.charCodeAt(0));
+};
 
-const resolveStorage = (storage?: Storage): Storage => {
-  if (storage) {
-    return storage;
-  }
+const encodeBookmarkPayload = (rawSnapshot: string): string => {
+  const compressed = gzip(rawSnapshot);
+  return bytesToBase64(compressed);
+};
 
-  if (typeof window === 'undefined' || !window.localStorage) {
+const decodeBookmarkPayload = (payload: string): string => {
+  try {
+    const bytes = base64ToBytes(payload);
+    return ungzip(bytes, { to: 'string' });
+  } catch {
     throw new BookmarkStorageError(
-      'invalid_storage',
-      'Bookmark storage is not available in this environment.',
+      'invalid_bookmark_payload',
+      'This bookmark is invalid and could not be loaded.',
     );
   }
-
-  return window.localStorage;
-};
-
-const isQuotaExceeded = (error: unknown): boolean => {
-  if (!(error instanceof DOMException)) {
-    return false;
-  }
-
-  return (
-    error.name === 'QuotaExceededError' ||
-    error.name === 'NS_ERROR_DOM_QUOTA_REACHED' ||
-    error.code === 22 ||
-    error.code === 1014
-  );
 };
 
 const asBookmarksEnvelope = (parsed: unknown): BookmarksStorageEnvelope => {
@@ -116,157 +97,79 @@ const asBookmarksEnvelope = (parsed: unknown): BookmarksStorageEnvelope => {
   };
 };
 
-const readEnvelope = (storage: Storage): BookmarksStorageEnvelope => {
-  const raw = storage.getItem(BOOKMARKS_STORAGE_KEY);
+export const migrateLocalStorageToDatabase = async (): Promise<void> => {
+  if (typeof window === 'undefined' || !window.localStorage) {
+    return;
+  }
+
+  const raw = window.localStorage.getItem(BOOKMARKS_STORAGE_KEY);
   if (!raw) {
-    return {
-      version: BOOKMARKS_STORAGE_VERSION,
-      bookmarks: [],
-    };
+    return;
   }
 
-  let parsed: unknown;
   try {
-    parsed = JSON.parse(raw);
-  } catch {
-    throw new BookmarkStorageError(
-      'invalid_storage',
-      'Bookmark storage payload is not valid JSON.',
-    );
-  }
-
-  return asBookmarksEnvelope(parsed);
-};
-
-const writeEnvelope = (storage: Storage, envelope: BookmarksStorageEnvelope): void => {
-  try {
-    storage.setItem(BOOKMARKS_STORAGE_KEY, JSON.stringify(envelope));
-  } catch (error) {
-    if (isQuotaExceeded(error)) {
-      throw new BookmarkStorageError(
-        'quota_exceeded',
-        'Bookmark storage is full. Delete some bookmarks or use Save Snapshot.',
-      );
+    const parsed = JSON.parse(raw);
+    const envelope = asBookmarksEnvelope(parsed);
+    
+    for (const bookmark of envelope.bookmarks) {
+      try {
+        await bookmarksApi.createBookmark(bookmark);
+      } catch (error) {
+        console.error(`Failed to migrate bookmark ${bookmark.id}:`, error);
+      }
     }
 
-    throw error;
+    window.localStorage.removeItem(BOOKMARKS_STORAGE_KEY);
+    console.log('Successfully migrated bookmarks from localStorage to SQLite.');
+  } catch (error) {
+    console.error('Migration failed:', error);
   }
 };
 
-const bytesToBase64 = (bytes: Uint8Array): string => {
-  let binary = '';
-  const chunkSize = 0x8000;
-  for (let index = 0; index < bytes.length; index += chunkSize) {
-    const chunk = bytes.subarray(index, index + chunkSize);
-    binary += String.fromCharCode(...chunk);
-  }
-
-  if (typeof btoa !== 'function') {
-    throw new BookmarkStorageError('invalid_storage', 'Base64 encoding is not available.');
-  }
-
-  return btoa(binary);
-};
-
-const base64ToBytes = (encoded: string): Uint8Array => {
-  if (typeof atob !== 'function') {
-    throw new BookmarkStorageError('invalid_storage', 'Base64 decoding is not available.');
-  }
-
-  const binary = atob(encoded);
-
-  const bytes = new Uint8Array(binary.length);
-  for (let index = 0; index < binary.length; index += 1) {
-    bytes[index] = binary.charCodeAt(index);
-  }
-
-  return bytes;
-};
-
-const encodeBookmarkPayload = (rawSnapshot: string): string => {
-  const compressed = gzip(rawSnapshot);
-  return bytesToBase64(compressed);
-};
-
-const decodeBookmarkPayload = (payload: string): string => {
+export const listBookmarks = async (): Promise<BookmarkRecord[]> => {
   try {
-    const bytes = base64ToBytes(payload);
-    return ungzip(bytes, { to: 'string' });
-  } catch {
-    throw new BookmarkStorageError(
-      'invalid_bookmark_payload',
-      'This bookmark is invalid and could not be loaded.',
-    );
+    return await bookmarksApi.listBookmarks();
+  } catch (error) {
+    throw new BookmarkStorageError('api_error', error instanceof Error ? error.message : 'API error');
   }
 };
 
-export const listBookmarks = (
-  options: Pick<BookmarkStorageOptions, 'storage'> = {},
-): BookmarkRecord[] => {
-  const storage = resolveStorage(options.storage);
-  return [...readEnvelope(storage).bookmarks];
-};
-
-export const createBookmark = (
+export const createBookmark = async (
   name: string,
-  options: BookmarkStorageOptions & { description?: string } = {},
-): BookmarkRecord => {
+  options: { description?: string } = {},
+): Promise<BookmarkRecord> => {
   const trimmedName = name.trim();
   if (!trimmedName) {
     throw new BookmarkStorageError('invalid_bookmark_payload', 'Bookmark name is required.');
   }
 
-  const { description, storage, createId } = options;
-  const resolvedStorage = resolveStorage(storage);
-  const resolvedCreateId = createId ?? defaultCreateId;
-  const envelope = readEnvelope(resolvedStorage);
+  const { description } = options;
   const { json } = serializeSnapshot(trimmedName);
-  const parsed = JSON.parse(json) as { savedAt?: unknown };
-  const savedAt = typeof parsed.savedAt === 'string' ? parsed.savedAt : new Date().toISOString();
-
-  const nextBookmark: BookmarkRecord = {
-    id: resolvedCreateId(),
-    name: trimmedName,
-    savedAt,
-    payload: encodeBookmarkPayload(json),
-    description: description?.trim() || undefined,
-  };
-
-  const nextEnvelope: BookmarksStorageEnvelope = {
-    version: BOOKMARKS_STORAGE_VERSION,
-    bookmarks: [nextBookmark, ...envelope.bookmarks].slice(0, MAX_BOOKMARKS),
-  };
-
-  writeEnvelope(resolvedStorage, nextEnvelope);
-  return nextBookmark;
+  
+  try {
+    return await bookmarksApi.createBookmark({
+      name: trimmedName,
+      payload: encodeBookmarkPayload(json),
+      description: description?.trim() || undefined,
+    });
+  } catch (error) {
+    throw new BookmarkStorageError('api_error', error instanceof Error ? error.message : 'API error');
+  }
 };
 
-export const deleteBookmark = (
-  bookmarkId: string,
-  options: Pick<BookmarkStorageOptions, 'storage'> = {},
-): boolean => {
-  const storage = resolveStorage(options.storage);
-  const envelope = readEnvelope(storage);
-  const nextBookmarks = envelope.bookmarks.filter((bookmark) => bookmark.id !== bookmarkId);
-
-  if (nextBookmarks.length === envelope.bookmarks.length) {
+export const deleteBookmark = async (bookmarkId: string): Promise<boolean> => {
+  try {
+    await bookmarksApi.deleteBookmark(bookmarkId);
+    return true;
+  } catch (error) {
+    console.error('Failed to delete bookmark:', error);
     return false;
   }
-
-  writeEnvelope(storage, {
-    version: BOOKMARKS_STORAGE_VERSION,
-    bookmarks: nextBookmarks,
-  });
-  return true;
 };
 
-export const applyBookmark = (
-  bookmarkId: string,
-  options: Pick<BookmarkStorageOptions, 'storage'> = {},
-): BookmarkRecord => {
-  const storage = resolveStorage(options.storage);
-  const envelope = readEnvelope(storage);
-  const bookmark = envelope.bookmarks.find((entry) => entry.id === bookmarkId);
+export const applyBookmark = async (bookmarkId: string): Promise<{ bookmark: BookmarkRecord, data: any }> => {
+  const bookmarks = await listBookmarks();
+  const bookmark = bookmarks.find((entry) => entry.id === bookmarkId);
 
   if (!bookmark) {
     throw new BookmarkStorageError(
@@ -277,6 +180,5 @@ export const applyBookmark = (
 
   const rawSnapshot = decodeBookmarkPayload(bookmark.payload);
   const parsedSnapshot = parseSnapshot(rawSnapshot);
-  useAppStore.getState().setStateFromSnapshot(parsedSnapshot.data);
-  return bookmark;
+  return { bookmark, data: parsedSnapshot.data };
 };
