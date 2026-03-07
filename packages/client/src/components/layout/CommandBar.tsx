@@ -19,7 +19,6 @@ import {
   listBookmarks,
   migrateLocalStorageToDatabase,
   BookmarkStorageError,
-  type BookmarkRecord,
 } from '../../store/bookmarks';
 import { SnapshotLoadError, parseSnapshot, serializeSnapshot } from '../../store/snapshot';
 import {
