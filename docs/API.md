@@ -74,7 +74,8 @@ Monte Carlo run count semantics:
 - Effective simulation mode remains `manual` when run count resolves to `1`, and `monteCarlo` when greater than `1`.
 
 Internal runtime toggles (no request contract change):
-- `FINAPP_MC_ENGINE=ts|rust` selects Monte Carlo backend (`ts` default).
+- `FINAPP_SIM_ENGINE=ts|rust` selects the server simulation backend for `/simulate` (manual + MC), `/reforecast`, and `/stress-test` (`rust` default).
+- `FINAPP_MC_ENGINE=ts|rust` is a backward-compatible Monte Carlo alias used only when `FINAPP_SIM_ENGINE` is unset (deprecated).
 - `FINAPP_MC_SHADOW_COMPARE=1` enables sampled dual-engine parity execution for diagnostics.
 - `FINAPP_MC_SHADOW_SAMPLE_RATE` sets sampling rate for shadow compare (default `0.1`).
 
@@ -251,7 +252,7 @@ Response:
 
 Stress Monte Carlo run-count semantics:
 - When `config.simulationMode = "monteCarlo"`, stress base/scenario Monte Carlo calls use the same `config.simulationRuns` value, clamped to `1..10000`.
-- Stress uses the same Monte Carlo runtime selector/fallback behavior as `/simulate` through shared server engine wiring.
+- Stress uses the shared simulation runtime selector/fallback behavior (`FINAPP_SIM_ENGINE`) across both manual and Monte Carlo paths.
 
 ## Source of Truth
 

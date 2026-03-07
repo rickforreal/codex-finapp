@@ -5,7 +5,8 @@ import type { ApiErrorResponse, ReturnAssumptions, SimulateRequest, SimulateResp
 import { ReturnSource, SimulationMode, simulateRequestSchema } from '@finapp/shared';
 
 import { runMonteCarlo } from '../engine/monteCarlo';
-import { generateMonthlyReturnsFromAssumptions, simulateRetirement } from '../engine/simulator';
+import { generateMonthlyReturnsFromAssumptions } from '../engine/simulator';
+import { runSinglePath } from '../engine/simulationRuntime';
 
 const mapZodIssues = (error: ZodError): NonNullable<ApiErrorResponse['fieldErrors']> =>
   error.issues.map((issue) => ({
@@ -56,6 +57,7 @@ export const simulationRoutes: FastifyPluginAsync = async (app) => {
             seed: body.seed,
             runs: runConfig.simulationRuns,
             actualOverridesByMonth: body.actualOverridesByMonth ?? {},
+            flowTag: 'simulate_mc',
           });
           return {
             simulationMode: SimulationMode.MonteCarlo,
@@ -67,7 +69,13 @@ export const simulationRoutes: FastifyPluginAsync = async (app) => {
         }
 
         const returns = body.monthlyReturns ?? generateMonthlyReturnsFromAssumptions(normalizedConfig, body.seed);
-        const result = simulateRetirement(normalizedConfig, returns, body.actualOverridesByMonth ?? {});
+        const result = await runSinglePath(
+          normalizedConfig,
+          returns,
+          body.actualOverridesByMonth ?? {},
+          {},
+          'simulate_manual',
+        );
 
         return {
           simulationMode: SimulationMode.Manual,

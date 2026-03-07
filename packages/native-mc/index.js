@@ -39,6 +39,24 @@ const runMonteCarloJson = (request) => {
   return binding.runMonteCarloJson(request);
 };
 
+const runSinglePathJson = (request) => {
+  const binding = loadBinding();
+  if (!binding || typeof binding.runSinglePathJson !== 'function') {
+    throw new Error('Native Monte Carlo binding missing runSinglePathJson export');
+  }
+  return binding.runSinglePathJson(request);
+};
+
+const runReforecastJson = (request) => {
+  const binding = loadBinding();
+  if (!binding || typeof binding.runReforecastJson !== 'function') {
+    throw new Error('Native Monte Carlo binding missing runReforecastJson export');
+  }
+  return binding.runReforecastJson(request);
+};
+
 module.exports = {
   runMonteCarloJson,
+  runSinglePathJson,
+  runReforecastJson,
 };

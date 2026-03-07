@@ -1,8 +1,9 @@
 import { describe, expect, it } from 'vitest';
 
-import { HistoricalEra, SimulationMode, WithdrawalStrategyType } from '@finapp/shared';
+import { HistoricalEra, SimulationMode, type StressScenario, WithdrawalStrategyType } from '@finapp/shared';
 
 import { runMonteCarlo } from '../../src/engine/monteCarlo';
+import { returnsWithStressTransform } from '../../src/engine/stressTransforms';
 import { createBaseConfig } from '../fixtures';
 
 describe('runMonteCarlo', () => {
@@ -216,5 +217,44 @@ describe('runMonteCarlo', () => {
     expect(result.monteCarlo.simulationCount).toBe(80);
     expect(result.monteCarlo.historicalSummary.selectedEra.key).toBe(HistoricalEra.Custom);
     expect(result.monteCarlo.historicalSummary.byAsset.stocks.sampleSizeMonths).toBe(12);
+  });
+
+  it('matches callback transforms when using descriptor-based stress transforms', async () => {
+    const config = createBaseConfig();
+    config.simulationMode = SimulationMode.MonteCarlo;
+    const scenario: StressScenario = {
+      id: 'crash',
+      label: 'Crash',
+      type: 'stockCrash',
+      startYear: 2,
+      params: { dropPct: -0.35 },
+    };
+    const descriptor = {
+      projectedStartMonth: 1,
+      scenario,
+    };
+
+    const callbackResult = await runMonteCarlo(config, {
+      runs: 160,
+      seed: 222,
+      transformReturns: (returns) => returnsWithStressTransform(descriptor, returns),
+    });
+
+    const descriptorResult = await runMonteCarlo(config, {
+      runs: 160,
+      seed: 222,
+      stressTransform: descriptor,
+    });
+
+    expect(descriptorResult.monteCarlo.percentileCurves.total.p50).toEqual(
+      callbackResult.monteCarlo.percentileCurves.total.p50,
+    );
+    expect(descriptorResult.monteCarlo.percentileCurves.total.p10).toEqual(
+      callbackResult.monteCarlo.percentileCurves.total.p10,
+    );
+    expect(descriptorResult.monteCarlo.probabilityOfSuccess).toBe(
+      callbackResult.monteCarlo.probabilityOfSuccess,
+    );
+    expect(descriptorResult.representativePath.summary).toEqual(callbackResult.representativePath.summary);
   });
 });

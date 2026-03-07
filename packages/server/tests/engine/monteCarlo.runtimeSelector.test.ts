@@ -7,11 +7,13 @@ import * as monteCarloNative from '../../src/engine/monteCarloNative';
 import { createBaseConfig } from '../fixtures';
 
 const ORIGINAL_ENGINE = process.env.FINAPP_MC_ENGINE;
+const ORIGINAL_SIM_ENGINE = process.env.FINAPP_SIM_ENGINE;
 const ORIGINAL_SHADOW_COMPARE = process.env.FINAPP_MC_SHADOW_COMPARE;
 const ORIGINAL_SHADOW_SAMPLE = process.env.FINAPP_MC_SHADOW_SAMPLE_RATE;
 
 afterEach(() => {
   process.env.FINAPP_MC_ENGINE = ORIGINAL_ENGINE;
+  process.env.FINAPP_SIM_ENGINE = ORIGINAL_SIM_ENGINE;
   process.env.FINAPP_MC_SHADOW_COMPARE = ORIGINAL_SHADOW_COMPARE;
   process.env.FINAPP_MC_SHADOW_SAMPLE_RATE = ORIGINAL_SHADOW_SAMPLE;
   vi.restoreAllMocks();
@@ -53,5 +55,20 @@ describe('runMonteCarlo runtime selector', () => {
     expect(withShadow.monteCarlo.percentileCurves.total.p50).toEqual(
       baseline.monteCarlo.percentileCurves.total.p50,
     );
+  });
+
+  it('prefers FINAPP_SIM_ENGINE over FINAPP_MC_ENGINE when both are set', async () => {
+    process.env.FINAPP_SIM_ENGINE = 'ts';
+    process.env.FINAPP_MC_ENGINE = 'rust';
+    process.env.FINAPP_MC_SHADOW_COMPARE = '0';
+
+    const rustSpy = vi.spyOn(monteCarloNative, 'runMonteCarloRust');
+    const config = createBaseConfig();
+    config.simulationMode = SimulationMode.MonteCarlo;
+
+    const result = await runMonteCarlo(config, { runs: 32, seed: 9 });
+
+    expect(result.monteCarlo.simulationCount).toBe(32);
+    expect(rustSpy).not.toHaveBeenCalled();
   });
 });

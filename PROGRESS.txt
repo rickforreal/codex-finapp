@@ -2223,3 +2223,35 @@ Validation rerun (all passing):
 - `npm test`
 - `npm run build`
 - Native compilation not executed locally because cargo toolchain is unavailable in this environment; native hooks safely skipped.
+- RUSTMC11-T1 kickoff (2026-03-07): started docs-first v1.1 migration wave at `docs/features/monte-carlo-rust-napi-v1-1/` to expand Rust engine coverage from MC-only to all server simulation flows.
+- RUSTMC11 completion pass (2026-03-07): expanded Rust N-API simulation coverage from MC-only to all server simulation flows with TS fallback retained.
+  - Native runtime (`packages/native-mc`) now exports `runSinglePathJson` and `runReforecastJson` alongside `runMonteCarloJson`; MC options include serializable `stressTransform` descriptors (`stockCrash`, `bondCrash`, `broadMarketCrash`, `prolongedBear`, `highInflationSpike`, `custom`).
+  - Server runtime selector/wiring:
+    - Added `packages/server/src/engine/simulationRuntime.ts` with `FINAPP_SIM_ENGINE=ts|rust` selection and structured fallback logs (`simulate_manual`, `reforecast`).
+    - Updated `packages/server/src/engine/monteCarlo.ts` to honor `FINAPP_SIM_ENGINE` first, then `FINAPP_MC_ENGINE` alias for MC compatibility.
+    - Routed `/simulate` manual path and `/reforecast` through runtime wrappers.
+    - Reworked stress engine to route manual + MC flows through wrapper-compatible paths and descriptor-based MC stress transforms (removes TS callback-only dependency).
+  - Test coverage added for v1.1 parity/fallback:
+    - `packages/server/tests/engine/simulationRuntime.test.ts`
+    - Extended `packages/server/tests/engine/monteCarlo.runtimeSelector.test.ts`
+    - Extended `packages/server/tests/engine/stress.test.ts`
+    - Extended `packages/server/tests/engine/monteCarlo.test.ts` (descriptor transform parity).
+  - Canonical-doc impact: updated `docs/API.md` and `docs/ARCHITECTURE.md` for global selector model (`FINAPP_SIM_ENGINE`) and MC alias/deprecation behavior.
+
+Validation rerun (all passing):
+- `npm run build -w @finapp/native-mc`
+- `npm run test -w @finapp/native-mc`
+- `npm run typecheck`
+- `npm run lint`
+- `npm test`
+- `npm run build`
+- Runtime default flip (2026-03-07): changed simulation engine default to Rust to remove startup-flag requirement.
+  - Code defaults updated:
+    - `/Users/ricknayar/Development/codex/finapp/packages/server/src/engine/simulationRuntime.ts` now defaults `FINAPP_SIM_ENGINE` to `rust` when unset.
+    - `/Users/ricknayar/Development/codex/finapp/packages/server/src/engine/monteCarlo.ts` now defaults MC alias fallback (`FINAPP_MC_ENGINE`) to `rust` when both selectors are unset.
+  - Canonical docs updated:
+    - `/Users/ricknayar/Development/codex/finapp/docs/API.md`
+    - `/Users/ricknayar/Development/codex/finapp/docs/ARCHITECTURE.md`
+
+Validation rerun (passing):
+- `npm run test -w @finapp/server`

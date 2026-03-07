@@ -4,7 +4,7 @@ import { ZodError } from 'zod';
 import type { ApiErrorResponse, ReforecastRequest, ReforecastResponse } from '@finapp/shared';
 import { reforecastRequestSchema } from '@finapp/shared';
 
-import { reforecastDeterministic } from '../engine/deterministic';
+import { runReforecast } from '../engine/simulationRuntime';
 
 const mapZodIssues = (error: ZodError): NonNullable<ApiErrorResponse['fieldErrors']> =>
   error.issues.map((issue) => ({
@@ -18,7 +18,7 @@ export const reforecastRoutes: FastifyPluginAsync = async (app) => {
     async (request, reply) => {
       try {
         const body = reforecastRequestSchema.parse(request.body);
-        const result = reforecastDeterministic(body.config, body.actualOverridesByMonth);
+        const result = await runReforecast(body.config, body.actualOverridesByMonth, 'reforecast');
         const editedMonths = Object.keys(body.actualOverridesByMonth)
           .map((value) => Number(value))
           .filter((value) => Number.isInteger(value) && value > 0);

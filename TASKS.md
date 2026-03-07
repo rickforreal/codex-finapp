@@ -2022,3 +2022,55 @@ Acceptance Criteria:
       [AC1] GitHub workflow runs native build/test matrix for darwin-arm64 + linux-x64.
       [AC2] `docs/ARCHITECTURE.md` and `docs/API.md` updated for runtime selector/fallback model.
       [AC3] `PROGRESS.txt` append-only completion entry includes canonical-doc impact statement.
+
+## Feature Plan — Rust Simulation Engine Migration v1.1 (All Server Flows)
+
+- [x] RUSTMC11-T1: Create v1.1 docs-first artifacts and root tracking entries
+      Phase: Feature/MonteCarloRustNapi-v1.1
+      Dependencies: none
+      Acceptance Criteria:
+      [AC1] `docs/features/monte-carlo-rust-napi-v1-1/{FEATURE,PLAN,ACCEPTANCE}.md` exist.
+      [AC2] `PLAN.md` includes `Delta From Baseline` referencing `docs/features/monte-carlo-rust-napi/`.
+      [AC3] `PROGRESS.txt` includes append-only kickoff entry.
+
+- [x] RUSTMC11-T2: Expand native runtime with single-path/reforecast endpoints and MC stress transform descriptor
+      Phase: Feature/MonteCarloRustNapi-v1.1
+      Dependencies: RUSTMC11-T1
+      Acceptance Criteria:
+      [AC1] Native module exports `runSinglePathJson` and `runReforecastJson`.
+      [AC2] Native MC options support serializable stress transform descriptors.
+      [AC3] Existing MC contract compatibility is preserved.
+
+- [x] RUSTMC11-T3: Add server runtime wrappers and global selector with MC alias compatibility
+      Phase: Feature/MonteCarloRustNapi-v1.1
+      Dependencies: RUSTMC11-T2
+      Acceptance Criteria:
+      [AC1] Global selector `FINAPP_SIM_ENGINE=ts|rust` is supported for non-MC flows.
+      [AC2] MC engine selection honors `FINAPP_SIM_ENGINE`, else falls back to `FINAPP_MC_ENGINE`.
+      [AC3] Per-flow fallback logs include flow tags (`simulate_manual`, `reforecast`, `stress_manual`, `stress_mc`).
+
+- [x] RUSTMC11-T4: Wire /simulate, /reforecast, and stress flows through runtime wrappers
+      Phase: Feature/MonteCarloRustNapi-v1.1
+      Dependencies: RUSTMC11-T3
+      Acceptance Criteria:
+      [AC1] Manual `/simulate` branch uses runtime wrapper.
+      [AC2] `/reforecast` uses runtime wrapper.
+      [AC3] Stress manual and stress MC paths route through wrapper-compatible flows.
+      [AC4] Stress MC removes TS callback-only dependency by using descriptor-based transform payloads.
+
+- [x] RUSTMC11-T5: Add parity and fallback/resilience coverage for all migrated flows
+      Phase: Feature/MonteCarloRustNapi-v1.1
+      Dependencies: RUSTMC11-T4
+      Acceptance Criteria:
+      [AC1] Exact parity tests cover manual `/simulate`, `/reforecast`, stress manual, and stress MC.
+      [AC2] Fallback tests force native failures and verify TS fallback per flow.
+      [AC3] Determinism checks verify same-seed stability for Rust outputs.
+
+- [x] RUSTMC11-T6: Update canonical docs and pass full regression/native gates
+      Phase: Feature/MonteCarloRustNapi-v1.1
+      Dependencies: RUSTMC11-T5
+      Acceptance Criteria:
+      [AC1] Canonical docs updated: `docs/API.md`, `docs/ARCHITECTURE.md`.
+      [AC2] Regression gate passes: `npm run typecheck`, `npm run lint`, `npm test`, `npm run build`.
+      [AC3] Native gate passes: `npm run build -w @finapp/native-mc`, `npm run test -w @finapp/native-mc`.
+      [AC4] `PROGRESS.txt` completion entry includes canonical-doc impact statement.

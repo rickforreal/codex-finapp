@@ -2,7 +2,15 @@ import { createRequire } from 'node:module';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
-import { HistoricalEra, ReturnSource, SimulationMode, type SimulationConfig } from '@finapp/shared';
+import {
+  HistoricalEra,
+  ReturnSource,
+  SimulationMode,
+  type ActualOverridesByMonth,
+  type MonthlyReturns,
+  type SimulationConfig,
+  type SinglePathResult,
+} from '@finapp/shared';
 
 import type { MonteCarloExecutionResult, MonteCarloOptions } from './monteCarlo';
 import { getHistoricalDataSummaryForSelection, getHistoricalMonthsForSelection } from './historicalData';
@@ -18,8 +26,30 @@ type NativeMonteCarloResponse = {
   resultJson: string;
 };
 
+type NativeSinglePathRequest = {
+  configJson: string;
+  monthlyReturnsJson: string;
+  actualOverridesByMonthJson?: string;
+  inflationOverridesByYearJson?: string;
+};
+
+type NativeSinglePathResponse = {
+  resultJson: string;
+};
+
+type NativeReforecastRequest = {
+  configJson: string;
+  actualOverridesByMonthJson?: string;
+};
+
+type NativeReforecastResponse = {
+  resultJson: string;
+};
+
 type NativeMonteCarloModule = {
   runMonteCarloJson: (request: NativeMonteCarloRequest) => NativeMonteCarloResponse;
+  runSinglePathJson: (request: NativeSinglePathRequest) => NativeSinglePathResponse;
+  runReforecastJson: (request: NativeReforecastRequest) => NativeReforecastResponse;
 };
 
 const require = createRequire(import.meta.url);
@@ -56,7 +86,9 @@ const loadNativeModule = (): NativeMonteCarloModule => {
   throw new Error(`Failed to load native Monte Carlo module: ${errors.join(' | ')}`);
 };
 
-const sanitizeOptionsForNative = (options: MonteCarloOptions): Omit<MonteCarloOptions, 'transformReturns'> => {
+const sanitizeOptionsForNative = (
+  options: MonteCarloOptions,
+): Omit<MonteCarloOptions, 'transformReturns' | 'flowTag'> => {
   if (options.transformReturns) {
     throw new Error('Native Monte Carlo does not support transformReturns callback options');
   }
@@ -66,7 +98,17 @@ const sanitizeOptionsForNative = (options: MonteCarloOptions): Omit<MonteCarloOp
     seed: options.seed,
     actualOverridesByMonth: options.actualOverridesByMonth,
     inflationOverridesByYear: options.inflationOverridesByYear,
+    stressTransform: options.stressTransform,
   };
+};
+
+const parseNativeResultJson = <T>(resultJson: string, context: string): T => {
+  try {
+    return JSON.parse(resultJson) as T;
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
+    throw new Error(`Failed to parse native ${context} result JSON: ${message}`);
+  }
 };
 
 export const runMonteCarloRust = async (
@@ -100,10 +142,45 @@ export const runMonteCarloRust = async (
     throw new Error('Native Monte Carlo returned malformed response payload');
   }
 
-  try {
-    return JSON.parse(response.resultJson) as MonteCarloExecutionResult;
-  } catch (error) {
-    const message = error instanceof Error ? error.message : String(error);
-    throw new Error(`Failed to parse native Monte Carlo result JSON: ${message}`);
+  return parseNativeResultJson<MonteCarloExecutionResult>(response.resultJson, 'Monte Carlo');
+};
+
+export const runSinglePathRust = async (
+  config: SimulationConfig,
+  monthlyReturns: MonthlyReturns[],
+  actualOverridesByMonth: ActualOverridesByMonth = {},
+  inflationOverridesByYear: Partial<Record<number, number>> = {},
+): Promise<SinglePathResult> => {
+  const module = loadNativeModule();
+  const payload: NativeSinglePathRequest = {
+    configJson: JSON.stringify(config),
+    monthlyReturnsJson: JSON.stringify(monthlyReturns),
+    actualOverridesByMonthJson: JSON.stringify(actualOverridesByMonth),
+    inflationOverridesByYearJson: JSON.stringify(inflationOverridesByYear),
+  };
+
+  const response = module.runSinglePathJson(payload);
+  if (!response || typeof response.resultJson !== 'string') {
+    throw new Error('Native single-path simulation returned malformed response payload');
   }
+
+  return parseNativeResultJson<SinglePathResult>(response.resultJson, 'single-path');
+};
+
+export const runReforecastRust = async (
+  config: SimulationConfig,
+  actualOverridesByMonth: ActualOverridesByMonth = {},
+): Promise<SinglePathResult> => {
+  const module = loadNativeModule();
+  const payload: NativeReforecastRequest = {
+    configJson: JSON.stringify(config),
+    actualOverridesByMonthJson: JSON.stringify(actualOverridesByMonth),
+  };
+
+  const response = module.runReforecastJson(payload);
+  if (!response || typeof response.resultJson !== 'string') {
+    throw new Error('Native reforecast returned malformed response payload');
+  }
+
+  return parseNativeResultJson<SinglePathResult>(response.resultJson, 'reforecast');
 };

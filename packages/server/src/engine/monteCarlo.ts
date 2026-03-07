@@ -17,6 +17,7 @@ import {
 } from './historicalData';
 import { createSeededRandom } from './helpers/returns';
 import { runMonteCarloRust } from './monteCarloNative';
+import { type StressTransformDescriptor, returnsWithStressTransform } from './stressTransforms';
 import { generateMonthlyReturnsFromAssumptions, simulateRetirement } from './simulator';
 
 export type MonteCarloOptions = {
@@ -25,6 +26,8 @@ export type MonteCarloOptions = {
   actualOverridesByMonth?: ActualOverridesByMonth;
   transformReturns?: (returns: MonthlyReturns[], runIndex: number) => MonthlyReturns[];
   inflationOverridesByYear?: Partial<Record<number, number>>;
+  stressTransform?: StressTransformDescriptor;
+  flowTag?: string;
 };
 
 export type MonteCarloExecutionResult = {
@@ -149,12 +152,12 @@ const sampleHistoricalReturnsBlock = (
 
 const buildReturnsForRun = (
   config: SimulationConfig,
+  options: MonteCarloOptions,
   runIndex: number,
   seedUsed: number,
   returnsSource: ReturnSource,
   historicalMonths: HistoricalMonth[],
   durationMonths: number,
-  transformReturns: MonteCarloOptions['transformReturns'],
 ): MonthlyReturns[] => {
   const runSeed = runSeedForIndex(seedUsed, runIndex);
   const random = createSeededRandom(runSeed);
@@ -166,7 +169,12 @@ const buildReturnsForRun = (
         ? sampleHistoricalReturnsBlock(historicalMonths, durationMonths, config.blockBootstrapLength, random)
         : sampleHistoricalReturnsIid(historicalMonths, durationMonths, random);
 
-  return transformReturns ? transformReturns(returns, runIndex) : returns;
+  const transformedByDescriptor = options.stressTransform
+    ? returnsWithStressTransform(options.stressTransform, returns)
+    : returns;
+  return options.transformReturns
+    ? options.transformReturns(transformedByDescriptor, runIndex)
+    : transformedByDescriptor;
 };
 
 const runPathForIndex = (
@@ -181,12 +189,12 @@ const runPathForIndex = (
 ): ReturnType<typeof simulateRetirement> => {
   const returns = buildReturnsForRun(
     config,
+    options,
     runIndex,
     seedUsed,
     returnsSource,
     historicalMonths,
     durationMonths,
-    options.transformReturns,
   );
 
   return simulateRetirement(
@@ -391,7 +399,15 @@ const runMonteCarloTs = async (
 };
 
 const resolveEnginePreference = (): 'ts' | 'rust' => {
-  const value = (process.env.FINAPP_MC_ENGINE ?? 'ts').trim().toLowerCase();
+  const globalValue = (process.env.FINAPP_SIM_ENGINE ?? '').trim().toLowerCase();
+  if (globalValue === 'rust') {
+    return 'rust';
+  }
+  if (globalValue === 'ts') {
+    return 'ts';
+  }
+
+  const value = (process.env.FINAPP_MC_ENGINE ?? 'rust').trim().toLowerCase();
   return value === 'rust' ? 'rust' : 'ts';
 };
 
@@ -457,7 +473,10 @@ const runRustWithFallback = async (
     return await runMonteCarloRust(config, options);
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
-    logEngineEvent('mc_rust_fallback_to_ts', { message });
+    logEngineEvent('mc_rust_fallback_to_ts', {
+      message,
+      flowTag: options.flowTag ?? 'simulate_mc',
+    });
     return runMonteCarloTs(config, options);
   }
 };
@@ -476,6 +495,7 @@ export const runMonteCarlo = async (
   if (preferredEngine === 'rust' && optionsRequireTsEngine(options)) {
     logEngineEvent('mc_rust_option_unsupported_fallback', {
       reason: 'transformReturns callback not serializable for native boundary',
+      flowTag: options.flowTag ?? 'simulate_mc',
     });
     return runMonteCarloTs(config, options);
   }
@@ -496,7 +516,10 @@ export const runMonteCarlo = async (
       runShadowCompare('ts', primary, secondary);
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);
-      logEngineEvent('mc_shadow_rust_failed', { message });
+      logEngineEvent('mc_shadow_rust_failed', {
+        message,
+        flowTag: options.flowTag ?? 'simulate_mc',
+      });
     }
   }
   return primary;

@@ -25,6 +25,30 @@ pub struct NativeMonteCarloResponse {
   pub result_json: String,
 }
 
+#[napi(object)]
+pub struct NativeSinglePathRequest {
+  pub config_json: String,
+  pub monthly_returns_json: String,
+  pub actual_overrides_by_month_json: Option<String>,
+  pub inflation_overrides_by_year_json: Option<String>,
+}
+
+#[napi(object)]
+pub struct NativeSinglePathResponse {
+  pub result_json: String,
+}
+
+#[napi(object)]
+pub struct NativeReforecastRequest {
+  pub config_json: String,
+  pub actual_overrides_by_month_json: Option<String>,
+}
+
+#[napi(object)]
+pub struct NativeReforecastResponse {
+  pub result_json: String,
+}
+
 #[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq)]
 #[serde(rename_all = "lowercase")]
 enum AssetClass {
@@ -352,6 +376,104 @@ struct MonteCarloOptions {
   seed: Option<i64>,
   actual_overrides_by_month: Option<HashMap<String, ActualMonthOverride>>,
   inflation_overrides_by_year: Option<HashMap<String, f64>>,
+  stress_transform: Option<StressTransformDescriptor>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct StressTransformDescriptor {
+  projected_start_month: usize,
+  scenario: StressScenario,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(tag = "type", rename_all = "camelCase", rename_all_fields = "camelCase")]
+enum StressScenario {
+  StockCrash {
+    id: String,
+    label: String,
+    start_year: i32,
+    params: StockCrashParams,
+  },
+  BondCrash {
+    id: String,
+    label: String,
+    start_year: i32,
+    params: BondCrashParams,
+  },
+  BroadMarketCrash {
+    id: String,
+    label: String,
+    start_year: i32,
+    params: BroadMarketCrashParams,
+  },
+  ProlongedBear {
+    id: String,
+    label: String,
+    start_year: i32,
+    params: ProlongedBearParams,
+  },
+  HighInflationSpike {
+    id: String,
+    label: String,
+    start_year: i32,
+    params: HighInflationSpikeParams,
+  },
+  Custom {
+    id: String,
+    label: String,
+    start_year: i32,
+    params: CustomStressParams,
+  },
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct StockCrashParams {
+  drop_pct: f64,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct BondCrashParams {
+  drop_pct: f64,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct BroadMarketCrashParams {
+  stock_drop_pct: f64,
+  bond_drop_pct: f64,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct ProlongedBearParams {
+  duration_years: i32,
+  stock_annual_return: f64,
+  bond_annual_return: f64,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct HighInflationSpikeParams {
+  duration_years: i32,
+  inflation_rate: f64,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct CustomStressParams {
+  years: Vec<CustomStressYear>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct CustomStressYear {
+  year_offset: i32,
+  stocks_annual_return: f64,
+  bonds_annual_return: f64,
+  cash_annual_return: f64,
 }
 
 #[derive(Debug, Clone, Serialize)]
@@ -920,6 +1042,104 @@ fn generate_monthly_returns_from_assumptions(config: &SimulationConfig, seed: i6
       ),
     })
     .collect()
+}
+
+fn generate_deterministic_monthly_returns(config: &SimulationConfig) -> Vec<MonthlyReturns> {
+  let duration_months = (config.core_params.retirement_duration * 12).max(0) as usize;
+  let stocks_monthly = annual_to_monthly_rate(config.return_assumptions.stocks.expected_return);
+  let bonds_monthly = annual_to_monthly_rate(config.return_assumptions.bonds.expected_return);
+  let cash_monthly = annual_to_monthly_rate(config.return_assumptions.cash.expected_return);
+
+  (0..duration_months)
+    .map(|_| MonthlyReturns {
+      stocks: stocks_monthly,
+      bonds: bonds_monthly,
+      cash: cash_monthly,
+    })
+    .collect()
+}
+
+fn to_timeline_month(projected_start_month: usize, start_year: i32) -> i32 {
+  projected_start_month as i32 + (start_year - 1) * 12
+}
+
+fn apply_crash_to_month(month: &MonthlyReturns, stock_shock: f64, bond_shock: f64) -> MonthlyReturns {
+  MonthlyReturns {
+    stocks: (1.0 + month.stocks) * (1.0 + stock_shock) - 1.0,
+    bonds: (1.0 + month.bonds) * (1.0 + bond_shock) - 1.0,
+    cash: month.cash,
+  }
+}
+
+fn apply_stress_transform(
+  descriptor: &StressTransformDescriptor,
+  baseline_returns: &[MonthlyReturns],
+) -> Vec<MonthlyReturns> {
+  let mut returns = baseline_returns.to_vec();
+  if returns.is_empty() {
+    return returns;
+  }
+
+  let start_year = match &descriptor.scenario {
+    StressScenario::StockCrash { start_year, .. } => *start_year,
+    StressScenario::BondCrash { start_year, .. } => *start_year,
+    StressScenario::BroadMarketCrash { start_year, .. } => *start_year,
+    StressScenario::ProlongedBear { start_year, .. } => *start_year,
+    StressScenario::HighInflationSpike { start_year, .. } => *start_year,
+    StressScenario::Custom { start_year, .. } => *start_year,
+  };
+  let start_month = to_timeline_month(descriptor.projected_start_month, start_year);
+  let start_index = (start_month - 1).max(0) as usize;
+  if start_index >= returns.len() {
+    return returns;
+  }
+
+  match &descriptor.scenario {
+    StressScenario::StockCrash { params, .. } => {
+      let current = returns[start_index].clone();
+      returns[start_index] = apply_crash_to_month(&current, params.drop_pct, 0.0);
+    }
+    StressScenario::BondCrash { params, .. } => {
+      let current = returns[start_index].clone();
+      returns[start_index] = apply_crash_to_month(&current, 0.0, params.drop_pct);
+    }
+    StressScenario::BroadMarketCrash { params, .. } => {
+      let current = returns[start_index].clone();
+      returns[start_index] =
+        apply_crash_to_month(&current, params.stock_drop_pct, params.bond_drop_pct);
+    }
+    StressScenario::ProlongedBear { params, .. } => {
+      let stock_monthly = annual_to_monthly_rate(params.stock_annual_return);
+      let bond_monthly = annual_to_monthly_rate(params.bond_annual_return);
+      let months = (params.duration_years.max(0) * 12) as usize;
+      for index in start_index..(start_index + months).min(returns.len()) {
+        let cash = returns[index].cash;
+        returns[index] = MonthlyReturns {
+          stocks: stock_monthly,
+          bonds: bond_monthly,
+          cash,
+        };
+      }
+    }
+    StressScenario::Custom { params, .. } => {
+      for year in &params.years {
+        let year_start_index = start_index + ((year.year_offset - 1).max(0) as usize * 12);
+        let stocks_monthly = annual_to_monthly_rate(year.stocks_annual_return);
+        let bonds_monthly = annual_to_monthly_rate(year.bonds_annual_return);
+        let cash_monthly = annual_to_monthly_rate(year.cash_annual_return);
+        for index in year_start_index..(year_start_index + 12).min(returns.len()) {
+          returns[index] = MonthlyReturns {
+            stocks: stocks_monthly,
+            bonds: bonds_monthly,
+            cash: cash_monthly,
+          };
+        }
+      }
+    }
+    StressScenario::HighInflationSpike { .. } => {}
+  }
+
+  returns
 }
 
 fn sample_historical_returns_iid(
@@ -2015,6 +2235,7 @@ fn select_representative_run(
 
 fn build_returns_for_run(
   config: &SimulationConfig,
+  options: &MonteCarloOptions,
   run_index: usize,
   seed_used: i64,
   returns_source: ReturnSource,
@@ -2024,7 +2245,7 @@ fn build_returns_for_run(
   let run_seed = run_seed_for_index(seed_used, run_index);
   let mut random = Mulberry32::new(run_seed);
 
-  match returns_source {
+  let returns = match returns_source {
     ReturnSource::Manual => generate_monthly_returns_from_assumptions(config, run_seed),
     ReturnSource::Historical => {
       if config.block_bootstrap_enabled {
@@ -2038,7 +2259,13 @@ fn build_returns_for_run(
         sample_historical_returns_iid(historical_months, duration_months, &mut random)
       }
     }
+  };
+
+  if let Some(descriptor) = &options.stress_transform {
+    return apply_stress_transform(descriptor, &returns);
   }
+
+  returns
 }
 
 fn run_monte_carlo_internal(
@@ -2064,8 +2291,9 @@ fn run_monte_carlo_internal(
     ));
   }
 
-  let normalized_actual_overrides = normalize_overrides(options.actual_overrides_by_month);
-  let normalized_inflation_overrides = normalize_inflation_overrides(options.inflation_overrides_by_year);
+  let normalized_actual_overrides = normalize_overrides(options.actual_overrides_by_month.clone());
+  let normalized_inflation_overrides =
+    normalize_inflation_overrides(options.inflation_overrides_by_year.clone());
 
   let run_computations: Vec<RunComputation> = (0..simulation_count)
     .into_par_iter()
@@ -2079,6 +2307,7 @@ fn run_monte_carlo_internal(
 
       let returns = build_returns_for_run(
         &config,
+        &options,
         run_index,
         seed_used,
         returns_source,
@@ -2168,6 +2397,7 @@ fn run_monte_carlo_internal(
 
   let representative_returns = build_returns_for_run(
     &config,
+    &options,
     representative_run.run_index,
     seed_used,
     returns_source,
@@ -2321,6 +2551,85 @@ pub fn run_monte_carlo_json(request: NativeMonteCarloRequest) -> Result<NativeMo
     .map_err(|error| Error::from_reason(format!("Failed to serialize result JSON: {error}")))?;
 
   Ok(NativeMonteCarloResponse { result_json })
+}
+
+fn parse_actual_overrides_json(
+  raw: Option<String>,
+  field_name: &str,
+) -> Result<Option<HashMap<String, ActualMonthOverride>>> {
+  match raw {
+    Some(actual_overrides_json) => serde_json::from_str(&actual_overrides_json)
+      .map(Some)
+      .map_err(|error| Error::from_reason(format!("Invalid {field_name}: {error}"))),
+    None => Ok(None),
+  }
+}
+
+fn parse_inflation_overrides_json(
+  raw: Option<String>,
+  field_name: &str,
+) -> Result<Option<HashMap<String, f64>>> {
+  match raw {
+    Some(inflation_overrides_json) => serde_json::from_str(&inflation_overrides_json)
+      .map(Some)
+      .map_err(|error| Error::from_reason(format!("Invalid {field_name}: {error}"))),
+    None => Ok(None),
+  }
+}
+
+#[napi]
+pub fn run_single_path_json(request: NativeSinglePathRequest) -> Result<NativeSinglePathResponse> {
+  let config: SimulationConfig = serde_json::from_str(&request.config_json)
+    .map_err(|error| Error::from_reason(format!("Invalid configJson: {error}")))?;
+  let monthly_returns: Vec<MonthlyReturns> = serde_json::from_str(&request.monthly_returns_json)
+    .map_err(|error| Error::from_reason(format!("Invalid monthlyReturnsJson: {error}")))?;
+  let actual_overrides =
+    parse_actual_overrides_json(request.actual_overrides_by_month_json, "actualOverridesByMonthJson")?;
+  let inflation_overrides = parse_inflation_overrides_json(
+    request.inflation_overrides_by_year_json,
+    "inflationOverridesByYearJson",
+  )?;
+
+  let normalized_actual_overrides = normalize_overrides(actual_overrides);
+  let normalized_inflation_overrides = normalize_inflation_overrides(inflation_overrides);
+
+  let result = simulate_retirement(
+    &config,
+    &monthly_returns,
+    &normalized_actual_overrides,
+    &normalized_inflation_overrides,
+    SimulateOptions { include_rows: true },
+    None,
+  );
+
+  let result_json = serde_json::to_string(&result)
+    .map_err(|error| Error::from_reason(format!("Failed to serialize result JSON: {error}")))?;
+  Ok(NativeSinglePathResponse { result_json })
+}
+
+#[napi]
+pub fn run_reforecast_json(request: NativeReforecastRequest) -> Result<NativeReforecastResponse> {
+  let config: SimulationConfig = serde_json::from_str(&request.config_json)
+    .map_err(|error| Error::from_reason(format!("Invalid configJson: {error}")))?;
+  let actual_overrides =
+    parse_actual_overrides_json(request.actual_overrides_by_month_json, "actualOverridesByMonthJson")?;
+
+  let deterministic_returns = generate_deterministic_monthly_returns(&config);
+  let normalized_actual_overrides = normalize_overrides(actual_overrides);
+  let normalized_inflation_overrides: HashMap<i32, f64> = HashMap::new();
+
+  let result = simulate_retirement(
+    &config,
+    &deterministic_returns,
+    &normalized_actual_overrides,
+    &normalized_inflation_overrides,
+    SimulateOptions { include_rows: true },
+    None,
+  );
+
+  let result_json = serde_json::to_string(&result)
+    .map_err(|error| Error::from_reason(format!("Failed to serialize result JSON: {error}")))?;
+  Ok(NativeReforecastResponse { result_json })
 }
 
 #[cfg(test)]

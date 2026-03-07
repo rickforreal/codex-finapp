@@ -1,10 +1,18 @@
-import { describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import { SimulationMode, type StressScenario } from '@finapp/shared';
 
 import { runStressTest } from '../../src/engine/stress';
+import * as monteCarloNative from '../../src/engine/monteCarloNative';
 import { generateMonthlyReturnsFromAssumptions, simulateRetirement } from '../../src/engine/simulator';
 import { createBaseConfig } from '../fixtures';
+
+const ORIGINAL_SIM_ENGINE = process.env.FINAPP_SIM_ENGINE;
+
+afterEach(() => {
+  process.env.FINAPP_SIM_ENGINE = ORIGINAL_SIM_ENGINE;
+  vi.restoreAllMocks();
+});
 
 describe('runStressTest', () => {
   it('matches base exactly for a no-shock scenario with same seed', async () => {
@@ -94,5 +102,61 @@ describe('runStressTest', () => {
 
     expect(result.base.monteCarlo?.simulationCount).toBe(7);
     expect(result.scenarios[0]?.monteCarlo?.simulationCount).toBe(7);
+  });
+
+  it('falls back to TS in stress manual flow when rust runtime errors', async () => {
+    process.env.FINAPP_SIM_ENGINE = 'rust';
+    vi.spyOn(monteCarloNative, 'runSinglePathRust').mockRejectedValue(new Error('forced stress manual failure'));
+    const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {});
+
+    const config = createBaseConfig();
+    config.simulationMode = SimulationMode.Manual;
+    config.coreParams.retirementDuration = 2;
+    const scenarios: StressScenario[] = [
+      {
+        id: 'manual-crash',
+        label: 'Manual Crash',
+        type: 'stockCrash',
+        startYear: 1,
+        params: { dropPct: -0.2 },
+      },
+    ];
+
+    const result = await runStressTest(config, scenarios, { seed: 21 });
+
+    expect(result.scenarios[0]?.result.rows.length).toBe(24);
+    const fallbackLog = warnSpy.mock.calls
+      .map((call) => String(call[0]))
+      .find((entry) => entry.includes('sim_rust_fallback_to_ts') && entry.includes('stress_manual'));
+    expect(fallbackLog).toBeDefined();
+  });
+
+  it('falls back to TS in stress monte carlo flow when rust runtime errors', async () => {
+    process.env.FINAPP_SIM_ENGINE = 'rust';
+    vi.spyOn(monteCarloNative, 'runMonteCarloRust').mockRejectedValue(new Error('forced stress mc failure'));
+    const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {});
+
+    const config = createBaseConfig();
+    config.simulationMode = SimulationMode.MonteCarlo;
+    config.simulationRuns = 24;
+    config.coreParams.retirementDuration = 2;
+    const scenarios: StressScenario[] = [
+      {
+        id: 'mc-crash-fallback',
+        label: 'MC Crash Fallback',
+        type: 'stockCrash',
+        startYear: 1,
+        params: { dropPct: -0.3 },
+      },
+    ];
+
+    const result = await runStressTest(config, scenarios, { seed: 13 });
+
+    expect(result.base.monteCarlo?.simulationCount).toBe(24);
+    expect(result.scenarios[0]?.monteCarlo?.simulationCount).toBe(24);
+    const fallbackLog = warnSpy.mock.calls
+      .map((call) => String(call[0]))
+      .find((entry) => entry.includes('mc_rust_fallback_to_ts') && entry.includes('stress_mc'));
+    expect(fallbackLog).toBeDefined();
   });
 });

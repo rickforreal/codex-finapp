@@ -13,8 +13,14 @@ import {
   type StressTimingSensitivitySeries,
 } from '@finapp/shared';
 
-import { generateMonthlyReturnsFromAssumptions, simulateRetirement } from './simulator';
 import { runMonteCarlo } from './monteCarlo';
+import { runSinglePath } from './simulationRuntime';
+import { generateMonthlyReturnsFromAssumptions } from './simulator';
+import {
+  type StressTransformDescriptor,
+  inflationOverridesForScenario,
+  returnsWithStressTransform,
+} from './stressTransforms';
 
 type StressRunOptions = {
   seed?: number;
@@ -26,7 +32,6 @@ type StressRunOptions = {
   };
 };
 
-const toMonthlyRate = (annualRate: number): number => (1 + annualRate) ** (1 / 12) - 1;
 const resolveMonteCarloRuns = (configuredRuns: number | undefined): number =>
   Math.max(1, Math.min(Math.round(configuredRuns ?? 1000), 10000));
 
@@ -43,98 +48,13 @@ const getProjectedYearStartMonth = (config: SimulationConfig, overrides: ActualO
   return getLastEditedMonthIndex(overrides) + 1;
 };
 
-const toTimelineMonth = (projectedStartMonth: number, startYear: number): number =>
-  projectedStartMonth + (startYear - 1) * 12;
-
-const cloneReturns = (returns: MonthlyReturns[]): MonthlyReturns[] => returns.map((value) => ({ ...value }));
-
-const applyCrashToMonth = (month: MonthlyReturns, stockShock = 0, bondShock = 0): MonthlyReturns => ({
-  stocks: (1 + month.stocks) * (1 + stockShock) - 1,
-  bonds: (1 + month.bonds) * (1 + bondShock) - 1,
-  cash: month.cash,
+const createStressDescriptor = (
+  scenario: StressScenario,
+  projectedStartMonth: number,
+): StressTransformDescriptor => ({
+  projectedStartMonth,
+  scenario,
 });
-
-const returnsWithScenarioShock = (
-  scenario: StressScenario,
-  baselineReturns: MonthlyReturns[],
-  projectedStartMonth: number,
-): MonthlyReturns[] => {
-  const returns = cloneReturns(baselineReturns);
-  const startMonth = toTimelineMonth(projectedStartMonth, scenario.startYear);
-  const startIndex = Math.max(0, startMonth - 1);
-
-  if (startIndex >= returns.length) {
-    return returns;
-  }
-
-  if (scenario.type === 'stockCrash') {
-    returns[startIndex] = applyCrashToMonth(returns[startIndex] ?? { stocks: 0, bonds: 0, cash: 0 }, scenario.params.dropPct, 0);
-    return returns;
-  }
-  if (scenario.type === 'bondCrash') {
-    returns[startIndex] = applyCrashToMonth(returns[startIndex] ?? { stocks: 0, bonds: 0, cash: 0 }, 0, scenario.params.dropPct);
-    return returns;
-  }
-  if (scenario.type === 'broadMarketCrash') {
-    returns[startIndex] = applyCrashToMonth(
-      returns[startIndex] ?? { stocks: 0, bonds: 0, cash: 0 },
-      scenario.params.stockDropPct,
-      scenario.params.bondDropPct,
-    );
-    return returns;
-  }
-  if (scenario.type === 'prolongedBear') {
-    const stockMonthly = toMonthlyRate(scenario.params.stockAnnualReturn);
-    const bondMonthly = toMonthlyRate(scenario.params.bondAnnualReturn);
-    const months = scenario.params.durationYears * 12;
-    for (let index = startIndex; index < Math.min(returns.length, startIndex + months); index += 1) {
-      const current = returns[index];
-      if (!current) {
-        continue;
-      }
-      returns[index] = {
-        stocks: stockMonthly,
-        bonds: bondMonthly,
-        cash: current.cash,
-      };
-    }
-    return returns;
-  }
-  if (scenario.type === 'custom') {
-    for (const entry of scenario.params.years) {
-      const yearStartIndex = startIndex + (entry.yearOffset - 1) * 12;
-      const stocksMonthly = toMonthlyRate(entry.stocksAnnualReturn);
-      const bondsMonthly = toMonthlyRate(entry.bondsAnnualReturn);
-      const cashMonthly = toMonthlyRate(entry.cashAnnualReturn);
-      for (let index = yearStartIndex; index < Math.min(returns.length, yearStartIndex + 12); index += 1) {
-        returns[index] = {
-          stocks: stocksMonthly,
-          bonds: bondsMonthly,
-          cash: cashMonthly,
-        };
-      }
-    }
-  }
-
-  return returns;
-};
-
-const inflationOverridesForScenario = (
-  scenario: StressScenario,
-  projectedStartMonth: number,
-): Partial<Record<number, number>> => {
-  if (scenario.type !== 'highInflationSpike') {
-    return {};
-  }
-
-  const startMonth = toTimelineMonth(projectedStartMonth, scenario.startYear);
-  const startYear = Math.floor((startMonth - 1) / 12) + 1;
-  const overrides: Partial<Record<number, number>> = {};
-  for (let offset = 0; offset < scenario.params.durationYears; offset += 1) {
-    overrides[startYear + offset] = scenario.params.inflationRate;
-  }
-  return overrides;
-};
 
 const withdrawalRealTotal = (
   rows: SinglePathResult['rows'],
@@ -155,7 +75,10 @@ const firstDepletionMonth = (rows: SinglePathResult['rows']): number | null => {
   return match?.monthIndex ?? null;
 };
 
-const firstYearReducedWithdrawal = (baseRows: SinglePathResult['rows'], scenarioRows: SinglePathResult['rows']): number | null => {
+const firstYearReducedWithdrawal = (
+  baseRows: SinglePathResult['rows'],
+  scenarioRows: SinglePathResult['rows'],
+): number | null => {
   const years = Math.min(Math.floor(baseRows.length / 12), Math.floor(scenarioRows.length / 12));
   for (let year = 1; year <= years; year += 1) {
     const startIndex = (year - 1) * 12;
@@ -192,20 +115,28 @@ const buildMetrics = (
     depletionMonth: firstDepletionMonth(scenarioResult.rows),
     firstYearReducedWithdrawal: firstYearReducedWithdrawal(baseResult.rows, scenarioResult.rows),
     probabilityOfSuccess: scenarioPos,
-    successDeltaPpVsBase: basePos !== undefined && scenarioPos !== undefined ? (scenarioPos - basePos) * 100 : undefined,
+    successDeltaPpVsBase:
+      basePos !== undefined && scenarioPos !== undefined ? (scenarioPos - basePos) * 100 : undefined,
   };
 };
 
-const runScenarioManual = (
+const runScenarioManual = async (
   config: SimulationConfig,
   baselineReturns: MonthlyReturns[],
   scenario: StressScenario,
   projectedStartMonth: number,
   actualOverridesByMonth: ActualOverridesByMonth,
-): { result: SinglePathResult; inflationOverridesByYear: Partial<Record<number, number>> } => {
-  const shockedReturns = returnsWithScenarioShock(scenario, baselineReturns, projectedStartMonth);
-  const inflationOverridesByYear = inflationOverridesForScenario(scenario, projectedStartMonth);
-  const result = simulateRetirement(config, shockedReturns, actualOverridesByMonth, inflationOverridesByYear);
+): Promise<{ result: SinglePathResult; inflationOverridesByYear: Partial<Record<number, number>> }> => {
+  const descriptor = createStressDescriptor(scenario, projectedStartMonth);
+  const shockedReturns = returnsWithStressTransform(descriptor, baselineReturns);
+  const inflationOverridesByYear = inflationOverridesForScenario(descriptor);
+  const result = await runSinglePath(
+    config,
+    shockedReturns,
+    actualOverridesByMonth,
+    inflationOverridesByYear,
+    'stress_manual',
+  );
   return { result, inflationOverridesByYear };
 };
 
@@ -216,13 +147,15 @@ const runScenarioMonteCarlo = async (
   monteCarloRuns: number,
   options: StressRunOptions,
 ): Promise<{ result: SinglePathResult; monteCarlo: MonteCarloResult; inflationOverridesByYear: Partial<Record<number, number>> }> => {
-  const inflationOverridesByYear = inflationOverridesForScenario(scenario, projectedStartMonth);
+  const descriptor = createStressDescriptor(scenario, projectedStartMonth);
+  const inflationOverridesByYear = inflationOverridesForScenario(descriptor);
   const mc = await runMonteCarlo(config, {
     seed: options.seed,
     runs: monteCarloRuns,
     actualOverridesByMonth: options.actualOverridesByMonth ?? {},
     inflationOverridesByYear,
-    transformReturns: (returns) => returnsWithScenarioShock(scenario, returns, projectedStartMonth),
+    stressTransform: descriptor,
+    flowTag: 'stress_mc',
   });
   return { result: mc.representativePath, monteCarlo: mc.monteCarlo, inflationOverridesByYear };
 };
@@ -250,17 +183,18 @@ export const runStressTest = async (
     baselineReturns =
       options.monthlyReturns?.slice(0, durationMonths) ??
       generateMonthlyReturnsFromAssumptions(config, options.seed).slice(0, durationMonths);
-    baseResult = baseResult ?? simulateRetirement(config, baselineReturns, actualOverridesByMonth);
-  } else {
-    if (!baseResult || !baseMonteCarlo) {
-      const base = await runMonteCarlo(config, {
-        seed: options.seed,
-        runs: monteCarloRuns,
-        actualOverridesByMonth,
-      });
-      baseResult = base.representativePath;
-      baseMonteCarlo = base.monteCarlo;
+    if (!baseResult) {
+      baseResult = await runSinglePath(config, baselineReturns, actualOverridesByMonth, {}, 'stress_manual');
     }
+  } else if (!baseResult || !baseMonteCarlo) {
+    const base = await runMonteCarlo(config, {
+      seed: options.seed,
+      runs: monteCarloRuns,
+      actualOverridesByMonth,
+      flowTag: 'stress_mc',
+    });
+    baseResult = base.representativePath;
+    baseMonteCarlo = base.monteCarlo;
   }
 
   if (!baseResult) {
@@ -270,7 +204,7 @@ export const runStressTest = async (
   const scenarioResults: StressScenarioResult[] = [];
   for (const scenario of scenarios) {
     if (config.simulationMode === SimulationMode.Manual) {
-      const manual = runScenarioManual(
+      const manual = await runScenarioManual(
         config,
         baselineReturns ?? generateMonthlyReturnsFromAssumptions(config, options.seed),
         scenario,
@@ -282,7 +216,12 @@ export const runStressTest = async (
         scenarioLabel: scenario.label,
         simulationMode: SimulationMode.Manual,
         result: manual.result,
-        metrics: buildMetrics(baseResult, manual.result, config.coreParams.inflationRate, manual.inflationOverridesByYear),
+        metrics: buildMetrics(
+          baseResult,
+          manual.result,
+          config.coreParams.inflationRate,
+          manual.inflationOverridesByYear,
+        ),
       });
     } else {
       const mc = await runScenarioMonteCarlo(
@@ -312,28 +251,30 @@ export const runStressTest = async (
 
   let timingSensitivity: StressTimingSensitivitySeries[] | undefined;
   if (config.simulationMode === SimulationMode.Manual && baselineReturns) {
-    timingSensitivity = scenarios.map((scenario) => {
-      const points = Array.from({ length: config.coreParams.retirementDuration }, (_, index) => {
+    timingSensitivity = [];
+    for (const scenario of scenarios) {
+      const points: StressTimingSensitivitySeries['points'] = [];
+      for (let index = 0; index < config.coreParams.retirementDuration; index += 1) {
         const startYear = index + 1;
         const timedScenario = scenarioForTiming(scenario, startYear);
-        const run = runScenarioManual(
+        const run = await runScenarioManual(
           config,
-          baselineReturns ?? [],
+          baselineReturns,
           timedScenario,
           projectedStartMonth,
           actualOverridesByMonth,
         );
-        return {
+        points.push({
           startYear,
           terminalPortfolioValue: run.result.summary.terminalPortfolioValue,
-        };
-      });
-      return {
+        });
+      }
+      timingSensitivity.push({
         scenarioId: scenario.id,
         scenarioLabel: scenario.label,
         points,
-      };
-    });
+      });
+    }
   }
 
   return {
