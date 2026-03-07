@@ -39,3 +39,4 @@ A request belongs in:
 | CHG-0008  | MC p50 reference column theme balance              | Done   | 2026-03-01 | 2026-03-01 | `docs/changes/CHG-0008-mc-p50-reference-column-theme-balance/`     |
 | CHG-0009  | Bookmark description field                         | Done   | 2026-03-01 | 2026-03-01 | `docs/changes/CHG-0009-bookmark-description-field/`                |
 | CHG-0010  | MC summary stats cross-run aggregation             | Done   | 2026-03-05 | 2026-03-05 | `docs/changes/CHG-0010-mc-summary-stats-cross-run-aggregation/`    |
+| CHG-0011  | Bookmark duplicate action                          | Open   | 2026-03-07 | 2026-03-07 | `docs/changes/CHG-0011-bookmark-duplicate-action/`                 |

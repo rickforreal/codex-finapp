@@ -2294,3 +2294,13 @@ Validation rerun (passing):
 - `npm run lint -w @finapp/client`
 - `npm run test -w @finapp/client`
 - `npm run test -w @finapp/server`
+
+## 2026-03-07 04:10 — CHG-0011-T1 | COMPLETE
+
+Implemented CHG-0011: Bookmark duplicate action.
+- Added `duplicateBookmark` function to `store/bookmarks.ts` to duplicate a bookmark's payload without state extraction.
+- Added copy icon to bookmark items in `CommandBar.tsx`.
+- Updated bookmark naming modal to pre-fill "Copy of [Name]" and description on duplicate.
+- Handled `duplicateTargetBookmark` state to distinguish between "Save Bookmark" (current state) and duplicating an existing one.
+- Validated with client test suite (`npm test -w @finapp/client`).
+- Checked off task in `TASKS.md`.

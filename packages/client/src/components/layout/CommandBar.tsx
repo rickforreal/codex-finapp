@@ -15,9 +15,11 @@ import {
   applyBookmark,
   createBookmark,
   deleteBookmark,
+  duplicateBookmark,
   listBookmarks,
   migrateLocalStorageToDatabase,
   BookmarkStorageError,
+  type BookmarkRecord,
 } from '../../store/bookmarks';
 import { SnapshotLoadError, parseSnapshot, serializeSnapshot } from '../../store/snapshot';
 import {
@@ -152,6 +154,7 @@ export const CommandBar = () => {
   const [bookmarkModalOpen, setBookmarkModalOpen] = useState(false);
   const [bookmarkName, setBookmarkName] = useState('');
   const [bookmarkDescription, setBookmarkDescription] = useState('');
+  const [duplicateTargetBookmark, setDuplicateTargetBookmark] = useState<BookmarkRecord | null>(null);
   const [commandMessage, setCommandMessage] = useState<string | null>(null);
   const mode = useAppStore((state) => state.mode);
   const isCompareActive = useIsCompareActive();
@@ -353,7 +356,17 @@ export const CommandBar = () => {
   };
 
   const handleOpenCreateBookmark = () => {
+    setDuplicateTargetBookmark(null);
     setBookmarkName(getDefaultBookmarkName());
+    setBookmarkModalOpen(true);
+    setBookmarksMenuOpen(false);
+    setThemeMenuOpen(false);
+  };
+
+  const handleOpenDuplicateBookmark = (bookmark: BookmarkRecord) => {
+    setDuplicateTargetBookmark(bookmark);
+    setBookmarkName(`Copy of ${bookmark.name}`);
+    setBookmarkDescription(bookmark.description || '');
     setBookmarkModalOpen(true);
     setBookmarksMenuOpen(false);
     setThemeMenuOpen(false);
@@ -367,11 +380,16 @@ export const CommandBar = () => {
 
     const description = bookmarkDescription.trim();
     try {
-      await createBookmark(name, { description });
+      if (duplicateTargetBookmark) {
+        await duplicateBookmark(duplicateTargetBookmark, name, { description });
+      } else {
+        await createBookmark(name, { description });
+      }
       await refreshBookmarks();
       setBookmarkModalOpen(false);
       setBookmarkName('');
       setBookmarkDescription('');
+      setDuplicateTargetBookmark(null);
       setCommandMessage(`Saved bookmark: ${name}`);
     } catch (error) {
       const message = error instanceof Error ? error.message : 'Failed to save bookmark.';
@@ -748,7 +766,40 @@ export const CommandBar = () => {
                               {bookmark.description ? ` · ${bookmark.description}` : null}
                             </span>
                           </span>
-                          <span className="shrink-0">
+                          <span className="shrink-0 flex items-center">
+                            <span
+                              role="button"
+                              tabIndex={0}
+                              onClick={(event) => {
+                                event.preventDefault();
+                                event.stopPropagation();
+                                handleOpenDuplicateBookmark(bookmark);
+                              }}
+                              onKeyDown={(event) => {
+                                if (event.key !== 'Enter' && event.key !== ' ') {
+                                  return;
+                                }
+                                event.preventDefault();
+                                event.stopPropagation();
+                                handleOpenDuplicateBookmark(bookmark);
+                              }}
+                              className="theme-commandbar-action-btn grid h-7 w-7 place-items-center rounded opacity-0 transition group-hover:opacity-100 focus:opacity-100"
+                              aria-label={`Duplicate bookmark ${bookmark.name}`}
+                              title="Duplicate bookmark"
+                            >
+                              <svg
+                                viewBox="0 0 24 24"
+                                className="h-4 w-4"
+                                fill="none"
+                                stroke="currentColor"
+                                strokeWidth="2"
+                                strokeLinecap="round"
+                                strokeLinejoin="round"
+                              >
+                                <rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect>
+                                <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path>
+                              </svg>
+                            </span>
                             <span
                               role="button"
                               tabIndex={0}
@@ -1062,6 +1113,7 @@ export const CommandBar = () => {
                   setBookmarkModalOpen(false);
                   setBookmarkName('');
                   setBookmarkDescription('');
+                  setDuplicateTargetBookmark(null);
                 }}
                 className="theme-commandbar-action-btn rounded-md border px-3 py-1.5 text-sm font-medium"
               >

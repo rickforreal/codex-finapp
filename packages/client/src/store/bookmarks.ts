@@ -225,6 +225,27 @@ export const createBookmark = async (
   }
 };
 
+export const duplicateBookmark = async (
+  sourceBookmark: BookmarkRecord,
+  newName: string,
+  options: { description?: string } = {},
+): Promise<BookmarkRecord> => {
+  const trimmedName = newName.trim();
+  if (!trimmedName) {
+    throw new BookmarkStorageError('invalid_bookmark_payload', 'Bookmark name is required.');
+  }
+
+  try {
+    return await bookmarksApi.createBookmark({
+      name: trimmedName,
+      payload: sourceBookmark.payload,
+      description: options.description?.trim() || undefined,
+    });
+  } catch (error) {
+    throw new BookmarkStorageError('api_error', error instanceof Error ? error.message : 'API error');
+  }
+};
+
 export const deleteBookmark = async (bookmarkId: string): Promise<boolean> => {
   try {
     await bookmarksApi.deleteBookmark(bookmarkId);

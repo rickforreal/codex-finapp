@@ -2086,3 +2086,14 @@ Acceptance Criteria:
       [AC3] GET/POST/DELETE /api/v1/bookmarks endpoints active and validated.
       [AC4] Client refactored to use async API and auto-migrate existing bookmarks.
       [AC5] All tests pass and documentation updated.
+
+## Phase: Minor Changes
+
+- [x] CHG-0011-T1: Implement Bookmark Duplicate Action
+      Phase: Change/CHG-0011
+      Dependencies: none
+      Acceptance Criteria:
+      [AC1] Copy icon added to bookmark rows in CommandBar.
+      [AC2] Clicking icon opens naming modal prefilled with "Copy of [Name]".
+      [AC3] Saving modal creates new bookmark via duplicateBookmark function with existing payload.
+      [AC4] Documentation and index updated.
