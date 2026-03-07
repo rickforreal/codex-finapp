@@ -916,7 +916,9 @@ For each scenario, the function:
 
 ### 7.6 Computation Model
 
-**Synchronous for now.** The simulation runs synchronously within the Fastify request handler. A single Manual simulation completes in <10ms. A Monte Carlo run with 1,000 simulations over 480 months completes in 1–3 seconds on modern hardware — fast enough for a synchronous HTTP response. Stress tests with 4 scenarios multiply this by 4–5, potentially reaching 5–15 seconds for MC stress tests.
+**Synchronous compute with process-level parallel throughput.** The simulation engine still runs synchronously inside each Fastify worker request handler, but server startup supports multi-process clustering for throughput under compare/stress fan-out. Worker count is configurable via `FINAPP_SERVER_WORKERS`; production default is `availableParallelism() - 1`.
+
+Representative baseline timings remain request-shape dependent: a single Manual run is typically near-instant, while Monte Carlo and stress workloads scale with run count and retirement horizon.
 
 **Future: async with job IDs.** If Monte Carlo or stress test computation times grow beyond acceptable synchronous thresholds (>10 seconds), the architecture supports a migration to async processing: the API returns a job ID immediately, and the client polls (or uses Server-Sent Events) for the result. This change is isolated to the route handler and API contract — the engine itself doesn't change.
 
@@ -1005,7 +1007,7 @@ User clicks Run Simulation with compare-active slot set (slot count > 1)
     → For fairness, all slot requests share identical stochastic inputs
       → Manual: shared monthly return stream
       → Monte Carlo: shared seed/sampling stream
-        → Sends POST /api/v1/simulate per active slot via bounded-parallel queue
+        → Sends POST /api/v1/simulate per active slot via bounded-parallel queue (cap: 8)
           → Store updates compare outputs per slot
             → Shared compare chart/stats/ledger tabs re-render
 ```

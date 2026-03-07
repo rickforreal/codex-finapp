@@ -2165,3 +2165,23 @@ Validation run (all passing):
 - `npm run lint`
 - `npm test`
 - `npm run build`
+- MCPERF-T1 kickoff (2026-03-06): docs-first performance wave created at `docs/features/monte-carlo-parallel-performance/` with FEATURE/PLAN/ACCEPTANCE; implementing server-side Monte Carlo optimization + parallel throughput (no Rust in this wave).
+- MCPERF-T2..MCPERF-T5 complete (2026-03-06): Monte Carlo parallel-performance wave shipped.
+  - Engine optimization (`packages/server/src/engine/monteCarlo.ts`):
+    - Removed full per-run path retention; now store compact run summaries and deterministically replay only selected representative run.
+    - Percentile curves now sort each month distribution once per asset and derive all required quantiles from the same sorted array.
+    - Run count clamp and seed handling preserved with deterministic `seedUsed` output.
+  - Stress run-count parity (`packages/server/src/engine/stress.ts`):
+    - Monte Carlo stress base/scenario runs now use clamped `config.simulationRuns` (`1..10000`) instead of fixed 1000.
+  - Throughput parallelism:
+    - Added process-level server clustering in `packages/server/src/server.ts` (configurable via `FINAPP_SERVER_WORKERS`; production default `availableParallelism()-1`; disabled in test runtime).
+    - Increased compare and compare-stress client queue caps from 4 to 8 in `packages/client/src/components/layout/CommandBar.tsx` and `packages/client/src/components/output/StressTestPanel.tsx`.
+  - Tests/docs:
+    - Added stress MC run-count assertion in `packages/server/tests/engine/stress.test.ts`.
+    - Canonical docs updated: `docs/API.md`, `docs/ARCHITECTURE.md`.
+
+Validation run (all passing):
+- `npm run typecheck`
+- `npm run lint`
+- `npm test`
+- `npm run build`

@@ -441,7 +441,7 @@ export const CommandBar = () => {
             : null;
         compareConfigs.forEach(({ slotId }) => setCompareSlotSimulationStatus(slotId, 'running'));
         const queue = [...compareConfigs];
-        const maxParallel = 4;
+        const maxParallel = 8;
         const failures: string[] = [];
         const workers = Array.from({ length: Math.min(maxParallel, queue.length) }, async () => {
           while (queue.length > 0) {

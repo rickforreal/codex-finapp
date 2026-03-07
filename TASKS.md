@@ -1930,3 +1930,45 @@ Acceptance Criteria:
       [AC1] `npm run typecheck` passes.
       [AC2] `npm run lint` passes.
       [AC3] `npm test` and `npm run build` pass.
+
+## Feature Plan — Monte Carlo Parallel Performance
+
+- [x] MCPERF-T1: Create docs-first feature artifacts and root tracking entries
+      Phase: Feature/MonteCarloParallelPerformance
+      Dependencies: none
+      Acceptance Criteria:
+      [AC1] `docs/features/monte-carlo-parallel-performance/{FEATURE,PLAN,ACCEPTANCE}.md` exist.
+      [AC2] Root `TASKS.md` includes `MCPERF-T1..MCPERF-T5`.
+      [AC3] `PROGRESS.txt` includes append-only kickoff entry.
+
+- [x] MCPERF-T2: Optimize Monte Carlo aggregation and representative path retention
+      Phase: Feature/MonteCarloParallelPerformance
+      Dependencies: MCPERF-T1
+      Acceptance Criteria:
+      [AC1] Percentile aggregation sorts once per month distribution per asset.
+      [AC2] Full per-run path retention removed; deterministic replay used for representative path.
+      [AC3] Existing Monte Carlo determinism and percentile tests continue to pass.
+
+- [x] MCPERF-T3: Align stress Monte Carlo run-count semantics with simulationRuns
+      Phase: Feature/MonteCarloParallelPerformance
+      Dependencies: MCPERF-T1
+      Acceptance Criteria:
+      [AC1] Stress base/scenario Monte Carlo runs use clamped `config.simulationRuns`.
+      [AC2] No fixed `runs: 1000` remains in stress Monte Carlo path.
+      [AC3] Stress tests pass.
+
+- [x] MCPERF-T4: Add server process-level parallel workers and increase compare fan-out cap
+      Phase: Feature/MonteCarloParallelPerformance
+      Dependencies: MCPERF-T1
+      Acceptance Criteria:
+      [AC1] Server boot supports cluster workers outside test mode.
+      [AC2] Worker count is configurable via env override with sane default.
+      [AC3] Client compare and compare-stress bounded parallelism cap increases to 8.
+
+- [x] MCPERF-T5: Update canonical docs and pass regression gate
+      Phase: Feature/MonteCarloParallelPerformance
+      Dependencies: MCPERF-T2, MCPERF-T3, MCPERF-T4
+      Acceptance Criteria:
+      [AC1] Canonical docs updated: `docs/ARCHITECTURE.md`, `docs/API.md`.
+      [AC2] `npm run typecheck`, `npm run lint`, `npm test`, and `npm run build` pass.
+      [AC3] `PROGRESS.txt` append-only completion entry includes canonical-doc impact statement.

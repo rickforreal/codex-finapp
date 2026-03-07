@@ -26,6 +26,18 @@ type MonteCarloOptions = {
   inflationOverridesByYear?: Partial<Record<number, number>>;
 };
 
+type RunSummary = {
+  runIndex: number;
+  terminalValue: number;
+  totalDrawdown: number;
+  totalShortfall: number;
+};
+
+const RUN_SEED_STRIDE = 9_973;
+const MAX_SIMULATION_RUNS = 10_000;
+const DEFAULT_SIMULATION_RUNS = 1_000;
+const MAX_SEED = 2_147_483_000;
+
 const quantile = (sortedValues: number[], percentile: number): number => {
   if (sortedValues.length === 0) {
     return 0;
@@ -57,19 +69,37 @@ const stdDevPopulation = (values: number[]): number => {
 const inflationFactor = (inflationRate: number, monthIndexOneBased: number): number =>
   (1 + inflationRate) ** (monthIndexOneBased / 12);
 
-const percentileCurve = (valuesByRun: number[][]): MonteCarloPercentileCurves => {
-  const curveFor = (percentile: number): number[] =>
-    valuesByRun.map((values) => quantile([...values].sort((a, b) => a - b), percentile));
+const clampSimulationRuns = (runs: number): number =>
+  Math.max(1, Math.min(Math.round(runs), MAX_SIMULATION_RUNS));
 
-  return {
-    p05: curveFor(0.05),
-    p10: curveFor(0.1),
-    p25: curveFor(0.25),
-    p50: curveFor(0.5),
-    p75: curveFor(0.75),
-    p90: curveFor(0.9),
-    p95: curveFor(0.95),
+const resolveSeed = (seed: number | undefined): number =>
+  seed ?? Math.floor(Math.random() * MAX_SEED);
+
+const runSeedForIndex = (seed: number, runIndex: number): number => seed + runIndex * RUN_SEED_STRIDE;
+
+const percentileCurve = (valuesByRun: number[][]): MonteCarloPercentileCurves => {
+  const curve: MonteCarloPercentileCurves = {
+    p05: [],
+    p10: [],
+    p25: [],
+    p50: [],
+    p75: [],
+    p90: [],
+    p95: [],
   };
+
+  for (const values of valuesByRun) {
+    values.sort((a, b) => a - b);
+    curve.p05.push(quantile(values, 0.05));
+    curve.p10.push(quantile(values, 0.1));
+    curve.p25.push(quantile(values, 0.25));
+    curve.p50.push(quantile(values, 0.5));
+    curve.p75.push(quantile(values, 0.75));
+    curve.p90.push(quantile(values, 0.9));
+    curve.p95.push(quantile(values, 0.95));
+  }
+
+  return curve;
 };
 
 const sampleHistoricalReturnsIid = (
@@ -105,17 +135,99 @@ const sampleHistoricalReturnsBlock = (
   return result;
 };
 
+const buildReturnsForRun = (
+  config: SimulationConfig,
+  runIndex: number,
+  seedUsed: number,
+  returnsSource: ReturnSource,
+  historicalMonths: HistoricalMonth[],
+  durationMonths: number,
+  transformReturns: MonteCarloOptions['transformReturns'],
+): MonthlyReturns[] => {
+  const runSeed = runSeedForIndex(seedUsed, runIndex);
+  const random = createSeededRandom(runSeed);
+
+  const returns =
+    returnsSource === ReturnSource.Manual
+      ? generateMonthlyReturnsFromAssumptions(config, runSeed)
+      : config.blockBootstrapEnabled
+        ? sampleHistoricalReturnsBlock(historicalMonths, durationMonths, config.blockBootstrapLength, random)
+        : sampleHistoricalReturnsIid(historicalMonths, durationMonths, random);
+
+  return transformReturns ? transformReturns(returns, runIndex) : returns;
+};
+
+const runPathForIndex = (
+  config: SimulationConfig,
+  options: MonteCarloOptions,
+  runIndex: number,
+  seedUsed: number,
+  returnsSource: ReturnSource,
+  historicalMonths: HistoricalMonth[],
+  durationMonths: number,
+): ReturnType<typeof simulateRetirement> => {
+  const returns = buildReturnsForRun(
+    config,
+    runIndex,
+    seedUsed,
+    returnsSource,
+    historicalMonths,
+    durationMonths,
+    options.transformReturns,
+  );
+
+  return simulateRetirement(
+    config,
+    returns,
+    options.actualOverridesByMonth ?? {},
+    options.inflationOverridesByYear ?? {},
+  );
+};
+
+const selectRepresentativeRun = (
+  runSummaries: RunSummary[],
+  terminalMedian: number,
+  drawdownMedian: number,
+): RunSummary =>
+  runSummaries.reduce((best, candidate) => {
+    const candidateTerminalDelta = Math.abs(candidate.terminalValue - terminalMedian);
+    const bestTerminalDelta = Math.abs(best.terminalValue - terminalMedian);
+    if (candidateTerminalDelta < bestTerminalDelta) {
+      return candidate;
+    }
+    if (candidateTerminalDelta > bestTerminalDelta) {
+      return best;
+    }
+
+    const candidateDrawdownDelta = Math.abs(candidate.totalDrawdown - drawdownMedian);
+    const bestDrawdownDelta = Math.abs(best.totalDrawdown - drawdownMedian);
+    if (candidateDrawdownDelta < bestDrawdownDelta) {
+      return candidate;
+    }
+    if (candidateDrawdownDelta > bestDrawdownDelta) {
+      return best;
+    }
+
+    if (candidate.totalShortfall < best.totalShortfall) {
+      return candidate;
+    }
+    if (candidate.totalShortfall > best.totalShortfall) {
+      return best;
+    }
+
+    return candidate.runIndex < best.runIndex ? candidate : best;
+  }, runSummaries[0]!);
+
 export const runMonteCarlo = async (
   config: SimulationConfig,
   options: MonteCarloOptions = {},
 ): Promise<{ representativePath: ReturnType<typeof simulateRetirement>; monteCarlo: MonteCarloResult; seedUsed?: number }> => {
-  const simulationCount = Math.max(1, Math.min(options.runs ?? config.simulationRuns ?? 1000, 10000));
+  const simulationCount = clampSimulationRuns(options.runs ?? config.simulationRuns ?? DEFAULT_SIMULATION_RUNS);
+  const seedUsed = resolveSeed(options.seed);
   const durationMonths = config.coreParams.retirementDuration * 12;
   const returnsSource =
     config.returnsSource ??
-    (config.simulationMode === SimulationMode.Manual
-      ? ReturnSource.Manual
-      : ReturnSource.Historical);
+    (config.simulationMode === SimulationMode.Manual ? ReturnSource.Manual : ReturnSource.Historical);
   const customRange =
     config.selectedHistoricalEra === HistoricalEra.Custom ? config.customHistoricalRange : null;
   const historicalMonths =
@@ -127,63 +239,71 @@ export const runMonteCarlo = async (
     throw new Error('No historical data rows available for selected era');
   }
 
-  const monthlyTotalsByRun: number[][] = Array.from({ length: durationMonths }, () => []);
-  const monthlyStocksByRun: number[][] = Array.from({ length: durationMonths }, () => []);
-  const monthlyBondsByRun: number[][] = Array.from({ length: durationMonths }, () => []);
-  const monthlyCashByRun: number[][] = Array.from({ length: durationMonths }, () => []);
+  const monthlyTotalsByRun: number[][] = Array.from(
+    { length: durationMonths },
+    () => new Array<number>(simulationCount),
+  );
+  const monthlyStocksByRun: number[][] = Array.from(
+    { length: durationMonths },
+    () => new Array<number>(simulationCount),
+  );
+  const monthlyBondsByRun: number[][] = Array.from(
+    { length: durationMonths },
+    () => new Array<number>(simulationCount),
+  );
+  const monthlyCashByRun: number[][] = Array.from(
+    { length: durationMonths },
+    () => new Array<number>(simulationCount),
+  );
   const monthlyWithdrawalsRealByRun: number[][] = Array.from({ length: durationMonths }, () => []);
-  const terminalValues: number[] = [];
-  const totalDrawdowns: number[] = [];
+  const terminalValues: number[] = new Array<number>(simulationCount);
+  const totalDrawdowns: number[] = new Array<number>(simulationCount);
+  const runSummaries: RunSummary[] = new Array<RunSummary>(simulationCount);
   let successCount = 0;
-  const runResults: Array<ReturnType<typeof simulateRetirement>> = [];
 
   for (let runIndex = 0; runIndex < simulationCount; runIndex += 1) {
-    const random =
-      options.seed === undefined
-        ? Math.random
-        : createSeededRandom(options.seed + runIndex * 9_973);
-    const returns =
-      returnsSource === ReturnSource.Manual
-        ? generateMonthlyReturnsFromAssumptions(
-            config,
-            options.seed === undefined ? undefined : options.seed + runIndex * 9_973,
-          )
-        : config.blockBootstrapEnabled
-          ? sampleHistoricalReturnsBlock(historicalMonths, durationMonths, config.blockBootstrapLength, random)
-          : sampleHistoricalReturnsIid(historicalMonths, durationMonths, random);
-    const transformedReturns = options.transformReturns ? options.transformReturns(returns, runIndex) : returns;
-    const path = simulateRetirement(
+    const path = runPathForIndex(
       config,
-      transformedReturns,
-      options.actualOverridesByMonth ?? {},
-      options.inflationOverridesByYear ?? {},
+      options,
+      runIndex,
+      seedUsed,
+      returnsSource,
+      historicalMonths,
+      durationMonths,
     );
-    runResults.push(path);
 
-    path.rows.forEach((row, monthIndex) => {
+    for (let monthIndex = 0; monthIndex < path.rows.length; monthIndex += 1) {
+      const row = path.rows[monthIndex]!;
       const stocks = row.endBalances[AssetClass.Stocks];
       const bonds = row.endBalances[AssetClass.Bonds];
       const cash = row.endBalances[AssetClass.Cash];
       const total = stocks + bonds + cash;
-      monthlyTotalsByRun[monthIndex]?.push(total);
-      monthlyStocksByRun[monthIndex]?.push(stocks);
-      monthlyBondsByRun[monthIndex]?.push(bonds);
-      monthlyCashByRun[monthIndex]?.push(cash);
-    });
+      monthlyTotalsByRun[monthIndex]![runIndex] = total;
+      monthlyStocksByRun[monthIndex]![runIndex] = stocks;
+      monthlyBondsByRun[monthIndex]![runIndex] = bonds;
+      monthlyCashByRun[monthIndex]![runIndex] = cash;
+    }
 
     const terminalValue = path.summary.terminalPortfolioValue;
-    terminalValues.push(terminalValue);
-    totalDrawdowns.push(path.summary.totalWithdrawn);
+    const totalDrawdown = path.summary.totalWithdrawn;
+    terminalValues[runIndex] = terminalValue;
+    totalDrawdowns[runIndex] = totalDrawdown;
+    runSummaries[runIndex] = {
+      runIndex,
+      terminalValue,
+      totalDrawdown,
+      totalShortfall: path.summary.totalShortfall,
+    };
 
     const hasRequestedWithdrawals = path.rows.some((row) => row.withdrawals.requested > 0);
-    path.rows.forEach((row) => {
+    for (const row of path.rows) {
       if (hasRequestedWithdrawals && row.withdrawals.requested <= 0) {
-        return;
+        continue;
       }
       monthlyWithdrawalsRealByRun[row.monthIndex - 1]?.push(
         row.withdrawals.actual / inflationFactor(config.coreParams.inflationRate, row.monthIndex),
       );
-    });
+    }
 
     if (terminalValue > 0) {
       successCount += 1;
@@ -192,52 +312,31 @@ export const runMonteCarlo = async (
 
   const terminalMedian = quantile([...terminalValues].sort((a, b) => a - b), 0.5);
   const drawdownMedian = quantile([...totalDrawdowns].sort((a, b) => a - b), 0.5);
-  const representativePath =
-    runResults.reduce((best, candidate) => {
-      if (!best) {
-        return candidate;
-      }
-      const candidateTerminalDelta = Math.abs(candidate.summary.terminalPortfolioValue - terminalMedian);
-      const bestTerminalDelta = Math.abs(best.summary.terminalPortfolioValue - terminalMedian);
-      if (candidateTerminalDelta < bestTerminalDelta) {
-        return candidate;
-      }
-      if (candidateTerminalDelta > bestTerminalDelta) {
-        return best;
-      }
-
-      const candidateDrawdownDelta = Math.abs(candidate.summary.totalWithdrawn - drawdownMedian);
-      const bestDrawdownDelta = Math.abs(best.summary.totalWithdrawn - drawdownMedian);
-      if (candidateDrawdownDelta < bestDrawdownDelta) {
-        return candidate;
-      }
-      if (candidateDrawdownDelta > bestDrawdownDelta) {
-        return best;
-      }
-
-      if (candidate.summary.totalShortfall < best.summary.totalShortfall) {
-        return candidate;
-      }
-      return best;
-    }, runResults[0]) ?? runResults[0];
-
-  if (!representativePath) {
-    throw new Error('Monte Carlo failed to produce any runs');
-  }
+  const representativeRun = selectRepresentativeRun(runSummaries, terminalMedian, drawdownMedian);
+  const representativePath = runPathForIndex(
+    config,
+    options,
+    representativeRun.runIndex,
+    seedUsed,
+    returnsSource,
+    historicalMonths,
+    durationMonths,
+  );
 
   const monthlyWithdrawalP50Series = monthlyWithdrawalsRealByRun
     .map((values) => {
       if (values.length === 0) {
         return null;
       }
-      return quantile([...values].sort((a, b) => a - b), 0.5);
+      values.sort((a, b) => a - b);
+      return quantile(values, 0.5);
     })
     .filter((value): value is number => value !== null);
   const sortedMonthlyWithdrawalP50Series = [...monthlyWithdrawalP50Series].sort((a, b) => a - b);
 
   return {
     representativePath,
-    seedUsed: options.seed,
+    seedUsed,
     monteCarlo: {
       simulationCount,
       successCount,

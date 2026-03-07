@@ -27,6 +27,8 @@ type StressRunOptions = {
 };
 
 const toMonthlyRate = (annualRate: number): number => (1 + annualRate) ** (1 / 12) - 1;
+const resolveMonteCarloRuns = (configuredRuns: number | undefined): number =>
+  Math.max(1, Math.min(Math.round(configuredRuns ?? 1000), 10000));
 
 const getLastEditedMonthIndex = (overrides: ActualOverridesByMonth = {}): number =>
   Object.keys(overrides)
@@ -211,12 +213,13 @@ const runScenarioMonteCarlo = async (
   config: SimulationConfig,
   scenario: StressScenario,
   projectedStartMonth: number,
+  monteCarloRuns: number,
   options: StressRunOptions,
 ): Promise<{ result: SinglePathResult; monteCarlo: MonteCarloResult; inflationOverridesByYear: Partial<Record<number, number>> }> => {
   const inflationOverridesByYear = inflationOverridesForScenario(scenario, projectedStartMonth);
   const mc = await runMonteCarlo(config, {
     seed: options.seed,
-    runs: 1000,
+    runs: monteCarloRuns,
     actualOverridesByMonth: options.actualOverridesByMonth ?? {},
     inflationOverridesByYear,
     transformReturns: (returns) => returnsWithScenarioShock(scenario, returns, projectedStartMonth),
@@ -237,6 +240,7 @@ export const runStressTest = async (
   const actualOverridesByMonth = options.actualOverridesByMonth ?? {};
   const projectedStartMonth = getProjectedYearStartMonth(config, actualOverridesByMonth);
   const durationMonths = config.coreParams.retirementDuration * 12;
+  const monteCarloRuns = resolveMonteCarloRuns(config.simulationRuns);
 
   let baseResult = options.base?.result;
   let baseMonteCarlo = options.base?.monteCarlo;
@@ -251,7 +255,7 @@ export const runStressTest = async (
     if (!baseResult || !baseMonteCarlo) {
       const base = await runMonteCarlo(config, {
         seed: options.seed,
-        runs: 1000,
+        runs: monteCarloRuns,
         actualOverridesByMonth,
       });
       baseResult = base.representativePath;
@@ -281,7 +285,13 @@ export const runStressTest = async (
         metrics: buildMetrics(baseResult, manual.result, config.coreParams.inflationRate, manual.inflationOverridesByYear),
       });
     } else {
-      const mc = await runScenarioMonteCarlo(config, scenario, projectedStartMonth, options);
+      const mc = await runScenarioMonteCarlo(
+        config,
+        scenario,
+        projectedStartMonth,
+        monteCarloRuns,
+        options,
+      );
       scenarioResults.push({
         scenarioId: scenario.id,
         scenarioLabel: scenario.label,

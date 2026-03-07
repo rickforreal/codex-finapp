@@ -69,6 +69,10 @@ Request:
 }
 ```
 
+Monte Carlo run count semantics:
+- `config.simulationRuns` is clamped to `1..10000` server-side.
+- Effective simulation mode remains `manual` when run count resolves to `1`, and `monteCarlo` when greater than `1`.
+
 `config.spendingPhases` accepts `0..4` phase entries. When empty, spending-phase min/max clamping is disabled and withdrawals follow strategy output.
 
 `config.selectedHistoricalEra` supports preset eras plus `custom`. When `custom` is selected, `config.customHistoricalRange` is required and must provide inclusive month-year bounds:
@@ -240,6 +244,9 @@ Response:
 }
 ```
 
+Stress Monte Carlo run-count semantics:
+- When `config.simulationMode = "monteCarlo"`, stress base/scenario Monte Carlo calls use the same `config.simulationRuns` value, clamped to `1..10000`.
+
 ## Source of Truth
 
 Request/response contract source of truth is:
@@ -254,6 +261,6 @@ No new backend API route is required.
 Client behavior:
 1. Multi-slot run calls `POST /simulate` once per active slot (`A`..`H`, 1..8 slots; compare-active when >1).
 2. Compare stress run calls `POST /stress-test` once per active slot using shared scenario definitions.
-3. Calls are executed with bounded parallelism (queue-based concurrency), not unbounded fan-out.
+3. Calls are executed with bounded parallelism (queue-based concurrency), not unbounded fan-out. Current cap is 8 concurrent slot requests.
 4. Partial failures are surfaced per slot while preserving successful slot results.
 5. Compare run parity rule: all slot requests are supplied shared stochastic inputs (shared monthly returns in Manual, shared seed/sampling stream in Monte Carlo) so differences reflect configuration, not randomness.

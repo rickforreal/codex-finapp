@@ -75,4 +75,24 @@ describe('runStressTest', () => {
 
     expect(result.scenarios[0]?.metrics.terminalDeltaVsBase).toBeLessThanOrEqual(0);
   });
+
+  it('uses configured simulationRuns for monte carlo stress base and scenarios', async () => {
+    const config = createBaseConfig();
+    config.simulationMode = SimulationMode.MonteCarlo;
+    config.simulationRuns = 7;
+    const scenarios: StressScenario[] = [
+      {
+        id: 'mc-crash',
+        label: 'MC Crash',
+        type: 'stockCrash',
+        startYear: 1,
+        params: { dropPct: -0.3 },
+      },
+    ];
+
+    const result = await runStressTest(config, scenarios, { seed: 33 });
+
+    expect(result.base.monteCarlo?.simulationCount).toBe(7);
+    expect(result.scenarios[0]?.monteCarlo?.simulationCount).toBe(7);
+  });
 });

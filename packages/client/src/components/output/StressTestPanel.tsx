@@ -230,7 +230,7 @@ export const StressTestPanel = () => {
           | { status: 'fulfilled'; slotId: CompareSlotId; response: Awaited<ReturnType<typeof runStressTest>> }
           | { status: 'rejected'; slotId: CompareSlotId; reason: unknown }
         > = [];
-        const maxParallel = 4;
+        const maxParallel = 8;
         const workers = Array.from({ length: Math.min(maxParallel, queue.length) }, async () => {
           while (queue.length > 0) {
             const next = queue.shift();
