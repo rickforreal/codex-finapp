@@ -2266,3 +2266,31 @@ Validation rerun (passing):
 - Implemented a transparent one-time migration that moves existing localStorage bookmarks to the database on first load.
 - Updated CommandBar.tsx to handle asynchronous bookmark operations and trigger migration.
 - Verified with comprehensive test suite updates in @finapp/client and existing server tests.
+
+- BOOKMARKS migration hardening pass (2026-03-07): fixed post-SQLite bookmark regression where local bookmarks could disappear and not render.
+  - Root-cause confirmation:
+    - Startup migration path in `packages/client/src/components/layout/CommandBar.tsx` runs `migrateLocalStorageToDatabase()`.
+    - Prior migration implementation in `packages/client/src/store/bookmarks.ts` removed `localStorage` key unconditionally after attempted API writes.
+  - Fixes implemented:
+    - `packages/client/src/store/bookmarks.ts`:
+      - Added safe local envelope helpers and migration semantics that only clear local key after full success.
+      - Partial migration now preserves failed bookmarks in localStorage for retry.
+      - `listBookmarks()` now merges DB + localStorage bookmarks (dedupe by `id`, sorted by `savedAt`) so pending local bookmarks remain visible.
+      - Added local fallback paths for read/delete when API is unavailable.
+      - Tightened `applyBookmark` return typing.
+    - `packages/client/src/components/layout/CommandBar.tsx`:
+      - Fixed bookmark create call to current signature.
+      - Fixed snapshot serialize call-site.
+      - Adjusted imports after call-site cleanup.
+    - `packages/client/src/store/types.ts`:
+      - Replaced stale `SimulationConfig['stressScenarios']` reference with `StressScenario[]`.
+      - Removed `any` usages causing lint failures (`unknown` replacements).
+  - Runtime verification:
+    - Confirmed local DB file exists at `packages/server/data/finapp.db` and current bookmark row count is `0`.
+    - Confirmed user-reported local key is now absent (`localStorage.getItem('finapp:bookmarks:v1') === null`) indicating prior unconditional cleanup occurred before hardening patch.
+
+Validation rerun (passing):
+- `npm run typecheck -w @finapp/client`
+- `npm run lint -w @finapp/client`
+- `npm run test -w @finapp/client`
+- `npm run test -w @finapp/server`

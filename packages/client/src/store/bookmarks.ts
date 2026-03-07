@@ -97,40 +97,108 @@ const asBookmarksEnvelope = (parsed: unknown): BookmarksStorageEnvelope => {
   };
 };
 
-export const migrateLocalStorageToDatabase = async (): Promise<void> => {
+const readLocalEnvelope = (): BookmarksStorageEnvelope | null => {
   if (typeof window === 'undefined' || !window.localStorage) {
-    return;
+    return null;
   }
 
   const raw = window.localStorage.getItem(BOOKMARKS_STORAGE_KEY);
   if (!raw) {
+    return null;
+  }
+
+  const parsed = JSON.parse(raw);
+  return asBookmarksEnvelope(parsed);
+};
+
+const writeLocalEnvelope = (envelope: BookmarksStorageEnvelope): void => {
+  if (typeof window === 'undefined' || !window.localStorage) {
+    return;
+  }
+
+  window.localStorage.setItem(BOOKMARKS_STORAGE_KEY, JSON.stringify(envelope));
+};
+
+export const migrateLocalStorageToDatabase = async (): Promise<void> => {
+  const envelope = readLocalEnvelope();
+  if (!envelope || envelope.bookmarks.length === 0) {
     return;
   }
 
   try {
-    const parsed = JSON.parse(raw);
-    const envelope = asBookmarksEnvelope(parsed);
-    
-    for (const bookmark of envelope.bookmarks) {
+    const existing = await bookmarksApi.listBookmarks();
+    const existingIds = new Set(existing.map((bookmark) => bookmark.id));
+    const pending = envelope.bookmarks.filter((bookmark) => !existingIds.has(bookmark.id));
+
+    if (pending.length === 0) {
+      window.localStorage.removeItem(BOOKMARKS_STORAGE_KEY);
+      return;
+    }
+
+    const failed: BookmarkRecord[] = [];
+    for (const bookmark of pending) {
       try {
         await bookmarksApi.createBookmark(bookmark);
       } catch (error) {
         console.error(`Failed to migrate bookmark ${bookmark.id}:`, error);
+        failed.push(bookmark);
       }
     }
 
-    window.localStorage.removeItem(BOOKMARKS_STORAGE_KEY);
-    console.log('Successfully migrated bookmarks from localStorage to SQLite.');
+    if (failed.length === 0) {
+      window.localStorage.removeItem(BOOKMARKS_STORAGE_KEY);
+      console.log('Successfully migrated bookmarks from localStorage to SQLite.');
+      return;
+    }
+
+    writeLocalEnvelope({
+      version: BOOKMARKS_STORAGE_VERSION,
+      bookmarks: failed,
+    });
+    console.warn(
+      `Partially migrated bookmarks. ${failed.length} bookmark(s) remain in localStorage for retry.`,
+    );
   } catch (error) {
     console.error('Migration failed:', error);
   }
 };
 
 export const listBookmarks = async (): Promise<BookmarkRecord[]> => {
+  const localBookmarks = (() => {
+    try {
+      return readLocalEnvelope()?.bookmarks ?? [];
+    } catch (error) {
+      console.error('Failed to read local bookmark cache:', error);
+      return [];
+    }
+  })();
+
   try {
-    return await bookmarksApi.listBookmarks();
+    const remoteBookmarks = await bookmarksApi.listBookmarks();
+    if (localBookmarks.length === 0) {
+      return remoteBookmarks;
+    }
+
+    const mergedById = new Map<string, BookmarkRecord>();
+    for (const bookmark of remoteBookmarks) {
+      mergedById.set(bookmark.id, bookmark);
+    }
+    for (const bookmark of localBookmarks) {
+      if (!mergedById.has(bookmark.id)) {
+        mergedById.set(bookmark.id, bookmark);
+      }
+    }
+
+    return Array.from(mergedById.values()).sort((left, right) => right.savedAt.localeCompare(left.savedAt));
   } catch (error) {
-    throw new BookmarkStorageError('api_error', error instanceof Error ? error.message : 'API error');
+    if (localBookmarks.length > 0) {
+      return localBookmarks;
+    }
+
+    throw new BookmarkStorageError(
+      'api_error',
+      error instanceof Error ? error.message : 'API error',
+    );
   }
 };
 
@@ -162,12 +230,35 @@ export const deleteBookmark = async (bookmarkId: string): Promise<boolean> => {
     await bookmarksApi.deleteBookmark(bookmarkId);
     return true;
   } catch (error) {
-    console.error('Failed to delete bookmark:', error);
-    return false;
+    console.error('Failed to delete bookmark via API:', error);
+    try {
+      const local = readLocalEnvelope();
+      if (!local) {
+        return false;
+      }
+      const next = local.bookmarks.filter((bookmark) => bookmark.id !== bookmarkId);
+      if (next.length === local.bookmarks.length) {
+        return false;
+      }
+      if (next.length === 0) {
+        window.localStorage.removeItem(BOOKMARKS_STORAGE_KEY);
+      } else {
+        writeLocalEnvelope({
+          version: BOOKMARKS_STORAGE_VERSION,
+          bookmarks: next,
+        });
+      }
+      return true;
+    } catch (fallbackError) {
+      console.error('Failed to delete bookmark from local fallback:', fallbackError);
+      return false;
+    }
   }
 };
 
-export const applyBookmark = async (bookmarkId: string): Promise<{ bookmark: BookmarkRecord, data: any }> => {
+export const applyBookmark = async (
+  bookmarkId: string,
+): Promise<{ bookmark: BookmarkRecord; data: ReturnType<typeof parseSnapshot>['data'] }> => {
   const bookmarks = await listBookmarks();
   const bookmark = bookmarks.find((entry) => entry.id === bookmarkId);
 

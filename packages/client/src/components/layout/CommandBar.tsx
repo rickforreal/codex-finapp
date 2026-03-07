@@ -5,6 +5,7 @@ import {
   DrawdownStrategyType,
   SimulationMode,
   ThemeAppearance,
+  type BookmarkRecord,
   type ActualMonthOverride,
   type ActualOverridesByMonth,
 } from '@finapp/shared';
@@ -16,7 +17,6 @@ import {
   deleteBookmark,
   listBookmarks,
   migrateLocalStorageToDatabase,
-  type BookmarkRecord,
   BookmarkStorageError,
 } from '../../store/bookmarks';
 import { SnapshotLoadError, parseSnapshot, serializeSnapshot } from '../../store/snapshot';
@@ -24,7 +24,6 @@ import {
   getTrackingActualOverridesForRun,
   getCompareConfigs,
   getCurrentConfig,
-  getSnapshotState,
   useIsCompareActive,
   useAppStore,
 } from '../../store/useAppStore';
@@ -301,8 +300,7 @@ export const CommandBar = () => {
       return;
     }
 
-    const state = getSnapshotState();
-    const { json, filename } = serializeSnapshot(name, state);
+    const { json, filename } = serializeSnapshot(name);
     const blob = new Blob([json], { type: 'application/json' });
     const url = URL.createObjectURL(blob);
     const anchor = document.createElement('a');
@@ -369,8 +367,7 @@ export const CommandBar = () => {
 
     const description = bookmarkDescription.trim();
     try {
-      const state = getSnapshotState();
-      await createBookmark(name, state, { description });
+      await createBookmark(name, { description });
       await refreshBookmarks();
       setBookmarkModalOpen(false);
       setBookmarkName('');

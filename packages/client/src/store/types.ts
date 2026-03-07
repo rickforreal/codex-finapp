@@ -9,6 +9,7 @@ import {
   ThemeId,
   type SimulationConfig,
   type SimulateResponse,
+  type StressScenario,
   type StressTestResult,
   type ThemeFamilyCatalogItem,
   type ThemeDefinition,
@@ -45,7 +46,7 @@ export interface WorkspaceSnapshot {
   };
   stress: {
     isExpanded: boolean;
-    scenarios: SimulationConfig['stressScenarios'];
+    scenarios: StressScenario[];
     result: StressTestResult | null;
     status: RunStatus;
     errorMessage: string | null;
@@ -77,7 +78,7 @@ export interface SnapshotState {
     families: ThemeFamilyCatalogItem[];
     legacyDefaultThemeId: ThemeId;
     legacyThemes: ThemeDefinition[];
-    legacyCatalog: any[];
+    legacyCatalog: unknown[];
     slotCatalog: ThemeSlotCatalogItem[];
     validationIssues: ThemeValidationIssue[];
     status: ThemeStatus;
@@ -98,7 +99,7 @@ export interface SnapshotState {
     activeSlotId: CompareSlotId;
     baselineSlotId: CompareSlotId;
     slotOrder: CompareSlotId[];
-    compareSync: any;
+    compareSync: unknown;
     slots: Partial<Record<CompareSlotId, WorkspaceSnapshot>>;
   };
 }
