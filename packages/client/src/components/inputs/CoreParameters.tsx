@@ -14,12 +14,23 @@ export const CoreParameters = () => {
     return monthsBetween(coreParams.portfolioStart, coreParams.portfolioEnd);
   }, [coreParams.portfolioStart, coreParams.portfolioEnd]);
 
-  const durationLabel = useMemo(() => {
+  const calculateAge = (date: { month: number; year: number }) => {
+    const totalMonths = (date.year - coreParams.birthDate.year) * 12 + (date.month - coreParams.birthDate.month);
+    return Math.floor(totalMonths / 12);
+  };
+
+  const startAge = useMemo(() => calculateAge(coreParams.portfolioStart), [coreParams.portfolioStart, coreParams.birthDate]);
+  const endAge = useMemo(() => calculateAge(coreParams.portfolioEnd), [coreParams.portfolioEnd, coreParams.birthDate]);
+
+  const ageLabel = useMemo(() => `Age ${startAge} to ${endAge}`, [startAge, endAge]);
+
+  const lengthLabel = useMemo(() => {
     const years = Math.floor(portfolioDurationMonths / 12);
     const months = portfolioDurationMonths % 12;
     const yearPart = years > 0 ? `${years} yr${years > 1 ? 's' : ''}` : '';
-    const monthPart = months > 0 ? `${months} mo${months > 1 ? 's' : ''}` : '';
-    return [yearPart, monthPart].filter(Boolean).join(', ') || '0 months';
+    const monthPart = months > 0 ? `${months} mo${months > 1 ? '' : ''}` : '';
+    const durationPart = [yearPart, monthPart].filter(Boolean).join(', ') || '0 mos';
+    return `Length ${durationPart}`;
   }, [portfolioDurationMonths]);
 
   // Slider range in months from Jan 2020
@@ -82,7 +93,10 @@ export const CoreParameters = () => {
       <div className="pt-4 px-1">
         <div className="flex justify-between items-center mb-1">
           <span className="text-[10px] font-semibold uppercase tracking-wider text-slate-400">Portfolio Horizon</span>
-          <span className="text-xs font-bold text-slate-700 bg-slate-100 px-2 py-0.5 rounded-full">{durationLabel}</span>
+          <div className="flex gap-1.5">
+            <span className="text-xs font-medium text-slate-600 bg-slate-100 px-2 py-0.5 rounded-full">{ageLabel}</span>
+            <span className="text-xs font-medium text-slate-600 bg-slate-100 px-2 py-0.5 rounded-full">{lengthLabel}</span>
+          </div>
         </div>
         <RangeSlider
           min={0} // Jan 2020
