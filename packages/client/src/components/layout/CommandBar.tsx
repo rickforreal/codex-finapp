@@ -172,7 +172,7 @@ export const CommandBar = () => {
     (state) => state.drawdownStrategy.rebalancing.targetAllocation,
   );
   const lastEditedMonthIndex = useAppStore((state) => state.lastEditedMonthIndex);
-  const startDate = useAppStore((state) => state.coreParams.retirementStartDate);
+  const startDate = useAppStore((state) => state.coreParams.portfolioStart);
   const clearAllActualOverrides = useAppStore((state) => state.clearAllActualOverrides);
   const theme = useAppStore((state) => state.theme);
   const setSelectedThemeFamilyId = useAppStore((state) => state.setSelectedThemeFamilyId);

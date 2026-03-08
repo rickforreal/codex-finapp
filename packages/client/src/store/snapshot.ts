@@ -187,15 +187,24 @@ const snapshotStateSchema = z
       .default(DEFAULT_BLOCK_BOOTSTRAP_LENGTH),
     coreParams: z
       .object({
-        startingAge: z.number().int().min(1).max(120),
-        withdrawalsStartAt: z.number().int().min(1).max(120),
-        retirementStartDate: z
+        birthDate: z
           .object({
             month: z.number().int().min(1).max(12),
             year: z.number().int().min(1900).max(3000),
           })
           .strict(),
-        retirementDuration: z.number().int().min(1).max(100),
+        portfolioStart: z
+          .object({
+            month: z.number().int().min(1).max(12),
+            year: z.number().int().min(1900).max(3000),
+          })
+          .strict(),
+        portfolioEnd: z
+          .object({
+            month: z.number().int().min(1).max(12),
+            year: z.number().int().min(1900).max(3000),
+          })
+          .strict(),
         inflationRate: z.number().min(0).max(0.2),
       })
       .strict(),

@@ -11,39 +11,14 @@ export const CoreParameters = () => {
 
   return (
     <div className="space-y-3">
-      <div className="grid gap-3 md:grid-cols-3">
+      <div className="grid gap-3 md:grid-cols-2">
         <label className="space-y-1">
-          <p className="flex min-h-10 items-end text-xs font-medium text-slate-600">Starting Age</p>
-          <div className="relative">
-            <NumericInput
-              value={coreParams.startingAge}
-              min={1}
-              max={120}
-              className="pr-10"
-              disabled={disabled}
-              onChange={(value) => setCoreParam('startingAge', value)}
-            />
-            <span className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-sm font-semibold text-slate-400">
-              yrs
-            </span>
-          </div>
-        </label>
-
-        <label className="space-y-1">
-          <p className="flex min-h-10 items-end text-xs font-medium text-slate-600">Withdrawals Start</p>
-          <div className="relative">
-            <NumericInput
-              value={coreParams.withdrawalsStartAt}
-              min={coreParams.startingAge}
-              max={120}
-              className="pr-10"
-              disabled={disabled}
-              onChange={(value) => setCoreParam('withdrawalsStartAt', value)}
-            />
-            <span className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-sm font-semibold text-slate-400">
-              yrs
-            </span>
-          </div>
+          <p className="flex min-h-10 items-end text-xs font-medium text-slate-600">Birth Date (Age Ref)</p>
+          <MonthYearPicker
+            value={coreParams.birthDate}
+            onChange={(value) => setCoreParam('birthDate', value)}
+            disabled={disabled}
+          />
         </label>
 
         <label className="space-y-1">
@@ -59,22 +34,20 @@ export const CoreParameters = () => {
 
       <div className="grid gap-3 md:grid-cols-2">
         <label className="space-y-1">
-          <p className="flex min-h-10 items-end text-xs font-medium text-slate-600">Retirement Start (MM/YYYY)</p>
+          <p className="flex min-h-10 items-end text-xs font-medium text-slate-600">Portfolio Start (MM/YYYY)</p>
           <MonthYearPicker
-            value={coreParams.retirementStartDate}
-            onChange={(value) => setCoreParam('retirementStartDate', value)}
+            value={coreParams.portfolioStart}
+            onChange={(value) => setCoreParam('portfolioStart', value)}
             disabled={disabled}
           />
         </label>
 
         <label className="space-y-1">
-          <p className="flex min-h-10 items-end text-xs font-medium text-slate-600">Retirement Duration (Years)</p>
-          <NumericInput
-            value={coreParams.retirementDuration}
-            min={1}
-            max={100}
+          <p className="flex min-h-10 items-end text-xs font-medium text-slate-600">Portfolio End (MM/YYYY)</p>
+          <MonthYearPicker
+            value={coreParams.portfolioEnd}
+            onChange={(value) => setCoreParam('portfolioEnd', value)}
             disabled={disabled}
-            onChange={(value) => setCoreParam('retirementDuration', value)}
           />
         </label>
       </div>

@@ -36,23 +36,32 @@ const inflationFactor = (inflationRate: number, monthIndexOneBased: number): num
   (1 + inflationRate) ** (monthIndexOneBased / 12);
 
 const formatCalendarPeriod = (
-  retirementStartDate: { month: number; year: number },
+  portfolioStart: { month: number; year: number },
   monthIndexOneBased: number,
 ): string => {
   const date = new Date(
-    retirementStartDate.year,
-    retirementStartDate.month - 1 + (monthIndexOneBased - 1),
+    portfolioStart.year,
+    portfolioStart.month - 1 + (monthIndexOneBased - 1),
     1,
   );
   const month = date.toLocaleDateString(undefined, { month: 'short' });
   return `${date.getFullYear()}-${month}`;
 };
 
+const calculateAgeAtMonth = (
+  birthDate: { month: number; year: number },
+  portfolioStart: { month: number; year: number },
+  monthIndexOneBased: number,
+): number => {
+  const monthsOffset = (portfolioStart.year - birthDate.year) * 12 + (portfolioStart.month - birthDate.month) + (monthIndexOneBased - 1);
+  return Math.floor(monthsOffset / 12);
+};
+
 const toMonthlyRow = (
   row: MonthlySimulationRow,
-  startingAge: number,
+  birthDate: { month: number; year: number },
   inflationRate: number,
-  retirementStartDate: { month: number; year: number },
+  portfolioStart: { month: number; year: number },
   monteCarloTotalP50: number[] | null,
 ): DetailRow => {
   const startStocks = row.startBalances[AssetClass.Stocks];
@@ -75,8 +84,8 @@ const toMonthlyRow = (
   return {
     id: `m-${row.monthIndex}`,
     monthIndex: row.monthIndex,
-    period: formatCalendarPeriod(retirementStartDate, row.monthIndex),
-    age: startingAge + Math.floor((row.monthIndex - 1) / 12),
+    period: formatCalendarPeriod(portfolioStart, row.monthIndex),
+    age: calculateAgeAtMonth(birthDate, portfolioStart, row.monthIndex),
     startTotalP50:
       monteCarloTotalP50 === null
         ? null
@@ -108,25 +117,25 @@ const toMonthlyRow = (
 
 export const buildMonthlyDetailRows = (
   rows: MonthlySimulationRow[],
-  startingAge: number,
+  birthDate: { month: number; year: number },
   inflationRate: number,
-  retirementStartDate: { month: number; year: number },
+  portfolioStart: { month: number; year: number },
   monteCarloTotalP50: number[] | null = null,
 ): DetailRow[] =>
-  rows.map((row) => toMonthlyRow(row, startingAge, inflationRate, retirementStartDate, monteCarloTotalP50));
+  rows.map((row) => toMonthlyRow(row, birthDate, inflationRate, portfolioStart, monteCarloTotalP50));
 
 export const buildAnnualDetailRows = (
   rows: MonthlySimulationRow[],
-  startingAge: number,
+  birthDate: { month: number; year: number },
   inflationRate: number,
-  retirementStartDate: { month: number; year: number },
+  portfolioStart: { month: number; year: number },
   monteCarloTotalP50: number[] | null = null,
 ): DetailRow[] => {
   const monthly = buildMonthlyDetailRows(
     rows,
-    startingAge,
+    birthDate,
     inflationRate,
-    retirementStartDate,
+    portfolioStart,
     monteCarloTotalP50,
   );
   const annual = new Map<number, DetailRow[]>();
@@ -145,8 +154,8 @@ export const buildAnnualDetailRows = (
       return {
         id: `y-${year}`,
         monthIndex: year * 12,
-        period: `Year ${year}`,
-        age: startingAge + year - 1,
+        period: `${portfolioStart.year + year - 1}`,
+        age: calculateAgeAtMonth(birthDate, portfolioStart, (year - 1) * 12 + 1),
         startTotalP50: null,
         startTotal: 0,
         endTotal: 0,
@@ -178,8 +187,8 @@ export const buildAnnualDetailRows = (
     return {
       id: `y-${year}`,
       monthIndex: year * 12,
-      period: `${retirementStartDate.year + year - 1}`,
-      age: startingAge + year - 1,
+      period: `${portfolioStart.year + year - 1}`,
+      age: calculateAgeAtMonth(birthDate, portfolioStart, (year - 1) * 12 + 1),
       startTotalP50: first.startTotalP50,
       startTotal,
       endTotal: last.endTotal,

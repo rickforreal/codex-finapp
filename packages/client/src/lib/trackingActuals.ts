@@ -1,9 +1,5 @@
-import type { ActualMonthOverride, ActualOverridesByMonth } from '@finapp/shared';
-
-type MonthYear = {
-  month: number;
-  year: number;
-};
+import { MonthYear, type ActualMonthOverride, type ActualOverridesByMonth } from '@finapp/shared';
+import { monthsBetween } from './dates';
 
 const sanitizePartialAssetMap = (
   values: ActualMonthOverride['startBalances'] | ActualMonthOverride['withdrawalsByAsset'] | undefined,
@@ -50,33 +46,33 @@ export const sanitizeTrackingActualOverrides = (
   ) as ActualOverridesByMonth;
 
 export const getCurrentTrackingMonthIndex = (
-  retirementStartDate: MonthYear,
+  portfolioStart: MonthYear,
   now: Date = new Date(),
 ): number =>
-  (now.getFullYear() - retirementStartDate.year) * 12 + (now.getMonth() + 1 - retirementStartDate.month) + 1;
+  monthsBetween(portfolioStart, { month: now.getMonth() + 1, year: now.getFullYear() }) + 1;
 
 export const getTrackingEditableMonthUpperBound = (
-  retirementStartDate: MonthYear,
-  retirementDurationYears: number,
+  portfolioStart: MonthYear,
+  portfolioEnd: MonthYear,
   now: Date = new Date(),
 ): number => {
-  const horizonMonths = Math.max(0, Math.round(retirementDurationYears) * 12);
+  const horizonMonths = Math.max(0, monthsBetween(portfolioStart, portfolioEnd));
   if (horizonMonths === 0) {
     return 0;
   }
-  const currentMonthIndex = getCurrentTrackingMonthIndex(retirementStartDate, now);
+  const currentMonthIndex = getCurrentTrackingMonthIndex(portfolioStart, now);
   return Math.max(1, Math.min(horizonMonths, currentMonthIndex + 1));
 };
 
 export const isTrackingMonthEditable = (
   monthIndex: number,
-  retirementStartDate: MonthYear,
-  retirementDurationYears: number,
+  portfolioStart: MonthYear,
+  portfolioEnd: MonthYear,
   now: Date = new Date(),
 ): boolean => {
   if (!Number.isInteger(monthIndex) || monthIndex <= 0) {
     return false;
   }
-  const upperBound = getTrackingEditableMonthUpperBound(retirementStartDate, retirementDurationYears, now);
+  const upperBound = getTrackingEditableMonthUpperBound(portfolioStart, portfolioEnd, now);
   return monthIndex <= upperBound;
 };

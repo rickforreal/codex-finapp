@@ -6,6 +6,7 @@ import { runStressTest } from '../../api/stressApi';
 import { getCompareSlotColorVar } from '../../lib/compareSlotColors';
 import { buildCompareStressTableModel } from '../../lib/compareStressTableModel';
 import { formatCompactCurrency, formatCurrency, formatPercent } from '../../lib/format';
+import { MonthYearPicker } from '../shared/MonthYearPicker';
 import {
   getCompareConfigForSlot,
   getTrackingActualOverridesForRun,
@@ -475,20 +476,18 @@ export const StressTestPanel = () => {
                           ))}
                         </select>
                         <label className="flex items-center justify-between gap-2 text-xs text-slate-600">
-                          <span>Starts in Year</span>
-                          <input
-                            type="number"
-                            min={1}
-                            max={getCurrentConfig().coreParams.retirementDuration}
-                            value={scenario.startYear}
-                            onChange={(event) =>
-                              updateStressScenario(scenario.id, {
-                                ...scenario,
-                                startYear: Math.max(1, Math.round(Number(event.target.value) || 1)),
-                              })
-                            }
-                            className="w-20 rounded border border-brand-border px-2 py-1 text-right text-sm"
-                          />
+                          <span>Starts At</span>
+                          <div className="w-40">
+                            <MonthYearPicker
+                              value={scenario.start}
+                              onChange={(value) =>
+                                updateStressScenario(scenario.id, {
+                                  ...scenario,
+                                  start: value,
+                                })
+                              }
+                            />
+                          </div>
                         </label>
 
                         {scenario.type === 'stockCrash' || scenario.type === 'bondCrash' ? (

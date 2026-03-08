@@ -31,9 +31,9 @@ export const SpendingPhases = () => {
             <PhaseCard
               key={phase.id}
               phase={phase}
-              canRemove={!familyLockState.readOnly}
-              lockStartYear={phase.id === phases[0]?.id}
-              lockEndYear={phase.id === phases[phases.length - 1]?.id}
+              canRemove={phases.length > 1 && !familyLockState.readOnly}
+              lockStart={phase.id === phases[0]?.id}
+              lockEnd={phase.id === phases[phases.length - 1]?.id}
               familyReadOnly={familyLockState.readOnly}
               onUpdate={(patch) => updateSpendingPhase(phase.id, patch)}
               onRemove={() => removeSpendingPhase(phase.id)}

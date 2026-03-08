@@ -2313,3 +2313,14 @@ Implemented Absolute Date Core Parameters (Phase 1 & 2): Shared Domain & Server 
 - Overhauled server-side `deterministic.ts` and `monteCarlo.ts` engines to calculate simulation duration dynamically using `monthsBetween`.
 - Fixed extensive breakages across the entire server test suite (`tests/engine/*` and `tests/routes/*`) by writing a migration script to update mock payloads to the new schema.
 - Verified all server endpoints and simulation engines function correctly under the new data model. Server tests are completely green.
+
+## 2026-03-08 19:36 — ABSDATE-T2 | COMPLETE
+
+Implemented Absolute Date Core Parameters (Phase 3 & 4): Client Store & UI Implementation.
+- Refactored Zustand store (`useAppStore`) to use `birthDate`, `portfolioStart`, and `portfolioEnd` absolute dates.
+- Rewrote spending phase contiguity and boundary logic to use `MonthYear` date math.
+- Updated `CoreParameters` and `SpendingPhases` UI components to use `MonthYearPicker` for all date-based inputs.
+- Refactored `DetailLedger`, `PortfolioChart`, and `WithdrawalChart` to dynamically calculate user age at runtime based on the simulated month and `birthDate`.
+- Updated tracking and compare logic to handle absolute timeline horizons correctly.
+- Refactored all client-side unit tests (`snapshot.test.ts`, `detailTable.test.ts`, etc.) to match the new data model.
+- Verified with green builds, typechecks, and tests across the client package.

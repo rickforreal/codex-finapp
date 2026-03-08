@@ -84,10 +84,12 @@ export const PortfolioChart = ({ hoverIndex, onHoverChange, chartWidth }: Portfo
   const trackingOutputsStale = useTrackingOutputsStale();
   const lastEditedMonthIndex = useAppStore((state) => state.lastEditedMonthIndex);
   const inflationRate = useAppStore((state) => state.coreParams.inflationRate);
-  const startingAge = useAppStore((state) => state.coreParams.startingAge);
+  const birthDate = useAppStore((state) => state.coreParams.birthDate);
+  const portfolioStart = useAppStore((state) => state.coreParams.portfolioStart);
   const stressResult = useAppStore((state) => state.stress.result);
   const activeRunInflationRate = result?.configSnapshot?.coreParams.inflationRate ?? inflationRate;
-  const activeRunStartingAge = result?.configSnapshot?.coreParams.startingAge ?? startingAge;
+  const activeRunBirthDate = result?.configSnapshot?.coreParams.birthDate ?? birthDate;
+  const activeRunPortfolioStart = result?.configSnapshot?.coreParams.portfolioStart ?? portfolioStart;
 
   const points = useMemo<ChartPoint[]>(() => {
     const rows =
@@ -806,7 +808,7 @@ export const PortfolioChart = ({ hoverIndex, onHoverChange, chartWidth }: Portfo
             top: 10,
           }}
         >
-          <p className="font-semibold text-slate-800">{formatPeriodLabel(hoverPoint.monthIndex, activeRunStartingAge)}</p>
+          <p className="font-semibold text-slate-800">{formatPeriodLabel(hoverPoint.monthIndex, activeRunBirthDate, activeRunPortfolioStart)}</p>
           <div className="mt-2 space-y-1 text-slate-600">
             <p className="flex items-center justify-between gap-2">
               <span>Portfolio</span>

@@ -5,29 +5,32 @@ import { sanitizeTrackingActualOverrides, getTrackingEditableMonthUpperBound, is
 describe('trackingActuals', () => {
   it('allows edits through current month plus one and clamps to horizon', () => {
     const start = { month: 1, year: 2030 };
+    const end = { month: 1, year: 2060 };
     const now = new Date('2030-01-15T00:00:00.000Z');
 
-    expect(getTrackingEditableMonthUpperBound(start, 30, now)).toBe(2);
-    expect(isTrackingMonthEditable(2, start, 30, now)).toBe(true);
-    expect(isTrackingMonthEditable(3, start, 30, now)).toBe(false);
+    expect(getTrackingEditableMonthUpperBound(start, end, now)).toBe(2);
+    expect(isTrackingMonthEditable(2, start, end, now)).toBe(true);
+    expect(isTrackingMonthEditable(3, start, end, now)).toBe(false);
   });
 
   it('permits month one when retirement start is still in the future', () => {
     const start = { month: 1, year: 2030 };
+    const end = { month: 1, year: 2060 };
     const now = new Date('2029-12-15T00:00:00.000Z');
 
-    expect(getTrackingEditableMonthUpperBound(start, 30, now)).toBe(1);
-    expect(isTrackingMonthEditable(1, start, 30, now)).toBe(true);
-    expect(isTrackingMonthEditable(2, start, 30, now)).toBe(false);
+    expect(getTrackingEditableMonthUpperBound(start, end, now)).toBe(1);
+    expect(isTrackingMonthEditable(1, start, end, now)).toBe(true);
+    expect(isTrackingMonthEditable(2, start, end, now)).toBe(false);
   });
 
   it('still permits month one when retirement start is far in the future', () => {
     const start = { month: 1, year: 2030 };
+    const end = { month: 1, year: 2060 };
     const now = new Date('2026-02-25T00:00:00.000Z');
 
-    expect(getTrackingEditableMonthUpperBound(start, 30, now)).toBe(1);
-    expect(isTrackingMonthEditable(1, start, 30, now)).toBe(true);
-    expect(isTrackingMonthEditable(2, start, 30, now)).toBe(false);
+    expect(getTrackingEditableMonthUpperBound(start, end, now)).toBe(1);
+    expect(isTrackingMonthEditable(1, start, end, now)).toBe(true);
+    expect(isTrackingMonthEditable(2, start, end, now)).toBe(false);
   });
 
   it('drops legacy income/expense override fields during sanitization', () => {

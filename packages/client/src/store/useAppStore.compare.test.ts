@@ -14,7 +14,7 @@ const activateCompare = () => {
 
 const widenTrackingEditWindow = () => {
   const now = new Date();
-  useAppStore.getState().setCoreParam('retirementStartDate', { month: now.getMonth() + 1, year: now.getFullYear() - 1 });
+  useAppStore.getState().setCoreParam('portfolioStart', { month: now.getMonth() + 1, year: now.getFullYear() - 1 });
 };
 
 describe('useAppStore compare slot behavior', () => {
@@ -40,21 +40,22 @@ describe('useAppStore compare slot behavior', () => {
     expect(state.compareWorkspace.slots.A?.portfolio.stocks).not.toBe(1_234_567);
   });
 
-  it('starts with zero spending phases and supports add/remove back to zero', () => {
+  it('starts with one default spending phase and supports add/remove back to one', () => {
     resetStore();
     const store = useAppStore.getState();
-    expect(useAppStore.getState().spendingPhases).toHaveLength(0);
+    expect(useAppStore.getState().spendingPhases).toHaveLength(1);
 
     store.removeSpendingPhase('missing-phase-id');
-    expect(useAppStore.getState().spendingPhases).toHaveLength(0);
+    expect(useAppStore.getState().spendingPhases).toHaveLength(1);
 
     store.addSpendingPhase();
-    const createdId = useAppStore.getState().spendingPhases[0]?.id;
+    expect(useAppStore.getState().spendingPhases).toHaveLength(2);
+    const createdId = useAppStore.getState().spendingPhases[1]?.id;
     if (!createdId) {
       throw new Error('Expected created spending phase');
     }
     store.removeSpendingPhase(createdId);
-    expect(useAppStore.getState().spendingPhases).toHaveLength(0);
+    expect(useAppStore.getState().spendingPhases).toHaveLength(1);
   });
 
   it('initializes compare workspace with A-only and activates compare at 2+ slots', () => {
@@ -366,16 +367,16 @@ describe('useAppStore compare slot behavior', () => {
     expect(locks[third]).toBeUndefined();
   });
 
-  it('syncs empty spending phase list from A under global family lock', () => {
+  it('syncs spending phase list from A under global family lock', () => {
     resetStore();
     activateCompare();
     const store = useAppStore.getState();
     store.setCompareActiveSlot('A');
-    expect(useAppStore.getState().spendingPhases).toHaveLength(0);
+    expect(useAppStore.getState().spendingPhases).toHaveLength(1);
     store.toggleCompareFamilyLock('spendingPhases');
 
     store.setCompareActiveSlot('B');
     store.addSpendingPhase();
-    expect(useAppStore.getState().spendingPhases).toHaveLength(0);
+    expect(useAppStore.getState().spendingPhases).toHaveLength(1);
   });
 });

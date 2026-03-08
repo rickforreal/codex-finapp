@@ -26,10 +26,12 @@ import {
   type SimulationConfig,
   type SimulateResponse,
   type WithdrawalStrategyConfig,
+  type MonthYear,
 } from '@finapp/shared';
 
 import { createId } from '../lib/id';
 import { sanitizeTrackingActualOverrides } from '../lib/trackingActuals';
+import { addMonths, compareMonthYear, maxMonthYear, minMonthYear, monthsBetween } from '../lib/dates';
 
 export type IncomeEventForm = {
   id: string;
@@ -56,10 +58,10 @@ export type ExpenseEventForm = {
 export type SpendingPhaseForm = {
   id: string;
   name: string;
-  startYear: number;
-  endYear: number;
-  minMonthlySpend: number;
-  maxMonthlySpend: number;
+  start: { month: number; year: number };
+  end: { month: number; year: number };
+  minMonthlySpend?: number;
+  maxMonthlySpend?: number;
 };
 
 type ChartDisplayMode = 'nominal' | 'real';
@@ -167,10 +169,9 @@ export type WorkspaceSnapshot = {
   blockBootstrapEnabled: boolean;
   blockBootstrapLength: number;
   coreParams: {
-    startingAge: number;
-    withdrawalsStartAt: number;
-    retirementStartDate: { month: number; year: number };
-    retirementDuration: number;
+    birthDate: { month: number; year: number };
+    portfolioStart: { month: number; year: number };
+    portfolioEnd: { month: number; year: number };
     inflationRate: number;
   };
   portfolio: {
@@ -246,10 +247,9 @@ export type SnapshotState = {
   blockBootstrapEnabled: boolean;
   blockBootstrapLength: number;
   coreParams: {
-    startingAge: number;
-    withdrawalsStartAt: number;
-    retirementStartDate: { month: number; year: number };
-    retirementDuration: number;
+    birthDate: { month: number; year: number };
+    portfolioStart: { month: number; year: number };
+    portfolioEnd: { month: number; year: number };
     inflationRate: number;
   };
   portfolio: {
@@ -461,8 +461,8 @@ export type AppStore = SnapshotState & {
 const defaultPhase = (): SpendingPhaseForm => ({
   id: createId('phase'),
   name: 'Phase 1',
-  startYear: 1,
-  endYear: 30,
+  start: { month: 1, year: 2030 },
+  end: { month: 1, year: 2060 },
   minMonthlySpend: 6_000,
   maxMonthlySpend: 12_000,
 });
@@ -495,7 +495,7 @@ const defaultStressScenario = (index = 0): StressScenario => ({
   id: createId('stress'),
   label: `Scenario ${scenarioColorOrder[index] ?? String.fromCharCode(65 + index)}`,
   type: 'stockCrash',
-  startYear: 1,
+  start: { month: 1, year: 2030 },
   params: { dropPct: -0.3 },
 });
 
@@ -598,9 +598,6 @@ const createDefaultGlidePath = (
     { year: retirementDuration, allocation: ending },
   ];
 };
-
-const resolveFirstPhaseStartYear = (startingAge: number, withdrawalsStartAt: number): number =>
-  Math.max(1, withdrawalsStartAt - startingAge);
 
 const defaultWithdrawalStrategyParams = (): WithdrawalStrategyParamsForm => ({
   initialWithdrawalRate: 0.04,
@@ -743,25 +740,29 @@ const resolveWithdrawalStrategyConfig = (
 
 const recalculatePhaseBoundaries = (
   phases: SpendingPhaseForm[],
-  retirementYears: number,
-  firstPhaseStartYear: number,
+  portfolioStart: MonthYear,
+  portfolioEnd: MonthYear,
 ): SpendingPhaseForm[] => {
-  const sorted = [...phases].sort((a, b) => a.startYear - b.startYear);
-  const clampedFirstStartYear = Math.min(Math.max(1, firstPhaseStartYear), retirementYears);
+  const sorted = [...phases].sort((a, b) => compareMonthYear(a.start, b.start));
   const recalculated: SpendingPhaseForm[] = [];
 
   sorted.forEach((phase, index) => {
     const isLast = index === sorted.length - 1;
-    const previousEndYear = recalculated[index - 1]?.endYear;
-    const startYear =
-      index === 0 ? clampedFirstStartYear : (previousEndYear ?? clampedFirstStartYear) + 1;
+    const previousEnd = recalculated[index - 1]?.end;
+    
+    // start is portfolioStart if first, else 1 month after previous end
+    const start = index === 0 ? portfolioStart : addMonths(previousEnd!, 1);
+    
+    // end is portfolioEnd if last, else ensure it's at least 'start'
+    // and doesn't push subsequent phases past portfolioEnd
     const remainingPhases = sorted.length - index - 1;
-    const latestEndForCurrent = Math.max(startYear, retirementYears - remainingPhases);
-    const endYear = isLast
-      ? retirementYears
-      : Math.min(Math.max(phase.endYear, startYear), latestEndForCurrent);
+    const latestEndForCurrent = addMonths(portfolioEnd, -remainingPhases);
+    
+    const end = isLast
+      ? portfolioEnd
+      : minMonthYear(maxMonthYear(phase.end, start), latestEndForCurrent);
 
-    recalculated.push({ ...phase, startYear, endYear });
+    recalculated.push({ ...phase, start, end });
   });
 
   return recalculated;
@@ -772,7 +773,9 @@ const cloneWorkspace = (workspace: WorkspaceSnapshot): WorkspaceSnapshot => ({
   customHistoricalRange: cloneHistoricalRange(workspace.customHistoricalRange),
   coreParams: {
     ...workspace.coreParams,
-    retirementStartDate: { ...workspace.coreParams.retirementStartDate },
+    birthDate: { ...workspace.coreParams.birthDate },
+    portfolioStart: { ...workspace.coreParams.portfolioStart },
+    portfolioEnd: { ...workspace.coreParams.portfolioEnd },
   },
   portfolio: { ...workspace.portfolio },
   returnAssumptions: {
@@ -1087,7 +1090,9 @@ const applyCompareSyncFromMaster = (
         case 'coreParams':
           workspace.coreParams = {
             ...master.coreParams,
-            retirementStartDate: { ...master.coreParams.retirementStartDate },
+            birthDate: { ...master.coreParams.birthDate },
+            portfolioStart: { ...master.coreParams.portfolioStart },
+            portfolioEnd: { ...master.coreParams.portfolioEnd },
           };
           break;
         case 'startingPortfolio':
@@ -1363,7 +1368,9 @@ const workspaceFromState = (state: AppStore): WorkspaceSnapshot => ({
   blockBootstrapLength: state.blockBootstrapLength,
   coreParams: {
     ...state.coreParams,
-    retirementStartDate: { ...state.coreParams.retirementStartDate },
+    birthDate: { ...state.coreParams.birthDate },
+    portfolioStart: { ...state.coreParams.portfolioStart },
+    portfolioEnd: { ...state.coreParams.portfolioEnd },
   },
   portfolio: { ...state.portfolio },
   returnAssumptions: {
@@ -1455,7 +1462,7 @@ const markTrackingOutputStateStale = (
 };
 
 const getEditableTrackingMonthUpperBoundForState = (state: AppStore): number => {
-  const horizonMonths = Math.max(0, Math.round(state.coreParams.retirementDuration) * 12);
+  const horizonMonths = Math.max(0, monthsBetween(state.coreParams.portfolioStart, state.coreParams.portfolioEnd));
   if (horizonMonths === 0) {
     return 0;
   }
@@ -1533,7 +1540,9 @@ const currentInputFieldsFromState = (state: AppStore) => ({
   blockBootstrapLength: state.blockBootstrapLength,
   coreParams: {
     ...state.coreParams,
-    retirementStartDate: { ...state.coreParams.retirementStartDate },
+    birthDate: { ...state.coreParams.birthDate },
+    portfolioStart: { ...state.coreParams.portfolioStart },
+    portfolioEnd: { ...state.coreParams.portfolioEnd },
   },
   portfolio: { ...state.portfolio },
   returnAssumptions: {
@@ -1660,7 +1669,9 @@ const cloneSnapshotState = (snapshot: SnapshotState): SnapshotState => {
     blockBootstrapLength: normalizedSnapshot.blockBootstrapLength,
     coreParams: {
       ...normalizedSnapshot.coreParams,
-      retirementStartDate: { ...normalizedSnapshot.coreParams.retirementStartDate },
+      birthDate: { ...normalizedSnapshot.coreParams.birthDate },
+      portfolioStart: { ...normalizedSnapshot.coreParams.portfolioStart },
+      portfolioEnd: { ...normalizedSnapshot.coreParams.portfolioEnd },
     },
     portfolio: { ...normalizedSnapshot.portfolio },
     returnAssumptions: {
@@ -1942,10 +1953,9 @@ export const useAppStore = create<AppStore>((set) => ({
   blockBootstrapEnabled: false,
   blockBootstrapLength: 12,
   coreParams: {
-    startingAge: 60,
-    withdrawalsStartAt: 60,
-    retirementStartDate: { month: 1, year: 2030 },
-    retirementDuration: 30,
+    birthDate: { month: 1, year: 1970 },
+    portfolioStart: { month: 1, year: 2030 },
+    portfolioEnd: { month: 1, year: 2060 },
     inflationRate: 0.03,
   },
   portfolio: {
@@ -1958,7 +1968,16 @@ export const useAppStore = create<AppStore>((set) => ({
     bonds: { expectedReturn: 0.04, stdDev: 0.07 },
     cash: { expectedReturn: 0.02, stdDev: 0.01 },
   },
-  spendingPhases: [],
+  spendingPhases: [
+    {
+      id: createId('phase'),
+      name: 'Phase 1',
+      start: { month: 1, year: 2030 },
+      end: { month: 1, year: 2060 },
+      minMonthlySpend: 6_000,
+      maxMonthlySpend: 12_000,
+    },
+  ],
   withdrawalStrategy: {
     type: WithdrawalStrategyType.ConstantDollar,
     params: defaultWithdrawalStrategyParams(),
@@ -2913,23 +2932,10 @@ export const useAppStore = create<AppStore>((set) => ({
         return state;
       }
       const nextCore = { ...state.coreParams, [key]: value };
-      if (key === 'startingAge') {
-        const startingAge = Number(value);
-        nextCore.startingAge = startingAge;
-        nextCore.withdrawalsStartAt = Math.max(nextCore.withdrawalsStartAt, startingAge);
-      }
-      if (key === 'withdrawalsStartAt') {
-        nextCore.withdrawalsStartAt = Math.max(Number(value), nextCore.startingAge);
-      }
-      if (key === 'retirementDuration') {
-        nextCore.retirementDuration = Number(value);
-      }
-      if (key === 'retirementDuration' || key === 'startingAge' || key === 'withdrawalsStartAt') {
-        const firstPhaseStartYear = resolveFirstPhaseStartYear(
-          Number(nextCore.startingAge),
-          Number(nextCore.withdrawalsStartAt),
-        );
-        const nextRetirementDuration = Number(nextCore.retirementDuration);
+      
+      if (key === 'portfolioStart' || key === 'portfolioEnd') {
+        const durationMonths = monthsBetween(nextCore.portfolioStart, nextCore.portfolioEnd);
+        const durationYears = Math.ceil(durationMonths / 12);
         const staleState = markTrackingOutputStateStale(state);
         const nextGlidePath = state.drawdownStrategy.rebalancing.glidePath.map(
           (waypoint, index, all) => {
@@ -2937,11 +2943,11 @@ export const useAppStore = create<AppStore>((set) => ({
               return { ...waypoint, year: 1 };
             }
             if (index === all.length - 1) {
-              return { ...waypoint, year: nextRetirementDuration };
+              return { ...waypoint, year: durationYears };
             }
             return {
               ...waypoint,
-              year: Math.max(2, Math.min(nextRetirementDuration - 1, waypoint.year)),
+              year: Math.max(2, Math.min(durationYears - 1, waypoint.year)),
             };
           },
         );
@@ -2949,8 +2955,8 @@ export const useAppStore = create<AppStore>((set) => ({
           coreParams: nextCore,
           spendingPhases: recalculatePhaseBoundaries(
             state.spendingPhases,
-            nextRetirementDuration,
-            firstPhaseStartYear,
+            nextCore.portfolioStart,
+            nextCore.portfolioEnd,
           ),
           drawdownStrategy: {
             ...state.drawdownStrategy,
@@ -3005,27 +3011,21 @@ export const useAppStore = create<AppStore>((set) => ({
       if (state.spendingPhases.length >= 4) {
         return state;
       }
-      const retirementYears = state.coreParams.retirementDuration;
-      const firstPhaseStartYear = resolveFirstPhaseStartYear(
-        state.coreParams.startingAge,
-        state.coreParams.withdrawalsStartAt,
-      );
-      const availableYears = Math.max(1, retirementYears - firstPhaseStartYear + 1);
-      if (state.spendingPhases.length >= availableYears) {
-        return state;
-      }
+      const portfolioStart = state.coreParams.portfolioStart;
+      const portfolioEnd = state.coreParams.portfolioEnd;
+      
       const staleState = markTrackingOutputStateStale(state);
       const next = [
         ...state.spendingPhases,
         {
           ...defaultPhase(),
           name: `Phase ${state.spendingPhases.length + 1}`,
-          startYear: retirementYears,
-          endYear: retirementYears,
+          start: portfolioEnd,
+          end: portfolioEnd,
         },
       ];
       return {
-        spendingPhases: recalculatePhaseBoundaries(next, retirementYears, firstPhaseStartYear),
+        spendingPhases: recalculatePhaseBoundaries(next, portfolioStart, portfolioEnd),
         ...staleState,
       };
     }),
@@ -3037,23 +3037,19 @@ export const useAppStore = create<AppStore>((set) => ({
       ) {
         return state;
       }
-      if (state.spendingPhases.length <= 0) {
+      if (state.spendingPhases.length <= 1) {
         return state;
       }
       const next = state.spendingPhases.filter((phase) => phase.id !== id);
       if (next.length === state.spendingPhases.length) {
         return state;
       }
-      const firstPhaseStartYear = resolveFirstPhaseStartYear(
-        state.coreParams.startingAge,
-        state.coreParams.withdrawalsStartAt,
-      );
       const staleState = markTrackingOutputStateStale(state);
       return {
         spendingPhases: recalculatePhaseBoundaries(
           next,
-          state.coreParams.retirementDuration,
-          firstPhaseStartYear,
+          state.coreParams.portfolioStart,
+          state.coreParams.portfolioEnd,
         ),
         ...staleState,
       };
@@ -3066,29 +3062,25 @@ export const useAppStore = create<AppStore>((set) => ({
       ) {
         return state;
       }
-      const ordered = [...state.spendingPhases].sort((a, b) => a.startYear - b.startYear);
+      const ordered = [...state.spendingPhases].sort((a, b) => compareMonthYear(a.start, b.start));
       const firstPhaseId = ordered[0]?.id;
       const lastPhaseId = ordered[ordered.length - 1]?.id;
       const sanitizedPatch = { ...patch };
       if (id === firstPhaseId) {
-        delete sanitizedPatch.startYear;
+        delete sanitizedPatch.start;
       }
       if (id === lastPhaseId) {
-        delete sanitizedPatch.endYear;
+        delete sanitizedPatch.end;
       }
       const next = state.spendingPhases.map((phase) =>
         phase.id === id ? { ...phase, ...sanitizedPatch } : phase,
-      );
-      const firstPhaseStartYear = resolveFirstPhaseStartYear(
-        state.coreParams.startingAge,
-        state.coreParams.withdrawalsStartAt,
       );
       const staleState = markTrackingOutputStateStale(state);
       return {
         spendingPhases: recalculatePhaseBoundaries(
           next,
-          state.coreParams.retirementDuration,
-          firstPhaseStartYear,
+          state.coreParams.portfolioStart,
+          state.coreParams.portfolioEnd,
         ),
         ...staleState,
       };
@@ -3204,7 +3196,7 @@ export const useAppStore = create<AppStore>((set) => ({
             glidePath:
               enabled && state.drawdownStrategy.rebalancing.glidePath.length < 2
                 ? createDefaultGlidePath(
-                    state.coreParams.retirementDuration,
+                    Math.ceil(monthsBetween(state.coreParams.portfolioStart, state.coreParams.portfolioEnd) / 12),
                     state.drawdownStrategy.rebalancing.targetAllocation,
                   )
                 : state.drawdownStrategy.rebalancing.glidePath,
@@ -3229,7 +3221,7 @@ export const useAppStore = create<AppStore>((set) => ({
             rebalancing: {
               ...state.drawdownStrategy.rebalancing,
               glidePath: createDefaultGlidePath(
-                state.coreParams.retirementDuration,
+                Math.ceil(monthsBetween(state.coreParams.portfolioStart, state.coreParams.portfolioEnd) / 12),
                 state.drawdownStrategy.rebalancing.targetAllocation,
               ),
             },
@@ -3911,7 +3903,9 @@ const snapshotStateFromStore = (state: AppStore): SnapshotState => {
     blockBootstrapLength: state.blockBootstrapLength,
     coreParams: {
       ...state.coreParams,
-      retirementStartDate: { ...state.coreParams.retirementStartDate },
+      birthDate: { ...state.coreParams.birthDate },
+      portfolioStart: { ...state.coreParams.portfolioStart },
+      portfolioEnd: { ...state.coreParams.portfolioEnd },
     },
     portfolio: { ...state.portfolio },
     returnAssumptions: {
@@ -4046,11 +4040,21 @@ const configFromWorkspace = (workspace: WorkspaceSnapshot, mode: AppMode): Simul
     coreParams: workspace.coreParams,
     portfolio: workspace.portfolio,
     returnAssumptions: workspace.returnAssumptions,
-    spendingPhases: workspace.spendingPhases,
+    spendingPhases: workspace.spendingPhases.map((phase) => ({
+      ...phase,
+      minMonthlySpend: phase.minMonthlySpend !== undefined ? Math.round(phase.minMonthlySpend) : undefined,
+      maxMonthlySpend: phase.maxMonthlySpend !== undefined ? Math.round(phase.maxMonthlySpend) : undefined,
+    })),
     withdrawalStrategy: effectiveWithdrawalStrategy,
     drawdownStrategy: effectiveDrawdownStrategy,
-    incomeEvents: workspace.incomeEvents,
-    expenseEvents: workspace.expenseEvents,
+    incomeEvents: workspace.incomeEvents.map((event) => ({
+      ...event,
+      amount: Math.round(event.amount),
+    })),
+    expenseEvents: workspace.expenseEvents.map((event) => ({
+      ...event,
+      amount: Math.round(event.amount),
+    })),
   };
 };
 

@@ -19,9 +19,17 @@ export const formatCompactCurrency = (value: number): string => {
 export const formatPercent = (value: number, digits = 1): string =>
   `${(value * 100).toFixed(digits).replace(/\.0$/, '')}%`;
 
-export const formatPeriodLabel = (monthIndex: number, startingAge: number): string => {
-  const year = Math.floor(monthIndex / 12) + 1;
-  const month = (monthIndex % 12) + 1;
-  const age = startingAge + Math.floor(monthIndex / 12);
-  return `Year ${year}, Month ${month} (Age ${age})`;
+export const formatPeriodLabel = (
+  monthIndex: number,
+  birthDate: { month: number; year: number },
+  portfolioStart: { month: number; year: number },
+): string => {
+  const yearOffset = Math.floor((monthIndex - 1) / 12) + 1;
+  const monthInYear = ((monthIndex - 1) % 12) + 1;
+  const totalMonthsOffset =
+    (portfolioStart.year - birthDate.year) * 12 +
+    (portfolioStart.month - birthDate.month) +
+    (monthIndex - 1);
+  const age = Math.floor(totalMonthsOffset / 12);
+  return `Year ${yearOffset}, Month ${monthInYear} (Age ${age})`;
 };

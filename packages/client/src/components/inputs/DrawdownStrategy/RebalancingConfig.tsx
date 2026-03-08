@@ -3,11 +3,13 @@ import { AssetClass } from '@finapp/shared';
 import { PercentInput } from '../../shared/PercentInput';
 import { ToggleSwitch } from '../../shared/ToggleSwitch';
 import { useAppStore } from '../../../store/useAppStore';
+import { monthsBetween } from '../../../lib/dates';
 
 const assets: AssetClass[] = [AssetClass.Stocks, AssetClass.Bonds, AssetClass.Cash];
 
 export const RebalancingConfig = () => {
-  const retirementDuration = useAppStore((state) => state.coreParams.retirementDuration);
+  const coreParams = useAppStore((state) => state.coreParams);
+  const durationYears = Math.ceil(monthsBetween(coreParams.portfolioStart, coreParams.portfolioEnd) / 12);
   const rebalancing = useAppStore((state) => state.drawdownStrategy.rebalancing);
   const setRebalancingTargetAllocation = useAppStore((state) => state.setRebalancingTargetAllocation);
   const setGlidePathEnabled = useAppStore((state) => state.setGlidePathEnabled);
@@ -68,10 +70,10 @@ export const RebalancingConfig = () => {
                   className="h-8 rounded border border-brand-border px-2 text-sm"
                   value={waypoint.year}
                   min={1}
-                  max={retirementDuration}
+                  max={durationYears}
                   onChange={(event) =>
                     updateGlidePathWaypoint(waypoint.year, {
-                      year: Math.max(1, Math.min(retirementDuration, Number(event.target.value))),
+                      year: Math.max(1, Math.min(durationYears, Number(event.target.value))),
                     })
                   }
                 />

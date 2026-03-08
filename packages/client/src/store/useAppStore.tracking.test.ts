@@ -27,7 +27,7 @@ describe('useAppStore tracking contract', () => {
     resetStore();
     const store = useAppStore.getState();
     store.setMode(AppMode.Tracking);
-    store.setCoreParam('retirementDuration', 30);
+    store.setCoreParam('portfolioEnd', { month: 1, year: 2060 });
 
     // Initial state: month 1 editable, month 2 blocked.
     store.upsertActualOverride(2, { startBalances: { stocks: 999_000 } });

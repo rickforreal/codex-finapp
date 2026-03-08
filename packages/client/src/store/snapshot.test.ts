@@ -80,7 +80,7 @@ describe('snapshot', () => {
 
     useAppStore.setState((state) => ({
       ...state,
-      coreParams: { ...state.coreParams, startingAge: 99 },
+      coreParams: { ...state.coreParams, birthDate: { month: 1, year: 1900 } },
       simulationResults: { ...state.simulationResults, manual: null },
     }));
 
@@ -102,8 +102,8 @@ describe('snapshot', () => {
         {
           id: 'phase-a',
           name: 'Bridge Years',
-          startYear: 1,
-          endYear: 30,
+          start: { month: 1, year: 2030 },
+          end: { month: 1, year: 2060 },
           minMonthlySpend: 4_200,
           maxMonthlySpend: 6_200,
         },
@@ -112,8 +112,8 @@ describe('snapshot', () => {
     const before = useAppStore.getState().spendingPhases.map((phase) => ({
       id: phase.id,
       name: phase.name,
-      startYear: phase.startYear,
-      endYear: phase.endYear,
+      start: { ...phase.start },
+      end: { ...phase.end },
       minMonthlySpend: phase.minMonthlySpend,
       maxMonthlySpend: phase.maxMonthlySpend,
     }));
@@ -125,8 +125,8 @@ describe('snapshot', () => {
     const after = useAppStore.getState().spendingPhases.map((phase) => ({
       id: phase.id,
       name: phase.name,
-      startYear: phase.startYear,
-      endYear: phase.endYear,
+      start: { ...phase.start },
+      end: { ...phase.end },
       minMonthlySpend: phase.minMonthlySpend,
       maxMonthlySpend: phase.maxMonthlySpend,
     }));

@@ -29,9 +29,9 @@ export const useDetailRows = (): {
   const result = useActiveSimulationResult();
   const compareResults = useCompareSimulationResults();
   const isCompareActive = useIsCompareActive();
-  const startingAge = useAppStore((state) => state.coreParams.startingAge);
+  const birthDate = useAppStore((state) => state.coreParams.birthDate);
   const inflationRate = useAppStore((state) => state.coreParams.inflationRate);
-  const retirementStartDate = useAppStore((state) => state.coreParams.retirementStartDate);
+  const portfolioStart = useAppStore((state) => state.coreParams.portfolioStart);
   const simulationMode = useAppStore((state) => state.simulationMode);
   const tableGranularity = useAppStore((state) => state.ui.tableGranularity);
   const tableSort = useAppStore((state) => state.ui.tableSort);
@@ -42,19 +42,19 @@ export const useDetailRows = (): {
       return [];
     }
     const resultRows = result?.result.rows ?? [];
-    const runStartingAge = result?.configSnapshot?.coreParams.startingAge ?? startingAge;
+    const runBirthDate = result?.configSnapshot?.coreParams.birthDate ?? birthDate;
     const runInflationRate = result?.configSnapshot?.coreParams.inflationRate ?? inflationRate;
-    const runRetirementStartDate = result?.configSnapshot?.coreParams.retirementStartDate ?? retirementStartDate;
+    const runPortfolioStart = result?.configSnapshot?.coreParams.portfolioStart ?? portfolioStart;
     const runMonteCarloTotalP50 =
       simulationMode === SimulationMode.MonteCarlo
         ? (result?.monteCarlo?.percentileCurves.total.p50 ?? null)
         : null;
     const raw =
       tableGranularity === 'annual'
-        ? buildAnnualDetailRows(resultRows, runStartingAge, runInflationRate, runRetirementStartDate, runMonteCarloTotalP50)
-        : buildMonthlyDetailRows(resultRows, runStartingAge, runInflationRate, runRetirementStartDate, runMonteCarloTotalP50);
+        ? buildAnnualDetailRows(resultRows, runBirthDate, runInflationRate, runPortfolioStart, runMonteCarloTotalP50)
+        : buildMonthlyDetailRows(resultRows, runBirthDate, runInflationRate, runPortfolioStart, runMonteCarloTotalP50);
     return sortDetailRows(raw, tableSort);
-  }, [inflationRate, isCompareActive, result, retirementStartDate, simulationMode, startingAge, tableGranularity, tableSort]);
+  }, [inflationRate, isCompareActive, result, portfolioStart, simulationMode, birthDate, tableGranularity, tableSort]);
 
   const compareSlotRows = useMemo(() => {
     if (!isCompareActive) {
@@ -75,20 +75,20 @@ export const useDetailRows = (): {
       : (compareResults.slotOrder[0] ?? 'A');
     const activeSlotResult = resolveSlotResult(compareResults.slots[activeLedgerSlotId]);
     const activeSlotRows = activeSlotResult?.result.rows ?? [];
-    const activeSlotStartingAge = activeSlotResult?.configSnapshot?.coreParams.startingAge ?? startingAge;
+    const activeSlotBirthDate = activeSlotResult?.configSnapshot?.coreParams.birthDate ?? birthDate;
     const activeSlotInflationRate = activeSlotResult?.configSnapshot?.coreParams.inflationRate ?? inflationRate;
-    const activeSlotRetirementStartDate =
-      activeSlotResult?.configSnapshot?.coreParams.retirementStartDate ?? retirementStartDate;
+    const activeSlotPortfolioStart =
+      activeSlotResult?.configSnapshot?.coreParams.portfolioStart ?? portfolioStart;
     const activeSlotMonteCarloTotalP50 =
       simulationMode === SimulationMode.MonteCarlo
         ? (activeSlotResult?.monteCarlo?.percentileCurves.total.p50 ?? null)
         : null;
     const raw =
       tableGranularity === 'annual'
-        ? buildAnnualDetailRows(activeSlotRows, activeSlotStartingAge, activeSlotInflationRate, activeSlotRetirementStartDate, activeSlotMonteCarloTotalP50)
-        : buildMonthlyDetailRows(activeSlotRows, activeSlotStartingAge, activeSlotInflationRate, activeSlotRetirementStartDate, activeSlotMonteCarloTotalP50);
+        ? buildAnnualDetailRows(activeSlotRows, activeSlotBirthDate, activeSlotInflationRate, activeSlotPortfolioStart, activeSlotMonteCarloTotalP50)
+        : buildMonthlyDetailRows(activeSlotRows, activeSlotBirthDate, activeSlotInflationRate, activeSlotPortfolioStart, activeSlotMonteCarloTotalP50);
     return sortDetailRows(raw, tableSort);
-  }, [compareActiveSlotId, compareResults, inflationRate, isCompareActive, retirementStartDate, simulationMode, startingAge, tableGranularity, tableSort]);
+  }, [compareActiveSlotId, compareResults, inflationRate, isCompareActive, portfolioStart, simulationMode, birthDate, tableGranularity, tableSort]);
 
   const activeLedgerSlotId = isCompareActive
     ? (compareResults.slotOrder.includes(compareActiveSlotId)

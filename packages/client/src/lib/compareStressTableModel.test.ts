@@ -40,14 +40,14 @@ const scenarios: StressScenario[] = [
   {
     id: 's1',
     label: 'Early Crash',
-    startYear: 1,
+    start: { month: 1, year: 2030 },
     type: 'stockCrash',
     params: { dropPct: -0.3 },
   },
   {
     id: 's2',
     label: 'Inflation Spike',
-    startYear: 2,
+    start: { month: 1, year: 2031 },
     type: 'highInflationSpike',
     params: { durationYears: 3, inflationRate: 0.08 },
   },

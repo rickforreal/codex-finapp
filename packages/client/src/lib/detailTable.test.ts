@@ -42,7 +42,7 @@ describe('detail table Monte Carlo reference column mapping', () => {
     const rows = Array.from({ length: 13 }, (_, index) => makeRow(index + 1, 100_000 + index * 1_000));
     const p50 = Array.from({ length: 13 }, (_, index) => 200_000 + index * 2_000);
 
-    const monthly = buildMonthlyDetailRows(rows, 60, 0.03, { month: 1, year: 2030 }, p50);
+    const monthly = buildMonthlyDetailRows(rows, { month: 1, year: 1970 }, 0.03, { month: 1, year: 2030 }, p50);
 
     expect(monthly[0]?.startTotal).toBe(100_000);
     expect(monthly[0]?.startTotalP50).toBe(100_000);
@@ -58,7 +58,7 @@ describe('detail table Monte Carlo reference column mapping', () => {
     const rows = Array.from({ length: 24 }, (_, index) => makeRow(index + 1, 300_000 + index * 1_000));
     const p50 = Array.from({ length: 24 }, (_, index) => 500_000 + index * 3_000);
 
-    const annual = buildAnnualDetailRows(rows, 62, 0.02, { month: 1, year: 2035 }, p50);
+    const annual = buildAnnualDetailRows(rows, { month: 1, year: 1970 }, 0.02, { month: 1, year: 2035 }, p50);
 
     expect(annual).toHaveLength(2);
     expect(annual[0]?.startTotalP50).toBe(300_000);
@@ -68,7 +68,7 @@ describe('detail table Monte Carlo reference column mapping', () => {
   it('keeps Start Total (p50) null when Monte Carlo reference series is not provided', () => {
     const rows = [makeRow(1, 125_000), makeRow(2, 126_000)];
 
-    const monthly = buildMonthlyDetailRows(rows, 61, 0.03, { month: 1, year: 2032 });
+    const monthly = buildMonthlyDetailRows(rows, { month: 1, year: 1970 }, 0.03, { month: 1, year: 2032 });
 
     expect(monthly[0]?.startTotalP50).toBeNull();
     expect(monthly[1]?.startTotalP50).toBeNull();

@@ -3,6 +3,7 @@ import { useCallback } from 'react';
 import { AppMode, type ActualMonthOverride } from '@finapp/shared';
 
 import { useAppStore, useIsCompareActive } from '../../../store/useAppStore';
+import { monthsBetween } from '../../../lib/dates';
 import {
   type Column,
   isMonteCarloReferenceColumn,
@@ -35,7 +36,8 @@ export const DetailLedgerContainer = () => {
     }
     return state.compareWorkspace.slotOrder.some((slotId) => state.compareWorkspace.slots[slotId]?.simulationResults.mcStale);
   });
-  const retirementDuration = useAppStore((state) => state.coreParams.retirementDuration);
+  const coreParams = useAppStore((state) => state.coreParams);
+  const durationMonths = monthsBetween(coreParams.portfolioStart, coreParams.portfolioEnd);
   const upsertActualOverride = useAppStore((state) => state.upsertActualOverride);
   const clearActualRowOverrides = useAppStore((state) => state.clearActualRowOverrides);
   const isCompareActive = useIsCompareActive();
@@ -43,7 +45,7 @@ export const DetailLedgerContainer = () => {
 
   const { rows, activeLedgerSlotId, canonicalBoundary, runInflationRate } = useDetailRows();
   const { columns, tableMinWidthClass } = useDetailColumns();
-  const trackingHorizonMonths = Math.max(0, Math.round(retirementDuration) * 12);
+  const trackingHorizonMonths = Math.max(0, durationMonths);
   const maxEditableMonthIndex =
     mode === AppMode.Tracking
       ? trackingHorizonMonths === 0

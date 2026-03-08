@@ -19,10 +19,9 @@ const baseConfig = (): SimulationConfig => ({
   blockBootstrapEnabled: false,
   blockBootstrapLength: 12,
   coreParams: {
-    startingAge: 48,
-    withdrawalsStartAt: 56,
-    retirementStartDate: { month: 2, year: 2026 },
-    retirementDuration: 40,
+    birthDate: { month: 1, year: 1970 },
+    portfolioStart: { month: 1, year: 2030 },
+    portfolioEnd: { month: 1, year: 2060 },
     inflationRate: 0.032,
   },
   portfolio: {
@@ -39,8 +38,8 @@ const baseConfig = (): SimulationConfig => ({
     {
       id: 'phase-a',
       name: 'Phase 1',
-      startYear: 1,
-      endYear: 40,
+      start: { month: 1, year: 2030 },
+      end: { month: 1, year: 2060 },
       minMonthlySpend: 6_000,
       maxMonthlySpend: 8_000,
     },
@@ -184,7 +183,7 @@ describe('buildCompareParameterDiffs', () => {
     const configA = baseConfig();
     const configB = baseConfig();
     const configC = baseConfig();
-    configB.coreParams.startingAge = 50;
+    configB.coreParams.birthDate = { month: 1, year: 1975 };
 
     const result = buildCompareParameterDiffs({
       slotOrder: ['A', 'B', 'C'],
@@ -192,11 +191,11 @@ describe('buildCompareParameterDiffs', () => {
       slotConfigsById: { A: configA, B: configB, C: configC },
     });
 
-    const startingAgeRow = result.rows.find((row) => row.key === 'core.startingAge');
-    expect(startingAgeRow).toBeDefined();
-    expect(startingAgeRow?.differsFromBaselineBySlot.A).toBe(false);
-    expect(startingAgeRow?.differsFromBaselineBySlot.B).toBe(true);
-    expect(startingAgeRow?.differsFromBaselineBySlot.C).toBe(false);
+    const birthDateRow = result.rows.find((row) => row.key === 'core.birthDate');
+    expect(birthDateRow).toBeDefined();
+    expect(birthDateRow?.differsFromBaselineBySlot.A).toBe(false);
+    expect(birthDateRow?.differsFromBaselineBySlot.B).toBe(true);
+    expect(birthDateRow?.differsFromBaselineBySlot.C).toBe(false);
   });
 
   it('supports mixed multi-slot differences and returns non-zero difference count', () => {

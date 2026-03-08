@@ -10,6 +10,7 @@ import {
   useIsCompareActive,
   useTrackingOutputsStale,
 } from '../../store/useAppStore';
+import { monthsBetween } from '../../lib/dates';
 import { formatCompactCurrency, formatCurrency, formatPercent } from '../../lib/format';
 import { buildSummaryStats } from '../../lib/statistics';
 import { StatCard } from './StatCard';
@@ -25,13 +26,18 @@ export const SummaryStatsBar = () => {
   const simulationStatus = useAppStore((state) => state.simulationResults.status);
   const mode = useAppStore((state) => state.mode);
   const inflationRate = useAppStore((state) => state.coreParams.inflationRate);
-  const startingAge = useAppStore((state) => state.coreParams.startingAge);
-  const retirementDuration = useAppStore((state) => state.coreParams.retirementDuration);
+  const birthDate = useAppStore((state) => state.coreParams.birthDate);
+  const portfolioStart = useAppStore((state) => state.coreParams.portfolioStart);
+  const portfolioEnd = useAppStore((state) => state.coreParams.portfolioEnd);
   const simulationMode = useAppStore((state) => state.simulationMode);
   const startingPortfolio = useAppStore((state) => state.portfolio.stocks + state.portfolio.bonds + state.portfolio.cash);
+  
   const activeRunInflationRate = result?.configSnapshot?.coreParams.inflationRate ?? inflationRate;
-  const activeRunRetirementDuration = result?.configSnapshot?.coreParams.retirementDuration ?? retirementDuration;
-  const activeRunStartingAge = result?.configSnapshot?.coreParams.startingAge ?? startingAge;
+  const activeRunPortfolioStart = result?.configSnapshot?.coreParams.portfolioStart ?? portfolioStart;
+  const activeRunPortfolioEnd = result?.configSnapshot?.coreParams.portfolioEnd ?? portfolioEnd;
+  const activeRunBirthDate = result?.configSnapshot?.coreParams.birthDate ?? birthDate;
+  
+  const durationMonths = monthsBetween(activeRunPortfolioStart, activeRunPortfolioEnd);
 
   const stats = useMemo(() => {
     const rows = result?.result.rows ?? [];
@@ -72,26 +78,32 @@ export const SummaryStatsBar = () => {
   const pos = monteCarlo?.probabilityOfSuccess ?? null;
   const posClassName =
     pos === null ? undefined : pos >= 0.9 ? 'theme-text-positive' : pos >= 0.75 ? 'theme-text-warning' : 'theme-text-negative';
-  const terminalMedianNominal = monteCarlo?.percentileCurves.total.p50[activeRunRetirementDuration * 12 - 1] ?? null;
+  const terminalMedianNominal = monteCarlo?.percentileCurves.total.p50[durationMonths - 1] ?? null;
   const terminalMedianReal =
     terminalMedianNominal === null
       ? null
-      : terminalMedianNominal / inflationFactor(activeRunInflationRate, activeRunRetirementDuration * 12);
+      : terminalMedianNominal / inflationFactor(activeRunInflationRate, durationMonths);
   const manualTerminalNominal = result?.result.rows[result.result.rows.length - 1]
     ? result.result.rows[result.result.rows.length - 1]!.endBalances.stocks +
       result.result.rows[result.result.rows.length - 1]!.endBalances.bonds +
       result.result.rows[result.result.rows.length - 1]!.endBalances.cash
     : 0;
   const manualTerminalReal =
-    activeRunRetirementDuration <= 0
+    durationMonths <= 0
       ? manualTerminalNominal
-      : manualTerminalNominal / inflationFactor(activeRunInflationRate, activeRunRetirementDuration * 12);
+      : manualTerminalNominal / inflationFactor(activeRunInflationRate, durationMonths);
   const terminalDisplayValue =
     simulationMode === SimulationMode.MonteCarlo
       ? (terminalMedianReal ?? 0)
       : manualTerminalReal;
   const terminalDepleted = hasResult && terminalDisplayValue <= 0;
   const terminalPctOfStarting = startingPortfolio > 0 ? terminalDisplayValue / startingPortfolio : 0;
+  
+  const getAgeAtMonth = (birth: { month: number, year: number }, start: { month: number, year: number }, mIndex: number) => {
+    const totalMonths = (start.year - birth.year) * 12 + (start.month - birth.month) + mIndex;
+    return Math.floor(totalMonths / 12);
+  };
+
   const terminalAnnotation = !hasResult
     ? undefined
     : terminalDepleted
@@ -99,7 +111,7 @@ export const SummaryStatsBar = () => {
         ? 'Median terminal portfolio depleted'
         : stats.depletionMonthIndex === null
           ? 'Depleted before end of horizon'
-          : `Depleted in month ${stats.depletionMonthIndex + 1} (age ${activeRunStartingAge + Math.floor(stats.depletionMonthIndex / 12)})`
+          : `Depleted in month ${stats.depletionMonthIndex + 1} (age ${getAgeAtMonth(activeRunBirthDate, activeRunPortfolioStart, stats.depletionMonthIndex)})`
       : `${formatPercent(terminalPctOfStarting)} of starting`;
 
   if (isCompareActive) {
@@ -135,11 +147,13 @@ export const SummaryStatsBar = () => {
             rows[rows.length - 1]!.endBalances.bonds +
             rows[rows.length - 1]!.endBalances.cash
           : null;
-      const slotDuration = resultForSlot?.configSnapshot?.coreParams.retirementDuration ?? retirementDuration;
+      const slotStart = resultForSlot?.configSnapshot?.coreParams.portfolioStart ?? portfolioStart;
+      const slotEnd = resultForSlot?.configSnapshot?.coreParams.portfolioEnd ?? portfolioEnd;
+      const slotDurationMonths = monthsBetween(slotStart, slotEnd);
       const terminalReal =
-        terminalNominal === null || slotDuration <= 0
+        terminalNominal === null || slotDurationMonths <= 0
           ? terminalNominal
-          : terminalNominal / inflationFactor(slotInflationRate, slotDuration * 12);
+          : terminalNominal / inflationFactor(slotInflationRate, slotDurationMonths);
       return {
         slotId,
         result: resultForSlot,

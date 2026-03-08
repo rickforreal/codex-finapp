@@ -1,5 +1,5 @@
 import { CurrencyInput } from '../../shared/CurrencyInput';
-import { NumericInput } from '../../shared/NumericInput';
+import { MonthYearPicker } from '../../shared/MonthYearPicker';
 import { CompareSyncControl } from '../../shared/CompareSyncControl';
 import { useAppStore, useCompareInstanceLockUiState } from '../../../store/useAppStore';
 import type { SpendingPhaseForm } from '../../../store/useAppStore';
@@ -7,8 +7,8 @@ import type { SpendingPhaseForm } from '../../../store/useAppStore';
 type Props = {
   phase: SpendingPhaseForm;
   canRemove: boolean;
-  lockStartYear: boolean;
-  lockEndYear: boolean;
+  lockStart: boolean;
+  lockEnd: boolean;
   familyReadOnly: boolean;
   onUpdate: (patch: Partial<SpendingPhaseForm>) => void;
   onRemove: () => void;
@@ -17,8 +17,8 @@ type Props = {
 export const PhaseCard = ({
   phase,
   canRemove,
-  lockStartYear,
-  lockEndYear,
+  lockStart,
+  lockEnd,
   familyReadOnly,
   onUpdate,
   onRemove,
@@ -59,41 +59,37 @@ export const PhaseCard = ({
 
       <div className="grid grid-cols-2 gap-2">
         <div>
-          <p className="mb-1 text-xs text-slate-600">Start Year</p>
-          <NumericInput
-            value={phase.startYear}
-            onChange={(value) => onUpdate({ startYear: value })}
-            min={1}
-            max={100}
-            disabled={lockStartYear || readOnly}
+          <p className="mb-1 text-xs text-slate-600">Start Date</p>
+          <MonthYearPicker
+            value={phase.start}
+            onChange={(value) => onUpdate({ start: value })}
+            disabled={lockStart || readOnly}
           />
         </div>
         <div>
-          <p className="mb-1 text-xs text-slate-600">End Year</p>
-          <NumericInput
-            value={phase.endYear}
-            onChange={(value) => onUpdate({ endYear: value })}
-            min={1}
-            max={100}
-            disabled={lockEndYear || readOnly}
+          <p className="mb-1 text-xs text-slate-600">End Date</p>
+          <MonthYearPicker
+            value={phase.end}
+            onChange={(value) => onUpdate({ end: value })}
+            disabled={lockEnd || readOnly}
           />
         </div>
       </div>
 
       <div className="grid grid-cols-2 gap-2">
         <div>
-          <p className="mb-1 text-xs text-slate-600">Min Monthly</p>
+          <p className="mb-1 text-xs text-slate-600">Min Monthly (Optional)</p>
           <CurrencyInput
-            value={phase.minMonthlySpend}
-            onChange={(value) => onUpdate({ minMonthlySpend: value })}
+            value={phase.minMonthlySpend ?? 0}
+            onChange={(value) => onUpdate({ minMonthlySpend: value || undefined })}
             disabled={readOnly}
           />
         </div>
         <div>
-          <p className="mb-1 text-xs text-slate-600">Max Monthly</p>
+          <p className="mb-1 text-xs text-slate-600">Max Monthly (Optional)</p>
           <CurrencyInput
-            value={phase.maxMonthlySpend}
-            onChange={(value) => onUpdate({ maxMonthlySpend: value })}
+            value={phase.maxMonthlySpend ?? 0}
+            onChange={(value) => onUpdate({ maxMonthlySpend: value || undefined })}
             disabled={readOnly}
           />
         </div>

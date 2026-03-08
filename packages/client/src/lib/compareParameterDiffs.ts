@@ -8,6 +8,7 @@ import {
 } from '@finapp/shared';
 
 import { formatCurrency, formatPercent } from './format';
+import { compareMonthYear } from './dates';
 
 type SlotId = string;
 
@@ -227,18 +228,26 @@ const formatGlidePathSummary = (config: SimulationConfig): DiffValue => {
 const summarizeSpendingPhases = (config: SimulationConfig): DiffValue => {
   const normalizedEntries = [...config.spendingPhases]
     .sort((left, right) =>
-      left.startYear - right.startYear || left.endYear - right.endYear || left.name.localeCompare(right.name),
+      compareMonthYear(left.start, right.start) ||
+      compareMonthYear(left.end, right.end) ||
+      left.name.localeCompare(right.name),
     )
     .map((phase) => ({
       name: phase.name,
-      startYear: phase.startYear,
-      endYear: phase.endYear,
-      minMonthlySpend: Math.round(phase.minMonthlySpend),
-      maxMonthlySpend: Math.round(phase.maxMonthlySpend),
+      start: { ...phase.start },
+      end: { ...phase.end },
+      minMonthlySpend: phase.minMonthlySpend !== undefined ? Math.round(phase.minMonthlySpend) : undefined,
+      maxMonthlySpend: phase.maxMonthlySpend !== undefined ? Math.round(phase.maxMonthlySpend) : undefined,
     }));
 
   const display = normalizedEntries
-    .map((phase) => `${phase.name} [Y${phase.startYear}-${phase.endYear}] ${formatCurrency(phase.minMonthlySpend)}-${formatCurrency(phase.maxMonthlySpend)}`)
+    .map((phase) => {
+      const bounds =
+        phase.minMonthlySpend !== undefined && phase.maxMonthlySpend !== undefined
+          ? ` ${formatCurrency(phase.minMonthlySpend)}-${formatCurrency(phase.maxMonthlySpend)}`
+          : '';
+      return `${phase.name} [${retirementStartText(phase.start.month, phase.start.year)}-${retirementStartText(phase.end.month, phase.end.year)}]${bounds}`;
+    })
     .join(' | ');
   const normalized = JSON.stringify(normalizedEntries);
   return { display, normalized };
@@ -298,6 +307,8 @@ const summarizeExpenseEvents = (config: SimulationConfig): DiffValue => {
   return { display, normalized };
 };
 
+// ... (summarizeIncomeEvents and summarizeExpenseEvents remain similar but check imports)
+
 type RowSpec = {
   key: string;
   label: string;
@@ -308,28 +319,22 @@ type RowSpec = {
 const buildRowSpecs = (): RowSpec[] => {
   const specs: RowSpec[] = [
     {
-      key: 'core.startingAge',
-      label: 'Starting Age',
+      key: 'core.birthDate',
+      label: 'Birth Date (Ref)',
       group: 'Core Parameters',
-      resolve: (config) => asInteger(config.coreParams.startingAge),
+      resolve: (config) => asText(retirementStartText(config.coreParams.birthDate.month, config.coreParams.birthDate.year)),
     },
     {
-      key: 'core.withdrawalsStartAt',
-      label: 'Withdrawals Start',
+      key: 'core.portfolioStart',
+      label: 'Portfolio Start',
       group: 'Core Parameters',
-      resolve: (config) => asInteger(config.coreParams.withdrawalsStartAt),
+      resolve: (config) => asText(retirementStartText(config.coreParams.portfolioStart.month, config.coreParams.portfolioStart.year)),
     },
     {
-      key: 'core.retirementStart',
-      label: 'Retirement Start',
+      key: 'core.portfolioEnd',
+      label: 'Portfolio End',
       group: 'Core Parameters',
-      resolve: (config) => asText(retirementStartText(config.coreParams.retirementStartDate.month, config.coreParams.retirementStartDate.year)),
-    },
-    {
-      key: 'core.retirementDuration',
-      label: 'Duration',
-      group: 'Core Parameters',
-      resolve: (config) => asInteger(config.coreParams.retirementDuration),
+      resolve: (config) => asText(retirementStartText(config.coreParams.portfolioEnd.month, config.coreParams.portfolioEnd.year)),
     },
     {
       key: 'core.inflationRate',

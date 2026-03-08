@@ -2110,7 +2110,7 @@ Acceptance Criteria:
       [AC4] All server test fixtures and test suites updated.
       [AC5] `npm test -w @finapp/server` and `npm run typecheck -w @finapp/server` pass.
 
-- [ ] ABSDATE-T2: Client Store & UI Implementation
+- [x] ABSDATE-T2: Client Store & UI Implementation
       Phase: Feature/AbsoluteDateParams
       Dependencies: ABSDATE-T1
       Acceptance Criteria:
