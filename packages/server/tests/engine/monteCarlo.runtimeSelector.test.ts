@@ -21,6 +21,7 @@ afterEach(() => {
 
 describe('runMonteCarlo runtime selector', () => {
   it('falls back to TS engine when rust engine fails to load', async () => {
+    delete process.env.FINAPP_SIM_ENGINE;
     process.env.FINAPP_MC_ENGINE = 'rust';
     process.env.FINAPP_MC_SHADOW_COMPARE = '0';
 
@@ -40,6 +41,7 @@ describe('runMonteCarlo runtime selector', () => {
   });
 
   it('preserves primary TS result when shadow compare is enabled', async () => {
+    delete process.env.FINAPP_SIM_ENGINE;
     process.env.FINAPP_MC_ENGINE = 'ts';
     process.env.FINAPP_MC_SHADOW_COMPARE = '1';
     process.env.FINAPP_MC_SHADOW_SAMPLE_RATE = '1';

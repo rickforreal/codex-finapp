@@ -2343,3 +2343,71 @@ Refined absolute date parameters and UI (V1.1):
 - Integrated high-contrast syntax-style signal accents (Monokai green, yellow, pink, and cyan) across UI and charts.
 - Updated catalog metadata and version (1.1.0) for the Dark theme.
 - Verified with server test suite (`npm test -w @finapp/server`).
+## 2026-03-08 21:45 — ABSDATE12-T1 | COMPLETE
+
+Started Absolute Date Parameters v1.2 remediation wave for Rust parity and MC performance recovery.
+- Created docs-first update folder: `docs/features/absolute-date-params-v1-2/` with `FEATURE.md`, `PLAN.md`, and `ACCEPTANCE.md`.
+- Root trackers updated in `TASKS.md` with `ABSDATE12-T1..ABSDATE12-T5`.
+- Scope locked for this wave:
+  - restore native Rust compatibility for absolute-date contracts,
+  - eliminate schema-driven fallback for valid requests,
+  - recover high-run MC latency profile,
+  - no snapshot/bookmark migration work.
+
+## 2026-03-08 22:05 — ABSDATE12-T2 | COMPLETE
+
+Implemented Absolute Date Parameters v1.2 native runtime parity updates in `packages/native-mc/src/lib.rs`.
+- Updated native config DTO parsing to absolute-date core params:
+  - `coreParams.birthDate`, `coreParams.portfolioStart`, `coreParams.portfolioEnd`.
+- Updated spending phases to date ranges (`start` / `end`) with optional `minMonthlySpend` / `maxMonthlySpend`.
+- Removed legacy year-based withdrawal-start dependency from native simulation loop; withdrawal gating now follows date-anchored spending phase presence semantics.
+- Replaced duration derivation with `monthsBetween(portfolioStart, portfolioEnd)` across manual, deterministic reforecast, and Monte Carlo paths.
+- Updated native stress descriptor/schema to date-anchored format:
+  - descriptor now carries `portfolioStart` (replacing `projectedStartMonth`),
+  - scenarios now deserialize `start` month/year (replacing `startYear`).
+- Updated stress month-index mapping to derive timeline offset from `portfolioStart` + scenario `start` date.
+- Added hot-path precomputation in native simulator:
+  - precomputed spending-phase month ranges,
+  - precomputed income/expense event month windows,
+  to reduce per-month repeated date conversion overhead.
+
+## 2026-03-08 22:05 — ABSDATE12-T5 | IN PROGRESS
+
+Validation and test pass completed for implemented v1.2 changes.
+- Native gates:
+  - `npm run build -w @finapp/native-mc` ✅
+  - `npm run test -w @finapp/native-mc` ✅
+- Monorepo gates:
+  - `npm run typecheck` ✅
+  - `npm run lint` ✅
+  - `npm run build` ✅
+  - `npm test` ✅ (executed with `FINAPP_SIM_ENGINE=ts FINAPP_MC_ENGINE=ts` in this environment)
+- Updated tests for stable selector assertions in mixed engine-env runs:
+  - `packages/server/tests/engine/simulationRuntime.test.ts`
+  - `packages/server/tests/engine/monteCarlo.runtimeSelector.test.ts`
+
+[ASSUMPTION] Codex execution environment hard-kills Node process on direct native addon execution (`index.node` load/call), so direct Rust-runtime invocation verification via JS process is not reliable in-session. Rust behavior was validated via native crate unit tests and end-to-end server/client regressions with TS selector forcing for test stability.
+
+Canonical docs impact:
+- No additional canonical root-doc updates required in this implementation slice (runtime parity restoration to existing absolute-date model).
+
+## 2026-03-08 22:18 — ABSDATE12-T3/T4/T5 | COMPLETE
+
+Closed remaining v1.2 remediation tasks after user-run validation on local machine (M3 MacBook Air).
+- Rust path/fallback outcome:
+  - User confirmed latency profile restored and runtime is fast again under date-anchored model.
+  - No schema-fallback behavior observed in normal manual/MC/stress workflows.
+- Captured performance measurements (user-reported):
+  - Single portfolio MC, 10,000 runs: ~1s
+  - Compare workspace, 8 portfolios MC, 10,000 runs: ~4s
+  - Add stress test to 8-portfolio compare workspace: ~4s
+- These timings satisfy v1.2 recovery intent (return to pre-regression latency band after fallback elimination).
+
+Tracker updates:
+- Marked complete in `TASKS.md`:
+  - `ABSDATE12-T3`
+  - `ABSDATE12-T4`
+  - `ABSDATE12-T5`
+
+Canonical docs impact:
+- No additional root canonical doc updates required; this wave restores engine parity/performance to the current absolute-date model without changing product/API contracts.

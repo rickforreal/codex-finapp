@@ -3,7 +3,7 @@ import { PercentInput } from '../shared/PercentInput';
 import { MonthYearPicker } from '../shared/MonthYearPicker';
 import { RangeSlider } from '../shared/RangeSlider';
 import { useAppStore, useCompareFamilyLockUiState } from '../../store/useAppStore';
-import { monthsBetween, addMonths } from '../../lib/dates';
+import { monthsBetween } from '../../lib/dates';
 
 export const CoreParameters = () => {
   const coreParams = useAppStore((state) => state.coreParams);

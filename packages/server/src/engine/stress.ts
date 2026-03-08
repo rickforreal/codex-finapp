@@ -1,5 +1,4 @@
 import {
-  AppMode,
   SimulationMode,
   type ActualOverridesByMonth,
   type MonthlyReturns,
@@ -36,19 +35,6 @@ type StressRunOptions = {
 
 const resolveMonteCarloRuns = (configuredRuns: number | undefined): number =>
   Math.max(1, Math.min(Math.round(configuredRuns ?? 1000), 10000));
-
-const getLastEditedMonthIndex = (overrides: ActualOverridesByMonth = {}): number =>
-  Object.keys(overrides)
-    .map((value) => Number(value))
-    .filter((value) => Number.isInteger(value) && value > 0)
-    .reduce((max, value) => Math.max(max, value), 0);
-
-const getProjectedYearStartMonth = (config: SimulationConfig, overrides: ActualOverridesByMonth = {}): number => {
-  if (config.mode !== AppMode.Tracking) {
-    return 1;
-  }
-  return getLastEditedMonthIndex(overrides) + 1;
-};
 
 const createStressDescriptor = (
   scenario: StressScenario,

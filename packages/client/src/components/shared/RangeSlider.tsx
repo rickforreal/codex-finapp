@@ -7,7 +7,6 @@ type Props = {
   value: [number, number];
   onChange: (value: [number, number]) => void;
   disabled?: boolean;
-  formatLabel?: (value: number) => string;
 };
 
 export const RangeSlider = ({
@@ -17,7 +16,6 @@ export const RangeSlider = ({
   value,
   onChange,
   disabled = false,
-  formatLabel = (v) => v.toString(),
 }: Props) => {
   const [minValue, setMinValue] = useState(value[0]);
   const [maxValue, setMaxValue] = useState(value[1]);

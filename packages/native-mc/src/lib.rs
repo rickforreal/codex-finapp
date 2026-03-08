@@ -93,10 +93,10 @@ struct ReturnAssumptions {
 struct SpendingPhase {
   id: String,
   name: String,
-  start_year: i32,
-  end_year: i32,
-  min_monthly_spend: f64,
-  max_monthly_spend: f64,
+  start: EventDate,
+  end: EventDate,
+  min_monthly_spend: Option<f64>,
+  max_monthly_spend: Option<f64>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -158,10 +158,9 @@ struct ExpenseEvent {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 struct CoreParams {
-  starting_age: i32,
-  withdrawals_start_at: i32,
-  retirement_start_date: EventDate,
-  retirement_duration: i32,
+  birth_date: EventDate,
+  portfolio_start: EventDate,
+  portfolio_end: EventDate,
   inflation_rate: f64,
 }
 
@@ -382,7 +381,7 @@ struct MonteCarloOptions {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 struct StressTransformDescriptor {
-  projected_start_month: usize,
+  portfolio_start: EventDate,
   scenario: StressScenario,
 }
 
@@ -392,37 +391,37 @@ enum StressScenario {
   StockCrash {
     id: String,
     label: String,
-    start_year: i32,
+    start: EventDate,
     params: StockCrashParams,
   },
   BondCrash {
     id: String,
     label: String,
-    start_year: i32,
+    start: EventDate,
     params: BondCrashParams,
   },
   BroadMarketCrash {
     id: String,
     label: String,
-    start_year: i32,
+    start: EventDate,
     params: BroadMarketCrashParams,
   },
   ProlongedBear {
     id: String,
     label: String,
-    start_year: i32,
+    start: EventDate,
     params: ProlongedBearParams,
   },
   HighInflationSpike {
     id: String,
     label: String,
-    start_year: i32,
+    start: EventDate,
     params: HighInflationSpikeParams,
   },
   Custom {
     id: String,
     label: String,
-    start_year: i32,
+    start: EventDate,
     params: CustomStressParams,
   },
 }
@@ -793,15 +792,30 @@ fn resolve_start_of_month_weights(balances: &AssetBalances) -> AssetWeights {
   }
 }
 
-fn find_spending_phase_for_year<'a>(config: &'a SimulationConfig, year: i32) -> Option<&'a SpendingPhase> {
-  if let Some(matched) = config
-    .spending_phases
-    .iter()
-    .find(|phase| year >= phase.start_year && year <= phase.end_year)
-  {
-    return Some(matched);
-  }
-  config.spending_phases.last()
+#[derive(Debug, Clone)]
+struct SpendingPhaseSchedule {
+  start_month: i32,
+  end_month: i32,
+  min_monthly_spend: Option<f64>,
+  max_monthly_spend: Option<f64>,
+}
+
+#[derive(Debug, Clone, Copy)]
+struct IncomeEventSchedule<'a> {
+  event: &'a IncomeEvent,
+  start_month: i32,
+  end_month: i32,
+}
+
+#[derive(Debug, Clone, Copy)]
+struct ExpenseEventSchedule<'a> {
+  event: &'a ExpenseEvent,
+  start_month: i32,
+  end_month: i32,
+}
+
+fn months_between(start: &EventDate, end: &EventDate) -> i32 {
+  (end.year - start.year) * 12 + (end.month - start.month)
 }
 
 fn apply_market_returns(balances: &AssetBalances, monthly_returns: &MonthlyReturns) -> AssetBalances {
@@ -820,16 +834,76 @@ fn diff_balances(after: &AssetBalances, before: &AssetBalances) -> AssetBalances
   }
 }
 
-fn month_key_to_index(retirement_start: &EventDate, date: &EventDate) -> i32 {
-  (date.year - retirement_start.year) * 12 + (date.month - retirement_start.month) + 1
+fn month_key_to_index(portfolio_start: &EventDate, date: &EventDate) -> i32 {
+  months_between(portfolio_start, date) + 1
 }
 
-fn resolve_event_end_month(retirement_start: &EventDate, end: &EventEndDate, retirement_months: i32) -> i32 {
+fn resolve_event_end_month(portfolio_start: &EventDate, end: &EventEndDate, portfolio_months: i32) -> i32 {
   match end {
-    EventEndDate::Date(date) => month_key_to_index(retirement_start, date),
-    EventEndDate::EndOfRetirement(value) if value == "endOfRetirement" => retirement_months,
-    EventEndDate::EndOfRetirement(_) => retirement_months,
+    EventEndDate::Date(date) => month_key_to_index(portfolio_start, date),
+    EventEndDate::EndOfRetirement(value) if value == "endOfRetirement" => portfolio_months,
+    EventEndDate::EndOfRetirement(_) => portfolio_months,
   }
+}
+
+fn build_spending_phase_schedule(config: &SimulationConfig) -> Vec<SpendingPhaseSchedule> {
+  config
+    .spending_phases
+    .iter()
+    .map(|phase| SpendingPhaseSchedule {
+      start_month: month_key_to_index(&config.core_params.portfolio_start, &phase.start),
+      end_month: month_key_to_index(&config.core_params.portfolio_start, &phase.end),
+      min_monthly_spend: phase.min_monthly_spend,
+      max_monthly_spend: phase.max_monthly_spend,
+    })
+    .collect()
+}
+
+fn find_spending_phase_for_month<'a>(
+  phase_schedule: &'a [SpendingPhaseSchedule],
+  month_index: i32,
+) -> Option<&'a SpendingPhaseSchedule> {
+  phase_schedule
+    .iter()
+    .find(|phase| month_index >= phase.start_month && month_index <= phase.end_month)
+}
+
+fn build_income_event_schedule<'a>(
+  config: &'a SimulationConfig,
+  portfolio_months: i32,
+) -> Vec<IncomeEventSchedule<'a>> {
+  config
+    .income_events
+    .iter()
+    .map(|event| IncomeEventSchedule {
+      event,
+      start_month: month_key_to_index(&config.core_params.portfolio_start, &event.start),
+      end_month: resolve_event_end_month(
+        &config.core_params.portfolio_start,
+        &event.end,
+        portfolio_months,
+      ),
+    })
+    .collect()
+}
+
+fn build_expense_event_schedule<'a>(
+  config: &'a SimulationConfig,
+  portfolio_months: i32,
+) -> Vec<ExpenseEventSchedule<'a>> {
+  config
+    .expense_events
+    .iter()
+    .map(|event| ExpenseEventSchedule {
+      event,
+      start_month: month_key_to_index(&config.core_params.portfolio_start, &event.start),
+      end_month: resolve_event_end_month(
+        &config.core_params.portfolio_start,
+        &event.end,
+        portfolio_months,
+      ),
+    })
+    .collect()
 }
 
 fn event_matches_frequency(offset_from_start: i32, frequency: EventFrequency) -> bool {
@@ -889,24 +963,18 @@ fn event_amount_for_month(
 
 fn sum_event_income(
   balances: &mut AssetBalances,
-  income_events: &[IncomeEvent],
-  config: &SimulationConfig,
+  income_schedule: &[IncomeEventSchedule<'_>],
   month_index: usize,
   inflation_rate_for_year: &dyn Fn(i32) -> f64,
 ) -> f64 {
   let mut income_total = 0.0;
-  for event in income_events {
-    let start_month = month_key_to_index(&config.core_params.retirement_start_date, &event.start);
-    let end_month = resolve_event_end_month(
-      &config.core_params.retirement_start_date,
-      &event.end,
-      config.core_params.retirement_duration * 12,
-    );
+  for scheduled in income_schedule {
+    let event = scheduled.event;
     let month = month_index as i32;
-    if month < start_month || month > end_month {
+    if month < scheduled.start_month || month > scheduled.end_month {
       continue;
     }
-    let offset = month - start_month;
+    let offset = month - scheduled.start_month;
     if !event_matches_frequency(offset, event.frequency) {
       continue;
     }
@@ -1020,7 +1088,8 @@ fn generate_random_monthly_return(
 }
 
 fn generate_monthly_returns_from_assumptions(config: &SimulationConfig, seed: i64) -> Vec<MonthlyReturns> {
-  let duration_months = (config.core_params.retirement_duration * 12).max(0) as usize;
+  let duration_months =
+    months_between(&config.core_params.portfolio_start, &config.core_params.portfolio_end).max(0) as usize;
   let mut random = Mulberry32::new(seed);
 
   (0..duration_months)
@@ -1045,7 +1114,8 @@ fn generate_monthly_returns_from_assumptions(config: &SimulationConfig, seed: i6
 }
 
 fn generate_deterministic_monthly_returns(config: &SimulationConfig) -> Vec<MonthlyReturns> {
-  let duration_months = (config.core_params.retirement_duration * 12).max(0) as usize;
+  let duration_months =
+    months_between(&config.core_params.portfolio_start, &config.core_params.portfolio_end).max(0) as usize;
   let stocks_monthly = annual_to_monthly_rate(config.return_assumptions.stocks.expected_return);
   let bonds_monthly = annual_to_monthly_rate(config.return_assumptions.bonds.expected_return);
   let cash_monthly = annual_to_monthly_rate(config.return_assumptions.cash.expected_return);
@@ -1059,8 +1129,19 @@ fn generate_deterministic_monthly_returns(config: &SimulationConfig) -> Vec<Mont
     .collect()
 }
 
-fn to_timeline_month(projected_start_month: usize, start_year: i32) -> i32 {
-  projected_start_month as i32 + (start_year - 1) * 12
+fn to_timeline_month(portfolio_start: &EventDate, start: &EventDate) -> i32 {
+  month_key_to_index(portfolio_start, start)
+}
+
+fn stress_start_date(scenario: &StressScenario) -> &EventDate {
+  match scenario {
+    StressScenario::StockCrash { start, .. } => start,
+    StressScenario::BondCrash { start, .. } => start,
+    StressScenario::BroadMarketCrash { start, .. } => start,
+    StressScenario::ProlongedBear { start, .. } => start,
+    StressScenario::HighInflationSpike { start, .. } => start,
+    StressScenario::Custom { start, .. } => start,
+  }
 }
 
 fn apply_crash_to_month(month: &MonthlyReturns, stock_shock: f64, bond_shock: f64) -> MonthlyReturns {
@@ -1080,15 +1161,10 @@ fn apply_stress_transform(
     return returns;
   }
 
-  let start_year = match &descriptor.scenario {
-    StressScenario::StockCrash { start_year, .. } => *start_year,
-    StressScenario::BondCrash { start_year, .. } => *start_year,
-    StressScenario::BroadMarketCrash { start_year, .. } => *start_year,
-    StressScenario::ProlongedBear { start_year, .. } => *start_year,
-    StressScenario::HighInflationSpike { start_year, .. } => *start_year,
-    StressScenario::Custom { start_year, .. } => *start_year,
-  };
-  let start_month = to_timeline_month(descriptor.projected_start_month, start_year);
+  let start_month = to_timeline_month(
+    &descriptor.portfolio_start,
+    stress_start_date(&descriptor.scenario),
+  );
   let start_index = (start_month - 1).max(0) as usize;
   if start_index >= returns.len() {
     return returns;
@@ -1754,7 +1830,7 @@ fn apply_configured_drawdown(
 
 fn sum_event_expenses(
   balances: &mut AssetBalances,
-  expense_events: &[ExpenseEvent],
+  expense_schedule: &[ExpenseEventSchedule<'_>],
   config: &SimulationConfig,
   month_index: usize,
   year: i32,
@@ -1763,20 +1839,14 @@ fn sum_event_expenses(
   let mut actual_total = 0.0;
   let mut shortfall_total = 0.0;
 
-  for event in expense_events {
-    let start_month = month_key_to_index(&config.core_params.retirement_start_date, &event.start);
-    let end_month = resolve_event_end_month(
-      &config.core_params.retirement_start_date,
-      &event.end,
-      config.core_params.retirement_duration * 12,
-    );
-
+  for scheduled in expense_schedule {
+    let event = scheduled.event;
     let month = month_index as i32;
-    if month < start_month || month > end_month {
+    if month < scheduled.start_month || month > scheduled.end_month {
       continue;
     }
 
-    let offset = month - start_month;
+    let offset = month - scheduled.start_month;
     if !event_matches_frequency(offset, event.frequency) {
       continue;
     }
@@ -1837,9 +1907,10 @@ fn simulate_retirement(
   mut on_month_complete: Option<&mut dyn FnMut(MonthCompleteSummary)>,
 ) -> SinglePathResult {
   let include_rows = options.include_rows;
-  let duration_months = (config.core_params.retirement_duration * 12).max(0) as usize;
-  let withdrawal_start_year = (config.core_params.withdrawals_start_at - config.core_params.starting_age)
-    .max(1);
+  let duration_months =
+    months_between(&config.core_params.portfolio_start, &config.core_params.portfolio_end).max(0) as usize;
+  let portfolio_months = duration_months as i32;
+  let total_retirement_years = ((duration_months as f64) / 12.0).ceil() as i32;
   let initial_balances = config.portfolio;
   let inflation_rate_for_year = |year: i32| {
     inflation_overrides_by_year
@@ -1873,6 +1944,9 @@ fn simulate_retirement(
     WithdrawalStrategy::DynamicSwrAdaptive(params) => Some(RollingAnnualizedRealReturns::new(params.lookback_months)),
     _ => None,
   };
+  let spending_phase_schedule = build_spending_phase_schedule(config);
+  let income_event_schedule = build_income_event_schedule(config, portfolio_months);
+  let expense_event_schedule = build_expense_event_schedule(config, portfolio_months);
 
   let mut rows = if include_rows {
     Vec::with_capacity(duration_months)
@@ -1929,14 +2003,17 @@ fn simulate_retirement(
     if override_month.and_then(|entry| entry.income_total).is_none() {
       income_total = sum_event_income(
         &mut balances,
-        &config.income_events,
-        config,
+        &income_event_schedule,
         one_based_month,
         &inflation_rate_for_year,
       );
     }
 
-    if year < withdrawal_start_year {
+    let phase = find_spending_phase_for_month(&spending_phase_schedule, one_based_month as i32);
+    let remaining_retirement_years =
+      ((duration_months.saturating_sub(month_index)) as f64 / 12.0).ceil();
+
+    if phase.is_none() {
       previous_annual_withdrawal = 0.0;
       current_monthly_withdrawal = 0.0;
       previous_adaptive_final_monthly_withdrawal = Some(0.0);
@@ -1949,14 +2026,14 @@ fn simulate_retirement(
           let monthly_withdrawal = calculate_annual_withdrawal(
             &StrategyContext {
               year,
-              retirement_years: config.core_params.retirement_duration,
+              retirement_years: total_retirement_years,
               portfolio_value: total_portfolio(&balances),
               initial_portfolio_value: total_portfolio(&initial_balances),
               previous_withdrawal: previous_annual_withdrawal,
               previous_monthly_withdrawal: previous_adaptive_final_monthly_withdrawal,
               previous_year_return,
               previous_year_start_portfolio,
-              remaining_years: (config.core_params.retirement_duration - year + 1) as f64,
+              remaining_years: remaining_retirement_years,
               remaining_months: duration_months - month_index,
               inflation_rate: inflation_rate_for_year(year),
               start_of_month_weights: Some(resolve_start_of_month_weights(&start_balances)),
@@ -1966,28 +2043,34 @@ fn simulate_retirement(
             &config.withdrawal_strategy,
           );
 
-          if let Some(phase) = find_spending_phase_for_year(config, year) {
+          if let Some(phase) = phase {
             let monthly_inflation_factor = inflation_factor_by_month[one_based_month];
-            let monthly_min = round_to_cents(phase.min_monthly_spend * monthly_inflation_factor);
-            let monthly_max = round_to_cents(phase.max_monthly_spend * monthly_inflation_factor);
+            let monthly_min = phase
+              .min_monthly_spend
+              .map(|value| round_to_cents(value * monthly_inflation_factor))
+              .unwrap_or(0.0);
+            let monthly_max = phase
+              .max_monthly_spend
+              .map(|value| round_to_cents(value * monthly_inflation_factor))
+              .unwrap_or(f64::INFINITY);
             current_monthly_withdrawal = monthly_withdrawal.max(monthly_min).min(monthly_max);
           } else {
             current_monthly_withdrawal = monthly_withdrawal;
           }
         }
         _ => {
-          if month_in_year == 1 {
+          if month_in_year == 1 || current_monthly_withdrawal == 0.0 {
             let annual_withdrawal = calculate_annual_withdrawal(
               &StrategyContext {
                 year,
-                retirement_years: config.core_params.retirement_duration,
+                retirement_years: total_retirement_years,
                 portfolio_value: total_portfolio(&balances),
                 initial_portfolio_value: total_portfolio(&initial_balances),
                 previous_withdrawal: previous_annual_withdrawal,
                 previous_monthly_withdrawal: None,
                 previous_year_return,
                 previous_year_start_portfolio,
-                remaining_years: (config.core_params.retirement_duration - year + 1) as f64,
+                remaining_years: remaining_retirement_years,
                 remaining_months: duration_months - month_index,
                 inflation_rate: config.core_params.inflation_rate,
                 start_of_month_weights: Some(resolve_start_of_month_weights(&start_balances)),
@@ -1997,9 +2080,15 @@ fn simulate_retirement(
               &config.withdrawal_strategy,
             );
 
-            let clamped_annual = if let Some(phase) = find_spending_phase_for_year(config, year) {
-              let annual_min = round_to_cents(inflate_by_schedule(phase.min_monthly_spend * 12.0, year - 1));
-              let annual_max = round_to_cents(inflate_by_schedule(phase.max_monthly_spend * 12.0, year - 1));
+            let clamped_annual = if let Some(phase) = phase {
+              let annual_min = phase
+                .min_monthly_spend
+                .map(|value| round_to_cents(inflate_by_schedule(value * 12.0, year - 1)))
+                .unwrap_or(0.0);
+              let annual_max = phase
+                .max_monthly_spend
+                .map(|value| round_to_cents(inflate_by_schedule(value * 12.0, year - 1)))
+                .unwrap_or(f64::INFINITY);
               annual_withdrawal.max(annual_min).min(annual_max)
             } else {
               annual_withdrawal
@@ -2048,7 +2137,7 @@ fn simulate_retirement(
       } else {
         sum_event_expenses(
           &mut balances,
-          &config.expense_events,
+          &expense_event_schedule,
           config,
           one_based_month,
           year,
@@ -2058,7 +2147,7 @@ fn simulate_retirement(
     } else {
       sum_event_expenses(
         &mut balances,
-        &config.expense_events,
+        &expense_event_schedule,
         config,
         one_based_month,
         year,
@@ -2282,7 +2371,8 @@ fn run_monte_carlo_internal(
       .unwrap_or(DEFAULT_SIMULATION_RUNS),
   );
   let seed_used = resolve_seed(options.seed);
-  let duration_months = (config.core_params.retirement_duration * 12).max(0) as usize;
+  let duration_months =
+    months_between(&config.core_params.portfolio_start, &config.core_params.portfolio_end).max(0) as usize;
 
   let returns_source = resolve_return_source(&config);
   if matches!(returns_source, ReturnSource::Historical) && historical_months.is_empty() {
@@ -2658,5 +2748,151 @@ mod tests {
     for _ in 0..10 {
       assert_eq!(left.next_f64(), right.next_f64());
     }
+  }
+
+  #[test]
+  fn simulate_retirement_supports_absolute_date_config() {
+    let config = SimulationConfig {
+      simulation_mode: "manual".to_string(),
+      returns_source: Some("manual".to_string()),
+      simulation_runs: Some(1_000),
+      selected_historical_era: "fullHistory".to_string(),
+      custom_historical_range: None,
+      block_bootstrap_enabled: false,
+      block_bootstrap_length: 12,
+      core_params: CoreParams {
+        birth_date: EventDate {
+          month: 1,
+          year: 1970,
+        },
+        portfolio_start: EventDate {
+          month: 1,
+          year: 2030,
+        },
+        portfolio_end: EventDate {
+          month: 1,
+          year: 2040,
+        },
+        inflation_rate: 0.03,
+      },
+      portfolio: AssetBalances {
+        stocks: 60_000_000.0,
+        bonds: 30_000_000.0,
+        cash: 10_000_000.0,
+      },
+      return_assumptions: ReturnAssumptions {
+        stocks: ReturnAssumption {
+          expected_return: 0.08,
+          std_dev: 0.15,
+        },
+        bonds: ReturnAssumption {
+          expected_return: 0.04,
+          std_dev: 0.07,
+        },
+        cash: ReturnAssumption {
+          expected_return: 0.02,
+          std_dev: 0.01,
+        },
+      },
+      spending_phases: vec![SpendingPhase {
+        id: "phase-1".to_string(),
+        name: "Base".to_string(),
+        start: EventDate {
+          month: 1,
+          year: 2030,
+        },
+        end: EventDate {
+          month: 1,
+          year: 2070,
+        },
+        min_monthly_spend: Some(200_000.0),
+        max_monthly_spend: Some(1_500_000.0),
+      }],
+      withdrawal_strategy: WithdrawalStrategy::ConstantDollar(ConstantDollarParams {
+        initial_withdrawal_rate: 0.04,
+      }),
+      drawdown_strategy: DrawdownStrategy::Bucket {
+        bucket_order: vec![AssetClass::Cash, AssetClass::Bonds, AssetClass::Stocks],
+      },
+      income_events: Vec::new(),
+      expense_events: Vec::new(),
+    };
+
+    let monthly_returns = vec![
+      MonthlyReturns {
+        stocks: 0.0,
+        bonds: 0.0,
+        cash: 0.0,
+      };
+      120
+    ];
+
+    let result = simulate_retirement(
+      &config,
+      &monthly_returns,
+      &HashMap::new(),
+      &HashMap::new(),
+      SimulateOptions { include_rows: true },
+      None,
+    );
+
+    assert_eq!(result.rows.len(), 120);
+  }
+
+  #[test]
+  fn run_single_path_json_accepts_absolute_date_payload() {
+    let request = NativeSinglePathRequest {
+      config_json: r#"{
+        "mode":"planning",
+        "simulationMode":"manual",
+        "returnsSource":"manual",
+        "simulationRuns":1000,
+        "selectedHistoricalEra":"fullHistory",
+        "customHistoricalRange":null,
+        "blockBootstrapEnabled":false,
+        "blockBootstrapLength":12,
+        "coreParams":{
+          "birthDate":{"month":1,"year":1970},
+          "portfolioStart":{"month":1,"year":2030},
+          "portfolioEnd":{"month":1,"year":2040},
+          "inflationRate":0.03
+        },
+        "portfolio":{"stocks":60000000,"bonds":30000000,"cash":10000000},
+        "returnAssumptions":{
+          "stocks":{"expectedReturn":0.08,"stdDev":0.15},
+          "bonds":{"expectedReturn":0.04,"stdDev":0.07},
+          "cash":{"expectedReturn":0.02,"stdDev":0.01}
+        },
+        "spendingPhases":[
+          {
+            "id":"phase-1",
+            "name":"Base",
+            "start":{"month":1,"year":2030},
+            "end":{"month":1,"year":2070},
+            "minMonthlySpend":200000,
+            "maxMonthlySpend":1500000
+          }
+        ],
+        "withdrawalStrategy":{"type":"constantDollar","params":{"initialWithdrawalRate":0.04}},
+        "drawdownStrategy":{"type":"bucket","bucketOrder":["cash","bonds","stocks"]},
+        "incomeEvents":[],
+        "expenseEvents":[]
+      }"#
+      .to_string(),
+      monthly_returns_json: serde_json::to_string(&vec![
+        MonthlyReturns {
+          stocks: 0.0,
+          bonds: 0.0,
+          cash: 0.0,
+        };
+        120
+      ])
+      .expect("serialize returns"),
+      actual_overrides_by_month_json: Some("{}".to_string()),
+      inflation_overrides_by_year_json: Some("{}".to_string()),
+    };
+
+    let response = run_single_path_json(request).expect("run single path");
+    assert!(!response.result_json.is_empty());
   }
 }

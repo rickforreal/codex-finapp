@@ -32,6 +32,7 @@ describe('simulationRuntime engine selector', () => {
     const inflationOverrides = { 2: 0.01 };
 
     const baseline = simulateRetirement(config, returns, overrides, inflationOverrides);
+    rustSpy.mockResolvedValue(baseline);
     const result = await runSinglePath(config, returns, overrides, inflationOverrides);
 
     expect(rustSpy).toHaveBeenCalledTimes(1);
@@ -52,6 +53,7 @@ describe('simulationRuntime engine selector', () => {
     };
 
     const baseline = reforecastDeterministic(config, overrides);
+    rustSpy.mockResolvedValue(baseline);
     const result = await runReforecast(config, overrides);
 
     expect(rustSpy).toHaveBeenCalledTimes(1);

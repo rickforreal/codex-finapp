@@ -2147,3 +2147,46 @@ Acceptance Criteria:
       [AC2] Background is darker than standard Monokai (e.g., #0F0F0D).
       [AC3] Catalog metadata and description updated.
       [AC4] Server tests remain green.
+
+## Phase: Absolute Date Core Parameters v1.2 (Rust Parity + Performance Recovery)
+
+- [x] ABSDATE12-T1: Create docs-first v1.2 feature update artifacts
+      Phase: Feature/AbsoluteDateParams-v1.2
+      Dependencies: ABSDATE-T3
+      Acceptance Criteria:
+      [AC1] `docs/features/absolute-date-params-v1-2/{FEATURE,PLAN,ACCEPTANCE}.md` exist.
+      [AC2] `PLAN.md` includes `Delta From Baseline` referencing `docs/features/absolute-date-params/`.
+      [AC3] v1.2 scope explicitly targets Rust parity and latency recovery with no snapshot/bookmark migration work.
+
+- [x] ABSDATE12-T2: Update native runtime DTOs and timeline logic for absolute-date core params
+      Phase: Feature/AbsoluteDateParams-v1.2
+      Dependencies: ABSDATE12-T1
+      Acceptance Criteria:
+      [AC1] Native config deserializes absolute-date `coreParams` and date-based `spendingPhases`.
+      [AC2] Native stress scenarios deserialize date-based starts.
+      [AC3] Native simulator removes legacy year-based withdrawal-start dependency and matches date-anchored behavior.
+
+- [x] ABSDATE12-T3: Restore Rust execution path and eliminate fallback for valid absolute-date requests
+      Phase: Feature/AbsoluteDateParams-v1.2
+      Dependencies: ABSDATE12-T2
+      Acceptance Criteria:
+      [AC1] Valid `/simulate` manual+MC requests no longer emit schema fallback logs.
+      [AC2] Valid `/reforecast` and `/stress-test` requests no longer emit schema fallback logs.
+      [AC3] Existing fallback behavior remains only for genuine native runtime errors.
+
+- [x] ABSDATE12-T4: Run targeted hot-path performance pass and benchmark verification
+      Phase: Feature/AbsoluteDateParams-v1.2
+      Dependencies: ABSDATE12-T3
+      Acceptance Criteria:
+      [AC1] Benchmarks captured for 10k single-portfolio MC and 8-portfolio compare MC.
+      [AC2] Benchmarks captured for compare + stress MC path.
+      [AC3] Measured latency regresses no worse than pre-absolute-date profile target band.
+
+- [x] ABSDATE12-T5: Add parity/fallback tests and pass full regression/native gates
+      Phase: Feature/AbsoluteDateParams-v1.2
+      Dependencies: ABSDATE12-T4
+      Acceptance Criteria:
+      [AC1] Date-anchored parity/fallback tests cover manual, reforecast, MC, and stress flows.
+      [AC2] `npm run build -w @finapp/native-mc` and `npm run test -w @finapp/native-mc` pass.
+      [AC3] `npm run typecheck`, `npm run lint`, `npm test`, and `npm run build` pass.
+      [AC4] `PROGRESS.txt` append-only completion entry includes timing deltas and canonical-doc impact statement.
