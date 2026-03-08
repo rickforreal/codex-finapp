@@ -2,6 +2,7 @@ import { afterEach, describe, expect, it } from 'vitest';
 
 import { AppMode, AssetClass, HistoricalEra } from '@finapp/shared';
 
+import { addMonths } from '../lib/dates';
 import { useAppStore } from './useAppStore';
 
 const resetStore = () => {
@@ -56,6 +57,69 @@ describe('useAppStore compare slot behavior', () => {
     }
     store.removeSpendingPhase(createdId);
     expect(useAppStore.getState().spendingPhases).toHaveLength(1);
+  });
+
+  it('allows editing start and end dates for a single spending phase', () => {
+    resetStore();
+    const store = useAppStore.getState();
+    const phase = useAppStore.getState().spendingPhases[0];
+    if (!phase) {
+      throw new Error('Expected default spending phase');
+    }
+
+    const portfolioStart = useAppStore.getState().coreParams.portfolioStart;
+    const requestedStart = addMonths(portfolioStart, 12);
+    const requestedEnd = addMonths(portfolioStart, 24);
+
+    store.updateSpendingPhase(phase.id, { start: requestedStart, end: requestedEnd });
+
+    const updated = useAppStore.getState().spendingPhases.find((entry) => entry.id === phase.id);
+    expect(updated?.start).toEqual(requestedStart);
+    expect(updated?.end).toEqual(requestedEnd);
+  });
+
+  it('defaults new income and expense event start dates to portfolio start', () => {
+    resetStore();
+    const store = useAppStore.getState();
+    const portfolioStart = useAppStore.getState().coreParams.portfolioStart;
+
+    store.addIncomeEvent();
+    store.addExpenseEvent();
+
+    const income = useAppStore.getState().incomeEvents.at(-1);
+    const expense = useAppStore.getState().expenseEvents.at(-1);
+    expect(income?.start).toEqual(portfolioStart);
+    expect(expense?.start).toEqual(portfolioStart);
+  });
+
+  it('clamps income and expense event dates so they cannot start before portfolio start', () => {
+    resetStore();
+    const store = useAppStore.getState();
+    const portfolioStart = useAppStore.getState().coreParams.portfolioStart;
+    const beforeStart = addMonths(portfolioStart, -12);
+
+    store.addIncomeEvent();
+    store.addExpenseEvent();
+
+    const incomeId = useAppStore.getState().incomeEvents.at(-1)?.id;
+    const expenseId = useAppStore.getState().expenseEvents.at(-1)?.id;
+    if (!incomeId || !expenseId) {
+      throw new Error('Expected income and expense events');
+    }
+
+    store.updateIncomeEvent(incomeId, {
+      start: beforeStart,
+      end: addMonths(beforeStart, 1),
+    });
+    store.updateExpenseEvent(expenseId, {
+      start: beforeStart,
+      end: addMonths(beforeStart, 1),
+    });
+
+    const income = useAppStore.getState().incomeEvents.find((event) => event.id === incomeId);
+    const expense = useAppStore.getState().expenseEvents.find((event) => event.id === expenseId);
+    expect(income?.start).toEqual(portfolioStart);
+    expect(expense?.start).toEqual(portfolioStart);
   });
 
   it('initializes compare workspace with A-only and activates compare at 2+ slots', () => {

@@ -7,8 +7,6 @@ import type { SpendingPhaseForm } from '../../../store/useAppStore';
 type Props = {
   phase: SpendingPhaseForm;
   canRemove: boolean;
-  lockStart: boolean;
-  lockEnd: boolean;
   familyReadOnly: boolean;
   onUpdate: (patch: Partial<SpendingPhaseForm>) => void;
   onRemove: () => void;
@@ -17,8 +15,6 @@ type Props = {
 export const PhaseCard = ({
   phase,
   canRemove,
-  lockStart,
-  lockEnd,
   familyReadOnly,
   onUpdate,
   onRemove,
@@ -63,7 +59,7 @@ export const PhaseCard = ({
           <MonthYearPicker
             value={phase.start}
             onChange={(value) => onUpdate({ start: value })}
-            disabled={lockStart || readOnly}
+            disabled={readOnly}
           />
         </div>
         <div>
@@ -71,7 +67,7 @@ export const PhaseCard = ({
           <MonthYearPicker
             value={phase.end}
             onChange={(value) => onUpdate({ end: value })}
-            disabled={lockEnd || readOnly}
+            disabled={readOnly}
           />
         </div>
       </div>

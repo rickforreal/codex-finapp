@@ -472,27 +472,44 @@ const defaultPhase = (): SpendingPhaseForm => {
   };
 };
 
-const defaultIncomeEvent = (): IncomeEventForm => ({
+const defaultIncomeEvent = (portfolioStart: MonthYear): IncomeEventForm => ({
   id: createId('income'),
   name: 'Income',
   amount: 2_500,
   depositTo: AssetClass.Cash,
-  start: { month: 1, year: 2030 },
+  start: { ...portfolioStart },
   end: 'endOfRetirement',
   frequency: 'monthly',
   inflationAdjusted: true,
 });
 
-const defaultExpenseEvent = (): ExpenseEventForm => ({
+const defaultExpenseEvent = (portfolioStart: MonthYear): ExpenseEventForm => ({
   id: createId('expense'),
   name: 'Expense',
   amount: 25_000,
   sourceFrom: 'follow-drawdown',
-  start: { month: 1, year: 2030 },
+  start: { ...portfolioStart },
   end: 'endOfRetirement',
   frequency: 'oneTime',
   inflationAdjusted: false,
 });
+
+const clampEventWindowToPortfolio = <T extends IncomeEventForm | ExpenseEventForm>(
+  event: T,
+  portfolioStart: MonthYear,
+  portfolioEnd: MonthYear,
+): T => {
+  const start = minMonthYear(maxMonthYear(event.start, portfolioStart), portfolioEnd);
+  const end =
+    event.end === 'endOfRetirement'
+      ? event.end
+      : minMonthYear(maxMonthYear(event.end, start), portfolioEnd);
+  return {
+    ...event,
+    start,
+    end,
+  };
+};
 
 const scenarioColorOrder = ['A', 'B', 'C', 'D'] as const;
 
@@ -752,20 +769,13 @@ const recalculatePhaseBoundaries = (
   const recalculated: SpendingPhaseForm[] = [];
 
   sorted.forEach((phase, index) => {
-    const isLast = index === sorted.length - 1;
     const previousEnd = recalculated[index - 1]?.end;
-    
-    // start is portfolioStart if first, else 1 month after previous end
-    const start = index === 0 ? portfolioStart : addMonths(previousEnd!, 1);
-    
-    // end is portfolioEnd if last, else ensure it's at least 'start'
-    // and doesn't push subsequent phases past portfolioEnd
+    const minStart = index === 0 ? portfolioStart : addMonths(previousEnd!, 1);
+    const start = minMonthYear(maxMonthYear(phase.start, minStart), portfolioEnd);
+
     const remainingPhases = sorted.length - index - 1;
     const latestEndForCurrent = addMonths(portfolioEnd, -remainingPhases);
-    
-    const end = isLast
-      ? portfolioEnd
-      : minMonthYear(maxMonthYear(phase.end, start), latestEndForCurrent);
+    const end = minMonthYear(maxMonthYear(phase.end, start), latestEndForCurrent);
 
     recalculated.push({ ...phase, start, end });
   });
@@ -2963,6 +2973,20 @@ export const useAppStore = create<AppStore>((set) => ({
             nextCore.portfolioStart,
             nextCore.portfolioEnd,
           ),
+          incomeEvents: state.incomeEvents.map((event) =>
+            clampEventWindowToPortfolio(
+              event,
+              nextCore.portfolioStart,
+              nextCore.portfolioEnd,
+            ),
+          ),
+          expenseEvents: state.expenseEvents.map((event) =>
+            clampEventWindowToPortfolio(
+              event,
+              nextCore.portfolioStart,
+              nextCore.portfolioEnd,
+            ),
+          ),
           drawdownStrategy: {
             ...state.drawdownStrategy,
             rebalancing: {
@@ -3067,18 +3091,8 @@ export const useAppStore = create<AppStore>((set) => ({
       ) {
         return state;
       }
-      const ordered = [...state.spendingPhases].sort((a, b) => compareMonthYear(a.start, b.start));
-      const firstPhaseId = ordered[0]?.id;
-      const lastPhaseId = ordered[ordered.length - 1]?.id;
-      const sanitizedPatch = { ...patch };
-      if (id === firstPhaseId) {
-        delete sanitizedPatch.start;
-      }
-      if (id === lastPhaseId) {
-        delete sanitizedPatch.end;
-      }
       const next = state.spendingPhases.map((phase) =>
-        phase.id === id ? { ...phase, ...sanitizedPatch } : phase,
+        phase.id === id ? { ...phase, ...patch } : phase,
       );
       const staleState = markTrackingOutputStateStale(state);
       return {
@@ -3313,12 +3327,18 @@ export const useAppStore = create<AppStore>((set) => ({
         return state;
       }
       const staleState = markTrackingOutputStateStale(state);
+      const baseEvent = defaultIncomeEvent(state.coreParams.portfolioStart);
+      const nextEvent = preset
+        ? { ...baseEvent, ...incomeEventPreset(preset), id: createId('income') }
+        : baseEvent;
       return {
         incomeEvents: [
           ...state.incomeEvents,
-          preset
-            ? { ...defaultIncomeEvent(), ...incomeEventPreset(preset), id: createId('income') }
-            : defaultIncomeEvent(),
+          clampEventWindowToPortfolio(
+            nextEvent,
+            state.coreParams.portfolioStart,
+            state.coreParams.portfolioEnd,
+          ),
         ],
         ...staleState,
       };
@@ -3348,7 +3368,13 @@ export const useAppStore = create<AppStore>((set) => ({
       const staleState = markTrackingOutputStateStale(state);
       return {
         incomeEvents: state.incomeEvents.map((event) =>
-          event.id === id ? { ...event, ...patch } : event,
+          event.id === id
+            ? clampEventWindowToPortfolio(
+                { ...event, ...patch },
+                state.coreParams.portfolioStart,
+                state.coreParams.portfolioEnd,
+              )
+            : event,
         ),
         ...staleState,
       };
@@ -3359,12 +3385,18 @@ export const useAppStore = create<AppStore>((set) => ({
         return state;
       }
       const staleState = markTrackingOutputStateStale(state);
+      const baseEvent = defaultExpenseEvent(state.coreParams.portfolioStart);
+      const nextEvent = preset
+        ? { ...baseEvent, ...expenseEventPreset(preset), id: createId('expense') }
+        : baseEvent;
       return {
         expenseEvents: [
           ...state.expenseEvents,
-          preset
-            ? { ...defaultExpenseEvent(), ...expenseEventPreset(preset), id: createId('expense') }
-            : defaultExpenseEvent(),
+          clampEventWindowToPortfolio(
+            nextEvent,
+            state.coreParams.portfolioStart,
+            state.coreParams.portfolioEnd,
+          ),
         ],
         ...staleState,
       };
@@ -3394,7 +3426,13 @@ export const useAppStore = create<AppStore>((set) => ({
       const staleState = markTrackingOutputStateStale(state);
       return {
         expenseEvents: state.expenseEvents.map((event) =>
-          event.id === id ? { ...event, ...patch } : event,
+          event.id === id
+            ? clampEventWindowToPortfolio(
+                { ...event, ...patch },
+                state.coreParams.portfolioStart,
+                state.coreParams.portfolioEnd,
+              )
+            : event,
         ),
         ...staleState,
       };

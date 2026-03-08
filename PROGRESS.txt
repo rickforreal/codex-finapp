@@ -2452,3 +2452,43 @@ Validation:
 
 Canonical docs impact:
 - No canonical root-doc impact; refinement remains theme-token-only.
+
+## 2026-03-08 01:10 — Spending Phase Single-Date Editability Fix | COMPLETE
+
+Fixed Spending Phases bug where the default single phase had non-editable Start/End dates.
+- Root cause:
+  - UI disabled first-phase start and last-phase end controls, and with one phase both conditions were true.
+  - Store update path also stripped `start` for first phase and `end` for last phase.
+  - Boundary recalculation forced first start to `portfolioStart` and last end to `portfolioEnd`.
+- Fixes:
+  - Removed first/last date lock disabling in `/Users/ricknayar/Development/codex/finapp/packages/client/src/components/inputs/SpendingPhases/PhaseCard.tsx` and `/Users/ricknayar/Development/codex/finapp/packages/client/src/components/inputs/SpendingPhases/SpendingPhases.tsx`.
+  - Removed patch sanitization that blocked first/last date edits in `/Users/ricknayar/Development/codex/finapp/packages/client/src/store/useAppStore.ts`.
+  - Updated phase boundary normalization to clamp dates instead of hard-snapping first/last phases to portfolio bounds, allowing accumulation gap before first spending phase and configurable last-phase end within horizon.
+  - Added regression test `allows editing start and end dates for a single spending phase` in `/Users/ricknayar/Development/codex/finapp/packages/client/src/store/useAppStore.compare.test.ts`.
+- Validation:
+  - `npm run test -w @finapp/client -- src/store/useAppStore.compare.test.ts` ✅
+  - `npm run lint -w @finapp/client` ✅
+  - `npm run typecheck -w @finapp/client` ✅
+
+## 2026-03-08 01:21 — Income/Expense Event Date Guardrails Fix | COMPLETE
+
+Fixed event-date guardrails so Income and Expense events cannot start before `portfolioStart`, and defaults now align with the portfolio timeline.
+- Updated defaults in `/Users/ricknayar/Development/codex/finapp/packages/client/src/store/useAppStore.ts`:
+  - `defaultIncomeEvent(portfolioStart)` and `defaultExpenseEvent(portfolioStart)` now initialize `start` to `portfolioStart`.
+- Added event window normalization helper:
+  - `clampEventWindowToPortfolio(event, portfolioStart, portfolioEnd)`
+  - clamps `start` into `[portfolioStart, portfolioEnd]`
+  - clamps dated `end` into `[start, portfolioEnd]`
+  - preserves `'endOfRetirement'` sentinel.
+- Applied normalization to:
+  - `addIncomeEvent` / `updateIncomeEvent`
+  - `addExpenseEvent` / `updateExpenseEvent`
+  - `setCoreParam` when portfolio start/end changes (existing events are re-normalized).
+- Added regression tests in `/Users/ricknayar/Development/codex/finapp/packages/client/src/store/useAppStore.compare.test.ts`:
+  - defaults event start to portfolio start
+  - clamps attempted pre-start event dates to portfolio start
+
+Validation:
+- `npm run test -w @finapp/client -- src/store/useAppStore.compare.test.ts` ✅
+- `npm run lint -w @finapp/client` ✅
+- `npm run typecheck -w @finapp/client` ✅
