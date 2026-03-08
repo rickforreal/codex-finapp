@@ -2119,3 +2119,10 @@ Acceptance Criteria:
       [AC3] CoreParameters and SpendingPhases components refactored to use MonthYear pickers.
       [AC4] Detail Ledger and Charts updated to calculate runtime age dynamically.
       [AC5] `npm test -w @finapp/client` passes and application functions normally.
+
+- [x] SQLBM-T1: Final validation and documentation update
+      Phase: Feature/SQLiteBookmarks
+      Dependencies: none
+      Acceptance Criteria:
+      [AC1] All tests pass across the monorepo.
+      [AC2] TASKS.md and PROGRESS.txt reflect latest status.
