@@ -4157,7 +4157,7 @@ const baseThemes: BaseThemeVariant[] = [
     familyId: ThemeFamilyId.Hopium,
     appearance: ThemeAppearance.Dark,
     name: 'Hopium',
-    description: 'Hopeful but cautious palette with muted and cool tones.',
+    description: 'Brown-led market mood with cool blue accents for signals and action.',
     version: '1.0.0',
     isHighContrast: false,
     defaultForApp: false,
@@ -4166,81 +4166,81 @@ const baseThemes: BaseThemeVariant[] = [
       shadow: {
         panel: '0 1px 2px rgba(0, 0, 0, 0.4)',
         popover: '0 10px 28px rgba(0, 0, 0, 0.5)',
-        focus: '0 0 0 3px rgba(95, 114, 111, 0.4)',
+        focus: '0 0 0 3px rgba(4, 191, 191, 0.35)',
       },
       color: {
-        neutral50: '#0A0C0C',
-        neutral100: '#101418',
-        neutral200: '#181C1C',
-        neutral300: '#242828',
-        neutral400: '#303838',
-        neutral500: '#3C4848',
-        neutral600: '#505858',
-        neutral700: '#687878',
-        neutral800: '#889898',
-        neutral900: '#B0C8C8',
-        appBackground: '#060808',
-        surfacePrimary: '#0A0C0C',
-        surfaceSecondary: '#101418',
-        surfaceMuted: '#181C1C',
-        overlay: '#0A0C0CE6',
-        borderSubtle: '#242828',
-        borderPrimary: '#303838',
-        borderStrong: '#3C4848',
-        textPrimary: '#D0E0E0',
-        textSecondary: '#A8C0C0',
-        textMuted: '#607878',
-        textInverse: '#060808',
-        focusRing: '#5F726F',
-        interactivePrimary: '#151C26',
-        interactivePrimaryHover: '#1F2832',
-        interactiveSecondary: '#242828',
-        interactiveSecondaryHover: '#303838',
-        positive: '#5F726F',
-        negative: '#3F2026',
-        warning: '#5F726F',
-        info: '#708988',
-        chartGrid: '#181C1C',
-        chartAxis: '#303838',
-        chartText: '#485858',
-        chartTooltipBackground: '#0A0C0C',
-        chartTooltipBorder: '#303838',
-        chartTooltipText: '#D0E0E0',
-        brandNavy: '#889898',
-        brandBlue: '#5F726F',
-        assetStocks: '#9EAB9B',
-        assetBonds: '#5F726F',
-        assetCash: '#3F2026',
-        mcBandOuter: '#5F726F44',
-        mcBandInner: '#151C2666',
-        stressBase: '#D0E0E0',
-        stressScenarioA: '#151C26',
-        stressScenarioB: '#2A3538',
-        stressScenarioC: '#708988',
-        stressScenarioD: '#F2ECD0',
+        neutral50: '#140D0A',
+        neutral100: '#1B120E',
+        neutral200: '#261913',
+        neutral300: '#332118',
+        neutral400: '#4A3023',
+        neutral500: '#684435',
+        neutral600: '#8A5B47',
+        neutral700: '#AF7860',
+        neutral800: '#CCA089',
+        neutral900: '#E4CBB7',
+        appBackground: '#1B120E',
+        surfacePrimary: '#261913',
+        surfaceSecondary: '#332118',
+        surfaceMuted: '#4A3023',
+        overlay: '#261913E6',
+        borderSubtle: '#5A3B2B',
+        borderPrimary: '#8C452B',
+        borderStrong: '#BF9A78',
+        textPrimary: '#F7E8DA',
+        textSecondary: '#E8CDB6',
+        textMuted: '#BF9A78',
+        textInverse: '#1B120E',
+        focusRing: '#04BFBF',
+        interactivePrimary: '#04BFBF',
+        interactivePrimaryHover: '#38CFCB',
+        interactiveSecondary: '#5A3B2B',
+        interactiveSecondaryHover: '#734733',
+        positive: '#7DD6AE',
+        negative: '#8C452B',
+        warning: '#BF9A78',
+        info: '#04BFBF',
+        chartGrid: '#5A3B2B',
+        chartAxis: '#8C452B',
+        chartText: '#E8CDB6',
+        chartTooltipBackground: '#261913',
+        chartTooltipBorder: '#8C452B',
+        chartTooltipText: '#F7E8DA',
+        brandNavy: '#BF9A78',
+        brandBlue: '#04BFBF',
+        assetStocks: '#04BFBF',
+        assetBonds: '#038C8C',
+        assetCash: '#BF9A78',
+        mcBandOuter: '#04BFBF3D',
+        mcBandInner: '#038C8C61',
+        stressBase: '#F2FBFA',
+        stressScenarioA: '#04BFBF',
+        stressScenarioB: '#038C8C',
+        stressScenarioC: '#BF9A78',
+        stressScenarioD: '#8C452B',
       },
       state: {
-        editedCellBackground: '#5F726F26',
-        preservedRowBackground: '#101418',
-        staleBackground: '#281418',
-        staleText: '#C8B8B0',
-        selectedCellOutline: '#5F726F',
+        editedCellBackground: '#04BFBF24',
+        preservedRowBackground: '#332118',
+        staleBackground: '#5D321F',
+        staleText: '#F2D9C8',
+        selectedCellOutline: '#04BFBF',
       },
       chart: {
-        manualLine: '#D0E0E0',
-        manualAreaTop: '#5F726F44',
-        manualAreaBottom: '#151C2614',
-        mcMedianLine: '#D0E0E0',
-        mcBandOuter: '#5F726F44',
-        mcBandInner: '#151C2666',
-        compareSlotA: '#D0E0E0',
-        compareSlotB: '#5F726F',
-        compareSlotC: '#151C26',
-        compareSlotD: '#2A3538',
-        compareSlotE: '#708988',
-        compareSlotF: '#F2ECD0',
-        compareSlotG: '#3F2026',
-        compareSlotH: '#A8C0C0',
+        manualLine: '#F2FBFA',
+        manualAreaTop: '#04BFBF3D',
+        manualAreaBottom: '#038C8C1C',
+        mcMedianLine: '#F2FBFA',
+        mcBandOuter: '#04BFBF3D',
+        mcBandInner: '#038C8C61',
+        compareSlotA: '#F2FBFA',
+        compareSlotB: '#04BFBF',
+        compareSlotC: '#038C8C',
+        compareSlotD: '#BF9A78',
+        compareSlotE: '#8C452B',
+        compareSlotF: '#7DD6AE',
+        compareSlotG: '#BF9A78',
+        compareSlotH: '#E8CDB6',
       },
     },
   },
@@ -6809,6 +6809,69 @@ const applyReplacementLightOverrides = (lightVariant: BaseThemeVariant): BaseThe
     };
   }
 
+  if (lightVariant.id === ThemeVariantId.HopiumLight) {
+    const tokens = cloneTokens(lightVariant.tokens);
+    tokens.color.appBackground = '#EEDCCB';
+    tokens.color.surfacePrimary = '#F5E8DB';
+    tokens.color.surfaceSecondary = '#EAD7C4';
+    tokens.color.surfaceMuted = '#DFC6AE';
+    tokens.color.overlay = '#F5E8DBE6';
+    tokens.color.borderSubtle = '#C9A889';
+    tokens.color.borderPrimary = '#BF9A78';
+    tokens.color.borderStrong = '#8C452B';
+    tokens.color.textPrimary = '#4A2B1F';
+    tokens.color.textSecondary = '#6A4030';
+    tokens.color.textMuted = '#8A614B';
+    tokens.color.chartGrid = '#D8BBA2';
+    tokens.color.chartAxis = '#A86A48';
+    tokens.color.chartText = '#754C38';
+    tokens.color.chartTooltipBackground = '#F5E8DB';
+    tokens.color.chartTooltipBorder = '#BF9A78';
+    tokens.color.chartTooltipText = '#4A2B1F';
+    tokens.color.brandNavy = '#8C452B';
+    tokens.color.brandBlue = '#038C8C';
+    tokens.color.focusRing = '#04BFBF';
+    tokens.color.interactivePrimary = '#038C8C';
+    tokens.color.interactivePrimaryHover = '#04A4A4';
+    tokens.color.interactiveSecondary = '#D8C0AA';
+    tokens.color.interactiveSecondaryHover = '#CDAF94';
+    tokens.color.info = '#038C8C';
+    tokens.color.warning = '#BF9A78';
+    tokens.color.assetStocks = '#04BFBF';
+    tokens.color.assetBonds = '#038C8C';
+    tokens.color.assetCash = '#BF9A78';
+    tokens.color.mcBandOuter = '#04BFBF2F';
+    tokens.color.mcBandInner = '#038C8C3F';
+    tokens.color.stressScenarioA = '#04BFBF';
+    tokens.color.stressScenarioB = '#038C8C';
+    tokens.color.stressScenarioC = '#BF9A78';
+    tokens.color.stressScenarioD = '#8C452B';
+    tokens.state.editedCellBackground = '#04BFBF1F';
+    tokens.state.preservedRowBackground = '#EAD8C7';
+    tokens.state.staleBackground = '#D9B89C';
+    tokens.state.staleText = '#6F3E2A';
+    tokens.state.selectedCellOutline = '#04BFBF';
+    tokens.chart.manualLine = '#5C3728';
+    tokens.chart.manualAreaTop = '#04BFBF2F';
+    tokens.chart.manualAreaBottom = '#038C8C12';
+    tokens.chart.mcMedianLine = '#5C3728';
+    tokens.chart.mcBandOuter = '#04BFBF2F';
+    tokens.chart.mcBandInner = '#038C8C3F';
+    tokens.chart.compareSlotA = '#5C3728';
+    tokens.chart.compareSlotB = '#04BFBF';
+    tokens.chart.compareSlotC = '#038C8C';
+    tokens.chart.compareSlotD = '#BF9A78';
+    tokens.chart.compareSlotE = '#8C452B';
+    tokens.chart.compareSlotF = '#2EA0A0';
+    tokens.chart.compareSlotG = '#C47E5C';
+    tokens.chart.compareSlotH = '#8A614B';
+    return {
+      ...lightVariant,
+      description: 'Warm brown-paper base with teal-blue accents for emphasis and interaction.',
+      tokens,
+    };
+  }
+
   return lightVariant;
 };
 
@@ -7275,7 +7338,7 @@ const families: ThemeFamilyCatalogItem[] = [
   {
     id: ThemeFamilyId.Hopium,
     name: 'Hopium',
-    description: 'Hopeful but cautious palette with muted and cool tones.',
+    description: 'Brown-led palette with teal accents for hopeful conviction under caution.',
     version: '1.0.0',
     isHighContrast: false,
     defaultForApp: false,

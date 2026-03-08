@@ -2098,6 +2098,23 @@ Acceptance Criteria:
       [AC3] Saving modal creates new bookmark via duplicateBookmark function with existing payload.
       [AC4] Documentation and index updated.
 
+- [x] CHG-0012-T1: Refresh Hopium light/dark palettes from provided swatch
+      Phase: Change/CHG-0012
+      Dependencies: none
+      Acceptance Criteria:
+      [AC1] `ThemeVariantId.HopiumDark` tokens reflect swatch-inspired dark palette.
+      [AC2] `ThemeVariantId.HopiumLight` uses explicit family override for distinct light personality.
+      [AC3] Theme IDs remain unchanged for compatibility.
+      [AC4] Documentation and tracking artifacts updated.
+
+- [x] CHG-0012-T2: Rebalance Hopium to brown-dominant backgrounds with blue accents
+      Phase: Change/CHG-0012
+      Dependencies: CHG-0012-T1
+      Acceptance Criteria:
+      [AC1] Hopium dark `appBackground`/surfaces/neutrals are brown-led.
+      [AC2] Hopium light backgrounds/surfaces are brown-paper dominant.
+      [AC3] Blue tones are primarily used for accents and interaction signals.
+
 ## Phase: Absolute Date Core Parameters
 
 - [x] ABSDATE-T1: Shared Domain & Server Engine Overhaul

@@ -40,3 +40,4 @@ A request belongs in:
 | CHG-0009  | Bookmark description field                         | Done   | 2026-03-01 | 2026-03-01 | `docs/changes/CHG-0009-bookmark-description-field/`                |
 | CHG-0010  | MC summary stats cross-run aggregation             | Done   | 2026-03-05 | 2026-03-05 | `docs/changes/CHG-0010-mc-summary-stats-cross-run-aggregation/`    |
 | CHG-0011  | Bookmark duplicate action                          | Open   | 2026-03-07 | 2026-03-07 | `docs/changes/CHG-0011-bookmark-duplicate-action/`                 |
+| CHG-0012  | Hopium theme swatch refresh                        | Done   | 2026-03-08 | 2026-03-08 | `docs/changes/CHG-0012-hopium-theme-swatch-refresh/`               |

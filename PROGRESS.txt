@@ -2411,3 +2411,44 @@ Tracker updates:
 
 Canonical docs impact:
 - No additional root canonical doc updates required; this wave restores engine parity/performance to the current absolute-date model without changing product/API contracts.
+
+## 2026-03-08 00:45 — CHG-0012-T1 | COMPLETE
+
+Implemented CHG-0012: Hopium theme swatch refresh (light + dark).
+- Updated `ThemeVariantId.HopiumDark` in `packages/server/src/themes/registry.ts` to use a swatch-driven palette anchored on:
+  - `#025159` (deep teal base),
+  - `#04BFBF` / `#038C8C` (aqua-teal accents),
+  - `#BF9A78` / `#8C452B` (warm tan/copper caution accents).
+- Added explicit `ThemeVariantId.HopiumLight` override in `applyReplacementLightOverrides` so Hopium light is distinct and legible rather than generic generated light.
+- Kept family/variant IDs stable for compatibility (`ThemeFamilyId.Hopium`, `ThemeVariantId.HopiumDark`, `ThemeVariantId.HopiumLight`).
+- Updated Hopium family/variant descriptions to reflect the refreshed palette intent.
+
+Validation:
+- `npm run typecheck` ✅
+- `npm run lint` ✅
+- `npm test -w @finapp/server -- tests/routes/themes.test.ts` ✅
+
+Tracking/docs updates:
+- Added minor-change docs:
+  - `docs/changes/CHG-0012-hopium-theme-swatch-refresh/CHANGE.md`
+  - `docs/changes/CHG-0012-hopium-theme-swatch-refresh/ACCEPTANCE.md`
+- Updated `docs/changes/INDEX.md` with CHG-0012.
+- Updated `TASKS.md` with `CHG-0012-T1`.
+
+Canonical docs impact:
+- No canonical root-doc impact; this is a token-level visual refresh for an existing theme family.
+
+## 2026-03-08 01:01 — CHG-0012-T2 | COMPLETE
+
+Adjusted Hopium theme balance per feedback: brown-dominant backgrounds with blue accents.
+- Reworked `ThemeVariantId.HopiumDark` neutrals and core surfaces to deep brown/copper foundation tones.
+- Kept blue swatch tones (`#04BFBF`, `#038C8C`) primarily for focus, interactive emphasis, info, and chart accent signals.
+- Rebalanced `ThemeVariantId.HopiumLight` override to warm brown-paper surfaces and borders, with blues concentrated on accent/interactive channels.
+- Updated Hopium metadata descriptions to reflect the new brown-first direction.
+
+Validation:
+- `npm run typecheck` ✅
+- `npm run lint` ✅
+
+Canonical docs impact:
+- No canonical root-doc impact; refinement remains theme-token-only.
