@@ -47,6 +47,16 @@ const findSpendingPhaseForMonth = (config: SimulationConfig, monthIndex: number)
 const monthKeyToIndex = (portfolioStart: MonthYear, date: MonthYear): number =>
   monthsBetween(portfolioStart, date) + 1;
 
+const resolveWithdrawalStartMonthIndex = (config: SimulationConfig): number | null => {
+  if (config.spendingPhases.length === 0) {
+    return null;
+  }
+  return config.spendingPhases.reduce((minStart, phase) => {
+    const phaseStart = monthKeyToIndex(config.coreParams.portfolioStart, phase.start);
+    return Math.min(minStart, phaseStart);
+  }, Number.POSITIVE_INFINITY);
+};
+
 const resolveEventEndMonth = (
   portfolioStart: MonthYear,
   end: EventDate | 'endOfRetirement',
@@ -249,6 +259,10 @@ export const reforecastDeterministic = (
   let previousAdaptiveFinalMonthlyWithdrawal: number | undefined;
   let totalWithdrawn = 0;
   let totalShortfall = 0;
+  const withdrawalStartMonthIndex = resolveWithdrawalStartMonthIndex(config);
+  const totalWithdrawalMonths =
+    withdrawalStartMonthIndex === null ? durationMonths : durationMonths - (withdrawalStartMonthIndex - 1);
+  const totalWithdrawalYears = Math.ceil(totalWithdrawalMonths / 12);
   const adaptiveRollingReturns = isMonthlyWithdrawalStrategy(config.withdrawalStrategy)
     ? createRollingAnnualizedRealReturns(config.withdrawalStrategy.params.lookbackMonths)
     : null;
@@ -294,8 +308,12 @@ export const reforecastDeterministic = (
     balances = afterMarket;
 
     const phase = findSpendingPhaseForMonth(config, oneBasedMonth);
-    const totalRetirementYears = Math.ceil(durationMonths / 12);
-    const remainingRetirementYears = Math.ceil((durationMonths - monthIndex) / 12);
+    const withdrawalMonthIndex =
+      withdrawalStartMonthIndex === null ? oneBasedMonth : oneBasedMonth - withdrawalStartMonthIndex + 1;
+    const withdrawalYear = Math.floor((withdrawalMonthIndex - 1) / 12) + 1;
+    const withdrawalMonthInYear = ((withdrawalMonthIndex - 1) % 12) + 1;
+    const remainingWithdrawalMonths = totalWithdrawalMonths - (withdrawalMonthIndex - 1);
+    const remainingRetirementYears = Math.ceil(remainingWithdrawalMonths / 12);
 
     if (!phase) {
       previousAnnualWithdrawal = 0;
@@ -305,9 +323,9 @@ export const reforecastDeterministic = (
       const annualizedRealReturnsByAsset = adaptiveRollingReturns?.annualized() ?? undefined;
       const monthlyWithdrawal = calculateAnnualWithdrawal(
         {
-          year,
+          year: withdrawalYear,
           monthIndex: oneBasedMonth,
-          retirementYears: totalRetirementYears,
+          retirementYears: totalWithdrawalYears,
           portfolioValue: totalPortfolio(balances),
           initialPortfolioValue: totalPortfolio(initialBalances),
           previousWithdrawal: previousAnnualWithdrawal,
@@ -326,12 +344,12 @@ export const reforecastDeterministic = (
       const monthlyMin = phase.minMonthlySpend !== undefined ? roundToCents(phase.minMonthlySpend * monthlyInflationFactor) : 0;
       const monthlyMax = phase.maxMonthlySpend !== undefined ? roundToCents(phase.maxMonthlySpend * monthlyInflationFactor) : Infinity;
       currentMonthlyWithdrawal = Math.max(monthlyMin, Math.min(monthlyWithdrawal, monthlyMax));
-    } else if (monthInYear === 1 || currentMonthlyWithdrawal === 0) {
+    } else if (withdrawalMonthInYear === 1 || currentMonthlyWithdrawal === 0) {
       const annualWithdrawal = calculateAnnualWithdrawal(
         {
-          year,
+          year: withdrawalYear,
           monthIndex: oneBasedMonth,
-          retirementYears: totalRetirementYears,
+          retirementYears: totalWithdrawalYears,
           portfolioValue: totalPortfolio(balances),
           initialPortfolioValue: totalPortfolio(initialBalances),
           previousWithdrawal: previousAnnualWithdrawal,

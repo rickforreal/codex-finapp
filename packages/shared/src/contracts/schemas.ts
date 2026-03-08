@@ -183,7 +183,7 @@ const simulationConfigSchema = z
         cash: returnAssumptionSchema,
       })
       .strict(),
-    spendingPhases: z.array(spendingPhaseSchema).min(1).max(4),
+    spendingPhases: z.array(spendingPhaseSchema).max(4),
     withdrawalStrategy: z.discriminatedUnion('type', [
       z
         .object({

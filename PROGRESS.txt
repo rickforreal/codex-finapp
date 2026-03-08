@@ -2492,3 +2492,73 @@ Validation:
 - `npm run test -w @finapp/client -- src/store/useAppStore.compare.test.ts` ✅
 - `npm run lint -w @finapp/client` ✅
 - `npm run typecheck -w @finapp/client` ✅
+
+## 2026-03-08 11:40 — Spending Phase Date Entry + Contiguity + Empty Default Fix | COMPLETE
+
+Resolved spending-phase UX and boundary behavior regressions.
+- Manual month/year entry snap fix:
+  - Updated `/Users/ricknayar/Development/codex/finapp/packages/client/src/components/shared/MonthYearPicker.tsx` to use local draft values and commit on blur.
+  - Prevents transient partial values from immediately re-normalizing to portfolio bounds while typing.
+  - Added optional `onBlur` support in `/Users/ricknayar/Development/codex/finapp/packages/client/src/components/shared/NumericInput.tsx`.
+- Contiguous phase-boundary reversion:
+  - Updated `/Users/ricknayar/Development/codex/finapp/packages/client/src/store/useAppStore.ts` phase normalization so each phase `start` (except phase 1) is forced to previous phase `end`.
+  - Editing a phase end now automatically keeps next phase start in sync (no gaps), and later phase starts cannot move earlier than previous phase end.
+  - New phase creation aligns with previous phase end.
+- Empty-default behavior:
+  - Default state now starts with `spendingPhases: []`.
+  - Last remaining phase can be removed (portfolio can remain accumulation-only).
+  - Empty-state copy in `/Users/ricknayar/Development/codex/finapp/packages/client/src/components/inputs/SpendingPhases/SpendingPhases.tsx` now states no monthly withdrawals when no phase is active.
+- Contract alignment:
+  - Updated `/Users/ricknayar/Development/codex/finapp/packages/shared/src/contracts/schemas.ts` to allow zero spending phases (`max(4)` without `min(1)`).
+- Tests:
+  - Updated `/Users/ricknayar/Development/codex/finapp/packages/client/src/store/useAppStore.compare.test.ts` for empty-default semantics and added contiguous-boundary assertions.
+
+Validation:
+- `npm run test -w @finapp/client -- src/store/useAppStore.compare.test.ts` ✅
+- `npm run test -w @finapp/server -- tests/routes/simulation.test.ts` ✅
+- `npm run typecheck` ✅
+- `npm run lint` ✅
+- `npm test` ✅
+- `npm run build` ✅
+
+Canonical docs impact: No canonical doc updates required for this bugfix pass (behavior correction + default/UI refinement within existing spending-phase model).
+
+## 2026-03-08 12:18 — Delayed No-Bounds Spending Phase Withdrawal Fix (TS + Rust) | COMPLETE
+
+Fixed a withdrawal initialization bug for spending phases with blank `minMonthlySpend`/`maxMonthlySpend` that begin after portfolio month 1.
+
+Root cause:
+- Strategy context year/cadence was anchored to portfolio calendar year, not withdrawal-phase timeline.
+- When first spending phase began mid-year in a later portfolio year, non-monthly strategies (e.g. Constant Dollar) were evaluated as later-year logic with `previousWithdrawal=0`, yielding `0` requested withdrawals.
+- This appeared like blank Min/Max forcing zero, but was actually a strategy-year initialization issue.
+
+Fixes:
+- Server TS engines:
+  - `/Users/ricknayar/Development/codex/finapp/packages/server/src/engine/simulator.ts`
+  - `/Users/ricknayar/Development/codex/finapp/packages/server/src/engine/deterministic.ts`
+  - Added withdrawal timeline anchors:
+    - `withdrawalStartMonthIndex` from earliest spending-phase start
+    - `withdrawalYear`, `withdrawalMonthInYear`, `totalWithdrawalYears`, and remaining-years derived from that anchor
+  - Strategy calculations now use withdrawal-timeline year semantics while preserving no-withdrawal months outside active phases.
+- Native Rust engine parity:
+  - `/Users/ricknayar/Development/codex/finapp/packages/native-mc/src/lib.rs`
+  - Added `resolve_withdrawal_start_month_index` and applied the same withdrawal-timeline year/cadence logic in `simulate_retirement`.
+
+Regression tests added/updated:
+- `/Users/ricknayar/Development/codex/finapp/packages/server/tests/engine/simulator.test.ts`
+  - `should keep withdrawals at 0 before first spending phase starts and initialize strategy at phase start month`
+  - Uses delayed mid-year phase with undefined min/max; asserts month-before=0, phase-start>0.
+- `/Users/ricknayar/Development/codex/finapp/packages/server/tests/engine/deterministic.test.ts`
+  - Added delayed no-bounds phase test with same assertion pattern.
+- `/Users/ricknayar/Development/codex/finapp/packages/native-mc/src/lib.rs`
+  - Added native unit test `run_single_path_json_starts_withdrawals_when_no_bounds_phase_begins_mid_year`.
+
+Validation:
+- `npm run test -w @finapp/server -- tests/engine/simulator.test.ts tests/engine/deterministic.test.ts` ✅
+- `npm run test -w @finapp/server -- tests/engine/monteCarlo.test.ts` ✅
+- `npm run test -w @finapp/native-mc` ✅
+- `npm run typecheck` ✅
+- `npm run lint` ✅
+- `npm test` ✅
+
+Canonical docs impact: No canonical doc updates required for this bugfix pass (calculation-correctness fix within existing spending-phase/strategy model).

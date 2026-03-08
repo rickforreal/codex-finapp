@@ -859,6 +859,10 @@ fn build_spending_phase_schedule(config: &SimulationConfig) -> Vec<SpendingPhase
     .collect()
 }
 
+fn resolve_withdrawal_start_month_index(phase_schedule: &[SpendingPhaseSchedule]) -> Option<i32> {
+  phase_schedule.iter().map(|phase| phase.start_month).min()
+}
+
 fn find_spending_phase_for_month<'a>(
   phase_schedule: &'a [SpendingPhaseSchedule],
   month_index: i32,
@@ -1910,7 +1914,6 @@ fn simulate_retirement(
   let duration_months =
     months_between(&config.core_params.portfolio_start, &config.core_params.portfolio_end).max(0) as usize;
   let portfolio_months = duration_months as i32;
-  let total_retirement_years = ((duration_months as f64) / 12.0).ceil() as i32;
   let initial_balances = config.portfolio;
   let inflation_rate_for_year = |year: i32| {
     inflation_overrides_by_year
@@ -1945,6 +1948,12 @@ fn simulate_retirement(
     _ => None,
   };
   let spending_phase_schedule = build_spending_phase_schedule(config);
+  let withdrawal_start_month_index = resolve_withdrawal_start_month_index(&spending_phase_schedule);
+  let total_withdrawal_months = match withdrawal_start_month_index {
+    Some(start) => portfolio_months - (start - 1),
+    None => portfolio_months,
+  };
+  let total_withdrawal_years = (total_withdrawal_months as f64 / 12.0).ceil() as i32;
   let income_event_schedule = build_income_event_schedule(config, portfolio_months);
   let expense_event_schedule = build_expense_event_schedule(config, portfolio_months);
 
@@ -2010,8 +2019,14 @@ fn simulate_retirement(
     }
 
     let phase = find_spending_phase_for_month(&spending_phase_schedule, one_based_month as i32);
-    let remaining_retirement_years =
-      ((duration_months.saturating_sub(month_index)) as f64 / 12.0).ceil();
+    let withdrawal_month_index = match withdrawal_start_month_index {
+      Some(start) => one_based_month as i32 - start + 1,
+      None => one_based_month as i32,
+    };
+    let withdrawal_year = ((withdrawal_month_index - 1) / 12) + 1;
+    let withdrawal_month_in_year = ((withdrawal_month_index - 1) % 12) + 1;
+    let remaining_withdrawal_months = total_withdrawal_months - (withdrawal_month_index - 1);
+    let remaining_retirement_years = (remaining_withdrawal_months as f64 / 12.0).ceil();
 
     if phase.is_none() {
       previous_annual_withdrawal = 0.0;
@@ -2025,8 +2040,8 @@ fn simulate_retirement(
             .and_then(|rolling| rolling.annualized());
           let monthly_withdrawal = calculate_annual_withdrawal(
             &StrategyContext {
-              year,
-              retirement_years: total_retirement_years,
+              year: withdrawal_year,
+              retirement_years: total_withdrawal_years,
               portfolio_value: total_portfolio(&balances),
               initial_portfolio_value: total_portfolio(&initial_balances),
               previous_withdrawal: previous_annual_withdrawal,
@@ -2059,11 +2074,11 @@ fn simulate_retirement(
           }
         }
         _ => {
-          if month_in_year == 1 || current_monthly_withdrawal == 0.0 {
+          if withdrawal_month_in_year == 1 || current_monthly_withdrawal == 0.0 {
             let annual_withdrawal = calculate_annual_withdrawal(
               &StrategyContext {
-                year,
-                retirement_years: total_retirement_years,
+                year: withdrawal_year,
+                retirement_years: total_withdrawal_years,
                 portfolio_value: total_portfolio(&balances),
                 initial_portfolio_value: total_portfolio(&initial_balances),
                 previous_withdrawal: previous_annual_withdrawal,
@@ -2894,5 +2909,71 @@ mod tests {
 
     let response = run_single_path_json(request).expect("run single path");
     assert!(!response.result_json.is_empty());
+  }
+
+  #[test]
+  fn run_single_path_json_starts_withdrawals_when_no_bounds_phase_begins_mid_year() {
+    let request = NativeSinglePathRequest {
+      config_json: r#"{
+        "mode":"planning",
+        "simulationMode":"manual",
+        "returnsSource":"manual",
+        "simulationRuns":1000,
+        "selectedHistoricalEra":"fullHistory",
+        "customHistoricalRange":null,
+        "blockBootstrapEnabled":false,
+        "blockBootstrapLength":12,
+        "coreParams":{
+          "birthDate":{"month":1,"year":1970},
+          "portfolioStart":{"month":1,"year":2030},
+          "portfolioEnd":{"month":1,"year":2040},
+          "inflationRate":0.03
+        },
+        "portfolio":{"stocks":60000000,"bonds":30000000,"cash":10000000},
+        "returnAssumptions":{
+          "stocks":{"expectedReturn":0.0,"stdDev":0.0},
+          "bonds":{"expectedReturn":0.0,"stdDev":0.0},
+          "cash":{"expectedReturn":0.0,"stdDev":0.0}
+        },
+        "spendingPhases":[
+          {
+            "id":"phase-1",
+            "name":"Delayed No Bounds",
+            "start":{"month":6,"year":2034},
+            "end":{"month":1,"year":2040}
+          }
+        ],
+        "withdrawalStrategy":{"type":"constantDollar","params":{"initialWithdrawalRate":0.04}},
+        "drawdownStrategy":{"type":"bucket","bucketOrder":["cash","bonds","stocks"]},
+        "incomeEvents":[],
+        "expenseEvents":[]
+      }"#
+      .to_string(),
+      monthly_returns_json: serde_json::to_string(&vec![
+        MonthlyReturns {
+          stocks: 0.0,
+          bonds: 0.0,
+          cash: 0.0,
+        };
+        120
+      ])
+      .expect("serialize returns"),
+      actual_overrides_by_month_json: Some("{}".to_string()),
+      inflation_overrides_by_year_json: Some("{}".to_string()),
+    };
+
+    let response = run_single_path_json(request).expect("run single path");
+    let parsed: Value = serde_json::from_str(&response.result_json).expect("parse result");
+    let rows = parsed["rows"].as_array().expect("rows array");
+
+    let month_before_start = rows[52]["withdrawals"]["requested"]
+      .as_f64()
+      .expect("month before start requested");
+    let phase_start_month = rows[53]["withdrawals"]["requested"]
+      .as_f64()
+      .expect("phase start month requested");
+
+    assert_eq!(month_before_start, 0.0);
+    assert!(phase_start_month > 0.0);
   }
 }

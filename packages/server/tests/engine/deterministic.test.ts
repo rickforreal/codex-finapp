@@ -63,4 +63,25 @@ describe('reforecastDeterministic', () => {
     expect(withoutBounds.summary.totalWithdrawn).toBe(withWidePhase.summary.totalWithdrawn);
     expect(withoutBounds.summary.terminalPortfolioValue).toBe(withWidePhase.summary.terminalPortfolioValue);
   });
+
+  it('starts non-zero strategy withdrawals when a no-bounds phase begins mid-year after accumulation', () => {
+    const config = createBaseConfig();
+    config.spendingPhases = [
+      {
+        id: 'delayed-no-bounds',
+        name: 'Delayed No Bounds',
+        start: { month: 6, year: config.coreParams.portfolioStart.year + 4 },
+        end: config.coreParams.portfolioEnd,
+        minMonthlySpend: undefined,
+        maxMonthlySpend: undefined,
+      },
+    ];
+
+    const result = reforecastDeterministic(config, {});
+
+    const monthBeforeStart = result.rows[52];
+    const phaseStartMonth = result.rows[53];
+    expect(monthBeforeStart?.withdrawals.requested).toBe(0);
+    expect(phaseStartMonth?.withdrawals.requested).toBeGreaterThan(0);
+  });
 });

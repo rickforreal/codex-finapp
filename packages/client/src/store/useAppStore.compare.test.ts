@@ -41,30 +41,31 @@ describe('useAppStore compare slot behavior', () => {
     expect(state.compareWorkspace.slots.A?.portfolio.stocks).not.toBe(1_234_567);
   });
 
-  it('starts with one default spending phase and supports add/remove back to one', () => {
+  it('starts with no spending phases and supports add/remove to empty', () => {
     resetStore();
     const store = useAppStore.getState();
-    expect(useAppStore.getState().spendingPhases).toHaveLength(1);
+    expect(useAppStore.getState().spendingPhases).toHaveLength(0);
 
     store.removeSpendingPhase('missing-phase-id');
-    expect(useAppStore.getState().spendingPhases).toHaveLength(1);
+    expect(useAppStore.getState().spendingPhases).toHaveLength(0);
 
     store.addSpendingPhase();
-    expect(useAppStore.getState().spendingPhases).toHaveLength(2);
-    const createdId = useAppStore.getState().spendingPhases[1]?.id;
+    expect(useAppStore.getState().spendingPhases).toHaveLength(1);
+    const createdId = useAppStore.getState().spendingPhases[0]?.id;
     if (!createdId) {
       throw new Error('Expected created spending phase');
     }
     store.removeSpendingPhase(createdId);
-    expect(useAppStore.getState().spendingPhases).toHaveLength(1);
+    expect(useAppStore.getState().spendingPhases).toHaveLength(0);
   });
 
   it('allows editing start and end dates for a single spending phase', () => {
     resetStore();
     const store = useAppStore.getState();
+    store.addSpendingPhase();
     const phase = useAppStore.getState().spendingPhases[0];
     if (!phase) {
-      throw new Error('Expected default spending phase');
+      throw new Error('Expected spending phase');
     }
 
     const portfolioStart = useAppStore.getState().coreParams.portfolioStart;
@@ -76,6 +77,29 @@ describe('useAppStore compare slot behavior', () => {
     const updated = useAppStore.getState().spendingPhases.find((entry) => entry.id === phase.id);
     expect(updated?.start).toEqual(requestedStart);
     expect(updated?.end).toEqual(requestedEnd);
+  });
+
+  it('keeps phase boundaries contiguous by syncing next phase start to previous phase end', () => {
+    resetStore();
+    const store = useAppStore.getState();
+    const portfolioStart = useAppStore.getState().coreParams.portfolioStart;
+
+    store.addSpendingPhase();
+    store.addSpendingPhase();
+    const [first, second] = useAppStore.getState().spendingPhases;
+    if (!first || !second) {
+      throw new Error('Expected two spending phases');
+    }
+
+    const firstEnd = addMonths(portfolioStart, 18);
+    store.updateSpendingPhase(first.id, { end: firstEnd });
+    const updatedSecond = useAppStore.getState().spendingPhases.find((phase) => phase.id === second.id);
+    expect(updatedSecond?.start).toEqual(firstEnd);
+
+    const attemptedEarlier = addMonths(firstEnd, -6);
+    store.updateSpendingPhase(second.id, { start: attemptedEarlier });
+    const clampedSecond = useAppStore.getState().spendingPhases.find((phase) => phase.id === second.id);
+    expect(clampedSecond?.start).toEqual(firstEnd);
   });
 
   it('defaults new income and expense event start dates to portfolio start', () => {
@@ -436,11 +460,11 @@ describe('useAppStore compare slot behavior', () => {
     activateCompare();
     const store = useAppStore.getState();
     store.setCompareActiveSlot('A');
-    expect(useAppStore.getState().spendingPhases).toHaveLength(1);
+    expect(useAppStore.getState().spendingPhases).toHaveLength(0);
     store.toggleCompareFamilyLock('spendingPhases');
 
     store.setCompareActiveSlot('B');
     store.addSpendingPhase();
-    expect(useAppStore.getState().spendingPhases).toHaveLength(1);
+    expect(useAppStore.getState().spendingPhases).toHaveLength(0);
   });
 });

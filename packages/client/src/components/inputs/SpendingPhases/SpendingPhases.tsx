@@ -13,7 +13,7 @@ export const SpendingPhases = () => {
       {phases.length === 0 ? (
         <div className="space-y-3 rounded-md border border-dashed border-brand-border bg-brand-surface p-3">
           <p className="text-xs text-slate-600">
-            No spending phase bounds are active. Withdrawals are currently driven only by your selected withdrawal strategy.
+            No spending phases are active. This portfolio is currently accumulation-only with no monthly withdrawals.
           </p>
           <button
             type="button"
@@ -31,7 +31,7 @@ export const SpendingPhases = () => {
             <PhaseCard
               key={phase.id}
               phase={phase}
-              canRemove={phases.length > 1 && !familyLockState.readOnly}
+              canRemove={!familyLockState.readOnly}
               familyReadOnly={familyLockState.readOnly}
               onUpdate={(patch) => updateSpendingPhase(phase.id, patch)}
               onRemove={() => removeSpendingPhase(phase.id)}

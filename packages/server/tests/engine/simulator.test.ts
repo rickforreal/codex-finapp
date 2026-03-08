@@ -117,20 +117,23 @@ describe('simulateRetirement', () => {
     expect(new Set(monthlyWithdrawals).size).toBeGreaterThanOrEqual(5);
   });
 
-  it('should keep withdrawals at 0 before first spending phase starts', () => {
+  it('should keep withdrawals at 0 before first spending phase starts and initialize strategy at phase start month', () => {
     const config = createBaseConfig();
-    config.spendingPhases[0]!.start = { month: 1, year: config.coreParams.portfolioStart.year + 4 };
+    config.spendingPhases[0] = {
+      ...config.spendingPhases[0]!,
+      start: { month: 6, year: config.coreParams.portfolioStart.year + 4 },
+      minMonthlySpend: undefined,
+      maxMonthlySpend: undefined,
+    };
     const returns = createZeroReturns(((config.coreParams.portfolioEnd.year - config.coreParams.portfolioStart.year) * 12 + (config.coreParams.portfolioEnd.month - config.coreParams.portfolioStart.month)));
 
     const result = simulateRetirement(config, returns);
 
-    const year4FirstMonth = result.rows[36];
-    const year5FirstMonth = result.rows[48];
+    const monthBeforeStart = result.rows[52];
+    const phaseStartMonth = result.rows[53];
 
-    expect(year4FirstMonth?.year).toBe(4);
-    expect(year4FirstMonth?.withdrawals.requested).toBe(0);
-    expect(year5FirstMonth?.year).toBe(5);
-    expect(year5FirstMonth?.withdrawals.requested).toBeGreaterThan(0);
+    expect(monthBeforeStart?.withdrawals.requested).toBe(0);
+    expect(phaseStartMonth?.withdrawals.requested).toBeGreaterThan(0);
   });
 
   it('recalculates withdrawals monthly for dynamic SWR adaptive strategy', () => {

@@ -31,7 +31,7 @@ import {
 
 import { createId } from '../lib/id';
 import { sanitizeTrackingActualOverrides } from '../lib/trackingActuals';
-import { addMonths, compareMonthYear, maxMonthYear, minMonthYear, monthsBetween } from '../lib/dates';
+import { compareMonthYear, maxMonthYear, minMonthYear, monthsBetween } from '../lib/dates';
 
 export type IncomeEventForm = {
   id: string;
@@ -769,13 +769,12 @@ const recalculatePhaseBoundaries = (
   const recalculated: SpendingPhaseForm[] = [];
 
   sorted.forEach((phase, index) => {
-    const previousEnd = recalculated[index - 1]?.end;
-    const minStart = index === 0 ? portfolioStart : addMonths(previousEnd!, 1);
-    const start = minMonthYear(maxMonthYear(phase.start, minStart), portfolioEnd);
+    const start =
+      index === 0
+        ? minMonthYear(maxMonthYear(phase.start, portfolioStart), portfolioEnd)
+        : recalculated[index - 1]!.end;
 
-    const remainingPhases = sorted.length - index - 1;
-    const latestEndForCurrent = addMonths(portfolioEnd, -remainingPhases);
-    const end = minMonthYear(maxMonthYear(phase.end, start), latestEndForCurrent);
+    const end = minMonthYear(maxMonthYear(phase.end, start), portfolioEnd);
 
     recalculated.push({ ...phase, start, end });
   });
@@ -1983,16 +1982,7 @@ export const useAppStore = create<AppStore>((set) => ({
     bonds: { expectedReturn: 0.04, stdDev: 0.07 },
     cash: { expectedReturn: 0.02, stdDev: 0.01 },
   },
-  spendingPhases: [
-    {
-      id: createId('phase'),
-      name: 'Phase 1',
-      start: { month: new Date().getMonth() + 1, year: new Date().getFullYear() },
-      end: { month: new Date().getMonth() + 1, year: new Date().getFullYear() + 40 },
-      minMonthlySpend: undefined,
-      maxMonthlySpend: undefined,
-    },
-  ],
+  spendingPhases: [],
   withdrawalStrategy: {
     type: WithdrawalStrategyType.ConstantDollar,
     params: defaultWithdrawalStrategyParams(),
@@ -3042,15 +3032,18 @@ export const useAppStore = create<AppStore>((set) => ({
       }
       const portfolioStart = state.coreParams.portfolioStart;
       const portfolioEnd = state.coreParams.portfolioEnd;
-      
+      const lastPhase = state.spendingPhases[state.spendingPhases.length - 1];
+      const phaseStart = lastPhase ? lastPhase.end : portfolioStart;
+      const phaseEnd = state.spendingPhases.length === 0 ? portfolioEnd : phaseStart;
+
       const staleState = markTrackingOutputStateStale(state);
       const next = [
         ...state.spendingPhases,
         {
           ...defaultPhase(),
           name: `Phase ${state.spendingPhases.length + 1}`,
-          start: portfolioEnd,
-          end: portfolioEnd,
+          start: phaseStart,
+          end: phaseEnd,
         },
       ];
       return {
@@ -3066,7 +3059,7 @@ export const useAppStore = create<AppStore>((set) => ({
       ) {
         return state;
       }
-      if (state.spendingPhases.length <= 1) {
+      if (state.spendingPhases.length === 0) {
         return state;
       }
       const next = state.spendingPhases.filter((phase) => phase.id !== id);
