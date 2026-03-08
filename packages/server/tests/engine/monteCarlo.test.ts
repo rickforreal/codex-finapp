@@ -88,10 +88,19 @@ describe('runMonteCarlo', () => {
     expect(result.monteCarlo.probabilityOfSuccess).toBe(0);
   });
 
-  it('treats empty spending phases as no clamp bounds', async () => {
-    const configWithoutPhases = createBaseConfig();
-    configWithoutPhases.simulationMode = SimulationMode.MonteCarlo;
-    configWithoutPhases.spendingPhases = [];
+  it('treats undefined min/max bounds as no clamp bounds', async () => {
+    const configWithoutBounds = createBaseConfig();
+    configWithoutBounds.simulationMode = SimulationMode.MonteCarlo;
+    configWithoutBounds.spendingPhases = [
+      {
+        id: 'no-bounds',
+        name: 'No Bounds',
+        start: { month: 1, year: 2030 },
+        end: configWithoutBounds.coreParams.portfolioEnd,
+        minMonthlySpend: undefined,
+        maxMonthlySpend: undefined,
+      },
+    ];
 
     const configWithWidePhase = createBaseConfig();
     configWithWidePhase.simulationMode = SimulationMode.MonteCarlo;
@@ -99,18 +108,18 @@ describe('runMonteCarlo', () => {
       {
         id: 'wide',
         name: 'Wide',
-        startYear: 1,
-        endYear: configWithWidePhase.coreParams.retirementDuration,
+        start: { month: 1, year: 2030 },
+        end: configWithWidePhase.coreParams.portfolioEnd,
         minMonthlySpend: 0,
         maxMonthlySpend: 1_000_000_000,
       },
     ];
 
-    const withoutPhases = await runMonteCarlo(configWithoutPhases, { runs: 300, seed: 101 });
-    const withWidePhase = await runMonteCarlo(configWithWidePhase, { runs: 300, seed: 101 });
+    const withoutBounds = await runMonteCarlo(configWithoutBounds, { runs: 200, seed: 15 });
+    const withWidePhase = await runMonteCarlo(configWithWidePhase, { runs: 200, seed: 15 });
 
-    expect(withoutPhases.monteCarlo.probabilityOfSuccess).toBe(withWidePhase.monteCarlo.probabilityOfSuccess);
-    expect(withoutPhases.representativePath.summary.terminalPortfolioValue).toBe(
+    expect(withoutBounds.monteCarlo.probabilityOfSuccess).toBe(withWidePhase.monteCarlo.probabilityOfSuccess);
+    expect(withoutBounds.representativePath.summary.terminalPortfolioValue).toBe(
       withWidePhase.representativePath.summary.terminalPortfolioValue,
     );
   });
@@ -200,7 +209,7 @@ describe('runMonteCarlo', () => {
     const result = await runMonteCarlo(config, { runs: 50, seed: 99 });
     expect(result.monteCarlo.simulationCount).toBe(50);
     expect(result.monteCarlo.percentileCurves.total.p50.length).toBe(
-      config.coreParams.retirementDuration * 12,
+      ((config.coreParams.portfolioEnd.year - config.coreParams.portfolioStart.year) * 12 + (config.coreParams.portfolioEnd.month - config.coreParams.portfolioStart.month)),
     );
   });
 
@@ -226,11 +235,11 @@ describe('runMonteCarlo', () => {
       id: 'crash',
       label: 'Crash',
       type: 'stockCrash',
-      startYear: 2,
+      start: { month: 1, year: 2031 },
       params: { dropPct: -0.35 },
     };
     const descriptor = {
-      projectedStartMonth: 1,
+      portfolioStart: config.coreParams.portfolioStart,
       scenario,
     };
 

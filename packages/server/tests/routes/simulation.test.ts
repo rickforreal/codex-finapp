@@ -58,11 +58,11 @@ describe('POST /api/v1/simulate', () => {
     request.seed = 42;
     request.config.simulationMode = SimulationMode.MonteCarlo;
     request.config.selectedHistoricalEra = HistoricalEra.FullHistory;
-    request.config.coreParams.retirementDuration = 30;
+    request.config.coreParams.portfolioEnd = { month: 1, year: 2030 + 30 };
     request.config.spendingPhases = [
       {
         ...request.config.spendingPhases[0]!,
-        endYear: 30,
+        end: { month: 1, year: 2029 + 30 },
         minMonthlySpend: 0,
         maxMonthlySpend: 1_000_000_000,
       },
@@ -115,10 +115,19 @@ describe('POST /api/v1/simulate', () => {
     await app.close();
   });
 
-  it('accepts empty spending phases and runs simulation', async () => {
+  it('accepts undefined bounds spending phases and runs simulation', async () => {
     const app = createApp();
     const request = createSimulateRequest();
-    request.config.spendingPhases = [];
+    request.config.spendingPhases = [
+      {
+        id: 'p1',
+        name: 'Phase 1',
+        start: { month: 1, year: 2030 },
+        end: request.config.coreParams.portfolioEnd,
+        minMonthlySpend: undefined,
+        maxMonthlySpend: undefined,
+      },
+    ];
 
     const response = await app.inject({
       method: 'POST',

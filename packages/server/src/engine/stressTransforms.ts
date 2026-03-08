@@ -1,14 +1,15 @@
-import type { MonthlyReturns, StressScenario } from '@finapp/shared';
+import type { MonthlyReturns, StressScenario, MonthYear } from '@finapp/shared';
+import { monthsBetween } from './helpers/dates';
 
 export type StressTransformDescriptor = {
-  projectedStartMonth: number;
+  portfolioStart: MonthYear;
   scenario: StressScenario;
 };
 
 const toMonthlyRate = (annualRate: number): number => (1 + annualRate) ** (1 / 12) - 1;
 
-const toTimelineMonth = (projectedStartMonth: number, startYear: number): number =>
-  projectedStartMonth + (startYear - 1) * 12;
+const toTimelineMonth = (portfolioStart: MonthYear, start: MonthYear): number =>
+  monthsBetween(portfolioStart, start) + 1;
 
 const cloneReturns = (returns: MonthlyReturns[]): MonthlyReturns[] => returns.map((value) => ({ ...value }));
 
@@ -23,7 +24,7 @@ export const returnsWithStressTransform = (
   baselineReturns: MonthlyReturns[],
 ): MonthlyReturns[] => {
   const returns = cloneReturns(baselineReturns);
-  const startMonth = toTimelineMonth(descriptor.projectedStartMonth, descriptor.scenario.startYear);
+  const startMonth = toTimelineMonth(descriptor.portfolioStart, descriptor.scenario.start);
   const startIndex = Math.max(0, startMonth - 1);
 
   if (startIndex >= returns.length) {
@@ -97,7 +98,7 @@ export const inflationOverridesForScenario = (
     return {};
   }
 
-  const startMonth = toTimelineMonth(descriptor.projectedStartMonth, descriptor.scenario.startYear);
+  const startMonth = toTimelineMonth(descriptor.portfolioStart, descriptor.scenario.start);
   const startYear = Math.floor((startMonth - 1) / 12) + 1;
   const overrides: Partial<Record<number, number>> = {};
   for (let offset = 0; offset < descriptor.scenario.params.durationYears; offset += 1) {

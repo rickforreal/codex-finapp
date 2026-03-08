@@ -10,6 +10,7 @@ import {
   type SimulationConfig,
   type SinglePathResult,
   type SpendingPhase,
+  type MonthYear,
 } from '@finapp/shared';
 
 import { applyConfiguredDrawdown } from './drawdown';
@@ -18,6 +19,7 @@ import { createRollingAnnualizedRealReturns } from './helpers/rollingWindow';
 import { roundToCents } from './helpers/rounding';
 import { calculateAnnualWithdrawal, isMonthlyWithdrawalStrategy } from './strategies';
 import { toRealMonthlyReturn } from './strategies/dynamicSwrAdaptive';
+import { addMonths, compareMonthYear, monthsBetween } from './helpers/dates';
 
 const totalPortfolio = (balances: AssetBalances): number =>
   roundToCents(balances.stocks + balances.bonds + balances.cash);
@@ -34,20 +36,22 @@ const resolveStartOfMonthWeights = (balances: AssetBalances): { stocks: number; 
   };
 };
 
-const findSpendingPhaseForYear = (config: SimulationConfig, year: number): SpendingPhase | null => {
-  const match = config.spendingPhases.find((phase) => year >= phase.startYear && year <= phase.endYear);
-  const fallback = config.spendingPhases[config.spendingPhases.length - 1];
-  return match ?? fallback ?? null;
+const findSpendingPhaseForMonth = (config: SimulationConfig, monthIndex: number): SpendingPhase | null => {
+  const currentDate = addMonths(config.coreParams.portfolioStart, monthIndex - 1);
+  const match = config.spendingPhases.find(
+    (phase) => compareMonthYear(currentDate, phase.start) >= 0 && compareMonthYear(currentDate, phase.end) <= 0
+  );
+  return match ?? null;
 };
 
-const monthKeyToIndex = (retirementStart: EventDate, date: EventDate): number =>
-  (date.year - retirementStart.year) * 12 + (date.month - retirementStart.month) + 1;
+const monthKeyToIndex = (portfolioStart: MonthYear, date: MonthYear): number =>
+  monthsBetween(portfolioStart, date) + 1;
 
 const resolveEventEndMonth = (
-  retirementStart: EventDate,
+  portfolioStart: MonthYear,
   end: EventDate | 'endOfRetirement',
-  retirementMonths: number,
-): number => (end === 'endOfRetirement' ? retirementMonths : monthKeyToIndex(retirementStart, end));
+  portfolioMonths: number,
+): number => (end === 'endOfRetirement' ? portfolioMonths : monthKeyToIndex(portfolioStart, end));
 
 const eventMatchesFrequency = (offsetFromStart: number, frequency: EventFrequency): boolean => {
   if (offsetFromStart < 0) {
@@ -86,11 +90,11 @@ const sumEventIncome = (
 ): number => {
   let incomeTotal = 0;
   for (const event of incomeEvents) {
-    const startMonth = monthKeyToIndex(config.coreParams.retirementStartDate, event.start);
+    const startMonth = monthKeyToIndex(config.coreParams.portfolioStart, event.start);
     const endMonth = resolveEventEndMonth(
-      config.coreParams.retirementStartDate,
+      config.coreParams.portfolioStart,
       event.end,
-      config.coreParams.retirementDuration * 12,
+      monthsBetween(config.coreParams.portfolioStart, config.coreParams.portfolioEnd),
     );
     if (monthIndex < startMonth || monthIndex > endMonth) {
       continue;
@@ -133,11 +137,11 @@ const sumEventExpenses = (
   let shortfallTotal = 0;
 
   for (const event of expenseEvents) {
-    const startMonth = monthKeyToIndex(config.coreParams.retirementStartDate, event.start);
+    const startMonth = monthKeyToIndex(config.coreParams.portfolioStart, event.start);
     const endMonth = resolveEventEndMonth(
-      config.coreParams.retirementStartDate,
+      config.coreParams.portfolioStart,
       event.end,
-      config.coreParams.retirementDuration * 12,
+      monthsBetween(config.coreParams.portfolioStart, config.coreParams.portfolioEnd),
     );
     if (monthIndex < startMonth || monthIndex > endMonth) {
       continue;
@@ -218,8 +222,7 @@ export const reforecastDeterministic = (
   actualOverridesByMonth: ActualOverridesByMonth,
 ): SinglePathResult => {
   const normalizedOverrides = normalizeOverrides(actualOverridesByMonth);
-  const durationMonths = config.coreParams.retirementDuration * 12;
-  const withdrawalStartYear = Math.max(1, config.coreParams.withdrawalsStartAt - config.coreParams.startingAge);
+  const durationMonths = monthsBetween(config.coreParams.portfolioStart, config.coreParams.portfolioEnd);
   const monthlyRates = {
     stocks: annualToMonthlyRate(config.returnAssumptions.stocks.expectedReturn),
     bonds: annualToMonthlyRate(config.returnAssumptions.bonds.expectedReturn),
@@ -290,7 +293,11 @@ export const reforecastDeterministic = (
     }
     balances = afterMarket;
 
-    if (year < withdrawalStartYear) {
+    const phase = findSpendingPhaseForMonth(config, oneBasedMonth);
+    const totalRetirementYears = Math.ceil(durationMonths / 12);
+    const remainingRetirementYears = Math.ceil((durationMonths - monthIndex) / 12);
+
+    if (!phase) {
       previousAnnualWithdrawal = 0;
       currentMonthlyWithdrawal = 0;
       previousAdaptiveFinalMonthlyWithdrawal = 0;
@@ -300,14 +307,14 @@ export const reforecastDeterministic = (
         {
           year,
           monthIndex: oneBasedMonth,
-          retirementYears: config.coreParams.retirementDuration,
+          retirementYears: totalRetirementYears,
           portfolioValue: totalPortfolio(balances),
           initialPortfolioValue: totalPortfolio(initialBalances),
           previousWithdrawal: previousAnnualWithdrawal,
           previousMonthlyWithdrawal: previousAdaptiveFinalMonthlyWithdrawal,
           previousYearReturn,
           previousYearStartPortfolio,
-          remainingYears: config.coreParams.retirementDuration - year + 1,
+          remainingYears: remainingRetirementYears,
           remainingMonths: durationMonths - monthIndex,
           inflationRate: config.coreParams.inflationRate,
           startOfMonthWeights: resolveStartOfMonthWeights(startBalances),
@@ -315,44 +322,35 @@ export const reforecastDeterministic = (
         },
         config.withdrawalStrategy,
       );
-      const phase = findSpendingPhaseForYear(config, year);
-      if (!phase) {
-        currentMonthlyWithdrawal = monthlyWithdrawal;
-      } else {
-        const monthlyInflationFactor = inflationFactorByMonth[oneBasedMonth] ?? 1;
-        const monthlyMin = roundToCents(phase.minMonthlySpend * monthlyInflationFactor);
-        const monthlyMax = roundToCents(phase.maxMonthlySpend * monthlyInflationFactor);
-        currentMonthlyWithdrawal = Math.max(monthlyMin, Math.min(monthlyWithdrawal, monthlyMax));
-      }
-    } else if (monthInYear === 1) {
+      const monthlyInflationFactor = inflationFactorByMonth[oneBasedMonth] ?? 1;
+      const monthlyMin = phase.minMonthlySpend !== undefined ? roundToCents(phase.minMonthlySpend * monthlyInflationFactor) : 0;
+      const monthlyMax = phase.maxMonthlySpend !== undefined ? roundToCents(phase.maxMonthlySpend * monthlyInflationFactor) : Infinity;
+      currentMonthlyWithdrawal = Math.max(monthlyMin, Math.min(monthlyWithdrawal, monthlyMax));
+    } else if (monthInYear === 1 || currentMonthlyWithdrawal === 0) {
       const annualWithdrawal = calculateAnnualWithdrawal(
         {
           year,
           monthIndex: oneBasedMonth,
-          retirementYears: config.coreParams.retirementDuration,
+          retirementYears: totalRetirementYears,
           portfolioValue: totalPortfolio(balances),
           initialPortfolioValue: totalPortfolio(initialBalances),
           previousWithdrawal: previousAnnualWithdrawal,
           previousYearReturn,
           previousYearStartPortfolio,
-          remainingYears: config.coreParams.retirementDuration - year + 1,
+          remainingYears: remainingRetirementYears,
           remainingMonths: durationMonths - monthIndex,
           inflationRate: config.coreParams.inflationRate,
           startOfMonthWeights: resolveStartOfMonthWeights(startBalances),
         },
         config.withdrawalStrategy,
       );
-      const phase = findSpendingPhaseForYear(config, year);
       const clampedAnnual = (() => {
-        if (!phase) {
-          return annualWithdrawal;
-        }
-        const annualMin = roundToCents(
+        const annualMin = phase.minMonthlySpend !== undefined ? roundToCents(
           inflateAnnualAmount(phase.minMonthlySpend * 12, config.coreParams.inflationRate, year - 1),
-        );
-        const annualMax = roundToCents(
+        ) : 0;
+        const annualMax = phase.maxMonthlySpend !== undefined ? roundToCents(
           inflateAnnualAmount(phase.maxMonthlySpend * 12, config.coreParams.inflationRate, year - 1),
-        );
+        ) : Infinity;
         return Math.max(annualMin, Math.min(annualWithdrawal, annualMax));
       })();
       previousAnnualWithdrawal = clampedAnnual;

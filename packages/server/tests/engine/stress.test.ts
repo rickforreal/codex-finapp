@@ -26,7 +26,7 @@ describe('runStressTest', () => {
         id: 'no-shock',
         label: 'No Shock',
         type: 'stockCrash',
-        startYear: 1,
+        start: { month: 1, year: 2030 },
         params: { dropPct: 0 },
       },
     ];
@@ -48,7 +48,7 @@ describe('runStressTest', () => {
         id: 'crash',
         label: 'Crash',
         type: 'stockCrash',
-        startYear: 1,
+        start: { month: 1, year: 2030 },
         params: { dropPct: -0.3 },
       },
     ];
@@ -71,7 +71,7 @@ describe('runStressTest', () => {
         id: 'crash',
         label: 'Crash',
         type: 'stockCrash',
-        startYear: 1,
+        start: { month: 1, year: 2030 },
         params: { dropPct: -0.3 },
       },
     ];
@@ -93,7 +93,7 @@ describe('runStressTest', () => {
         id: 'mc-crash',
         label: 'MC Crash',
         type: 'stockCrash',
-        startYear: 1,
+        start: { month: 1, year: 2030 },
         params: { dropPct: -0.3 },
       },
     ];
@@ -111,13 +111,13 @@ describe('runStressTest', () => {
 
     const config = createBaseConfig();
     config.simulationMode = SimulationMode.Manual;
-    config.coreParams.retirementDuration = 2;
+    config.coreParams.portfolioEnd = { month: 1, year: 2030 + 2 };
     const scenarios: StressScenario[] = [
       {
         id: 'manual-crash',
         label: 'Manual Crash',
         type: 'stockCrash',
-        startYear: 1,
+        start: { month: 1, year: 2030 },
         params: { dropPct: -0.2 },
       },
     ];
@@ -139,13 +139,13 @@ describe('runStressTest', () => {
     const config = createBaseConfig();
     config.simulationMode = SimulationMode.MonteCarlo;
     config.simulationRuns = 24;
-    config.coreParams.retirementDuration = 2;
+    config.coreParams.portfolioEnd = { month: 1, year: 2030 + 2 };
     const scenarios: StressScenario[] = [
       {
         id: 'mc-crash-fallback',
         label: 'MC Crash Fallback',
         type: 'stockCrash',
-        startYear: 1,
+        start: { month: 1, year: 2030 },
         params: { dropPct: -0.3 },
       },
     ];

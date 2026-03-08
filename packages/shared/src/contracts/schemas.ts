@@ -22,24 +22,49 @@ const assetBalancesSchema = z
   })
   .strict();
 
+const eventDateSchema = z
+  .object({
+    month: z.number().int().min(1).max(12),
+    year: z.number().int().min(1900).max(3000),
+  })
+  .strict();
+
+const compareMonthYear = (
+  left: { month: number; year: number },
+  right: { month: number; year: number },
+): number => {
+  if (left.year !== right.year) {
+    return left.year - right.year;
+  }
+  return left.month - right.month;
+};
+
 const spendingPhaseSchema = z
   .object({
     id: z.string().min(1),
     name: z.string().min(1),
-    startYear: z.number().int().positive(),
-    endYear: z.number().int().positive(),
-    minMonthlySpend: z.number().int().nonnegative(),
-    maxMonthlySpend: z.number().int().nonnegative(),
+    start: eventDateSchema,
+    end: eventDateSchema,
+    minMonthlySpend: z.number().int().nonnegative().optional(),
+    maxMonthlySpend: z.number().int().nonnegative().optional(),
   })
   .strict()
-  .refine((value) => value.endYear >= value.startYear, {
-    message: 'endYear must be greater than or equal to startYear',
-    path: ['endYear'],
+  .refine((value) => compareMonthYear(value.end, value.start) >= 0, {
+    message: 'end must be greater than or equal to start',
+    path: ['end'],
   })
-  .refine((value) => value.maxMonthlySpend >= value.minMonthlySpend, {
-    message: 'maxMonthlySpend must be greater than or equal to minMonthlySpend',
-    path: ['maxMonthlySpend'],
-  });
+  .refine(
+    (value) => {
+      if (value.minMonthlySpend !== undefined && value.maxMonthlySpend !== undefined) {
+        return value.maxMonthlySpend >= value.minMonthlySpend;
+      }
+      return true;
+    },
+    {
+      message: 'maxMonthlySpend must be greater than or equal to minMonthlySpend',
+      path: ['maxMonthlySpend'],
+    },
+  );
 
 const returnAssumptionSchema = z
   .object({
@@ -53,13 +78,6 @@ const simpleCashflowEventSchema = z
     id: z.string().min(1),
     name: z.string().min(1),
     amount: z.number().int().nonnegative(),
-  })
-  .strict();
-
-const eventDateSchema = z
-  .object({
-    month: z.number().int().min(1).max(12),
-    year: z.number().int().min(1900).max(3000),
   })
   .strict();
 
@@ -82,16 +100,6 @@ const allocationSchema = z
 
 const allocationSumsToOne = (allocation: { stocks: number; bonds: number; cash: number }): boolean =>
   Math.abs(allocation.stocks + allocation.bonds + allocation.cash - 1) < 0.000001;
-
-const compareMonthYear = (
-  left: { month: number; year: number },
-  right: { month: number; year: number },
-): number => {
-  if (left.year !== right.year) {
-    return left.year - right.year;
-  }
-  return left.month - right.month;
-};
 
 const incomeEventSchema = z
   .object({
@@ -153,18 +161,20 @@ const simulationConfigSchema = z
     blockBootstrapLength: z.number().int().min(3).max(36),
     coreParams: z
       .object({
-        startingAge: z.number().int().min(1).max(120),
-        withdrawalsStartAt: z.number().int().min(1).max(120),
-        retirementStartDate: z
-          .object({
-            month: z.number().int().min(1).max(12),
-            year: z.number().int().min(1900).max(3000),
-          })
-          .strict(),
-        retirementDuration: z.number().int().min(1).max(100),
+        birthDate: eventDateSchema,
+        portfolioStart: eventDateSchema,
+        portfolioEnd: eventDateSchema,
         inflationRate: z.number().min(0).max(0.2),
       })
-      .strict(),
+      .strict()
+      .refine((data) => compareMonthYear(data.portfolioStart, data.birthDate) >= 0, {
+        message: 'portfolioStart must be on or after birthDate',
+        path: ['portfolioStart'],
+      })
+      .refine((data) => compareMonthYear(data.portfolioEnd, data.portfolioStart) > 0, {
+        message: 'portfolioEnd must be strictly after portfolioStart',
+        path: ['portfolioEnd'],
+      }),
     portfolio: assetBalancesSchema,
     returnAssumptions: z
       .object({
@@ -173,7 +183,7 @@ const simulationConfigSchema = z
         cash: returnAssumptionSchema,
       })
       .strict(),
-    spendingPhases: z.array(spendingPhaseSchema).max(4),
+    spendingPhases: z.array(spendingPhaseSchema).min(1).max(4),
     withdrawalStrategy: z.discriminatedUnion('type', [
       z
         .object({
@@ -423,7 +433,7 @@ const stressScenarioBaseSchema = z
   .object({
     id: z.string().min(1),
     label: z.string().min(1).max(24),
-    startYear: z.number().int().positive(),
+    start: eventDateSchema,
   })
   .strict();
 
@@ -528,34 +538,42 @@ export const stressTestRequestSchema = z
   })
   .strict()
   .superRefine((value, ctx) => {
-    const retirementDuration = value.config.coreParams.retirementDuration;
+    const portfolioStart = value.config.coreParams.portfolioStart;
+    const portfolioEnd = value.config.coreParams.portfolioEnd;
+    
     value.scenarios.forEach((scenario, scenarioIndex) => {
-      if (scenario.startYear > retirementDuration) {
+      if (compareMonthYear(scenario.start, portfolioStart) < 0 || compareMonthYear(scenario.start, portfolioEnd) > 0) {
         ctx.addIssue({
           code: z.ZodIssueCode.custom,
-          path: ['scenarios', scenarioIndex, 'startYear'],
-          message: 'startYear must be within retirement duration',
+          path: ['scenarios', scenarioIndex, 'start'],
+          message: 'start date must be within portfolio horizon',
         });
       }
       if (
-        (scenario.type === 'prolongedBear' || scenario.type === 'highInflationSpike') &&
-        scenario.startYear + scenario.params.durationYears - 1 > retirementDuration
+        (scenario.type === 'prolongedBear' || scenario.type === 'highInflationSpike')
       ) {
-        ctx.addIssue({
-          code: z.ZodIssueCode.custom,
-          path: ['scenarios', scenarioIndex, 'params', 'durationYears'],
-          message: 'scenario duration exceeds retirement horizon',
-        });
+        const scenarioEndYear = scenario.start.year + scenario.params.durationYears - 1;
+        const scenarioEnd = { month: scenario.start.month, year: scenarioEndYear };
+        if (compareMonthYear(scenarioEnd, portfolioEnd) > 0) {
+          ctx.addIssue({
+            code: z.ZodIssueCode.custom,
+            path: ['scenarios', scenarioIndex, 'params', 'durationYears'],
+            message: 'scenario duration exceeds portfolio horizon',
+          });
+        }
       }
-      if (
-        scenario.type === 'custom' &&
-        scenario.params.years.some((entry) => scenario.startYear + entry.yearOffset - 1 > retirementDuration)
-      ) {
-        ctx.addIssue({
-          code: z.ZodIssueCode.custom,
-          path: ['scenarios', scenarioIndex, 'params', 'years'],
-          message: 'custom scenario year offsets exceed retirement horizon',
+      if (scenario.type === 'custom') {
+        const hasExceedingYear = scenario.params.years.some((entry) => {
+          const entryEnd = { month: scenario.start.month, year: scenario.start.year + entry.yearOffset - 1 };
+          return compareMonthYear(entryEnd, portfolioEnd) > 0;
         });
+        if (hasExceedingYear) {
+          ctx.addIssue({
+            code: z.ZodIssueCode.custom,
+            path: ['scenarios', scenarioIndex, 'params', 'years'],
+            message: 'custom scenario year offsets exceed portfolio horizon',
+          });
+        }
       }
     });
   });

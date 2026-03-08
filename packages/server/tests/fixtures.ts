@@ -21,10 +21,9 @@ export const createBaseConfig = (): SimulationConfig => ({
   blockBootstrapEnabled: false,
   blockBootstrapLength: 12,
   coreParams: {
-    startingAge: 60,
-    withdrawalsStartAt: 60,
-    retirementStartDate: { month: 1, year: 2030 },
-    retirementDuration: 10,
+    birthDate: { month: 1, year: 1970 },
+    portfolioStart: { month: 1, year: 2030 },
+    portfolioEnd: { month: 1, year: 2040 },
     inflationRate: 0.03,
   },
   portfolio: {
@@ -41,8 +40,8 @@ export const createBaseConfig = (): SimulationConfig => ({
     {
       id: 'phase-1',
       name: 'Base',
-      startYear: 1,
-      endYear: 40,
+      start: { month: 1, year: 2030 },
+      end: { month: 1, year: 2070 },
       minMonthlySpend: 2_000_00,
       maxMonthlySpend: 15_000_00,
     },

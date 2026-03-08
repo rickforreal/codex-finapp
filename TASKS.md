@@ -2097,3 +2097,25 @@ Acceptance Criteria:
       [AC2] Clicking icon opens naming modal prefilled with "Copy of [Name]".
       [AC3] Saving modal creates new bookmark via duplicateBookmark function with existing payload.
       [AC4] Documentation and index updated.
+
+## Phase: Absolute Date Core Parameters
+
+- [x] ABSDATE-T1: Shared Domain & Server Engine Overhaul
+      Phase: Feature/AbsoluteDateParams
+      Dependencies: none
+      Acceptance Criteria:
+      [AC1] SimulationConfig coreParams updated to birthDate, portfolioStart, portfolioEnd.
+      [AC2] SpendingPhase bounds updated to absolute MonthYear.
+      [AC3] Server engines (deterministic & monteCarlo) updated to use absolute date boundaries.
+      [AC4] All server test fixtures and test suites updated.
+      [AC5] `npm test -w @finapp/server` and `npm run typecheck -w @finapp/server` pass.
+
+- [ ] ABSDATE-T2: Client Store & UI Implementation
+      Phase: Feature/AbsoluteDateParams
+      Dependencies: ABSDATE-T1
+      Acceptance Criteria:
+      [AC1] Zustand store (`useAppStore`) defaults updated to absolute dates.
+      [AC2] Phase contiguity logic rewritten to handle `{ month, year }` math.
+      [AC3] CoreParameters and SpendingPhases components refactored to use MonthYear pickers.
+      [AC4] Detail Ledger and Charts updated to calculate runtime age dynamically.
+      [AC5] `npm test -w @finapp/client` passes and application functions normally.

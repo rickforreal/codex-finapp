@@ -11,6 +11,7 @@ import {
   type StressScenarioResult,
   type StressTestResult,
   type StressTimingSensitivitySeries,
+  type MonthYear,
 } from '@finapp/shared';
 
 import { runMonteCarlo } from './monteCarlo';
@@ -21,6 +22,7 @@ import {
   inflationOverridesForScenario,
   returnsWithStressTransform,
 } from './stressTransforms';
+import { addMonths, monthsBetween } from './helpers/dates';
 
 type StressRunOptions = {
   seed?: number;
@@ -50,9 +52,9 @@ const getProjectedYearStartMonth = (config: SimulationConfig, overrides: ActualO
 
 const createStressDescriptor = (
   scenario: StressScenario,
-  projectedStartMonth: number,
+  portfolioStart: MonthYear,
 ): StressTransformDescriptor => ({
-  projectedStartMonth,
+  portfolioStart,
   scenario,
 });
 
@@ -124,10 +126,9 @@ const runScenarioManual = async (
   config: SimulationConfig,
   baselineReturns: MonthlyReturns[],
   scenario: StressScenario,
-  projectedStartMonth: number,
   actualOverridesByMonth: ActualOverridesByMonth,
 ): Promise<{ result: SinglePathResult; inflationOverridesByYear: Partial<Record<number, number>> }> => {
-  const descriptor = createStressDescriptor(scenario, projectedStartMonth);
+  const descriptor = createStressDescriptor(scenario, config.coreParams.portfolioStart);
   const shockedReturns = returnsWithStressTransform(descriptor, baselineReturns);
   const inflationOverridesByYear = inflationOverridesForScenario(descriptor);
   const result = await runSinglePath(
@@ -143,11 +144,10 @@ const runScenarioManual = async (
 const runScenarioMonteCarlo = async (
   config: SimulationConfig,
   scenario: StressScenario,
-  projectedStartMonth: number,
   monteCarloRuns: number,
   options: StressRunOptions,
 ): Promise<{ result: SinglePathResult; monteCarlo: MonteCarloResult; inflationOverridesByYear: Partial<Record<number, number>> }> => {
-  const descriptor = createStressDescriptor(scenario, projectedStartMonth);
+  const descriptor = createStressDescriptor(scenario, config.coreParams.portfolioStart);
   const inflationOverridesByYear = inflationOverridesForScenario(descriptor);
   const mc = await runMonteCarlo(config, {
     seed: options.seed,
@@ -160,9 +160,9 @@ const runScenarioMonteCarlo = async (
   return { result: mc.representativePath, monteCarlo: mc.monteCarlo, inflationOverridesByYear };
 };
 
-const scenarioForTiming = (scenario: StressScenario, startYear: number): StressScenario => ({
+const scenarioForTiming = (scenario: StressScenario, start: MonthYear): StressScenario => ({
   ...scenario,
-  startYear,
+  start,
 });
 
 export const runStressTest = async (
@@ -171,8 +171,7 @@ export const runStressTest = async (
   options: StressRunOptions = {},
 ): Promise<StressTestResult> => {
   const actualOverridesByMonth = options.actualOverridesByMonth ?? {};
-  const projectedStartMonth = getProjectedYearStartMonth(config, actualOverridesByMonth);
-  const durationMonths = config.coreParams.retirementDuration * 12;
+  const durationMonths = monthsBetween(config.coreParams.portfolioStart, config.coreParams.portfolioEnd);
   const monteCarloRuns = resolveMonteCarloRuns(config.simulationRuns);
 
   let baseResult = options.base?.result;
@@ -208,7 +207,6 @@ export const runStressTest = async (
         config,
         baselineReturns ?? generateMonthlyReturnsFromAssumptions(config, options.seed),
         scenario,
-        projectedStartMonth,
         actualOverridesByMonth,
       );
       scenarioResults.push({
@@ -227,7 +225,6 @@ export const runStressTest = async (
       const mc = await runScenarioMonteCarlo(
         config,
         scenario,
-        projectedStartMonth,
         monteCarloRuns,
         options,
       );
@@ -254,18 +251,18 @@ export const runStressTest = async (
     timingSensitivity = [];
     for (const scenario of scenarios) {
       const points: StressTimingSensitivitySeries['points'] = [];
-      for (let index = 0; index < config.coreParams.retirementDuration; index += 1) {
-        const startYear = index + 1;
-        const timedScenario = scenarioForTiming(scenario, startYear);
+      const totalYears = Math.ceil(durationMonths / 12);
+      for (let index = 0; index < totalYears; index += 1) {
+        const start = addMonths(config.coreParams.portfolioStart, index * 12);
+        const timedScenario = scenarioForTiming(scenario, start);
         const run = await runScenarioManual(
           config,
           baselineReturns,
           timedScenario,
-          projectedStartMonth,
           actualOverridesByMonth,
         );
         points.push({
-          startYear,
+          start,
           terminalPortfolioValue: run.result.summary.terminalPortfolioValue,
         });
       }

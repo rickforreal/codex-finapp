@@ -14,7 +14,7 @@ export async function bookmarkRoutes(app: FastifyInstance) {
       return reply.status(400).send({
         code: 'VALIDATION_ERROR',
         message: 'Invalid bookmark data',
-        fieldErrors: parseResult.error.errors.map((err) => ({
+        fieldErrors: parseResult.error.issues.map((err) => ({
           path: err.path.join('.'),
           issue: err.message,
         })),

@@ -7,9 +7,8 @@ import { createBaseConfig, createZeroReturns } from '../fixtures';
 describe('Event processing', () => {
   it('applies recurring income events on the correct frequency and month', () => {
     const config = createBaseConfig();
-    config.coreParams.retirementDuration = 2;
-    config.coreParams.withdrawalsStartAt = 120;
-    config.incomeEvents = [
+    config.coreParams.portfolioEnd = { month: 1, year: 2030 + 2 };
+        config.incomeEvents = [
       {
         id: 'income-quarterly',
         name: 'Quarterly Income',
@@ -22,7 +21,7 @@ describe('Event processing', () => {
       },
     ];
 
-    const result = simulateRetirement(config, createZeroReturns(config.coreParams.retirementDuration * 12));
+    const result = simulateRetirement(config, createZeroReturns(((config.coreParams.portfolioEnd.year - config.coreParams.portfolioStart.year) * 12 + (config.coreParams.portfolioEnd.month - config.coreParams.portfolioStart.month))));
     expect(result.rows[0]?.incomeTotal).toBe(1_000);
     expect(result.rows[1]?.incomeTotal).toBe(0);
     expect(result.rows[3]?.incomeTotal).toBe(1_000);
@@ -32,9 +31,8 @@ describe('Event processing', () => {
 
   it('inflates recurring annual income amounts each retirement year', () => {
     const config = createBaseConfig();
-    config.coreParams.retirementDuration = 2;
-    config.coreParams.withdrawalsStartAt = 120;
-    config.coreParams.inflationRate = 0.03;
+    config.coreParams.portfolioEnd = { month: 1, year: 2030 + 2 };
+        config.coreParams.inflationRate = 0.03;
     config.incomeEvents = [
       {
         id: 'income-annual',
@@ -48,16 +46,17 @@ describe('Event processing', () => {
       },
     ];
 
-    const result = simulateRetirement(config, createZeroReturns(config.coreParams.retirementDuration * 12));
+    const result = simulateRetirement(config, createZeroReturns(((config.coreParams.portfolioEnd.year - config.coreParams.portfolioStart.year) * 12 + (config.coreParams.portfolioEnd.month - config.coreParams.portfolioStart.month))));
     expect(result.rows[0]?.incomeTotal).toBe(12_000);
     expect(result.rows[12]?.incomeTotal).toBe(12_360);
   });
 
   it('applies expense events and tracks partial fulfillment shortfall', () => {
     const config = createBaseConfig();
-    config.coreParams.retirementDuration = 1;
-    config.coreParams.withdrawalsStartAt = 120;
-    config.portfolio = { stocks: 2_000, bonds: 1_000, cash: 0 };
+    config.coreParams.portfolioEnd = { month: 1, year: 2030 + 1 };
+    config.spendingPhases[0]!.minMonthlySpend = 0;
+    config.spendingPhases[0]!.maxMonthlySpend = 0;
+        config.portfolio = { stocks: 2_000, bonds: 1_000, cash: 0 };
     config.expenseEvents = [
       {
         id: 'expense-follow',

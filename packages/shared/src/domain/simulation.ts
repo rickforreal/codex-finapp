@@ -19,13 +19,19 @@ export interface ReturnAssumption {
 
 export type ReturnAssumptions = Record<AssetClass, ReturnAssumption>;
 
+export type EventFrequency = 'monthly' | 'quarterly' | 'annual' | 'oneTime';
+export type MonthYear = { month: number; year: number };
+export type EventDate = MonthYear;
+export type EventEndDate = EventDate | 'endOfRetirement';
+export type HistoricalRange = { start: MonthYear; end: MonthYear };
+
 export interface SpendingPhase {
   id: string;
   name: string;
-  startYear: number;
-  endYear: number;
-  minMonthlySpend: MoneyCents;
-  maxMonthlySpend: MoneyCents;
+  start: MonthYear;
+  end: MonthYear;
+  minMonthlySpend?: MoneyCents;
+  maxMonthlySpend?: MoneyCents;
 }
 
 export interface ConstantDollarParams {
@@ -134,12 +140,6 @@ export type DrawdownStrategy =
   | DrawdownStrategyConfig
   | RebalancingDrawdownStrategyConfig;
 
-export type EventFrequency = 'monthly' | 'quarterly' | 'annual' | 'oneTime';
-export type EventDate = { month: number; year: number };
-export type EventEndDate = EventDate | 'endOfRetirement';
-export type MonthYear = { month: number; year: number };
-export type HistoricalRange = { start: MonthYear; end: MonthYear };
-
 export interface IncomeEvent {
   id: string;
   name: string;
@@ -172,10 +172,9 @@ export interface SimulationConfig {
   blockBootstrapEnabled: boolean;
   blockBootstrapLength: number;
   coreParams: {
-    startingAge: number;
-    withdrawalsStartAt: number;
-    retirementStartDate: { month: number; year: number };
-    retirementDuration: number;
+    birthDate: MonthYear;
+    portfolioStart: MonthYear;
+    portfolioEnd: MonthYear;
     inflationRate: number;
   };
   portfolio: AssetBalances;
@@ -293,7 +292,7 @@ export type StressScenarioType =
 interface StressScenarioBase {
   id: string;
   label: string;
-  startYear: number;
+  start: MonthYear;
 }
 
 export interface StockCrashStressScenario extends StressScenarioBase {
@@ -358,7 +357,7 @@ export type StressScenario =
   | CustomStressScenario;
 
 export interface StressTimingPoint {
-  startYear: number;
+  start: MonthYear;
   terminalPortfolioValue: number;
 }
 

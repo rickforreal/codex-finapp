@@ -13,7 +13,7 @@ describe('POST /api/v1/stress-test', () => {
         id: 's1',
         label: 'Early Crash',
         type: 'stockCrash',
-        startYear: 1,
+        start: { month: 1, year: 2030 },
         params: { dropPct: -0.3 },
       },
     ];

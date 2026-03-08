@@ -78,10 +78,9 @@ SimulationConfig {
   blockBootstrapEnabled: boolean;           // when true, MC samples contiguous blocks instead of i.i.d.
   blockBootstrapLength: number;             // 3..36 months — block size for block bootstrap sampling
   coreParams: {
-    startingAge: number;
-    withdrawalsStartAt: number;
-    retirementStartDate: { month: number; year: number };
-    retirementDuration: number; // years
+    birthDate: { month: number; year: number };
+    portfolioStart: { month: number; year: number };
+    portfolioEnd: { month: number; year: number };
     inflationRate: number;
   };
   portfolio: { stocks: number; bonds: number; cash: number };
@@ -104,18 +103,18 @@ SimulationConfig {
 SpendingPhase {
   id: string;
   name: string;
-  startYear: number;
-  endYear: number;
-  minMonthlySpend: number;
-  maxMonthlySpend: number;
+  start: { month: number; year: number };
+  end: { month: number; year: number };
+  minMonthlySpend?: number;
+  maxMonthlySpend?: number;
 }
 ```
 
 Cardinality and semantics:
 
-- `spendingPhases` supports `0..4` entries.
-- `0` entries means no phase min/max bounds are active (withdrawals are strategy-only).
-- When one or more entries exist, they must form a contiguous retirement-year coverage segment via UI/store normalization.
+- `spendingPhases` supports `1..4` entries (must have at least one).
+- Missing `minMonthlySpend`/`maxMonthlySpend` bounds mean withdrawals are dictated purely by the strategy.
+- They must form a contiguous timeline coverage segment via UI/store normalization.
 
 ### 3.2 Withdrawal Strategy Union
 

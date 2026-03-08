@@ -2304,3 +2304,12 @@ Implemented CHG-0011: Bookmark duplicate action.
 - Handled `duplicateTargetBookmark` state to distinguish between "Save Bookmark" (current state) and duplicating an existing one.
 - Validated with client test suite (`npm test -w @finapp/client`).
 - Checked off task in `TASKS.md`.
+
+## 2026-03-08 03:00 — ABSDATE-T1 | COMPLETE
+
+Implemented Absolute Date Core Parameters (Phase 1 & 2): Shared Domain & Server Engine Overhaul.
+- Updated `SimulationConfig` in `@finapp/shared` to replace relative retirement years with absolute `MonthYear` dates (`birthDate`, `portfolioStart`, `portfolioEnd`).
+- Refactored `SpendingPhase` schema to use absolute `start`/`end` dates and optional bounds.
+- Overhauled server-side `deterministic.ts` and `monteCarlo.ts` engines to calculate simulation duration dynamically using `monthsBetween`.
+- Fixed extensive breakages across the entire server test suite (`tests/engine/*` and `tests/routes/*`) by writing a migration script to update mock payloads to the new schema.
+- Verified all server endpoints and simulation engines function correctly under the new data model. Server tests are completely green.

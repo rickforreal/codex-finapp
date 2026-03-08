@@ -19,6 +19,7 @@ import { createSeededRandom } from './helpers/returns';
 import { runMonteCarloRust } from './monteCarloNative';
 import { type StressTransformDescriptor, returnsWithStressTransform } from './stressTransforms';
 import { generateMonthlyReturnsFromAssumptions, simulateRetirement } from './simulator';
+import { monthsBetween } from './helpers/dates';
 
 export type MonteCarloOptions = {
   runs?: number;
@@ -246,7 +247,7 @@ const runMonteCarloTs = async (
 ): Promise<MonteCarloExecutionResult> => {
   const simulationCount = clampSimulationRuns(options.runs ?? config.simulationRuns ?? DEFAULT_SIMULATION_RUNS);
   const seedUsed = resolveSeed(options.seed);
-  const durationMonths = config.coreParams.retirementDuration * 12;
+  const durationMonths = monthsBetween(config.coreParams.portfolioStart, config.coreParams.portfolioEnd);
   const returnsSource =
     config.returnsSource ??
     (config.simulationMode === SimulationMode.Manual ? ReturnSource.Manual : ReturnSource.Historical);

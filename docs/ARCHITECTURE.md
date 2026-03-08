@@ -567,10 +567,9 @@ AppStore
 ├── selectedHistoricalEra: HistoricalEra
 │
 ├── coreParams
-│   ├── startingAge: number
-│   ├── withdrawalsStartAt: number
-│   ├── retirementStartDate: { month, year }
-│   ├── retirementDuration: number
+│   ├── birthDate: { month: number; year: number }
+│   ├── portfolioStart: { month: number; year: number }
+│   ├── portfolioEnd: { month: number; year: number }
 │   └── inflationRate: number
 │
 ├── portfolio

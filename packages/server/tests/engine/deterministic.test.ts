@@ -14,7 +14,7 @@ describe('reforecastDeterministic', () => {
     const resultB = reforecastDeterministic(config, {});
 
     expect(resultA.summary.terminalPortfolioValue).toBe(resultB.summary.terminalPortfolioValue);
-    expect(resultA.rows).toHaveLength(config.coreParams.retirementDuration * 12);
+    expect(resultA.rows).toHaveLength(((config.coreParams.portfolioEnd.year - config.coreParams.portfolioStart.year) * 12 + (config.coreParams.portfolioEnd.month - config.coreParams.portfolioStart.month)));
   });
 
   it('locks edited month start balances and withdrawals', () => {
@@ -32,26 +32,35 @@ describe('reforecastDeterministic', () => {
     expect(row?.withdrawals.byAsset.bonds).toBe(10_000);
   });
 
-  it('treats empty spending phases as no clamp bounds', () => {
-    const configWithoutPhases = createBaseConfig();
-    configWithoutPhases.spendingPhases = [];
+  it('treats undefined min/max bounds as no clamp bounds', () => {
+    const configWithoutBounds = createBaseConfig();
+    configWithoutBounds.spendingPhases = [
+      {
+        id: 'no-bounds',
+        name: 'No Bounds',
+        start: { month: 1, year: 2030 },
+        end: configWithoutBounds.coreParams.portfolioEnd,
+        minMonthlySpend: undefined,
+        maxMonthlySpend: undefined,
+      },
+    ];
 
     const configWithWidePhase = createBaseConfig();
     configWithWidePhase.spendingPhases = [
       {
         id: 'wide',
         name: 'Wide',
-        startYear: 1,
-        endYear: configWithWidePhase.coreParams.retirementDuration,
+        start: { month: 1, year: 2030 },
+        end: configWithWidePhase.coreParams.portfolioEnd,
         minMonthlySpend: 0,
         maxMonthlySpend: 1_000_000_000,
       },
     ];
 
-    const withoutPhases = reforecastDeterministic(configWithoutPhases, {});
+    const withoutBounds = reforecastDeterministic(configWithoutBounds, {});
     const withWidePhase = reforecastDeterministic(configWithWidePhase, {});
 
-    expect(withoutPhases.summary.totalWithdrawn).toBe(withWidePhase.summary.totalWithdrawn);
-    expect(withoutPhases.summary.terminalPortfolioValue).toBe(withWidePhase.summary.terminalPortfolioValue);
+    expect(withoutBounds.summary.totalWithdrawn).toBe(withWidePhase.summary.totalWithdrawn);
+    expect(withoutBounds.summary.terminalPortfolioValue).toBe(withWidePhase.summary.terminalPortfolioValue);
   });
 });
