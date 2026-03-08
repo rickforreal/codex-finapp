@@ -2335,3 +2335,11 @@ Refined absolute date parameters and UI (V1.1):
 - Updated spending phases to have optional (blank) min/max spend fields by default.
 - Refactored NumericInput, CurrencyInput, and PercentInput to support optional/undefined values.
 - Verified with monorepo build, typecheck, and test suites.
+
+## 2026-03-08 21:20 — Default Dark Monokai Refresh | COMPLETE
+
+- Updated the default Dark theme (`ThemeId.Dark`) to use a Monokai-inspired (VS Code) color palette.
+- Backgrounds set to a darker grey-brown (`#0F0F0D`) for a modern, focused feel.
+- Integrated high-contrast syntax-style signal accents (Monokai green, yellow, pink, and cyan) across UI and charts.
+- Updated catalog metadata and version (1.1.0) for the Dark theme.
+- Verified with server test suite (`npm test -w @finapp/server`).

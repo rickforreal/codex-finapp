@@ -2136,3 +2136,14 @@ Acceptance Criteria:
       Acceptance Criteria:
       [AC1] All tests pass across the monorepo.
       [AC2] TASKS.md and PROGRESS.txt reflect latest status.
+
+## Phase: Theme Refresh
+
+- [x] THEME-DARK-MONOKAI: Refresh default dark theme with Monokai palette
+      Phase: Feature/Themes
+      Dependencies: none
+      Acceptance Criteria:
+      [AC1] Default dark theme (ThemeId.Dark) uses Monokai highlights.
+      [AC2] Background is darker than standard Monokai (e.g., #0F0F0D).
+      [AC3] Catalog metadata and description updated.
+      [AC4] Server tests remain green.
