@@ -2562,3 +2562,36 @@ Validation:
 - `npm test` ✅
 
 Canonical docs impact: No canonical doc updates required for this bugfix pass (calculation-correctness fix within existing spending-phase/strategy model).
+
+## 2026-03-08 13:11 — Monthly Withdrawal Chart: MC Representative Path -> Cross-Run p50 | COMPLETE
+
+Updated Monthly Withdrawal chart semantics in Monte Carlo mode to use cross-run median withdrawals by month, instead of representative-path withdrawals.
+
+What changed:
+- Shared contract extended:
+  - `/Users/ricknayar/Development/codex/finapp/packages/shared/src/domain/simulation.ts`
+  - Added optional `monteCarlo.withdrawalP50SeriesReal: number[]`.
+- TS Monte Carlo engine output extended:
+  - `/Users/ricknayar/Development/codex/finapp/packages/server/src/engine/monteCarlo.ts`
+  - Added per-month all-run real withdrawal matrix and derived `withdrawalP50SeriesReal` using p50 quantile each month.
+  - Kept existing summary stat semantics (`withdrawalStatsReal`) intact.
+- Rust Monte Carlo engine parity:
+  - `/Users/ricknayar/Development/codex/finapp/packages/native-mc/src/lib.rs`
+  - Added serialized `withdrawalP50SeriesReal` with matching per-month p50 derivation.
+- Client chart wiring:
+  - `/Users/ricknayar/Development/codex/finapp/packages/client/src/components/output/WithdrawalChart.tsx`
+  - In MC mode (non-breakdown), line now plots `withdrawalP50SeriesReal` (real mode direct, nominal mode inflation-adjusted conversion).
+  - Compare mode now also uses each slot’s MC p50 withdrawal series when available.
+  - Badge text updated to show `(median across runs)` when this series is active.
+  - Breakdown mode remains representative-path based (no per-asset MC withdrawal percentile series currently provided).
+- Tests:
+  - `/Users/ricknayar/Development/codex/finapp/packages/server/tests/engine/monteCarlo.test.ts`
+  - Added assertions for `withdrawalP50SeriesReal` presence/length and zero-withdrawal behavior.
+
+Validation:
+- `npm run build` ✅
+- `npm run typecheck` ✅
+- `npm run lint` ✅
+- `npm test` ✅
+
+Canonical docs impact: No canonical doc updates required for this targeted chart data-source correction (existing MC model extended with additive field; no endpoint path/shape breaking changes).

@@ -279,6 +279,10 @@ const runMonteCarloTs = async (
     () => new Float64Array(simulationCount),
   );
   const monthlyWithdrawalsRealByRun: number[][] = Array.from({ length: durationMonths }, () => []);
+  const monthlyWithdrawalsRealMatrix: Float64Array[] = Array.from(
+    { length: durationMonths },
+    () => new Float64Array(simulationCount),
+  );
   const terminalValues: number[] = new Array<number>(simulationCount);
   const totalDrawdowns: number[] = new Array<number>(simulationCount);
   const runSummaries: RunSummary[] = new Array<RunSummary>(simulationCount);
@@ -317,6 +321,7 @@ const runMonteCarloTs = async (
           }
           actualWithdrawalRealByMonth[month] =
             withdrawalActual / inflationFactor(config.coreParams.inflationRate, monthIndex);
+          monthlyWithdrawalsRealMatrix[month]![runIndex] = actualWithdrawalRealByMonth[month]!;
           const total = stocks + bonds + cash;
           monthlyTotalsByRun[month]![runIndex] = total;
           monthlyStocksByRun[month]![runIndex] = stocks;
@@ -372,6 +377,10 @@ const runMonteCarloTs = async (
     })
     .filter((value): value is number => value !== null);
   const sortedMonthlyWithdrawalP50Series = [...monthlyWithdrawalP50Series].sort((a, b) => a - b);
+  const withdrawalP50SeriesReal = monthlyWithdrawalsRealMatrix.map((values) => {
+    values.sort();
+    return quantile(values, 0.5);
+  });
 
   return {
     representativePath,
@@ -388,6 +397,7 @@ const runMonteCarloTs = async (
         p25Monthly: quantile(sortedMonthlyWithdrawalP50Series, 0.25),
         p75Monthly: quantile(sortedMonthlyWithdrawalP50Series, 0.75),
       },
+      withdrawalP50SeriesReal,
       percentileCurves: {
         total: percentileCurve(monthlyTotalsByRun),
         stocks: percentileCurve(monthlyStocksByRun),

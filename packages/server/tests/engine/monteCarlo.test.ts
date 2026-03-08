@@ -42,6 +42,10 @@ describe('runMonteCarlo', () => {
     expect(result.monteCarlo.percentileCurves.cash.p10[month]).toBeLessThanOrEqual(
       result.monteCarlo.percentileCurves.cash.p90[month] ?? 0,
     );
+    expect(result.monteCarlo.withdrawalP50SeriesReal).toHaveLength(
+      (config.coreParams.portfolioEnd.year - config.coreParams.portfolioStart.year) * 12 +
+        (config.coreParams.portfolioEnd.month - config.coreParams.portfolioStart.month),
+    );
   });
 
   it('returns 100% probability when withdrawals are disabled', async () => {
@@ -64,6 +68,7 @@ describe('runMonteCarlo', () => {
     expect(result.monteCarlo.withdrawalStatsReal?.medianMonthly).toBe(0);
     expect(result.monteCarlo.withdrawalStatsReal?.meanMonthly).toBe(0);
     expect(result.monteCarlo.withdrawalStatsReal?.stdDevMonthly).toBe(0);
+    expect(result.monteCarlo.withdrawalP50SeriesReal?.every((value: number) => value === 0)).toBe(true);
   });
 
   it('produces ordered withdrawal quantiles for MC summary stats', async () => {

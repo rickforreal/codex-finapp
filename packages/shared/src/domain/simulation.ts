@@ -272,6 +272,7 @@ export interface MonteCarloResult {
   probabilityOfSuccess: number;
   terminalValues: number[];
   withdrawalStatsReal?: MonteCarloWithdrawalStatsReal;
+  withdrawalP50SeriesReal?: number[];
   percentileCurves: {
     total: MonteCarloPercentileCurves;
     stocks: MonteCarloPercentileCurves;

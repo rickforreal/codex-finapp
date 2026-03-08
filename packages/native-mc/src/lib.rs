@@ -552,6 +552,7 @@ struct MonteCarloResult {
   probability_of_success: f64,
   terminal_values: Vec<f64>,
   withdrawal_stats_real: MonteCarloWithdrawalStatsReal,
+  withdrawal_p50_series_real: Vec<f64>,
   percentile_curves: PercentileCurveSet,
   historical_summary: Value,
 }
@@ -2456,6 +2457,8 @@ fn run_monte_carlo_internal(
     .collect();
 
   let mut monthly_withdrawals_real_by_run = vec![Vec::<f64>::new(); duration_months];
+  let mut monthly_withdrawals_real_matrix =
+    vec![vec![0.0; simulation_count]; duration_months];
   let mut terminal_values = vec![0.0; simulation_count];
   let mut total_drawdowns = vec![0.0; simulation_count];
   let mut run_summaries = Vec::with_capacity(simulation_count);
@@ -2469,6 +2472,7 @@ fn run_monte_carlo_internal(
       .any(|requested| requested);
 
     for month in 0..duration_months {
+      monthly_withdrawals_real_matrix[month][run.run_index] = run.actual_withdrawal_real_by_month[month];
       if has_requested_withdrawals && !run.requested_withdrawal_by_month[month] {
         continue;
       }
@@ -2602,6 +2606,12 @@ fn run_monte_carlo_internal(
   sorted_monthly_withdrawal_p50_series
     .sort_by(|left, right| left.partial_cmp(right).unwrap_or(std::cmp::Ordering::Equal));
 
+  let mut withdrawal_p50_series_real = Vec::with_capacity(duration_months);
+  for values in &mut monthly_withdrawals_real_matrix {
+    values.sort_by(|left, right| left.partial_cmp(right).unwrap_or(std::cmp::Ordering::Equal));
+    withdrawal_p50_series_real.push(quantile(values, 0.5));
+  }
+
   Ok(MonteCarloExecutionResult {
     representative_path,
     seed_used,
@@ -2617,6 +2627,7 @@ fn run_monte_carlo_internal(
         p25_monthly: quantile(&sorted_monthly_withdrawal_p50_series, 0.25),
         p75_monthly: quantile(&sorted_monthly_withdrawal_p50_series, 0.75),
       },
+      withdrawal_p50_series_real,
       percentile_curves: PercentileCurveSet {
         total: total_curve,
         stocks: stocks_curve,

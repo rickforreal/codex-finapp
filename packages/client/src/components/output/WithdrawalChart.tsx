@@ -91,6 +91,17 @@ export const WithdrawalChart = ({ hoverIndex, onHoverChange, chartWidth }: Withd
     });
   }, [activeRunInflationRate, result]);
 
+  const mcWithdrawalP50Series = useMemo<number[]>(() => {
+    const series = result?.monteCarlo?.withdrawalP50SeriesReal ?? [];
+    return series.map((value, index) => {
+      if (chartDisplayMode === 'real') {
+        return value;
+      }
+      const monthIndexOneBased = index + 1;
+      return value * inflationFactor(activeRunInflationRate, monthIndexOneBased);
+    });
+  }, [activeRunInflationRate, chartDisplayMode, result]);
+
   // Compare mode
   if (isCompareActive) {
     const resolveSlotResult = (workspace: WorkspaceSnapshot | undefined) => {
@@ -108,12 +119,20 @@ export const WithdrawalChart = ({ hoverIndex, onHoverChange, chartWidth }: Withd
       const resultForSlot = resolveSlotResult(compareResults.slots[slotId]);
       const rows = resultForSlot?.result.rows ?? [];
       const slotInflationRate = resultForSlot?.configSnapshot?.coreParams.inflationRate ?? inflationRate;
-      const withdrawals = rows.map((row: MonthlySimulationRow) => {
-        const nominal = row.withdrawals.actual;
-        return chartDisplayMode === 'real'
-          ? nominal / inflationFactor(slotInflationRate, row.monthIndex)
-          : nominal;
-      });
+      const withdrawals =
+        simulationMode === SimulationMode.MonteCarlo &&
+        (resultForSlot?.monteCarlo?.withdrawalP50SeriesReal?.length ?? 0) > 0
+          ? resultForSlot!.monteCarlo!.withdrawalP50SeriesReal!.map((value: number, index: number) =>
+              chartDisplayMode === 'real'
+                ? value
+                : value * inflationFactor(slotInflationRate, index + 1),
+            )
+          : rows.map((row: MonthlySimulationRow) => {
+              const nominal = row.withdrawals.actual;
+              return chartDisplayMode === 'real'
+                ? nominal / inflationFactor(slotInflationRate, row.monthIndex)
+                : nominal;
+            });
       return {
         slotId,
         color: getCompareSlotColorVar(slotId),
@@ -327,7 +346,13 @@ export const WithdrawalChart = ({ hoverIndex, onHoverChange, chartWidth }: Withd
   }
 
   // Check if all withdrawals are zero
-  const allZero = points.every((p) => p.totalNominal === 0);
+  const useMcMedianSeries =
+    simulationMode === SimulationMode.MonteCarlo &&
+    !chartBreakdownEnabled &&
+    mcWithdrawalP50Series.length > 0;
+  const allZero = useMcMedianSeries
+    ? mcWithdrawalP50Series.every((value) => value === 0)
+    : points.every((p) => p.totalNominal === 0);
   if (allZero) {
     return (
       <div className="flex h-[360px] items-center justify-center rounded-lg border border-dashed border-brand-border bg-brand-surface">
@@ -342,10 +367,6 @@ export const WithdrawalChart = ({ hoverIndex, onHoverChange, chartWidth }: Withd
   const plotWidth = width - margin.left - margin.right;
   const start = 0;
   const end = Math.max(totalMonths - 1, 1);
-  const visible = points.slice(start, end + 1);
-  const localCount = Math.max(visible.length - 1, 1);
-  const xAt = (index: number): number => margin.left + (index / localCount) * plotWidth;
-
   const getVal = (point: WithdrawalPoint) => {
     if (chartDisplayMode === 'real') {
       return {
@@ -362,6 +383,12 @@ export const WithdrawalChart = ({ hoverIndex, onHoverChange, chartWidth }: Withd
       cash: point.cashNominal,
     };
   };
+  const visible = points.slice(start, end + 1);
+  const visibleSeries = useMcMedianSeries
+    ? mcWithdrawalP50Series.slice(start, end + 1)
+    : visible.map((point) => getVal(point).total);
+  const localCount = Math.max(visible.length - 1, 1);
+  const xAt = (index: number): number => margin.left + (index / localCount) * plotWidth;
 
   const boundaryMonth = mode === AppMode.Tracking ? lastEditedMonthIndex : null;
 
@@ -377,7 +404,7 @@ export const WithdrawalChart = ({ hoverIndex, onHoverChange, chartWidth }: Withd
   );
   const visibleStressCurves = stressWithdrawalCurves.map((curve) => curve.slice(start, end + 1));
 
-  const maxFromPoints = Math.max(...visible.map((point) => getVal(point).total), 1);
+  const maxFromPoints = Math.max(...visibleSeries, 1);
   const maxFromStress = Math.max(1, ...visibleStressCurves.flatMap((curve) => curve));
   const maxY = Math.max(maxFromPoints, maxFromStress, 1);
   const yAt = (value: number): number => margin.top + plotHeight - (value / maxY) * plotHeight;
@@ -396,7 +423,7 @@ export const WithdrawalChart = ({ hoverIndex, onHoverChange, chartWidth }: Withd
   const cashUpper = stocks.map((stock, index) => yAt(stock + (bonds[index] ?? 0) + (cash[index] ?? 0)));
   const cashLower = stocks.map((stock, index) => yAt(stock + (bonds[index] ?? 0)));
 
-  const totalLine = linePath(visible.map((point, index) => ({ x: xAt(index), y: yAt(getVal(point).total) })));
+  const totalLine = linePath(visibleSeries.map((value, index) => ({ x: xAt(index), y: yAt(value) })));
   const stressPaths = visibleStressCurves.map((curve) =>
     linePath(curve.map((value, index) => ({ x: xAt(index), y: yAt(value) }))),
   );
@@ -411,7 +438,8 @@ export const WithdrawalChart = ({ hoverIndex, onHoverChange, chartWidth }: Withd
   const hoverPoint = activeHoverIndex === null ? null : visible[activeHoverIndex];
   const hoverVal = hoverPoint ? getVal(hoverPoint) : null;
   const hoverX = activeHoverIndex === null ? null : xAt(activeHoverIndex);
-  const hoverY = hoverVal ? yAt(hoverVal.total) : null;
+  const hoverSeriesValue = activeHoverIndex === null ? null : visibleSeries[activeHoverIndex] ?? null;
+  const hoverY = hoverSeriesValue === null ? null : yAt(hoverSeriesValue);
 
   const isMC = simulationMode === SimulationMode.MonteCarlo;
 
@@ -525,7 +553,7 @@ export const WithdrawalChart = ({ hoverIndex, onHoverChange, chartWidth }: Withd
 
       {isMC ? (
         <div className="pointer-events-none absolute right-3 top-3 rounded-md border border-brand-border bg-white/95 px-2 py-1 text-[10px] text-slate-500">
-          (representative path)
+          {useMcMedianSeries ? '(median across runs)' : '(representative path)'}
         </div>
       ) : null}
 
@@ -549,7 +577,7 @@ export const WithdrawalChart = ({ hoverIndex, onHoverChange, chartWidth }: Withd
         </div>
       ) : null}
 
-      {hoverPoint && hoverVal && hoverX !== null ? (
+      {hoverPoint && hoverX !== null && hoverSeriesValue !== null ? (
         <div
           className="pointer-events-none absolute z-30 w-[260px] rounded-md border border-slate-200 bg-white p-3 text-xs shadow-lg"
           style={{
@@ -561,9 +589,9 @@ export const WithdrawalChart = ({ hoverIndex, onHoverChange, chartWidth }: Withd
           <div className="mt-2 space-y-1 text-slate-600">
             <p className="flex items-center justify-between gap-2">
               <span>Withdrawal</span>
-              <span className="font-mono text-slate-800">{formatCurrency(Math.round(hoverVal.total))}</span>
+              <span className="font-mono text-slate-800">{formatCurrency(Math.round(hoverSeriesValue))}</span>
             </p>
-            {chartBreakdownEnabled ? (
+            {chartBreakdownEnabled && hoverVal ? (
               <>
                 <p className="flex items-center justify-between gap-2">
                   <span className="flex items-center gap-1"><span className="inline-block h-2 w-2 rounded-full" style={{ backgroundColor: 'var(--theme-color-asset-stocks)' }} />Stocks</span>
@@ -579,7 +607,7 @@ export const WithdrawalChart = ({ hoverIndex, onHoverChange, chartWidth }: Withd
                 </p>
               </>
             ) : null}
-            {hoverPoint.shortfall > 0 ? (
+            {!useMcMedianSeries && hoverPoint.shortfall > 0 ? (
               <p className="flex items-center justify-between gap-2 text-red-600">
                 <span>Shortfall</span>
                 <span className="font-mono">{formatCurrency(Math.round(
