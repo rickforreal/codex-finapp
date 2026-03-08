@@ -21,7 +21,7 @@ export const PercentInput = ({
     <div className="flex items-center gap-1">
       <NumericInput
         value={Number((value * 100).toFixed(2))}
-        onChange={(next) => onChange(next / 100)}
+        onChange={(next) => onChange((next ?? 0) / 100)}
         min={min}
         max={max}
         step={step}

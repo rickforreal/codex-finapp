@@ -2120,6 +2120,16 @@ Acceptance Criteria:
       [AC4] Detail Ledger and Charts updated to calculate runtime age dynamically.
       [AC5] `npm test -w @finapp/client` passes and application functions normally.
 
+- [x] ABSDATE-T3: UI Refinements & Optional Bounds (V1.1)
+      Phase: Feature/AbsoluteDateParams
+      Dependencies: ABSDATE-T2
+      Acceptance Criteria:
+      [AC1] Birth date default 4/1977, Portfolio start default current month.
+      [AC2] Two-thumb RangeSlider implemented for Portfolio Start/End.
+      [AC3] Real-time "Portfolio Horizon" label showing years/months.
+      [AC4] Spending Phase min/max fields blank by default.
+      [AC5] Numeric/Currency inputs handle undefined (blank) values correctly.
+
 - [x] SQLBM-T1: Final validation and documentation update
       Phase: Feature/SQLiteBookmarks
       Dependencies: none

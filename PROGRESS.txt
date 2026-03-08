@@ -2324,3 +2324,14 @@ Implemented Absolute Date Core Parameters (Phase 3 & 4): Client Store & UI Imple
 - Updated tracking and compare logic to handle absolute timeline horizons correctly.
 - Refactored all client-side unit tests (`snapshot.test.ts`, `detailTable.test.ts`, etc.) to match the new data model.
 - Verified with green builds, typechecks, and tests across the client package.
+
+## 2026-03-08 19:58 — ABSDATE-T2.1 | COMPLETE
+
+Refined absolute date parameters and UI (V1.1):
+- Updated birth date default to 4/1977 and simplified label.
+- Set portfolio start default to current month/year and end to +40 years.
+- Implemented a two-thumb RangeSlider component for intuitive portfolio duration management.
+- Added real-time duration label (years/months) to the horizon slider.
+- Updated spending phases to have optional (blank) min/max spend fields by default.
+- Refactored NumericInput, CurrencyInput, and PercentInput to support optional/undefined values.
+- Verified with monorepo build, typecheck, and test suites.

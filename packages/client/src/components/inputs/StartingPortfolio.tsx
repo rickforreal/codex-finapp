@@ -19,7 +19,7 @@ export const StartingPortfolio = () => {
         <label className="mb-1 block text-xs font-medium text-slate-600">Stocks</label>
         <CurrencyInput
           value={portfolio.stocks}
-          onChange={(value) => setPortfolioValue(AssetClass.Stocks, value)}
+          onChange={(value) => setPortfolioValue(AssetClass.Stocks, value ?? 0)}
           disabled={disabled}
         />
       </div>
@@ -27,7 +27,7 @@ export const StartingPortfolio = () => {
         <label className="mb-1 block text-xs font-medium text-slate-600">Bonds</label>
         <CurrencyInput
           value={portfolio.bonds}
-          onChange={(value) => setPortfolioValue(AssetClass.Bonds, value)}
+          onChange={(value) => setPortfolioValue(AssetClass.Bonds, value ?? 0)}
           disabled={disabled}
         />
       </div>
@@ -35,7 +35,7 @@ export const StartingPortfolio = () => {
         <label className="mb-1 block text-xs font-medium text-slate-600">Cash</label>
         <CurrencyInput
           value={portfolio.cash}
-          onChange={(value) => setPortfolioValue(AssetClass.Cash, value)}
+          onChange={(value) => setPortfolioValue(AssetClass.Cash, value ?? 0)}
           disabled={disabled}
         />
       </div>

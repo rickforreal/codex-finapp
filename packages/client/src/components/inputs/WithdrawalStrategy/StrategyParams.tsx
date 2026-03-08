@@ -33,8 +33,8 @@ export const StrategyParams = () => {
   );
   const setWithdrawalParam = useAppStore((state) => state.setWithdrawalParam);
 
-  const setNumber = (key: Parameters<typeof setWithdrawalParam>[0]) => (value: number) =>
-    setWithdrawalParam(key, value);
+  const setNumber = (key: Parameters<typeof setWithdrawalParam>[0]) => (value: number | undefined) =>
+    setWithdrawalParam(key, value ?? 0);
   const setBoolean = (key: Parameters<typeof setWithdrawalParam>[0]) => (value: boolean) =>
     setWithdrawalParam(key, value);
 

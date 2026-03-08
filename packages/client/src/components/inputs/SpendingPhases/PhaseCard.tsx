@@ -80,16 +80,16 @@ export const PhaseCard = ({
         <div>
           <p className="mb-1 text-xs text-slate-600">Min Monthly (Optional)</p>
           <CurrencyInput
-            value={phase.minMonthlySpend ?? 0}
-            onChange={(value) => onUpdate({ minMonthlySpend: value || undefined })}
+            value={phase.minMonthlySpend}
+            onChange={(value) => onUpdate({ minMonthlySpend: value })}
             disabled={readOnly}
           />
         </div>
         <div>
           <p className="mb-1 text-xs text-slate-600">Max Monthly (Optional)</p>
           <CurrencyInput
-            value={phase.maxMonthlySpend ?? 0}
-            onChange={(value) => onUpdate({ maxMonthlySpend: value || undefined })}
+            value={phase.maxMonthlySpend}
+            onChange={(value) => onUpdate({ maxMonthlySpend: value })}
             disabled={readOnly}
           />
         </div>

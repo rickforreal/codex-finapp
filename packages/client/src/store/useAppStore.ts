@@ -458,14 +458,19 @@ export type AppStore = SnapshotState & {
   setThemeAppearanceForFamily: (familyId: ThemeFamilyId, appearance: ThemeAppearance) => void;
 };
 
-const defaultPhase = (): SpendingPhaseForm => ({
-  id: createId('phase'),
-  name: 'Phase 1',
-  start: { month: 1, year: 2030 },
-  end: { month: 1, year: 2060 },
-  minMonthlySpend: 6_000,
-  maxMonthlySpend: 12_000,
-});
+const defaultPhase = (): SpendingPhaseForm => {
+  const now = new Date();
+  const currentMonth = now.getMonth() + 1;
+  const currentYear = now.getFullYear();
+  return {
+    id: createId('phase'),
+    name: 'Phase 1',
+    start: { month: currentMonth, year: currentYear },
+    end: { month: currentMonth, year: currentYear + 40 },
+    minMonthlySpend: undefined,
+    maxMonthlySpend: undefined,
+  };
+};
 
 const defaultIncomeEvent = (): IncomeEventForm => ({
   id: createId('income'),
@@ -1953,9 +1958,9 @@ export const useAppStore = create<AppStore>((set) => ({
   blockBootstrapEnabled: false,
   blockBootstrapLength: 12,
   coreParams: {
-    birthDate: { month: 1, year: 1970 },
-    portfolioStart: { month: 1, year: 2030 },
-    portfolioEnd: { month: 1, year: 2060 },
+    birthDate: { month: 4, year: 1977 },
+    portfolioStart: { month: new Date().getMonth() + 1, year: new Date().getFullYear() },
+    portfolioEnd: { month: new Date().getMonth() + 1, year: new Date().getFullYear() + 40 },
     inflationRate: 0.03,
   },
   portfolio: {
@@ -1972,10 +1977,10 @@ export const useAppStore = create<AppStore>((set) => ({
     {
       id: createId('phase'),
       name: 'Phase 1',
-      start: { month: 1, year: 2030 },
-      end: { month: 1, year: 2060 },
-      minMonthlySpend: 6_000,
-      maxMonthlySpend: 12_000,
+      start: { month: new Date().getMonth() + 1, year: new Date().getFullYear() },
+      end: { month: new Date().getMonth() + 1, year: new Date().getFullYear() + 40 },
+      minMonthlySpend: undefined,
+      maxMonthlySpend: undefined,
     },
   ],
   withdrawalStrategy: {
