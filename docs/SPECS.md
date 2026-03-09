@@ -305,6 +305,7 @@ Affordance index reserved for future use. No explicit app-level redo behavior is
 **Behavior:**
 - Manual mode: one line per active slot.
 - Monte Carlo mode: one median line per active slot; confidence bands are shown only for the selected baseline slot.
+- In compare + Monte Carlo, the Withdrawal Chart mirrors this baseline-band rule: one median withdrawal line per slot, with confidence bands shown only for the selected baseline slot.
 - Tooltip includes point-in-time values for every active slot.
 - Active slots are all visible by default.
 - Each slot line color is tied to its stable theme token (`compareSlotA`..`compareSlotH`) and matches compare chips/tabs.
@@ -4217,9 +4218,9 @@ The Withdrawal Chart renders monthly withdrawal amounts over time with the same 
 |---|---|
 | Single sim, no breakdown | Line + gradient fill of total withdrawal per month |
 | Single sim, breakdown on | Stacked area by asset class (stocks/bonds/cash withdrawals) |
-| Monte Carlo mode | Representative path line only, "(representative path)" legend note |
-| Compare mode (2+ slots) | One line per slot, slot colors matching Portfolio Chart |
+| Monte Carlo mode | Confidence bands (10-90, 25-75) + median (p50) withdrawal line |
+| Compare mode (2+ slots) | One median line per slot, slot colors matching Portfolio Chart; in MC, confidence bands are shown for baseline slot only |
 | Stress scenarios active | Dashed withdrawal lines per scenario (hidden when breakdown on) |
 | Tracking mode | Actuals boundary line, stale dimming |
 | Zero withdrawals | "No withdrawals in this simulation" message |
-| Hover tooltip | Monthly withdrawal total, per-asset if breakdown on, shortfall if non-zero |
+| Hover tooltip | Monthly withdrawal total, percentile block in MC (p10/p25/p50/p75/p90), per-asset if breakdown on, shortfall if non-zero |

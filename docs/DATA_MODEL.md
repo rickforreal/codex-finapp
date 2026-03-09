@@ -297,6 +297,10 @@ MonteCarloResult {
     p25Monthly: number;
     p75Monthly: number;
   };
+  withdrawalPercentileCurvesReal?: {
+    p05: number[]; p10: number[]; p25: number[]; p50: number[]; p75: number[]; p90: number[]; p95: number[];
+  };
+  withdrawalP50SeriesReal?: number[]; // compatibility alias of withdrawalPercentileCurvesReal.p50
   percentileCurves: {
     total: { p05: number[]; p10: number[]; p25: number[]; p50: number[]; p75: number[]; p90: number[]; p95: number[] };
     stocks: { p05: number[]; p10: number[]; p25: number[]; p50: number[]; p75: number[]; p90: number[]; p95: number[] };

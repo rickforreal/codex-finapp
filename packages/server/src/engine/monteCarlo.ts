@@ -377,10 +377,8 @@ const runMonteCarloTs = async (
     })
     .filter((value): value is number => value !== null);
   const sortedMonthlyWithdrawalP50Series = [...monthlyWithdrawalP50Series].sort((a, b) => a - b);
-  const withdrawalP50SeriesReal = monthlyWithdrawalsRealMatrix.map((values) => {
-    values.sort();
-    return quantile(values, 0.5);
-  });
+  const withdrawalPercentileCurvesReal = percentileCurve(monthlyWithdrawalsRealMatrix);
+  const withdrawalP50SeriesReal = [...withdrawalPercentileCurvesReal.p50];
 
   return {
     representativePath,
@@ -397,6 +395,7 @@ const runMonteCarloTs = async (
         p25Monthly: quantile(sortedMonthlyWithdrawalP50Series, 0.25),
         p75Monthly: quantile(sortedMonthlyWithdrawalP50Series, 0.75),
       },
+      withdrawalPercentileCurvesReal,
       withdrawalP50SeriesReal,
       percentileCurves: {
         total: percentileCurve(monthlyTotalsByRun),

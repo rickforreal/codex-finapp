@@ -19,6 +19,7 @@ describe('runMonteCarlo', () => {
     expect(a.monteCarlo.percentileCurves.total.p50).toEqual(b.monteCarlo.percentileCurves.total.p50);
     expect(a.monteCarlo.percentileCurves.stocks.p50).toEqual(b.monteCarlo.percentileCurves.stocks.p50);
     expect(a.monteCarlo.withdrawalStatsReal).toEqual(b.monteCarlo.withdrawalStatsReal);
+    expect(a.monteCarlo.withdrawalPercentileCurvesReal).toEqual(b.monteCarlo.withdrawalPercentileCurvesReal);
     expect(a.representativePath.summary.terminalPortfolioValue).toBe(
       b.representativePath.summary.terminalPortfolioValue,
     );
@@ -42,9 +43,25 @@ describe('runMonteCarlo', () => {
     expect(result.monteCarlo.percentileCurves.cash.p10[month]).toBeLessThanOrEqual(
       result.monteCarlo.percentileCurves.cash.p90[month] ?? 0,
     );
-    expect(result.monteCarlo.withdrawalP50SeriesReal).toHaveLength(
+    expect(result.monteCarlo.withdrawalPercentileCurvesReal).toBeDefined();
+    expect(result.monteCarlo.withdrawalPercentileCurvesReal?.p50).toHaveLength(
       (config.coreParams.portfolioEnd.year - config.coreParams.portfolioStart.year) * 12 +
         (config.coreParams.portfolioEnd.month - config.coreParams.portfolioStart.month),
+    );
+    expect(result.monteCarlo.withdrawalP50SeriesReal).toEqual(
+      result.monteCarlo.withdrawalPercentileCurvesReal?.p50,
+    );
+    expect(result.monteCarlo.withdrawalPercentileCurvesReal?.p10[month]).toBeLessThanOrEqual(
+      result.monteCarlo.withdrawalPercentileCurvesReal?.p25[month] ?? 0,
+    );
+    expect(result.monteCarlo.withdrawalPercentileCurvesReal?.p25[month]).toBeLessThanOrEqual(
+      result.monteCarlo.withdrawalPercentileCurvesReal?.p50[month] ?? 0,
+    );
+    expect(result.monteCarlo.withdrawalPercentileCurvesReal?.p50[month]).toBeLessThanOrEqual(
+      result.monteCarlo.withdrawalPercentileCurvesReal?.p75[month] ?? 0,
+    );
+    expect(result.monteCarlo.withdrawalPercentileCurvesReal?.p75[month]).toBeLessThanOrEqual(
+      result.monteCarlo.withdrawalPercentileCurvesReal?.p90[month] ?? 0,
     );
   });
 
@@ -69,6 +86,9 @@ describe('runMonteCarlo', () => {
     expect(result.monteCarlo.withdrawalStatsReal?.meanMonthly).toBe(0);
     expect(result.monteCarlo.withdrawalStatsReal?.stdDevMonthly).toBe(0);
     expect(result.monteCarlo.withdrawalP50SeriesReal?.every((value: number) => value === 0)).toBe(true);
+    expect(
+      result.monteCarlo.withdrawalPercentileCurvesReal?.p90.every((value: number) => value === 0),
+    ).toBe(true);
   });
 
   it('produces ordered withdrawal quantiles for MC summary stats', async () => {

@@ -2207,3 +2207,46 @@ Acceptance Criteria:
       [AC2] `npm run build -w @finapp/native-mc` and `npm run test -w @finapp/native-mc` pass.
       [AC3] `npm run typecheck`, `npm run lint`, `npm test`, and `npm run build` pass.
       [AC4] `PROGRESS.txt` append-only completion entry includes timing deltas and canonical-doc impact statement.
+
+## Feature Plan — Withdrawal Chart v1.1 (MC Confidence Bands)
+
+- [x] WDCH11-T1: Create docs-first v1.1 feature update artifacts and tracking kickoff
+      Phase: Feature/WithdrawalChart-v1.1
+      Dependencies: none
+      Acceptance Criteria:
+      [AC1] `docs/features/withdrawal-chart-v1-1/{FEATURE,PLAN,ACCEPTANCE}.md` exist.
+      [AC2] `PLAN.md` includes `Delta From Baseline` referencing `docs/features/withdrawal-chart/`.
+      [AC3] Root tracking entries are added in `TASKS.md` and kickoff is appended to `PROGRESS.txt`.
+
+- [x] WDCH11-T2: Extend MC contract and TS/Rust aggregation with withdrawal percentile curves
+      Phase: Feature/WithdrawalChart-v1.1
+      Dependencies: WDCH11-T1
+      Acceptance Criteria:
+      [AC1] Shared `MonteCarloResult` includes optional `withdrawalPercentileCurvesReal`.
+      [AC2] TS and Rust MC engines populate withdrawal percentile curves from cross-run monthly withdrawals.
+      [AC3] `withdrawalP50SeriesReal` is preserved and derived from percentile p50.
+
+- [x] WDCH11-T3: Render withdrawal MC bands in single and compare chart surfaces
+      Phase: Feature/WithdrawalChart-v1.1
+      Dependencies: WDCH11-T2
+      Acceptance Criteria:
+      [AC1] Single MC withdrawal chart renders 10-90 and 25-75 bands plus p50 line.
+      [AC2] Compare MC withdrawal chart renders baseline-slot bands plus slot median lines.
+      [AC3] Breakdown mode hides bands and legacy payload fallback preserves p50-only rendering.
+
+- [x] WDCH11-T4: Add/extend server tests for percentile ordering, parity, and route shape
+      Phase: Feature/WithdrawalChart-v1.1
+      Dependencies: WDCH11-T2
+      Acceptance Criteria:
+      [AC1] Engine tests verify monthly quantile ordering and p50 equality to curve p50.
+      [AC2] Runtime selector tests verify TS/Rust percentile-curve parity on fixed seed.
+      [AC3] Route tests verify new additive MC response field.
+
+- [x] WDCH11-T5: Update canonical docs and pass full regression/native gates
+      Phase: Feature/WithdrawalChart-v1.1
+      Dependencies: WDCH11-T3, WDCH11-T4
+      Acceptance Criteria:
+      [AC1] Canonical docs updated: `docs/SPECS.md`, `docs/SCENARIOS.md`, `docs/DATA_MODEL.md`, `docs/API.md`.
+      [AC2] `npm run typecheck`, `npm run lint`, `npm test`, and `npm run build` pass.
+      [AC3] `npm run build -w @finapp/native-mc` and `npm run test -w @finapp/native-mc` pass.
+      [AC4] `PROGRESS.txt` append-only completion entry includes canonical-doc impact statement.

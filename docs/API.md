@@ -119,6 +119,8 @@ Response:
     p25Monthly: number;
     p75Monthly: number;
   };
+  withdrawalPercentileCurvesReal?: MonteCarloPercentileCurves;
+  withdrawalP50SeriesReal?: number[]; // compatibility alias of withdrawalPercentileCurvesReal.p50
   percentileCurves: {
     total: MonteCarloPercentileCurves;
     stocks: MonteCarloPercentileCurves;

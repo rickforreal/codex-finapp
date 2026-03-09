@@ -57,6 +57,9 @@ describe('runMonteCarlo runtime selector', () => {
     expect(withShadow.monteCarlo.percentileCurves.total.p50).toEqual(
       baseline.monteCarlo.percentileCurves.total.p50,
     );
+    expect(withShadow.monteCarlo.withdrawalPercentileCurvesReal).toEqual(
+      baseline.monteCarlo.withdrawalPercentileCurvesReal,
+    );
   });
 
   it('prefers FINAPP_SIM_ENGINE over FINAPP_MC_ENGINE when both are set', async () => {

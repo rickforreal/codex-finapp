@@ -552,6 +552,7 @@ struct MonteCarloResult {
   probability_of_success: f64,
   terminal_values: Vec<f64>,
   withdrawal_stats_real: MonteCarloWithdrawalStatsReal,
+  withdrawal_percentile_curves_real: MonteCarloPercentileCurves,
   withdrawal_p50_series_real: Vec<f64>,
   percentile_curves: PercentileCurveSet,
   historical_summary: Value,
@@ -2606,11 +2607,26 @@ fn run_monte_carlo_internal(
   sorted_monthly_withdrawal_p50_series
     .sort_by(|left, right| left.partial_cmp(right).unwrap_or(std::cmp::Ordering::Equal));
 
-  let mut withdrawal_p50_series_real = Vec::with_capacity(duration_months);
+  let mut withdrawal_percentile_curves_real = MonteCarloPercentileCurves {
+    p05: Vec::with_capacity(duration_months),
+    p10: Vec::with_capacity(duration_months),
+    p25: Vec::with_capacity(duration_months),
+    p50: Vec::with_capacity(duration_months),
+    p75: Vec::with_capacity(duration_months),
+    p90: Vec::with_capacity(duration_months),
+    p95: Vec::with_capacity(duration_months),
+  };
   for values in &mut monthly_withdrawals_real_matrix {
     values.sort_by(|left, right| left.partial_cmp(right).unwrap_or(std::cmp::Ordering::Equal));
-    withdrawal_p50_series_real.push(quantile(values, 0.5));
+    withdrawal_percentile_curves_real.p05.push(quantile(values, 0.05));
+    withdrawal_percentile_curves_real.p10.push(quantile(values, 0.1));
+    withdrawal_percentile_curves_real.p25.push(quantile(values, 0.25));
+    withdrawal_percentile_curves_real.p50.push(quantile(values, 0.5));
+    withdrawal_percentile_curves_real.p75.push(quantile(values, 0.75));
+    withdrawal_percentile_curves_real.p90.push(quantile(values, 0.9));
+    withdrawal_percentile_curves_real.p95.push(quantile(values, 0.95));
   }
+  let withdrawal_p50_series_real = withdrawal_percentile_curves_real.p50.clone();
 
   Ok(MonteCarloExecutionResult {
     representative_path,
@@ -2627,6 +2643,7 @@ fn run_monte_carlo_internal(
         p25_monthly: quantile(&sorted_monthly_withdrawal_p50_series, 0.25),
         p75_monthly: quantile(&sorted_monthly_withdrawal_p50_series, 0.75),
       },
+      withdrawal_percentile_curves_real,
       withdrawal_p50_series_real,
       percentile_curves: PercentileCurveSet {
         total: total_curve,

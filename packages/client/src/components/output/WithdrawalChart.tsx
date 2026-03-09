@@ -1,6 +1,12 @@
 import { useMemo } from 'react';
 
-import { AppMode, AssetClass, type MonthlySimulationRow, SimulationMode } from '@finapp/shared';
+import {
+  AppMode,
+  AssetClass,
+  type MonthlySimulationRow,
+  type MonteCarloPercentileCurves,
+  SimulationMode,
+} from '@finapp/shared';
 
 import {
   CHART_HEIGHT,
@@ -37,6 +43,14 @@ type WithdrawalPoint = {
   shortfall: number;
 };
 
+type MonteCarloBands = {
+  p10: number[];
+  p25: number[];
+  p50: number[];
+  p75: number[];
+  p90: number[];
+};
+
 type WithdrawalChartProps = {
   hoverIndex: number | null;
   onHoverChange: (index: number | null) => void;
@@ -46,6 +60,25 @@ type WithdrawalChartProps = {
 const height = CHART_HEIGHT;
 const margin = CHART_MARGIN;
 const plotHeight = PLOT_HEIGHT;
+
+const toDisplayBands = (
+  curves: MonteCarloPercentileCurves,
+  chartDisplayMode: 'nominal' | 'real',
+  inflationRate: number,
+): MonteCarloBands => {
+  const toDisplayValue = (value: number, monthIndexOneBased: number) =>
+    chartDisplayMode === 'real'
+      ? value
+      : value * inflationFactor(inflationRate, monthIndexOneBased);
+
+  return {
+    p10: curves.p10.map((value, index) => toDisplayValue(value, index + 1)),
+    p25: curves.p25.map((value, index) => toDisplayValue(value, index + 1)),
+    p50: curves.p50.map((value, index) => toDisplayValue(value, index + 1)),
+    p75: curves.p75.map((value, index) => toDisplayValue(value, index + 1)),
+    p90: curves.p90.map((value, index) => toDisplayValue(value, index + 1)),
+  };
+};
 
 export const WithdrawalChart = ({ hoverIndex, onHoverChange, chartWidth }: WithdrawalChartProps) => {
   const result = useActiveSimulationResult();
@@ -89,18 +122,31 @@ export const WithdrawalChart = ({ hoverIndex, onHoverChange, chartWidth }: Withd
         shortfall: row.withdrawals.shortfall,
       };
     });
-  }, [activeRunInflationRate, result]);
+  }, [activeRunInflationRate, mode, result, simulationMode]);
+
+  const mcWithdrawalBands = useMemo<MonteCarloBands | null>(() => {
+    if (simulationMode !== SimulationMode.MonteCarlo) {
+      return null;
+    }
+    const curves = result?.monteCarlo?.withdrawalPercentileCurvesReal;
+    if (!curves) {
+      return null;
+    }
+    return toDisplayBands(curves, chartDisplayMode, activeRunInflationRate);
+  }, [activeRunInflationRate, chartDisplayMode, result, simulationMode]);
 
   const mcWithdrawalP50Series = useMemo<number[]>(() => {
+    if (mcWithdrawalBands) {
+      return mcWithdrawalBands.p50;
+    }
     const series = result?.monteCarlo?.withdrawalP50SeriesReal ?? [];
     return series.map((value, index) => {
       if (chartDisplayMode === 'real') {
         return value;
       }
-      const monthIndexOneBased = index + 1;
-      return value * inflationFactor(activeRunInflationRate, monthIndexOneBased);
+      return value * inflationFactor(activeRunInflationRate, index + 1);
     });
-  }, [activeRunInflationRate, chartDisplayMode, result]);
+  }, [activeRunInflationRate, chartDisplayMode, mcWithdrawalBands, result]);
 
   // Compare mode
   if (isCompareActive) {
@@ -119,8 +165,13 @@ export const WithdrawalChart = ({ hoverIndex, onHoverChange, chartWidth }: Withd
       const resultForSlot = resolveSlotResult(compareResults.slots[slotId]);
       const rows = resultForSlot?.result.rows ?? [];
       const slotInflationRate = resultForSlot?.configSnapshot?.coreParams.inflationRate ?? inflationRate;
+      const slotBands =
+        simulationMode === SimulationMode.MonteCarlo && resultForSlot?.monteCarlo?.withdrawalPercentileCurvesReal
+          ? toDisplayBands(resultForSlot.monteCarlo.withdrawalPercentileCurvesReal, chartDisplayMode, slotInflationRate)
+          : null;
       const withdrawals =
-        simulationMode === SimulationMode.MonteCarlo &&
+        slotBands?.p50 ??
+        (simulationMode === SimulationMode.MonteCarlo &&
         (resultForSlot?.monteCarlo?.withdrawalP50SeriesReal?.length ?? 0) > 0
           ? resultForSlot!.monteCarlo!.withdrawalP50SeriesReal!.map((value: number, index: number) =>
               chartDisplayMode === 'real'
@@ -132,15 +183,26 @@ export const WithdrawalChart = ({ hoverIndex, onHoverChange, chartWidth }: Withd
               return chartDisplayMode === 'real'
                 ? nominal / inflationFactor(slotInflationRate, row.monthIndex)
                 : nominal;
-            });
+            }));
       return {
         slotId,
         color: getCompareSlotColorVar(slotId),
         rows,
         withdrawals,
         inflationRate: slotInflationRate,
+        result: resultForSlot,
+        bands: slotBands,
       };
     });
+
+    const baselineSlotId = compareResults.slotOrder.includes(compareResults.baselineSlotId)
+      ? compareResults.baselineSlotId
+      : (compareResults.slotOrder[0] ?? 'A');
+    const baselineSeries = slotSeries.find((entry) => entry.slotId === baselineSlotId) ?? slotSeries[0] ?? null;
+    const baselineBands =
+      simulationMode === SimulationMode.MonteCarlo && !chartBreakdownEnabled
+        ? baselineSeries?.bands ?? null
+        : null;
 
     if (slotSeries.every((entry) => entry.withdrawals.length === 0)) {
       return (
@@ -179,6 +241,7 @@ export const WithdrawalChart = ({ hoverIndex, onHoverChange, chartWidth }: Withd
     const maxY = Math.max(
       1,
       ...slotSeries.flatMap((entry) => entry.withdrawals),
+      ...(baselineBands?.p90 ?? []),
       ...compareStressEntries.flatMap((entry) => entry.curve),
     );
     const yAt = (value: number): number => margin.top + plotHeight - (value / maxY) * plotHeight;
@@ -231,6 +294,16 @@ export const WithdrawalChart = ({ hoverIndex, onHoverChange, chartWidth }: Withd
             });
             return acc;
           }, []);
+    const baselinePercentileTooltip =
+      activeHoverIndex === null || !baselineBands
+        ? null
+        : {
+            p10: baselineBands.p10[activeHoverIndex] ?? null,
+            p25: baselineBands.p25[activeHoverIndex] ?? null,
+            p50: baselineBands.p50[activeHoverIndex] ?? null,
+            p75: baselineBands.p75[activeHoverIndex] ?? null,
+            p90: baselineBands.p90[activeHoverIndex] ?? null,
+          };
 
     return (
       <div className="relative overflow-visible">
@@ -267,6 +340,28 @@ export const WithdrawalChart = ({ hoverIndex, onHoverChange, chartWidth }: Withd
           })}
           <line x1={margin.left} x2={margin.left} y1={margin.top} y2={margin.top + plotHeight} stroke="var(--theme-color-chart-axis)" />
           <line x1={margin.left} x2={margin.left + plotWidth} y1={margin.top + plotHeight} y2={margin.top + plotHeight} stroke="var(--theme-color-chart-axis)" />
+          {baselineBands && baselineSeries ? (
+            <>
+              <path
+                d={areaPath(
+                  Array.from({ length: baselineBands.p10.length }, (_, index) => xAt(index)),
+                  baselineBands.p90.map(yAt),
+                  baselineBands.p10.map(yAt),
+                )}
+                fill={baselineSeries.color}
+                fillOpacity={0.12}
+              />
+              <path
+                d={areaPath(
+                  Array.from({ length: baselineBands.p25.length }, (_, index) => xAt(index)),
+                  baselineBands.p75.map(yAt),
+                  baselineBands.p25.map(yAt),
+                )}
+                fill={baselineSeries.color}
+                fillOpacity={0.2}
+              />
+            </>
+          ) : null}
           {slotSeries.map((entry, index) => (
             <path
               key={`wc-slot-${entry.slotId}`}
@@ -300,6 +395,19 @@ export const WithdrawalChart = ({ hoverIndex, onHoverChange, chartWidth }: Withd
               Portfolio {entry.slotId}
             </div>
           ))}
+          {baselineSeries && baselineBands ? (
+            <div className="mt-2 border-t border-brand-border pt-1.5">
+              <div className="text-[10px] font-semibold text-slate-500">Baseline Bands ({baselineSeries.slotId})</div>
+              <div className="mt-1 flex items-center gap-2">
+                <span className="inline-block h-2 w-4 rounded" style={{ backgroundColor: baselineSeries.color, opacity: 0.2 }} />
+                25-75
+              </div>
+              <div className="mt-1 flex items-center gap-2">
+                <span className="inline-block h-2 w-4 rounded" style={{ backgroundColor: baselineSeries.color, opacity: 0.12 }} />
+                10-90
+              </div>
+            </div>
+          ) : null}
         </div>
         {hoverX !== null && (tooltipEntries.length > 0 || stressTooltipEntries.length > 0) ? (
           <div
@@ -310,6 +418,16 @@ export const WithdrawalChart = ({ hoverIndex, onHoverChange, chartWidth }: Withd
             }}
           >
             <p className="font-semibold text-slate-800">{hoverYear === null ? '—' : `Year ${hoverYear}`}</p>
+            {baselinePercentileTooltip && baselineSeries ? (
+              <div className="mt-2 rounded border border-slate-100 bg-slate-50 px-2 py-1">
+                <p className="font-medium text-slate-700">Baseline {baselineSeries.slotId} Percentiles</p>
+                <p className="mt-1 flex items-center justify-between gap-2"><span>p10</span><span className="font-mono text-slate-800">{formatCurrency(Math.round(baselinePercentileTooltip.p10 ?? 0))}</span></p>
+                <p className="flex items-center justify-between gap-2"><span>p25</span><span className="font-mono text-slate-800">{formatCurrency(Math.round(baselinePercentileTooltip.p25 ?? 0))}</span></p>
+                <p className="flex items-center justify-between gap-2"><span>p50</span><span className="font-mono text-slate-800">{formatCurrency(Math.round(baselinePercentileTooltip.p50 ?? 0))}</span></p>
+                <p className="flex items-center justify-between gap-2"><span>p75</span><span className="font-mono text-slate-800">{formatCurrency(Math.round(baselinePercentileTooltip.p75 ?? 0))}</span></p>
+                <p className="flex items-center justify-between gap-2"><span>p90</span><span className="font-mono text-slate-800">{formatCurrency(Math.round(baselinePercentileTooltip.p90 ?? 0))}</span></p>
+              </div>
+            ) : null}
             <div className="mt-2 space-y-2 text-slate-600">
               {[...tooltipEntries, ...stressTooltipEntries].map((entry) => (
                 <div key={entry.label} className="rounded border border-slate-100 bg-slate-50 px-2 py-1">
@@ -346,6 +464,10 @@ export const WithdrawalChart = ({ hoverIndex, onHoverChange, chartWidth }: Withd
   }
 
   // Check if all withdrawals are zero
+  const useMcBands =
+    simulationMode === SimulationMode.MonteCarlo &&
+    !chartBreakdownEnabled &&
+    mcWithdrawalBands !== null;
   const useMcMedianSeries =
     simulationMode === SimulationMode.MonteCarlo &&
     !chartBreakdownEnabled &&
@@ -387,6 +509,16 @@ export const WithdrawalChart = ({ hoverIndex, onHoverChange, chartWidth }: Withd
   const visibleSeries = useMcMedianSeries
     ? mcWithdrawalP50Series.slice(start, end + 1)
     : visible.map((point) => getVal(point).total);
+  const visibleBands =
+    useMcBands && mcWithdrawalBands
+      ? {
+          p10: mcWithdrawalBands.p10.slice(start, end + 1),
+          p25: mcWithdrawalBands.p25.slice(start, end + 1),
+          p50: mcWithdrawalBands.p50.slice(start, end + 1),
+          p75: mcWithdrawalBands.p75.slice(start, end + 1),
+          p90: mcWithdrawalBands.p90.slice(start, end + 1),
+        }
+      : null;
   const localCount = Math.max(visible.length - 1, 1);
   const xAt = (index: number): number => margin.left + (index / localCount) * plotWidth;
 
@@ -405,8 +537,9 @@ export const WithdrawalChart = ({ hoverIndex, onHoverChange, chartWidth }: Withd
   const visibleStressCurves = stressWithdrawalCurves.map((curve) => curve.slice(start, end + 1));
 
   const maxFromPoints = Math.max(...visibleSeries, 1);
+  const maxFromBands = Math.max(1, ...(visibleBands?.p90 ?? []));
   const maxFromStress = Math.max(1, ...visibleStressCurves.flatMap((curve) => curve));
-  const maxY = Math.max(maxFromPoints, maxFromStress, 1);
+  const maxY = Math.max(maxFromPoints, maxFromBands, maxFromStress, 1);
   const yAt = (value: number): number => margin.top + plotHeight - (value / maxY) * plotHeight;
 
   const xValues = visible.map((_, index) => xAt(index));
@@ -439,6 +572,16 @@ export const WithdrawalChart = ({ hoverIndex, onHoverChange, chartWidth }: Withd
   const hoverVal = hoverPoint ? getVal(hoverPoint) : null;
   const hoverX = activeHoverIndex === null ? null : xAt(activeHoverIndex);
   const hoverSeriesValue = activeHoverIndex === null ? null : visibleSeries[activeHoverIndex] ?? null;
+  const hoverBands =
+    activeHoverIndex === null || !visibleBands
+      ? null
+      : {
+          p10: visibleBands.p10[activeHoverIndex] ?? null,
+          p25: visibleBands.p25[activeHoverIndex] ?? null,
+          p50: visibleBands.p50[activeHoverIndex] ?? null,
+          p75: visibleBands.p75[activeHoverIndex] ?? null,
+          p90: visibleBands.p90[activeHoverIndex] ?? null,
+        };
   const hoverY = hoverSeriesValue === null ? null : yAt(hoverSeriesValue);
 
   const isMC = simulationMode === SimulationMode.MonteCarlo;
@@ -505,6 +648,12 @@ export const WithdrawalChart = ({ hoverIndex, onHoverChange, chartWidth }: Withd
               <path d={areaPath(xValues, bondsUpper, bondsLower)} fill="var(--theme-color-asset-bonds)" fillOpacity={0.66} />
               <path d={areaPath(xValues, stocksUpper, stocksLower)} fill="var(--theme-color-asset-stocks)" fillOpacity={0.66} />
             </>
+          ) : visibleBands ? (
+            <>
+              <path d={areaPath(xValues, visibleBands.p10.map(yAt), visibleBands.p90.map(yAt))} fill="var(--theme-chart-mc-band-outer)" />
+              <path d={areaPath(xValues, visibleBands.p25.map(yAt), visibleBands.p75.map(yAt))} fill="var(--theme-chart-mc-band-inner)" />
+              <path d={linePath(visibleBands.p50.map((value, index) => ({ x: xAt(index), y: yAt(value) })))} fill="none" stroke="var(--theme-chart-mc-median-line)" strokeWidth="2.5" />
+            </>
           ) : (
             <>
               <path
@@ -536,6 +685,18 @@ export const WithdrawalChart = ({ hoverIndex, onHoverChange, chartWidth }: Withd
             </linearGradient>
           </defs>
 
+          {visibleBands ? (
+            <g transform={`translate(${margin.left + plotWidth - 120}, ${margin.top + 8})`}>
+              <rect x={0} y={0} width={116} height={52} rx={6} fill="var(--theme-color-overlay)" stroke="var(--theme-color-border-primary)" />
+              <text x={10} y={16} fontSize="10" fill="var(--theme-color-text-secondary)">10-90%</text>
+              <rect x={70} y={9} width={30} height={8} fill="var(--theme-chart-mc-band-outer)" />
+              <text x={10} y={31} fontSize="10" fill="var(--theme-color-text-secondary)">25-75%</text>
+              <rect x={70} y={24} width={30} height={8} fill="var(--theme-chart-mc-band-inner)" />
+              <text x={10} y={46} fontSize="10" fill="var(--theme-color-text-secondary)">Median</text>
+              <line x1={70} y1={42} x2={100} y2={42} stroke="var(--theme-chart-mc-median-line)" strokeWidth="2" />
+            </g>
+          ) : null}
+
           {hoverX !== null ? (
             <line x1={hoverX} y1={margin.top} x2={hoverX} y2={margin.top + plotHeight} stroke="var(--theme-color-chart-text)" strokeDasharray="4 4" />
           ) : null}
@@ -547,11 +708,18 @@ export const WithdrawalChart = ({ hoverIndex, onHoverChange, chartWidth }: Withd
               </text>
             </>
           ) : null}
-          {hoverX !== null && hoverY !== null ? <circle cx={hoverX} cy={hoverY} r={5} fill="var(--theme-chart-manual-line)" /> : null}
+          {hoverX !== null && hoverY !== null ? (
+            <circle
+              cx={hoverX}
+              cy={hoverY}
+              r={5}
+              fill={visibleBands ? 'var(--theme-chart-mc-median-line)' : 'var(--theme-chart-manual-line)'}
+            />
+          ) : null}
         </svg>
       </div>
 
-      {isMC ? (
+      {isMC && !visibleBands ? (
         <div className="pointer-events-none absolute right-3 top-3 rounded-md border border-brand-border bg-white/95 px-2 py-1 text-[10px] text-slate-500">
           {useMcMedianSeries ? '(median across runs)' : '(representative path)'}
         </div>
@@ -591,6 +759,16 @@ export const WithdrawalChart = ({ hoverIndex, onHoverChange, chartWidth }: Withd
               <span>Withdrawal</span>
               <span className="font-mono text-slate-800">{formatCurrency(Math.round(hoverSeriesValue))}</span>
             </p>
+            {hoverBands ? (
+              <div className="rounded border border-slate-100 bg-slate-50 px-2 py-1">
+                <p className="font-medium text-slate-700">Percentiles</p>
+                <p className="mt-1 flex items-center justify-between gap-2"><span>p10</span><span className="font-mono text-slate-800">{formatCurrency(Math.round(hoverBands.p10 ?? 0))}</span></p>
+                <p className="flex items-center justify-between gap-2"><span>p25</span><span className="font-mono text-slate-800">{formatCurrency(Math.round(hoverBands.p25 ?? 0))}</span></p>
+                <p className="flex items-center justify-between gap-2"><span>p50</span><span className="font-mono text-slate-800">{formatCurrency(Math.round(hoverBands.p50 ?? 0))}</span></p>
+                <p className="flex items-center justify-between gap-2"><span>p75</span><span className="font-mono text-slate-800">{formatCurrency(Math.round(hoverBands.p75 ?? 0))}</span></p>
+                <p className="flex items-center justify-between gap-2"><span>p90</span><span className="font-mono text-slate-800">{formatCurrency(Math.round(hoverBands.p90 ?? 0))}</span></p>
+              </div>
+            ) : null}
             {chartBreakdownEnabled && hoverVal ? (
               <>
                 <p className="flex items-center justify-between gap-2">

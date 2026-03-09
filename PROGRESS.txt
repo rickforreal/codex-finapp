@@ -2647,3 +2647,59 @@ Validation:
 - `npm run lint` ✅
 
 Canonical docs impact: No canonical doc updates required (compare-insight rendering bugfix only).
+
+## 2026-03-08 19:05 — WDCH11-T1 | STARTED
+
+Kickoff for Withdrawal Chart v1.1 MC confidence bands wave.
+
+Docs-first artifacts created:
+- `/Users/ricknayar/Development/codex/finapp/docs/features/withdrawal-chart-v1-1/FEATURE.md`
+- `/Users/ricknayar/Development/codex/finapp/docs/features/withdrawal-chart-v1-1/PLAN.md`
+- `/Users/ricknayar/Development/codex/finapp/docs/features/withdrawal-chart-v1-1/ACCEPTANCE.md`
+
+Tracking updates:
+- Added `WDCH11-T1..WDCH11-T5` task block to root `TASKS.md`.
+
+Next:
+- Implement shared/server/native/client changes for withdrawal percentile curves and chart-band rendering, then run full regression/native gates.
+
+## 2026-03-08 19:32 — WDCH11-T5 | COMPLETE
+
+Completed Withdrawal Chart v1.1 MC confidence bands wave (single + compare), including docs-first artifacts, TS/Rust engine parity updates, client rendering updates, and canonical doc updates.
+
+Implementation summary:
+- Added feature docs:
+  - `/Users/ricknayar/Development/codex/finapp/docs/features/withdrawal-chart-v1-1/FEATURE.md`
+  - `/Users/ricknayar/Development/codex/finapp/docs/features/withdrawal-chart-v1-1/PLAN.md`
+  - `/Users/ricknayar/Development/codex/finapp/docs/features/withdrawal-chart-v1-1/ACCEPTANCE.md`
+- Extended shared MC contract in `/Users/ricknayar/Development/codex/finapp/packages/shared/src/domain/simulation.ts`:
+  - `withdrawalPercentileCurvesReal?: MonteCarloPercentileCurves`
+- Updated TS MC aggregation in `/Users/ricknayar/Development/codex/finapp/packages/server/src/engine/monteCarlo.ts`:
+  - Populated `withdrawalPercentileCurvesReal` from cross-run monthly withdrawal matrix.
+  - Derived `withdrawalP50SeriesReal` from percentile curve `p50`.
+- Updated Rust MC aggregation in `/Users/ricknayar/Development/codex/finapp/packages/native-mc/src/lib.rs`:
+  - Added `withdrawal_percentile_curves_real` to MC output.
+  - Derived `withdrawal_p50_series_real` from curve `p50`.
+- Updated Withdrawal Chart rendering in `/Users/ricknayar/Development/codex/finapp/packages/client/src/components/output/WithdrawalChart.tsx`:
+  - Single MC: 10-90 and 25-75 bands + p50 line.
+  - Compare MC: baseline-slot withdrawal bands + slot median lines.
+  - Tooltip + legend percentile context added.
+  - Breakdown-mode band suppression retained.
+  - Legacy fallback to p50-only when percentile curves are absent retained.
+- Added/updated server tests:
+  - `/Users/ricknayar/Development/codex/finapp/packages/server/tests/engine/monteCarlo.test.ts`
+  - `/Users/ricknayar/Development/codex/finapp/packages/server/tests/engine/monteCarlo.runtimeSelector.test.ts`
+  - `/Users/ricknayar/Development/codex/finapp/packages/server/tests/routes/simulation.test.ts`
+
+Validation:
+- `npm run typecheck` ✅
+- `npm run lint` ✅
+- `npm test` ✅
+- `npm run build` ✅
+- `npm run build -w @finapp/native-mc` ✅
+- `npm run test -w @finapp/native-mc` ✅
+
+Canonical docs impact:
+- Updated `/Users/ricknayar/Development/codex/finapp/docs/SPECS.md` (Affordance #68 compare baseline-band note, Affordance #75 MC withdrawal-band behavior/tooltips).
+- Updated `/Users/ricknayar/Development/codex/finapp/docs/SCENARIOS.md` (compare + MC withdrawal band narrative and side-by-side chart narrative).
+- Updated `/Users/ricknayar/Development/codex/finapp/docs/DATA_MODEL.md` and `/Users/ricknayar/Development/codex/finapp/docs/API.md` (additive MC field docs).
