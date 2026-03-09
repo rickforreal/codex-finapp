@@ -1,15 +1,18 @@
 import { Fragment, useState } from 'react';
 
-import { SimulationMode, type SimulationConfig } from '@finapp/shared';
+import { SimulationMode, type SimulateResponse, type SimulationConfig } from '@finapp/shared';
 
 import { getCompareSlotColorVar } from '../../lib/compareSlotColors';
 import { buildCompareParameterDiffs } from '../../lib/compareParameterDiffs';
-import { useAppStore, useCompareSimulationResults, useIsCompareActive } from '../../store/useAppStore';
+import {
+  type WorkspaceSnapshot,
+  useCompareSimulationResults,
+  useIsCompareActive,
+} from '../../store/useAppStore';
 
 export const CompareParameterDiffTable = () => {
   const [isExpanded, setIsExpanded] = useState(true);
   const isCompareActive = useIsCompareActive();
-  const simulationMode = useAppStore((state) => state.simulationMode);
   const compareResults = useCompareSimulationResults();
 
   if (!isCompareActive) {
@@ -24,6 +27,19 @@ export const CompareParameterDiffTable = () => {
     ? compareResults.baselineSlotId
     : (slotOrder[0] ?? 'A');
 
+  const resolveSlotResult = (
+    workspace: WorkspaceSnapshot | undefined,
+  ): SimulateResponse | null => {
+    if (!workspace) {
+      return null;
+    }
+    const preferred =
+      workspace.simulationMode === SimulationMode.Manual
+        ? workspace.simulationResults.manual
+        : workspace.simulationResults.monteCarlo;
+    return preferred ?? workspace.simulationResults.manual ?? workspace.simulationResults.monteCarlo;
+  };
+
   const slotConfigsById: Partial<Record<string, SimulationConfig>> = {};
   let hasCompleteContext = true;
   slotOrder.forEach((slotId) => {
@@ -32,10 +48,7 @@ export const CompareParameterDiffTable = () => {
       hasCompleteContext = false;
       return;
     }
-    const run =
-      simulationMode === SimulationMode.Manual
-        ? workspace.simulationResults.manual
-        : workspace.simulationResults.monteCarlo;
+    const run = resolveSlotResult(workspace);
     if (!run?.configSnapshot) {
       hasCompleteContext = false;
       return;

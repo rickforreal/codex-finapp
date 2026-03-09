@@ -3,6 +3,7 @@ import {
   AssetClass,
   DrawdownStrategyType,
   HistoricalEra,
+  ReturnSource,
   SimulationMode,
   WithdrawalStrategyType,
   type SimulationConfig,
@@ -224,6 +225,8 @@ describe('buildCompareParameterDiffs', () => {
   it('captures historical-era and block-bootstrap parameter differences', () => {
     const configA = baseConfig();
     const configB = baseConfig();
+    configA.returnsSource = ReturnSource.Historical;
+    configB.returnsSource = ReturnSource.Historical;
     configB.selectedHistoricalEra = HistoricalEra.OilCrisis;
     configB.blockBootstrapEnabled = true;
     configB.blockBootstrapLength = 24;
@@ -253,6 +256,8 @@ describe('buildCompareParameterDiffs', () => {
   it('formats custom historical era with month-year range text', () => {
     const configA = baseConfig();
     const configB = baseConfig();
+    configA.returnsSource = ReturnSource.Historical;
+    configB.returnsSource = ReturnSource.Historical;
     configB.selectedHistoricalEra = HistoricalEra.Custom;
     configB.customHistoricalRange = {
       start: { year: 1990, month: 1 },
@@ -267,5 +272,31 @@ describe('buildCompareParameterDiffs', () => {
 
     const eraRow = result.rows.find((row) => row.key === 'historicalData.selectedEra');
     expect(eraRow?.valuesBySlot.B).toBe('Custom (Jan 1990 - Dec 2000)');
+  });
+
+  it('treats return assumptions as N/A for historical-source slots in mixed-source compares', () => {
+    const configA = baseConfig();
+    const configB = baseConfig();
+
+    configA.returnsSource = ReturnSource.Manual;
+    configA.returnAssumptions.stocks.expectedReturn = 0.05;
+    configB.returnsSource = ReturnSource.Historical;
+    configB.returnAssumptions.stocks.expectedReturn = 0.08;
+
+    const result = buildCompareParameterDiffs({
+      slotOrder: ['A', 'B'],
+      baselineSlotId: 'A',
+      slotConfigsById: { A: configA, B: configB },
+    });
+
+    const sourceRow = result.rows.find((row) => row.key === 'returns.source');
+    const stocksExpectedRow = result.rows.find((row) => row.key === 'returns.stocks.expectedReturn');
+    const historicalEraRow = result.rows.find((row) => row.key === 'historicalData.selectedEra');
+
+    expect(sourceRow?.valuesBySlot.A).toBe('Manual');
+    expect(sourceRow?.valuesBySlot.B).toBe('Historical');
+    expect(stocksExpectedRow?.valuesBySlot.A).toBe('5.00%');
+    expect(stocksExpectedRow?.valuesBySlot.B).toBe('N/A');
+    expect(historicalEraRow?.valuesBySlot.A).toBe('N/A');
   });
 });

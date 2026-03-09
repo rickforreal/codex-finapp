@@ -3,6 +3,8 @@ import {
   DrawdownStrategyType,
   HistoricalEra,
   HISTORICAL_ERA_DEFINITIONS,
+  ReturnSource,
+  SimulationMode,
   WithdrawalStrategyType,
   type SimulationConfig,
 } from '@finapp/shared';
@@ -307,6 +309,13 @@ const summarizeExpenseEvents = (config: SimulationConfig): DiffValue => {
   return { display, normalized };
 };
 
+const resolveReturnsSource = (config: SimulationConfig): ReturnSource =>
+  config.returnsSource ??
+  (config.simulationMode === SimulationMode.Manual ? ReturnSource.Manual : ReturnSource.Historical);
+
+const isManualReturnsSource = (config: SimulationConfig): boolean =>
+  resolveReturnsSource(config) === ReturnSource.Manual;
+
 // ... (summarizeIncomeEvents and summarizeExpenseEvents remain similar but check imports)
 
 type RowSpec = {
@@ -367,46 +376,73 @@ const buildRowSpecs = (): RowSpec[] => {
       resolve: (config) => asMoney(config.portfolio.stocks + config.portfolio.bonds + config.portfolio.cash),
     },
     {
+      key: 'returns.source',
+      label: 'Returns Source',
+      group: 'Return Assumptions',
+      resolve: (config) => asText(isManualReturnsSource(config) ? 'Manual' : 'Historical'),
+    },
+    {
       key: 'returns.stocks.expectedReturn',
       label: 'Stocks Expected Return',
       group: 'Return Assumptions',
-      resolve: (config) => asPercent(config.returnAssumptions.stocks.expectedReturn),
+      resolve: (config) =>
+        isManualReturnsSource(config)
+          ? asPercent(config.returnAssumptions.stocks.expectedReturn)
+          : NOT_APPLICABLE,
     },
     {
       key: 'returns.stocks.stdDev',
       label: 'Stocks Std Dev',
       group: 'Return Assumptions',
-      resolve: (config) => asPercent(config.returnAssumptions.stocks.stdDev),
+      resolve: (config) =>
+        isManualReturnsSource(config)
+          ? asPercent(config.returnAssumptions.stocks.stdDev)
+          : NOT_APPLICABLE,
     },
     {
       key: 'returns.bonds.expectedReturn',
       label: 'Bonds Expected Return',
       group: 'Return Assumptions',
-      resolve: (config) => asPercent(config.returnAssumptions.bonds.expectedReturn),
+      resolve: (config) =>
+        isManualReturnsSource(config)
+          ? asPercent(config.returnAssumptions.bonds.expectedReturn)
+          : NOT_APPLICABLE,
     },
     {
       key: 'returns.bonds.stdDev',
       label: 'Bonds Std Dev',
       group: 'Return Assumptions',
-      resolve: (config) => asPercent(config.returnAssumptions.bonds.stdDev),
+      resolve: (config) =>
+        isManualReturnsSource(config)
+          ? asPercent(config.returnAssumptions.bonds.stdDev)
+          : NOT_APPLICABLE,
     },
     {
       key: 'returns.cash.expectedReturn',
       label: 'Cash Expected Return',
       group: 'Return Assumptions',
-      resolve: (config) => asPercent(config.returnAssumptions.cash.expectedReturn),
+      resolve: (config) =>
+        isManualReturnsSource(config)
+          ? asPercent(config.returnAssumptions.cash.expectedReturn)
+          : NOT_APPLICABLE,
     },
     {
       key: 'returns.cash.stdDev',
       label: 'Cash Std Dev',
       group: 'Return Assumptions',
-      resolve: (config) => asPercent(config.returnAssumptions.cash.stdDev),
+      resolve: (config) =>
+        isManualReturnsSource(config)
+          ? asPercent(config.returnAssumptions.cash.stdDev)
+          : NOT_APPLICABLE,
     },
     {
       key: 'historicalData.selectedEra',
       label: 'Historical Era',
       group: 'Historical Data',
       resolve: (config) => {
+        if (isManualReturnsSource(config)) {
+          return NOT_APPLICABLE;
+        }
         if (config.selectedHistoricalEra === HistoricalEra.Custom && config.customHistoricalRange) {
           return asText(
             `Custom (${monthYearLabel(config.customHistoricalRange.start.month, config.customHistoricalRange.start.year)} - ${monthYearLabel(config.customHistoricalRange.end.month, config.customHistoricalRange.end.year)})`,
@@ -420,14 +456,19 @@ const buildRowSpecs = (): RowSpec[] => {
       key: 'historicalData.blockBootstrapEnabled',
       label: 'Block Bootstrap',
       group: 'Historical Data',
-      resolve: (config) => asBoolean(config.blockBootstrapEnabled),
+      resolve: (config) =>
+        isManualReturnsSource(config) ? NOT_APPLICABLE : asBoolean(config.blockBootstrapEnabled),
     },
     {
       key: 'historicalData.blockBootstrapLength',
       label: 'Block Length (Months)',
       group: 'Historical Data',
       resolve: (config) =>
-        config.blockBootstrapEnabled ? asInteger(config.blockBootstrapLength) : NOT_APPLICABLE,
+        isManualReturnsSource(config)
+          ? NOT_APPLICABLE
+          : config.blockBootstrapEnabled
+            ? asInteger(config.blockBootstrapLength)
+            : NOT_APPLICABLE,
     },
     {
       key: 'withdrawal.type',

@@ -2595,3 +2595,55 @@ Validation:
 - `npm test` ✅
 
 Canonical docs impact: No canonical doc updates required for this targeted chart data-source correction (existing MC model extended with additive field; no endpoint path/shape breaking changes).
+
+## 2026-03-08 13:42 — Compare Insight Mixed Returns-Source Snapshot Selection Fix | COMPLETE
+
+Investigated Compare Insight table mismatch when one compare slot uses Historical returns and another uses Manual returns.
+
+Root cause:
+- `/Users/ricknayar/Development/codex/finapp/packages/client/src/components/output/CompareParameterDiffTable.tsx` selected each slot config snapshot using global `state.simulationMode`.
+- In mixed-source compare workspaces, this could select the wrong cached run (`manual` vs `monteCarlo`) for one slot, causing incorrect assumptions to appear (e.g. Manual defaults shown for a Historical slot).
+
+Fix:
+- Updated Compare Insight snapshot resolution to be per-slot:
+  - For each slot, prefer run matching `workspace.simulationMode`.
+  - Fallback to whichever run exists (`manual` or `monteCarlo`) if preferred is missing.
+- File changed:
+  - `/Users/ricknayar/Development/codex/finapp/packages/client/src/components/output/CompareParameterDiffTable.tsx`
+
+Validation:
+- `npm run test -w @finapp/client -- src/lib/compareParameterDiffs.test.ts` ✅
+- `npm run typecheck -w @finapp/client` ✅
+- `npm run lint -w @finapp/client` ✅
+- `npm run typecheck` ✅
+- `npm run lint` ✅
+
+Canonical docs impact: No canonical doc updates required (bugfix to compare-table snapshot selection logic only).
+
+## 2026-03-08 18:04 — Compare Insight Mixed Source Follow-up: Source-Aware Diff Rows | COMPLETE
+
+Follow-up fix for compare-insight mismatch where Historical slots still displayed Manual return assumptions (e.g., 8% expected return).
+
+Root cause:
+- Diff row resolvers in `/Users/ricknayar/Development/codex/finapp/packages/client/src/lib/compareParameterDiffs.ts` always read `returnAssumptions` and historical fields without gating by `returnsSource`.
+- Even with correct per-slot snapshot selection, a Historical slot could still display manual assumption values.
+
+Fixes:
+- Added source resolution helper:
+  - `returnsSource ?? (simulationMode === Manual ? Manual : Historical)`
+- Added `Returns Source` row (`returns.source`) in the Return Assumptions section.
+- Gated return-assumption rows (`expectedReturn`, `stdDev`) to `N/A` unless source is Manual.
+- Gated historical rows (`selectedEra`, `blockBootstrapEnabled`, `blockBootstrapLength`) to `N/A` when source is Manual.
+
+Files changed:
+- `/Users/ricknayar/Development/codex/finapp/packages/client/src/lib/compareParameterDiffs.ts`
+- `/Users/ricknayar/Development/codex/finapp/packages/client/src/lib/compareParameterDiffs.test.ts`
+
+Validation:
+- `npm run test -w @finapp/client -- src/lib/compareParameterDiffs.test.ts` ✅
+- `npm run typecheck -w @finapp/client` ✅
+- `npm run lint -w @finapp/client` ✅
+- `npm run typecheck` ✅
+- `npm run lint` ✅
+
+Canonical docs impact: No canonical doc updates required (compare-insight rendering bugfix only).
