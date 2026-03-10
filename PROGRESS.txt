@@ -2703,3 +2703,62 @@ Canonical docs impact:
 - Updated `/Users/ricknayar/Development/codex/finapp/docs/SPECS.md` (Affordance #68 compare baseline-band note, Affordance #75 MC withdrawal-band behavior/tooltips).
 - Updated `/Users/ricknayar/Development/codex/finapp/docs/SCENARIOS.md` (compare + MC withdrawal band narrative and side-by-side chart narrative).
 - Updated `/Users/ricknayar/Development/codex/finapp/docs/DATA_MODEL.md` and `/Users/ricknayar/Development/codex/finapp/docs/API.md` (additive MC field docs).
+
+## 2026-03-09 20:35 — RPHASE-T1 | STARTED
+
+Kickoff for Return Phases feature wave.
+
+Docs-first artifacts created:
+- `/Users/ricknayar/Development/codex/finapp/docs/features/return-phases/FEATURE.md`
+- `/Users/ricknayar/Development/codex/finapp/docs/features/return-phases/PLAN.md`
+- `/Users/ricknayar/Development/codex/finapp/docs/features/return-phases/ACCEPTANCE.md`
+
+Tracking updates:
+- Added `RPHASE-T1..RPHASE-T7` task block to root `TASKS.md`.
+
+Next:
+- Implement shared/server/native/client/compare updates for phase-aware returns, then run full regression/native gates.
+
+## 2026-03-09 22:25 — RPHASE-T7 | COMPLETE
+
+Completed Return Phases feature wave end-to-end (docs-first through canonical-doc updates), including shared schema normalization, TS + Rust phase-aware simulation paths, client Return Phases UI/store wiring, compare sync/insight updates, and legacy snapshot compatibility.
+
+Implementation summary:
+- Added/updated feature docs:
+  - `/Users/ricknayar/Development/codex/finapp/docs/features/return-phases/FEATURE.md`
+  - `/Users/ricknayar/Development/codex/finapp/docs/features/return-phases/PLAN.md`
+  - `/Users/ricknayar/Development/codex/finapp/docs/features/return-phases/ACCEPTANCE.md`
+- Shared model/contracts:
+  - Added `returnPhases` + `ReturnPhase` in `/Users/ricknayar/Development/codex/finapp/packages/shared/src/domain/simulation.ts`.
+  - Added schema validation + legacy normalization in `/Users/ricknayar/Development/codex/finapp/packages/shared/src/contracts/schemas.ts`.
+- Server TS engine:
+  - Added phase-aware return resolver in `/Users/ricknayar/Development/codex/finapp/packages/server/src/engine/returnPhases.ts`.
+  - Routed `/simulate`, `/reforecast`, and stress flows through phase-aware generation in:
+    - `/Users/ricknayar/Development/codex/finapp/packages/server/src/engine/monteCarlo.ts`
+    - `/Users/ricknayar/Development/codex/finapp/packages/server/src/engine/stress.ts`
+    - `/Users/ricknayar/Development/codex/finapp/packages/server/src/engine/simulationRuntime.ts`
+    - `/Users/ricknayar/Development/codex/finapp/packages/server/src/routes/simulation.ts`
+- Rust/native parity:
+  - Extended native DTO/engine logic for `returnPhases` in `/Users/ricknayar/Development/codex/finapp/packages/native-mc/src/lib.rs`.
+  - Updated native wrapper payload mapping in `/Users/ricknayar/Development/codex/finapp/packages/server/src/engine/monteCarloNative.ts`.
+- Client/store/UI/compare:
+  - Added Return Phases editor component: `/Users/ricknayar/Development/codex/finapp/packages/client/src/components/inputs/ReturnPhases.tsx`.
+  - Wired Returns section to phase editor in `/Users/ricknayar/Development/codex/finapp/packages/client/src/components/layout/Sidebar.tsx`.
+  - Implemented return-phase state/actions + compare sync family/instance support in `/Users/ricknayar/Development/codex/finapp/packages/client/src/store/useAppStore.ts`.
+  - Updated compare insight diff model for per-phase rows in `/Users/ricknayar/Development/codex/finapp/packages/client/src/lib/compareParameterDiffs.ts`.
+  - Updated snapshot migration/normalization for return phases and compare-sync compatibility in `/Users/ricknayar/Development/codex/finapp/packages/client/src/store/snapshot.ts`.
+
+Validation:
+- `npm run typecheck` ✅
+- `npm run lint` ✅
+- `npm test` ✅
+- `npm run build` ✅
+- `npm run build -w @finapp/native-mc` ✅
+- `npm run test -w @finapp/native-mc` ✅
+
+Canonical docs impact:
+- Updated `/Users/ricknayar/Development/codex/finapp/docs/SPECS.md` (Return Phases behavior note + compare sync note).
+- Updated `/Users/ricknayar/Development/codex/finapp/docs/SCENARIOS.md` (new multi-regime return-phases scenario).
+- Updated `/Users/ricknayar/Development/codex/finapp/docs/DATA_MODEL.md` (`SimulationConfig.returnPhases` model + semantics).
+- Updated `/Users/ricknayar/Development/codex/finapp/docs/API.md` (request semantics + compatibility normalization + phase-boundary bootstrap note).
+- Updated `/Users/ricknayar/Development/codex/finapp/docs/ARCHITECTURE.md` (phase-aware Monte Carlo return-resolution pipeline).

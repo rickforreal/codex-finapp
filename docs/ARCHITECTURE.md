@@ -856,14 +856,15 @@ function runMonteCarlo(
 
 This function:
 
-1. Filters historical data to the selected era.
-   - Preset eras resolve from canonical definitions.
-   - `HistoricalEra.Custom` resolves from `config.customHistoricalRange` (inclusive month-year bounds).
-2. For each of the N simulations, generates a random sequence of monthly returns using one of two sampling modes:
-   - **i.i.d. (default):** each month drawn independently (with replacement) from the era's months.
-   - **Block bootstrap:** when `config.blockBootstrapEnabled` is true, draws contiguous blocks of `config.blockBootstrapLength` months (with circular wrap at pool boundaries), preserving within-block sequential correlation.
-3. Calls `simulateRetirement` with each sequence.
-4. Aggregates the N single-path results into percentile curves, probability of success, and summary statistics.
+1. Resolves return phases from `config.returnPhases` (or compatibility-normalized legacy single-source fields).
+2. For each phase, prepares the historical pool and sampling settings for that phase's source/era.
+3. For each of the N simulations, generates a monthly return sequence phase-by-phase:
+   - **manual phase:** stochastic normal sampling from phase return assumptions.
+   - **historical phase (i.i.d.):** month draws with replacement from the phase pool.
+   - **historical phase (block bootstrap):** contiguous blocks from the phase pool with circular wrap.
+4. Enforces hard phase boundaries during generation (bootstrap blocks never cross from one phase into another).
+5. Calls `simulateRetirement` with each generated sequence.
+6. Aggregates the N single-path results into percentile curves, probability of success, and summary statistics.
 
 **Random seed support.** Both Manual and Monte Carlo accept an optional seed for deterministic results. This is essential for stress testing (Section 7.5): the stress test uses the same seed as the base simulation so the only difference is the shock parameters.
 

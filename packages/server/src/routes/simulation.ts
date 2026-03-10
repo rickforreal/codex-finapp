@@ -1,11 +1,16 @@
 import type { FastifyPluginAsync } from 'fastify';
 import { ZodError } from 'zod';
 
-import type { ApiErrorResponse, ReturnAssumptions, SimulateRequest, SimulateResponse } from '@finapp/shared';
+import type { ApiErrorResponse, SimulateRequest, SimulateResponse } from '@finapp/shared';
 import { ReturnSource, SimulationMode, simulateRequestSchema } from '@finapp/shared';
 
 import { runMonteCarlo } from '../engine/monteCarlo';
-import { generateMonthlyReturnsFromAssumptions } from '../engine/simulator';
+import {
+  allManualReturnPhaseStdDevZero,
+  hasHistoricalReturnPhase,
+  prepareReturnPhaseSampler,
+  sampleMonthlyReturnsForPreparedPhases,
+} from '../engine/returnPhases';
 import { runSinglePath } from '../engine/simulationRuntime';
 
 const mapZodIssues = (error: ZodError): NonNullable<ApiErrorResponse['fieldErrors']> =>
@@ -14,23 +19,16 @@ const mapZodIssues = (error: ZodError): NonNullable<ApiErrorResponse['fieldError
     issue: issue.message,
   }));
 
-const allStdDevZero = (assumptions: ReturnAssumptions): boolean =>
-  assumptions.stocks.stdDev <= 0 &&
-  assumptions.bonds.stdDev <= 0 &&
-  assumptions.cash.stdDev <= 0;
-
 const effectiveRunConfig = (config: SimulateRequest['config']): {
   simulationMode: SimulationMode;
   simulationRuns: number;
   returnsSource: ReturnSource;
 } => {
   const requestedRuns = Math.max(1, Math.min(Math.round(config.simulationRuns ?? 1000), 10000));
-  const inferredSource =
-    config.returnsSource ??
-    (config.simulationMode === SimulationMode.Manual
-      ? ReturnSource.Manual
-      : ReturnSource.Historical);
-  const forceSingleRun = inferredSource === ReturnSource.Manual && allStdDevZero(config.returnAssumptions);
+  const inferredSource = hasHistoricalReturnPhase(config)
+    ? ReturnSource.Historical
+    : ReturnSource.Manual;
+  const forceSingleRun = inferredSource === ReturnSource.Manual && allManualReturnPhaseStdDevZero(config);
   const simulationRuns = forceSingleRun ? 1 : requestedRuns;
   return {
     simulationMode: simulationRuns > 1 ? SimulationMode.MonteCarlo : SimulationMode.Manual,
@@ -68,7 +66,12 @@ export const simulationRoutes: FastifyPluginAsync = async (app) => {
           };
         }
 
-        const returns = body.monthlyReturns ?? generateMonthlyReturnsFromAssumptions(normalizedConfig, body.seed);
+        const returns =
+          body.monthlyReturns ??
+          sampleMonthlyReturnsForPreparedPhases(
+            await prepareReturnPhaseSampler(normalizedConfig),
+            body.seed,
+          );
         const result = await runSinglePath(
           normalizedConfig,
           returns,

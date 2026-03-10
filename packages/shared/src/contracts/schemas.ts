@@ -73,6 +73,92 @@ const returnAssumptionSchema = z
   })
   .strict();
 
+const returnAssumptionsSchema = z
+  .object({
+    stocks: returnAssumptionSchema,
+    bonds: returnAssumptionSchema,
+    cash: returnAssumptionSchema,
+  })
+  .strict();
+
+const defaultReturnAssumptions = {
+  stocks: { expectedReturn: 0.08, stdDev: 0.15 },
+  bonds: { expectedReturn: 0.05, stdDev: 0.06 },
+  cash: { expectedReturn: 0.03, stdDev: 0.01 },
+} as const;
+
+const cloneMonthYear = (value: { month: number; year: number }) => ({
+  month: value.month,
+  year: value.year,
+});
+
+const cloneHistoricalRange = (
+  value: { start: { month: number; year: number }; end: { month: number; year: number } } | null,
+) =>
+  value === null
+    ? null
+    : {
+        start: cloneMonthYear(value.start),
+        end: cloneMonthYear(value.end),
+      };
+
+const cloneReturnAssumptions = (value: ReturnAssumptionsValue) => ({
+  stocks: { ...value.stocks },
+  bonds: { ...value.bonds },
+  cash: { ...value.cash },
+});
+
+type MonthYearValue = { month: number; year: number };
+type HistoricalRangeValue = { start: MonthYearValue; end: MonthYearValue };
+type ReturnAssumptionsValue = z.infer<typeof returnAssumptionsSchema>;
+type NormalizedReturnPhaseValue =
+  | {
+      id: string;
+      start: MonthYearValue;
+      end: MonthYearValue;
+      source: ReturnSource.Manual;
+      returnAssumptions: ReturnAssumptionsValue;
+    }
+  | {
+      id: string;
+      start: MonthYearValue;
+      end: MonthYearValue;
+      source: ReturnSource.Historical;
+      selectedHistoricalEra: HistoricalEra;
+      customHistoricalRange: HistoricalRangeValue | null;
+      blockBootstrapEnabled: boolean;
+      blockBootstrapLength: number;
+    };
+type ReturnPhaseNormalizationInput = {
+  coreParams: { portfolioStart: MonthYearValue; portfolioEnd: MonthYearValue };
+  simulationMode: SimulationMode;
+  returnsSource?: ReturnSource;
+  returnAssumptions?: ReturnAssumptionsValue;
+  selectedHistoricalEra?: HistoricalEra;
+  customHistoricalRange?: HistoricalRangeValue | null;
+  blockBootstrapEnabled?: boolean;
+  blockBootstrapLength?: number;
+  returnPhases?: Array<Record<string, unknown>>;
+};
+type ReturnPhaseNormalizationOutput<T extends ReturnPhaseNormalizationInput> = Omit<
+  T,
+  | 'returnsSource'
+  | 'returnAssumptions'
+  | 'selectedHistoricalEra'
+  | 'customHistoricalRange'
+  | 'blockBootstrapEnabled'
+  | 'blockBootstrapLength'
+  | 'returnPhases'
+> & {
+  returnsSource: ReturnSource;
+  returnAssumptions: ReturnAssumptionsValue;
+  selectedHistoricalEra: HistoricalEra;
+  customHistoricalRange: HistoricalRangeValue | null;
+  blockBootstrapEnabled: boolean;
+  blockBootstrapLength: number;
+  returnPhases: NormalizedReturnPhaseValue[];
+};
+
 const simpleCashflowEventSchema = z
   .object({
     id: z.string().min(1),
@@ -87,6 +173,174 @@ const historicalRangeSchema = z
     end: eventDateSchema,
   })
   .strict();
+
+const manualReturnPhaseSchema = z
+  .object({
+    id: z.string().min(1),
+    start: eventDateSchema,
+    end: eventDateSchema,
+    source: z.literal(ReturnSource.Manual),
+    returnAssumptions: returnAssumptionsSchema,
+  })
+  .strict();
+
+const historicalReturnPhaseSchema = z
+  .object({
+    id: z.string().min(1),
+    start: eventDateSchema,
+    end: eventDateSchema,
+    source: z.literal(ReturnSource.Historical),
+    selectedHistoricalEra: z.nativeEnum(HistoricalEra),
+    customHistoricalRange: historicalRangeSchema.nullable(),
+    blockBootstrapEnabled: z.boolean(),
+    blockBootstrapLength: z.number().int().min(3).max(36),
+  })
+  .strict();
+
+const returnPhaseSchema = z.discriminatedUnion('source', [
+  manualReturnPhaseSchema,
+  historicalReturnPhaseSchema,
+]);
+
+const resolveReturnSource = (
+  simulationMode: SimulationMode,
+  returnsSource?: ReturnSource,
+): ReturnSource => {
+  if (returnsSource !== undefined) {
+    return returnsSource;
+  }
+  return simulationMode === SimulationMode.Manual
+    ? ReturnSource.Manual
+    : ReturnSource.Historical;
+};
+
+const normalizeReturnPhaseConfig = <
+  T extends ReturnPhaseNormalizationInput & Record<string, unknown>,
+>(
+  value: T,
+): ReturnPhaseNormalizationOutput<T> => {
+  const simulationMode = value.simulationMode as SimulationMode;
+  const returnsSource = value.returnsSource as ReturnSource | undefined;
+  const effectiveSource = resolveReturnSource(simulationMode, returnsSource);
+  const normalizedReturnAssumptions = cloneReturnAssumptions(
+    (value.returnAssumptions as ReturnAssumptionsValue | undefined) ??
+      defaultReturnAssumptions,
+  );
+  const selectedHistoricalEra =
+    (value.selectedHistoricalEra as HistoricalEra | undefined) ??
+    HistoricalEra.FullHistory;
+  const customHistoricalRange = cloneHistoricalRange(
+    (value.customHistoricalRange as {
+      start: { month: number; year: number };
+      end: { month: number; year: number };
+    } | null | undefined) ?? null,
+  );
+  const blockBootstrapEnabled =
+    (value.blockBootstrapEnabled as boolean | undefined) ?? false;
+  const blockBootstrapLength =
+    (value.blockBootstrapLength as number | undefined) ?? 12;
+  const coreParams = value.coreParams as { portfolioStart: MonthYearValue; portfolioEnd: MonthYearValue };
+  const returnPhasesInput = Array.isArray(value.returnPhases)
+    ? (value.returnPhases as Array<Record<string, unknown>>)
+    : undefined;
+
+  const normalizedReturnPhases: NormalizedReturnPhaseValue[] =
+    returnPhasesInput && returnPhasesInput.length > 0
+      ? returnPhasesInput.map((phase) => {
+          const phaseRecord = phase as Record<string, unknown> & {
+            id: string;
+            source: ReturnSource;
+            start: MonthYearValue;
+            end: MonthYearValue;
+          };
+          if (phaseRecord.source === ReturnSource.Manual) {
+            return {
+              id: phaseRecord.id,
+              source: ReturnSource.Manual,
+              start: cloneMonthYear(phaseRecord.start),
+              end: cloneMonthYear(phaseRecord.end),
+              returnAssumptions: cloneReturnAssumptions(
+                (phaseRecord.returnAssumptions as ReturnAssumptionsValue | undefined) ??
+                  normalizedReturnAssumptions,
+              ),
+            };
+          }
+          return {
+            id: phaseRecord.id,
+            source: ReturnSource.Historical,
+            start: cloneMonthYear(phaseRecord.start),
+            end: cloneMonthYear(phaseRecord.end),
+            selectedHistoricalEra:
+              (phaseRecord.selectedHistoricalEra as HistoricalEra | undefined) ??
+              selectedHistoricalEra,
+            customHistoricalRange: cloneHistoricalRange(
+              (phaseRecord.customHistoricalRange as HistoricalRangeValue | null | undefined) ??
+                null,
+            ),
+            blockBootstrapEnabled:
+              (phaseRecord.blockBootstrapEnabled as boolean | undefined) ??
+              blockBootstrapEnabled,
+            blockBootstrapLength:
+              (phaseRecord.blockBootstrapLength as number | undefined) ?? blockBootstrapLength,
+          };
+        })
+      : [
+          effectiveSource === ReturnSource.Manual
+            ? {
+                id: 'return-phase-1',
+                start: cloneMonthYear(coreParams.portfolioStart),
+                end: cloneMonthYear(coreParams.portfolioEnd),
+                source: ReturnSource.Manual,
+                returnAssumptions: cloneReturnAssumptions(normalizedReturnAssumptions),
+              }
+            : {
+                id: 'return-phase-1',
+                start: cloneMonthYear(coreParams.portfolioStart),
+                end: cloneMonthYear(coreParams.portfolioEnd),
+                source: ReturnSource.Historical,
+                selectedHistoricalEra,
+                customHistoricalRange: cloneHistoricalRange(customHistoricalRange),
+                blockBootstrapEnabled,
+                blockBootstrapLength,
+              },
+        ];
+
+  const firstManualPhase = normalizedReturnPhases.find(
+    (phase) => phase.source === ReturnSource.Manual,
+  );
+  const firstHistoricalPhase = normalizedReturnPhases.find(
+    (phase) => phase.source === ReturnSource.Historical,
+  );
+
+  return {
+    ...value,
+    returnsSource: effectiveSource,
+    returnAssumptions: firstManualPhase
+      ? cloneReturnAssumptions(
+          (firstManualPhase.returnAssumptions as typeof defaultReturnAssumptions) ??
+            normalizedReturnAssumptions,
+        )
+      : cloneReturnAssumptions(normalizedReturnAssumptions),
+    selectedHistoricalEra:
+      (firstHistoricalPhase?.selectedHistoricalEra as HistoricalEra | undefined) ??
+      selectedHistoricalEra,
+    customHistoricalRange: firstHistoricalPhase
+      ? cloneHistoricalRange(
+          (firstHistoricalPhase.customHistoricalRange as {
+            start: { month: number; year: number };
+            end: { month: number; year: number };
+          } | null | undefined) ?? null,
+        )
+      : cloneHistoricalRange(customHistoricalRange),
+    blockBootstrapEnabled:
+      (firstHistoricalPhase?.blockBootstrapEnabled as boolean | undefined) ??
+      blockBootstrapEnabled,
+    blockBootstrapLength:
+      (firstHistoricalPhase?.blockBootstrapLength as number | undefined) ??
+      blockBootstrapLength,
+    returnPhases: normalizedReturnPhases,
+  } as ReturnPhaseNormalizationOutput<T>;
+};
 
 const eventFrequencySchema = z.enum(['monthly', 'quarterly', 'annual', 'oneTime']);
 
@@ -153,12 +407,12 @@ const simulationConfigSchema = z
   .object({
     mode: z.nativeEnum(AppMode),
     simulationMode: z.nativeEnum(SimulationMode),
-    returnsSource: z.nativeEnum(ReturnSource).optional().default(ReturnSource.Historical),
+    returnsSource: z.nativeEnum(ReturnSource).optional(),
     simulationRuns: z.number().int().min(1).max(10000).optional().default(1000),
-    selectedHistoricalEra: z.nativeEnum(HistoricalEra),
-    customHistoricalRange: historicalRangeSchema.nullable(),
-    blockBootstrapEnabled: z.boolean(),
-    blockBootstrapLength: z.number().int().min(3).max(36),
+    selectedHistoricalEra: z.nativeEnum(HistoricalEra).optional(),
+    customHistoricalRange: historicalRangeSchema.nullable().optional(),
+    blockBootstrapEnabled: z.boolean().optional(),
+    blockBootstrapLength: z.number().int().min(3).max(36).optional(),
     coreParams: z
       .object({
         birthDate: eventDateSchema,
@@ -176,13 +430,8 @@ const simulationConfigSchema = z
         path: ['portfolioEnd'],
       }),
     portfolio: assetBalancesSchema,
-    returnAssumptions: z
-      .object({
-        stocks: returnAssumptionSchema,
-        bonds: returnAssumptionSchema,
-        cash: returnAssumptionSchema,
-      })
-      .strict(),
+    returnAssumptions: returnAssumptionsSchema.optional(),
+    returnPhases: z.array(returnPhaseSchema).min(1).max(4).optional(),
     spendingPhases: z.array(spendingPhaseSchema).max(4),
     withdrawalStrategy: z.discriminatedUnion('type', [
       z
@@ -369,24 +618,116 @@ const simulationConfigSchema = z
     expenseEvents: z.array(expenseEventSchema),
   })
   .strict()
-  .refine(
-    (value) =>
-      value.selectedHistoricalEra !== HistoricalEra.Custom ||
-      value.customHistoricalRange !== null,
-    {
-      message: 'customHistoricalRange is required when selectedHistoricalEra is custom',
-      path: ['customHistoricalRange'],
-    },
-  )
-  .refine(
-    (value) =>
-      value.customHistoricalRange === null ||
-      compareMonthYear(value.customHistoricalRange.start, value.customHistoricalRange.end) <= 0,
-    {
-      message: 'customHistoricalRange.start must be less than or equal to customHistoricalRange.end',
-      path: ['customHistoricalRange', 'end'],
-    },
-  );
+  .transform((value) => normalizeReturnPhaseConfig(value))
+  .superRefine((rawValue, ctx) => {
+    const value = rawValue as ReturnPhaseNormalizationOutput<ReturnPhaseNormalizationInput>;
+    if (
+      value.selectedHistoricalEra === HistoricalEra.Custom &&
+      value.customHistoricalRange === null
+    ) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message:
+          'customHistoricalRange is required when selectedHistoricalEra is custom',
+        path: ['customHistoricalRange'],
+      });
+    }
+    if (
+      value.customHistoricalRange !== null &&
+      compareMonthYear(value.customHistoricalRange.start, value.customHistoricalRange.end) > 0
+    ) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message:
+          'customHistoricalRange.start must be less than or equal to customHistoricalRange.end',
+        path: ['customHistoricalRange', 'end'],
+      });
+    }
+    if (!Array.isArray(value.returnPhases) || value.returnPhases.length === 0) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: 'returnPhases must include at least one phase',
+        path: ['returnPhases'],
+      });
+      return;
+    }
+
+    value.returnPhases.forEach((phase, index) => {
+      if (compareMonthYear(phase.start, phase.end) >= 0) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          message: 'phase end must be strictly after phase start',
+          path: ['returnPhases', index, 'end'],
+        });
+      }
+      if (
+        phase.source === ReturnSource.Historical &&
+        phase.selectedHistoricalEra === HistoricalEra.Custom &&
+        phase.customHistoricalRange === null
+      ) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          message: 'customHistoricalRange is required when selectedHistoricalEra is custom',
+          path: ['returnPhases', index, 'customHistoricalRange'],
+        });
+      }
+      if (
+        phase.source === ReturnSource.Historical &&
+        phase.customHistoricalRange !== null &&
+        compareMonthYear(
+          phase.customHistoricalRange.start,
+          phase.customHistoricalRange.end,
+        ) > 0
+      ) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          message:
+            'customHistoricalRange.start must be less than or equal to customHistoricalRange.end',
+          path: ['returnPhases', index, 'customHistoricalRange', 'end'],
+        });
+      }
+      if (index > 0) {
+        const previousPhase = value.returnPhases[index - 1];
+        if (!previousPhase) {
+          return;
+        }
+        if (compareMonthYear(phase.start, previousPhase.start) < 0) {
+          ctx.addIssue({
+            code: z.ZodIssueCode.custom,
+            message: 'return phases must be ordered by start date',
+            path: ['returnPhases', index, 'start'],
+          });
+        }
+        if (compareMonthYear(phase.start, previousPhase.end) !== 0) {
+          ctx.addIssue({
+            code: z.ZodIssueCode.custom,
+            message: 'return phases must be contiguous with no gaps or overlaps',
+            path: ['returnPhases', index, 'start'],
+          });
+        }
+      }
+    });
+
+    const firstPhase = value.returnPhases[0];
+    const lastPhase = value.returnPhases[value.returnPhases.length - 1];
+    if (!firstPhase || !lastPhase) {
+      return;
+    }
+    if (compareMonthYear(firstPhase.start, value.coreParams.portfolioStart) !== 0) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: 'first return phase must start at portfolioStart',
+        path: ['returnPhases', 0, 'start'],
+      });
+    }
+    if (compareMonthYear(lastPhase.end, value.coreParams.portfolioEnd) !== 0) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: 'last return phase must end at portfolioEnd',
+        path: ['returnPhases', value.returnPhases.length - 1, 'end'],
+      });
+    }
+  });
 
 const monthlyReturnsSchema = z
   .object({

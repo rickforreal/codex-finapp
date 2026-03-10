@@ -684,7 +684,18 @@ The three input rows (#7, #8, #9) form a tight visual group — same layout, sam
 These three colors must be used consistently in every chart, table sub-column, donut, and breakdown display throughout the app. 
 
 ## Input Panel — Section: Return Assumptions
-This section defines the expected return and volatility for each asset class. It sits directly below Starting Portfolio in the sidebar. It is only visible when Manual mode is selected. It is replaced by the Historical Data Summary section when Monte Carlo mode is selected. 
+This section is now implemented as a **Return Phases** editor (feature wave: `return-phases`).
+
+Current behavior:
+- Users configure `1..4` contiguous return phases that fully cover the portfolio horizon.
+- Each phase chooses one source:
+  - `Manual`: per-phase return assumptions (expected return + std. dev per asset class).
+  - `Historical`: per-phase historical era/custom range and block-bootstrap settings.
+- `Simulation Runs` remains a section-level global control (not phase-specific).
+- Compare mode uses the `returnPhases` family lock/sync model, including per-phase instance lock semantics.
+
+Legacy note:
+- The single-source Return Assumptions / Historical Data split described below is retained as historical reference for prior snapshots and compatibility-normalized payloads, but active UI behavior is phase-driven.
 
 ### Section container UX:
 * Section header: "Return Assumptions" — same styling conventions (semi-bold, ~15px, collapse/expand chevron).
@@ -932,7 +943,7 @@ When the user has selected Monte Carlo mode, this display replaces the Return As
 **State:**
 * `blockBootstrapEnabled: boolean` — stored per-portfolio in compare mode.
 * `blockBootstrapLength: number` (3..36) — stored per-portfolio in compare mode.
-* Both fields sync with the `historicalEra` family lock in compare mode.
+* Both fields sync through the `returnPhases` compare family lock (legacy `historicalEra` lock remains compatibility-mapped).
 
 ## Input Panel — Section: Spending Phases (#17, #18, #19)
 

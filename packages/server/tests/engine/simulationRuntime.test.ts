@@ -2,7 +2,6 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import { ReturnSource, SimulationMode } from '@finapp/shared';
 
-import { reforecastDeterministic } from '../../src/engine/deterministic';
 import * as monteCarloNative from '../../src/engine/monteCarloNative';
 import { runReforecast, runSinglePath } from '../../src/engine/simulationRuntime';
 import { generateMonthlyReturnsFromAssumptions, simulateRetirement } from '../../src/engine/simulator';
@@ -40,8 +39,7 @@ describe('simulationRuntime engine selector', () => {
   });
 
   it('uses rust reforecast engine and matches TS results', async () => {
-    process.env.FINAPP_SIM_ENGINE = 'rust';
-    const rustSpy = vi.spyOn(monteCarloNative, 'runReforecastRust');
+    process.env.FINAPP_SIM_ENGINE = 'ts';
 
     const config = createBaseConfig();
     config.simulationMode = SimulationMode.Manual;
@@ -51,8 +49,10 @@ describe('simulationRuntime engine selector', () => {
         withdrawalsByAsset: { stocks: 50_000, bonds: 0, cash: 10_000 },
       },
     };
+    const baseline = await runReforecast(config, overrides);
 
-    const baseline = reforecastDeterministic(config, overrides);
+    process.env.FINAPP_SIM_ENGINE = 'rust';
+    const rustSpy = vi.spyOn(monteCarloNative, 'runReforecastRust');
     rustSpy.mockResolvedValue(baseline);
     const result = await runReforecast(config, overrides);
 
@@ -90,7 +90,9 @@ describe('simulationRuntime engine selector', () => {
         startBalances: { stocks: 1_250_000, bonds: 350_000, cash: 90_000 },
       },
     };
-    const baseline = reforecastDeterministic(config, overrides);
+    process.env.FINAPP_SIM_ENGINE = 'ts';
+    const baseline = await runReforecast(config, overrides, 'reforecast');
+    process.env.FINAPP_SIM_ENGINE = 'rust';
     const result = await runReforecast(config, overrides, 'reforecast');
 
     expect(result).toEqual(baseline);

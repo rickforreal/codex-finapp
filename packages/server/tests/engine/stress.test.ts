@@ -31,7 +31,11 @@ describe('runStressTest', () => {
       },
     ];
 
-    const result = await runStressTest(config, scenarios, { seed, base: { result: baseResult } });
+    const result = await runStressTest(config, scenarios, {
+      seed,
+      base: { result: baseResult },
+      monthlyReturns: baseReturns,
+    });
 
     expect(result.scenarios[0]?.result.summary.terminalPortfolioValue).toBe(
       baseResult.summary.terminalPortfolioValue,

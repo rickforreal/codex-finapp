@@ -316,6 +316,78 @@ const resolveReturnsSource = (config: SimulationConfig): ReturnSource =>
 const isManualReturnsSource = (config: SimulationConfig): boolean =>
   resolveReturnsSource(config) === ReturnSource.Manual;
 
+type NormalizedReturnPhase = {
+  id: string;
+  start: { month: number; year: number };
+  end: { month: number; year: number };
+  source: ReturnSource;
+  returnAssumptions: SimulationConfig['returnAssumptions'];
+  selectedHistoricalEra: HistoricalEra;
+  customHistoricalRange: SimulationConfig['customHistoricalRange'];
+  blockBootstrapEnabled: boolean;
+  blockBootstrapLength: number;
+};
+
+const getReturnPhases = (config: SimulationConfig): NormalizedReturnPhase[] => {
+  if (Array.isArray(config.returnPhases) && config.returnPhases.length > 0) {
+    return config.returnPhases.map((phase) =>
+      phase.source === ReturnSource.Manual
+        ? {
+            id: phase.id,
+            start: phase.start,
+            end: phase.end,
+            source: ReturnSource.Manual,
+            returnAssumptions: phase.returnAssumptions,
+            selectedHistoricalEra: HistoricalEra.FullHistory,
+            customHistoricalRange: null,
+            blockBootstrapEnabled: false,
+            blockBootstrapLength: 12,
+          }
+        : {
+            id: phase.id,
+            start: phase.start,
+            end: phase.end,
+            source: ReturnSource.Historical,
+            returnAssumptions: config.returnAssumptions,
+            selectedHistoricalEra: phase.selectedHistoricalEra,
+            customHistoricalRange: phase.customHistoricalRange,
+            blockBootstrapEnabled: phase.blockBootstrapEnabled,
+            blockBootstrapLength: phase.blockBootstrapLength,
+          },
+    );
+  }
+
+  if (isManualReturnsSource(config)) {
+    return [
+      {
+        id: 'legacy-return-phase',
+        start: config.coreParams.portfolioStart,
+        end: config.coreParams.portfolioEnd,
+        source: ReturnSource.Manual,
+        returnAssumptions: config.returnAssumptions,
+        selectedHistoricalEra: HistoricalEra.FullHistory,
+        customHistoricalRange: null,
+        blockBootstrapEnabled: false,
+        blockBootstrapLength: 12,
+      },
+    ];
+  }
+
+  return [
+    {
+      id: 'legacy-return-phase',
+      start: config.coreParams.portfolioStart,
+      end: config.coreParams.portfolioEnd,
+      source: ReturnSource.Historical,
+      returnAssumptions: config.returnAssumptions,
+      selectedHistoricalEra: config.selectedHistoricalEra,
+      customHistoricalRange: config.customHistoricalRange,
+      blockBootstrapEnabled: config.blockBootstrapEnabled,
+      blockBootstrapLength: config.blockBootstrapLength,
+    },
+  ];
+};
+
 // ... (summarizeIncomeEvents and summarizeExpenseEvents remain similar but check imports)
 
 type RowSpec = {
@@ -325,7 +397,7 @@ type RowSpec = {
   resolve: (config: SimulationConfig) => DiffValue;
 };
 
-const buildRowSpecs = (): RowSpec[] => {
+const buildRowSpecs = (maxReturnPhases: number): RowSpec[] => {
   const specs: RowSpec[] = [
     {
       key: 'core.birthDate',
@@ -380,6 +452,12 @@ const buildRowSpecs = (): RowSpec[] => {
       label: 'Returns Source',
       group: 'Return Assumptions',
       resolve: (config) => asText(isManualReturnsSource(config) ? 'Manual' : 'Historical'),
+    },
+    {
+      key: 'returns.phaseCount',
+      label: 'Return Phase Count',
+      group: 'Return Phases',
+      resolve: (config) => asInteger(getReturnPhases(config).length),
     },
     {
       key: 'returns.stocks.expectedReturn',
@@ -477,6 +555,106 @@ const buildRowSpecs = (): RowSpec[] => {
       resolve: (config) => asText(WITHDRAWAL_STRATEGY_LABELS[config.withdrawalStrategy.type]),
     },
   ];
+
+  for (let phaseIndex = 0; phaseIndex < maxReturnPhases; phaseIndex += 1) {
+    const oneBased = phaseIndex + 1;
+    specs.push(
+      {
+        key: `returns.phase.${oneBased}.range`,
+        label: `Phase ${oneBased} Range`,
+        group: 'Return Phases',
+        resolve: (config) => {
+          const phase = getReturnPhases(config)[phaseIndex];
+          if (!phase) {
+            return NOT_APPLICABLE;
+          }
+          return asText(
+            `${retirementStartText(phase.start.month, phase.start.year)}-${retirementStartText(phase.end.month, phase.end.year)}`,
+          );
+        },
+      },
+      {
+        key: `returns.phase.${oneBased}.source`,
+        label: `Phase ${oneBased} Source`,
+        group: 'Return Phases',
+        resolve: (config) => {
+          const phase = getReturnPhases(config)[phaseIndex];
+          if (!phase) {
+            return NOT_APPLICABLE;
+          }
+          return asText(phase.source === ReturnSource.Manual ? 'Manual' : 'Historical');
+        },
+      },
+      {
+        key: `returns.phase.${oneBased}.stocks.expectedReturn`,
+        label: `Phase ${oneBased} Stocks Expected Return`,
+        group: 'Return Phases',
+        resolve: (config) => {
+          const phase = getReturnPhases(config)[phaseIndex];
+          if (!phase || phase.source !== ReturnSource.Manual) {
+            return NOT_APPLICABLE;
+          }
+          return asPercent(phase.returnAssumptions.stocks.expectedReturn);
+        },
+      },
+      {
+        key: `returns.phase.${oneBased}.stocks.stdDev`,
+        label: `Phase ${oneBased} Stocks Std Dev`,
+        group: 'Return Phases',
+        resolve: (config) => {
+          const phase = getReturnPhases(config)[phaseIndex];
+          if (!phase || phase.source !== ReturnSource.Manual) {
+            return NOT_APPLICABLE;
+          }
+          return asPercent(phase.returnAssumptions.stocks.stdDev);
+        },
+      },
+      {
+        key: `returns.phase.${oneBased}.historicalEra`,
+        label: `Phase ${oneBased} Historical Era`,
+        group: 'Return Phases',
+        resolve: (config) => {
+          const phase = getReturnPhases(config)[phaseIndex];
+          if (!phase || phase.source !== ReturnSource.Historical) {
+            return NOT_APPLICABLE;
+          }
+          if (phase.selectedHistoricalEra === HistoricalEra.Custom && phase.customHistoricalRange) {
+            return asText(
+              `Custom (${monthYearLabel(phase.customHistoricalRange.start.month, phase.customHistoricalRange.start.year)} - ${monthYearLabel(phase.customHistoricalRange.end.month, phase.customHistoricalRange.end.year)})`,
+            );
+          }
+          const era = HISTORICAL_ERA_DEFINITIONS.find(
+            (candidate) => candidate.key === phase.selectedHistoricalEra,
+          );
+          return asText(era ? era.label : phase.selectedHistoricalEra);
+        },
+      },
+      {
+        key: `returns.phase.${oneBased}.blockBootstrapEnabled`,
+        label: `Phase ${oneBased} Block Bootstrap`,
+        group: 'Return Phases',
+        resolve: (config) => {
+          const phase = getReturnPhases(config)[phaseIndex];
+          if (!phase || phase.source !== ReturnSource.Historical) {
+            return NOT_APPLICABLE;
+          }
+          return asBoolean(phase.blockBootstrapEnabled);
+        },
+      },
+      {
+        key: `returns.phase.${oneBased}.blockBootstrapLength`,
+        label: `Phase ${oneBased} Block Length`,
+        group: 'Return Phases',
+        resolve: (config) => {
+          const phase = getReturnPhases(config)[phaseIndex];
+          if (!phase || phase.source !== ReturnSource.Historical || !phase.blockBootstrapEnabled) {
+            return NOT_APPLICABLE;
+          }
+          return asInteger(phase.blockBootstrapLength);
+        },
+      },
+    );
+  }
 
   withdrawalParamCatalog.forEach((param) => {
     specs.push({
@@ -581,7 +759,14 @@ export const buildCompareParameterDiffs = ({
 }: BuildCompareParameterDiffsInput): CompareParameterDiffResult => {
   const resolvedBaselineSlotId = slotOrder.includes(baselineSlotId) ? baselineSlotId : (slotOrder[0] ?? baselineSlotId);
   const rows: CompareParameterDiffRow[] = [];
-  const specs = buildRowSpecs();
+  const maxReturnPhases = slotOrder.reduce((max, slotId) => {
+    const config = slotConfigsById[slotId];
+    if (!config) {
+      return max;
+    }
+    return Math.max(max, getReturnPhases(config).length);
+  }, 0);
+  const specs = buildRowSpecs(maxReturnPhases);
 
   specs.forEach((spec) => {
     const valuesBySlot: Record<SlotId, string> = {};

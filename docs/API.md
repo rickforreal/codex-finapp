@@ -81,6 +81,15 @@ Internal runtime toggles (no request contract change):
 
 `config.spendingPhases` accepts `0..4` phase entries. When empty, spending-phase min/max clamping is disabled and withdrawals follow strategy output.
 
+`config.returnPhases` is the canonical return-regime model:
+- accepts `1..4` entries
+- each phase is `manual` or `historical` with source-specific fields
+- phases must be contiguous and cover the full portfolio horizon (`portfolioStart` -> `portfolioEnd`)
+- `simulationRuns` remains global for the portfolio and is not phase-specific
+
+Compatibility normalization:
+- when `returnPhases` is omitted, server normalization derives one full-horizon phase from legacy single-source fields (`returnsSource`, `returnAssumptions`, `selectedHistoricalEra`, `customHistoricalRange`, `blockBootstrapEnabled`, `blockBootstrapLength`)
+
 `config.selectedHistoricalEra` supports preset eras plus `custom`. When `custom` is selected, `config.customHistoricalRange` is required and must provide inclusive month-year bounds:
 
 ```ts
@@ -91,6 +100,7 @@ Internal runtime toggles (no request contract change):
 ```
 
 `config.blockBootstrapEnabled` (boolean) and `config.blockBootstrapLength` (int, 3..36) control Monte Carlo return sampling. When enabled, the MC engine samples contiguous blocks of `blockBootstrapLength` months (with circular wrap) instead of independent draws. Defaults: `false`, `12`.
+With return phases enabled, block-bootstrap blocks are constrained within each historical phase boundary.
 
 Response:
 

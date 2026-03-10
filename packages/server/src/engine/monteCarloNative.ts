@@ -4,8 +4,6 @@ import { fileURLToPath } from 'node:url';
 
 import {
   HistoricalEra,
-  ReturnSource,
-  SimulationMode,
   type ActualOverridesByMonth,
   type MonthlyReturns,
   type SimulationConfig,
@@ -14,11 +12,13 @@ import {
 
 import type { MonteCarloExecutionResult, MonteCarloOptions } from './monteCarlo';
 import { getHistoricalDataSummaryForSelection, getHistoricalMonthsForSelection } from './historicalData';
+import { hasHistoricalReturnPhase, prepareReturnPhaseSampler } from './returnPhases';
 
 type NativeMonteCarloRequest = {
   configJson: string;
   optionsJson?: string;
   historicalMonthsJson?: string;
+  historicalMonthsByPhaseJson?: string;
   historicalSummaryJson?: string;
 };
 
@@ -40,6 +40,8 @@ type NativeSinglePathResponse = {
 type NativeReforecastRequest = {
   configJson: string;
   actualOverridesByMonthJson?: string;
+  historicalMonthsJson?: string;
+  historicalMonthsByPhaseJson?: string;
 };
 
 type NativeReforecastResponse = {
@@ -115,17 +117,16 @@ export const runMonteCarloRust = async (
   config: SimulationConfig,
   options: MonteCarloOptions,
 ): Promise<MonteCarloExecutionResult> => {
-  const returnsSource =
-    config.returnsSource ??
-    (config.simulationMode === SimulationMode.Manual ? ReturnSource.Manual : ReturnSource.Historical);
+  const preparedReturns = await prepareReturnPhaseSampler(config);
+  const hasHistoricalPhase = hasHistoricalReturnPhase(config);
   const customRange =
     config.selectedHistoricalEra === HistoricalEra.Custom ? config.customHistoricalRange : null;
   const historicalMonths =
-    returnsSource === ReturnSource.Historical
+    hasHistoricalPhase
       ? await getHistoricalMonthsForSelection(config.selectedHistoricalEra, customRange)
       : [];
   const historicalSummary = await getHistoricalDataSummaryForSelection(config.selectedHistoricalEra, customRange);
-  if (returnsSource === ReturnSource.Historical && historicalMonths.length === 0) {
+  if (hasHistoricalPhase && historicalMonths.length === 0 && Object.keys(preparedReturns.historicalPoolsByPhaseId).length === 0) {
     throw new Error('No historical data rows available for selected era');
   }
 
@@ -134,6 +135,7 @@ export const runMonteCarloRust = async (
     configJson: JSON.stringify(config),
     optionsJson: JSON.stringify(sanitizeOptionsForNative(options)),
     historicalMonthsJson: JSON.stringify(historicalMonths),
+    historicalMonthsByPhaseJson: JSON.stringify(preparedReturns.historicalPoolsByPhaseId),
     historicalSummaryJson: JSON.stringify(historicalSummary),
   };
 
@@ -171,10 +173,20 @@ export const runReforecastRust = async (
   config: SimulationConfig,
   actualOverridesByMonth: ActualOverridesByMonth = {},
 ): Promise<SinglePathResult> => {
+  const preparedReturns = await prepareReturnPhaseSampler(config);
+  const hasHistoricalPhase = hasHistoricalReturnPhase(config);
+  const customRange =
+    config.selectedHistoricalEra === HistoricalEra.Custom ? config.customHistoricalRange : null;
+  const historicalMonths =
+    hasHistoricalPhase
+      ? await getHistoricalMonthsForSelection(config.selectedHistoricalEra, customRange)
+      : [];
   const module = loadNativeModule();
   const payload: NativeReforecastRequest = {
     configJson: JSON.stringify(config),
     actualOverridesByMonthJson: JSON.stringify(actualOverridesByMonth),
+    historicalMonthsJson: JSON.stringify(historicalMonths),
+    historicalMonthsByPhaseJson: JSON.stringify(preparedReturns.historicalPoolsByPhaseId),
   };
 
   const response = module.runReforecastJson(payload);

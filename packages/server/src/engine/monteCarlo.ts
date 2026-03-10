@@ -1,8 +1,6 @@
 import {
   type ActualOverridesByMonth,
   HistoricalEra,
-  ReturnSource,
-  SimulationMode,
   type MonthlyReturns,
   type MonteCarloPercentileCurves,
   type MonteCarloResult,
@@ -12,13 +10,15 @@ import {
 
 import {
   getHistoricalDataSummaryForSelection,
-  getHistoricalMonthsForSelection,
-  type HistoricalMonth,
 } from './historicalData';
-import { createSeededRandom } from './helpers/returns';
 import { runMonteCarloRust } from './monteCarloNative';
+import {
+  prepareReturnPhaseSampler,
+  sampleMonthlyReturnsForPreparedPhases,
+  type PreparedReturnPhaseSampler,
+} from './returnPhases';
 import { type StressTransformDescriptor, returnsWithStressTransform } from './stressTransforms';
-import { generateMonthlyReturnsFromAssumptions, simulateRetirement } from './simulator';
+import { simulateRetirement } from './simulator';
 import { monthsBetween } from './helpers/dates';
 
 export type MonteCarloOptions = {
@@ -118,57 +118,14 @@ const percentileCurve = (valuesByRun: Float64Array[]): MonteCarloPercentileCurve
   return curve;
 };
 
-const sampleHistoricalReturnsIid = (
-  sourceMonths: HistoricalMonth[],
-  durationMonths: number,
-  random: () => number,
-): MonthlyReturns[] =>
-  Array.from({ length: durationMonths }, () => {
-    const index = Math.floor(random() * sourceMonths.length);
-    const sampled = sourceMonths[index] ?? sourceMonths[sourceMonths.length - 1];
-    if (!sampled) {
-      return { stocks: 0, bonds: 0, cash: 0 };
-    }
-    return sampled.returns;
-  });
-
-const sampleHistoricalReturnsBlock = (
-  sourceMonths: HistoricalMonth[],
-  durationMonths: number,
-  blockLength: number,
-  random: () => number,
-): MonthlyReturns[] => {
-  const result: MonthlyReturns[] = [];
-  const poolSize = sourceMonths.length;
-  while (result.length < durationMonths) {
-    const blockStart = Math.floor(random() * poolSize);
-    const take = Math.min(blockLength, durationMonths - result.length);
-    for (let offset = 0; offset < take; offset += 1) {
-      const sampled = sourceMonths[(blockStart + offset) % poolSize];
-      result.push(sampled ? sampled.returns : { stocks: 0, bonds: 0, cash: 0 });
-    }
-  }
-  return result;
-};
-
 const buildReturnsForRun = (
-  config: SimulationConfig,
   options: MonteCarloOptions,
   runIndex: number,
   seedUsed: number,
-  returnsSource: ReturnSource,
-  historicalMonths: HistoricalMonth[],
-  durationMonths: number,
+  preparedReturns: PreparedReturnPhaseSampler,
 ): MonthlyReturns[] => {
   const runSeed = runSeedForIndex(seedUsed, runIndex);
-  const random = createSeededRandom(runSeed);
-
-  const returns =
-    returnsSource === ReturnSource.Manual
-      ? generateMonthlyReturnsFromAssumptions(config, runSeed)
-      : config.blockBootstrapEnabled
-        ? sampleHistoricalReturnsBlock(historicalMonths, durationMonths, config.blockBootstrapLength, random)
-        : sampleHistoricalReturnsIid(historicalMonths, durationMonths, random);
+  const returns = sampleMonthlyReturnsForPreparedPhases(preparedReturns, runSeed);
 
   const transformedByDescriptor = options.stressTransform
     ? returnsWithStressTransform(options.stressTransform, returns)
@@ -183,20 +140,10 @@ const runPathForIndex = (
   options: MonteCarloOptions,
   runIndex: number,
   seedUsed: number,
-  returnsSource: ReturnSource,
-  historicalMonths: HistoricalMonth[],
-  durationMonths: number,
+  preparedReturns: PreparedReturnPhaseSampler,
   simulationOptions?: Parameters<typeof simulateRetirement>[4],
 ): ReturnType<typeof simulateRetirement> => {
-  const returns = buildReturnsForRun(
-    config,
-    options,
-    runIndex,
-    seedUsed,
-    returnsSource,
-    historicalMonths,
-    durationMonths,
-  );
+  const returns = buildReturnsForRun(options, runIndex, seedUsed, preparedReturns);
 
   return simulateRetirement(
     config,
@@ -248,19 +195,10 @@ const runMonteCarloTs = async (
   const simulationCount = clampSimulationRuns(options.runs ?? config.simulationRuns ?? DEFAULT_SIMULATION_RUNS);
   const seedUsed = resolveSeed(options.seed);
   const durationMonths = monthsBetween(config.coreParams.portfolioStart, config.coreParams.portfolioEnd);
-  const returnsSource =
-    config.returnsSource ??
-    (config.simulationMode === SimulationMode.Manual ? ReturnSource.Manual : ReturnSource.Historical);
+  const preparedReturns = await prepareReturnPhaseSampler(config);
   const customRange =
     config.selectedHistoricalEra === HistoricalEra.Custom ? config.customHistoricalRange : null;
-  const historicalMonths =
-    returnsSource === ReturnSource.Historical
-      ? await getHistoricalMonthsForSelection(config.selectedHistoricalEra, customRange)
-      : [];
   const historicalSummary = await getHistoricalDataSummaryForSelection(config.selectedHistoricalEra, customRange);
-  if (returnsSource === ReturnSource.Historical && historicalMonths.length === 0) {
-    throw new Error('No historical data rows available for selected era');
-  }
 
   const monthlyTotalsByRun: Float64Array[] = Array.from(
     { length: durationMonths },
@@ -298,9 +236,7 @@ const runMonteCarloTs = async (
       options,
       runIndex,
       seedUsed,
-      returnsSource,
-      historicalMonths,
-      durationMonths,
+      preparedReturns,
       {
         includeRows: false,
         onMonthComplete: ({
@@ -362,9 +298,7 @@ const runMonteCarloTs = async (
     options,
     representativeRun.runIndex,
     seedUsed,
-    returnsSource,
-    historicalMonths,
-    durationMonths,
+    preparedReturns,
   );
 
   const monthlyWithdrawalP50Series = monthlyWithdrawalsRealByRun

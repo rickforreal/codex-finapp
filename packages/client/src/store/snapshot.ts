@@ -29,6 +29,11 @@ const DEFAULT_BLOCK_BOOTSTRAP_ENABLED = false;
 const DEFAULT_BLOCK_BOOTSTRAP_LENGTH = 12;
 const DEFAULT_RETURNS_SOURCE = ReturnSource.Historical;
 const DEFAULT_SIMULATION_RUNS = 1000;
+const DEFAULT_RETURN_ASSUMPTIONS = {
+  stocks: { expectedReturn: 0.08, stdDev: 0.15 },
+  bonds: { expectedReturn: 0.04, stdDev: 0.07 },
+  cash: { expectedReturn: 0.02, stdDev: 0.01 },
+} as const;
 
 export const PACKED_ROW_COLUMNS = [
   'monthIndex',
@@ -147,6 +152,54 @@ const assetBalancesSchema = z
   })
   .strict();
 
+const monthYearSchema = z
+  .object({
+    month: z.number().int().min(1).max(12),
+    year: z.number().int().min(1900).max(3000),
+  })
+  .strict();
+
+const historicalRangeSchema = z
+  .object({
+    start: monthYearSchema,
+    end: monthYearSchema,
+  })
+  .strict();
+
+const returnAssumptionsSchema = z
+  .object({
+    stocks: z
+      .object({ expectedReturn: z.number().min(-1).max(1), stdDev: z.number().min(0).max(1) })
+      .strict(),
+    bonds: z
+      .object({ expectedReturn: z.number().min(-1).max(1), stdDev: z.number().min(0).max(1) })
+      .strict(),
+    cash: z
+      .object({ expectedReturn: z.number().min(-1).max(1), stdDev: z.number().min(0).max(1) })
+      .strict(),
+  })
+  .strict();
+
+const returnPhaseSchema = z
+  .object({
+    id: z.string().min(1),
+    start: monthYearSchema,
+    end: monthYearSchema,
+    source: z.nativeEnum(ReturnSource),
+    returnAssumptions: returnAssumptionsSchema,
+    selectedHistoricalEra: z.nativeEnum(HistoricalEra),
+    customHistoricalRange: historicalRangeSchema.nullable().optional().default(null),
+    blockBootstrapEnabled: z.boolean().optional().default(DEFAULT_BLOCK_BOOTSTRAP_ENABLED),
+    blockBootstrapLength: z
+      .number()
+      .int()
+      .min(3)
+      .max(36)
+      .optional()
+      .default(DEFAULT_BLOCK_BOOTSTRAP_LENGTH),
+  })
+  .strict();
+
 const snapshotStateSchema = z
   .object({
     mode: z.nativeEnum(AppMode),
@@ -158,22 +211,7 @@ const snapshotStateSchema = z
     returnsSource: z.nativeEnum(ReturnSource).optional().default(DEFAULT_RETURNS_SOURCE),
     simulationRuns: z.number().int().min(1).max(10000).optional().default(DEFAULT_SIMULATION_RUNS),
     selectedHistoricalEra: z.nativeEnum(HistoricalEra),
-    customHistoricalRange: z
-      .object({
-        start: z
-          .object({
-            month: z.number().int().min(1).max(12),
-            year: z.number().int().min(1900).max(3000),
-          })
-          .strict(),
-        end: z
-          .object({
-            month: z.number().int().min(1).max(12),
-            year: z.number().int().min(1900).max(3000),
-          })
-          .strict(),
-      })
-      .strict()
+    customHistoricalRange: historicalRangeSchema
       .nullable()
       .optional()
       .default(DEFAULT_CUSTOM_HISTORICAL_RANGE),
@@ -187,41 +225,15 @@ const snapshotStateSchema = z
       .default(DEFAULT_BLOCK_BOOTSTRAP_LENGTH),
     coreParams: z
       .object({
-        birthDate: z
-          .object({
-            month: z.number().int().min(1).max(12),
-            year: z.number().int().min(1900).max(3000),
-          })
-          .strict(),
-        portfolioStart: z
-          .object({
-            month: z.number().int().min(1).max(12),
-            year: z.number().int().min(1900).max(3000),
-          })
-          .strict(),
-        portfolioEnd: z
-          .object({
-            month: z.number().int().min(1).max(12),
-            year: z.number().int().min(1900).max(3000),
-          })
-          .strict(),
+        birthDate: monthYearSchema,
+        portfolioStart: monthYearSchema,
+        portfolioEnd: monthYearSchema,
         inflationRate: z.number().min(0).max(0.2),
       })
       .strict(),
     portfolio: assetBalancesSchema,
-    returnAssumptions: z
-      .object({
-        stocks: z
-          .object({ expectedReturn: z.number().min(-1).max(1), stdDev: z.number().min(0).max(1) })
-          .strict(),
-        bonds: z
-          .object({ expectedReturn: z.number().min(-1).max(1), stdDev: z.number().min(0).max(1) })
-          .strict(),
-        cash: z
-          .object({ expectedReturn: z.number().min(-1).max(1), stdDev: z.number().min(0).max(1) })
-          .strict(),
-      })
-      .strict(),
+    returnPhases: z.array(returnPhaseSchema).optional().default([]),
+    returnAssumptions: returnAssumptionsSchema,
     spendingPhases: z.array(z.unknown()),
     withdrawalStrategy: z.unknown(),
     drawdownStrategy: z.unknown(),
@@ -282,6 +294,152 @@ const makeDownloadFilename = (name: string): string => {
 
 const invalidSnapshot = (): SnapshotLoadError =>
   new SnapshotLoadError('invalid_snapshot', "This file doesn't appear to be a valid snapshot.");
+
+const monthYearOrdinal = (value: { month: number; year: number }): number => value.year * 12 + value.month;
+
+const compareMonthYear = (left: { month: number; year: number }, right: { month: number; year: number }) =>
+  monthYearOrdinal(left) - monthYearOrdinal(right);
+
+const minMonthYear = (
+  left: { month: number; year: number },
+  right: { month: number; year: number },
+): { month: number; year: number } => (compareMonthYear(left, right) <= 0 ? left : right);
+
+const maxMonthYear = (
+  left: { month: number; year: number },
+  right: { month: number; year: number },
+): { month: number; year: number } => (compareMonthYear(left, right) >= 0 ? left : right);
+
+const cloneHistoricalRange = (
+  range: WorkspaceSnapshot['customHistoricalRange'],
+): WorkspaceSnapshot['customHistoricalRange'] =>
+  range
+    ? {
+        start: { ...range.start },
+        end: { ...range.end },
+      }
+    : null;
+
+const normalizeReturnAssumptions = (raw: unknown): WorkspaceSnapshot['returnAssumptions'] => {
+  const parsed = returnAssumptionsSchema.safeParse(raw);
+  if (parsed.success) {
+    return {
+      stocks: { ...parsed.data.stocks },
+      bonds: { ...parsed.data.bonds },
+      cash: { ...parsed.data.cash },
+    };
+  }
+  return {
+    stocks: { ...DEFAULT_RETURN_ASSUMPTIONS.stocks },
+    bonds: { ...DEFAULT_RETURN_ASSUMPTIONS.bonds },
+    cash: { ...DEFAULT_RETURN_ASSUMPTIONS.cash },
+  };
+};
+
+const normalizeHistoricalRange = (raw: unknown): WorkspaceSnapshot['customHistoricalRange'] => {
+  const parsed = historicalRangeSchema.safeParse(raw);
+  if (!parsed.success) {
+    return null;
+  }
+  return {
+    start: { ...parsed.data.start },
+    end: { ...parsed.data.end },
+  };
+};
+
+const normalizeReturnPhaseCoverage = (
+  phases: WorkspaceSnapshot['returnPhases'],
+  portfolioStart: { month: number; year: number },
+  portfolioEnd: { month: number; year: number },
+): WorkspaceSnapshot['returnPhases'] => {
+  const sorted = [...phases].sort((left, right) => compareMonthYear(left.start, right.start));
+  const normalized: WorkspaceSnapshot['returnPhases'] = [];
+  sorted.forEach((phase, index) => {
+    const start =
+      index === 0
+        ? minMonthYear(maxMonthYear(phase.start, portfolioStart), portfolioEnd)
+        : normalized[index - 1]!.end;
+    const end = minMonthYear(maxMonthYear(phase.end, start), portfolioEnd);
+    normalized.push({
+      ...phase,
+      start: { ...start },
+      end: { ...end },
+      returnAssumptions: {
+        stocks: { ...phase.returnAssumptions.stocks },
+        bonds: { ...phase.returnAssumptions.bonds },
+        cash: { ...phase.returnAssumptions.cash },
+      },
+      customHistoricalRange: cloneHistoricalRange(phase.customHistoricalRange),
+    });
+  });
+
+  if (normalized.length === 0) {
+    return [];
+  }
+
+  normalized[0] = {
+    ...normalized[0]!,
+    start: { ...portfolioStart },
+  };
+  normalized[normalized.length - 1] = {
+    ...normalized[normalized.length - 1]!,
+    end: { ...portfolioEnd },
+  };
+
+  return normalized;
+};
+
+const normalizeReturnPhases = (
+  raw: unknown,
+  fallback: {
+    portfolioStart: { month: number; year: number };
+    portfolioEnd: { month: number; year: number };
+    returnsSource: ReturnSource;
+    returnAssumptions: WorkspaceSnapshot['returnAssumptions'];
+    selectedHistoricalEra: HistoricalEra;
+    customHistoricalRange: WorkspaceSnapshot['customHistoricalRange'];
+    blockBootstrapEnabled: boolean;
+    blockBootstrapLength: number;
+  },
+): WorkspaceSnapshot['returnPhases'] => {
+  const parsed = z.array(returnPhaseSchema).max(4).safeParse(raw);
+  if (parsed.success && parsed.data.length > 0) {
+    const phases = parsed.data.map((phase) => ({
+      id: phase.id,
+      start: { ...phase.start },
+      end: { ...phase.end },
+      source: phase.source,
+      returnAssumptions: {
+        stocks: { ...phase.returnAssumptions.stocks },
+        bonds: { ...phase.returnAssumptions.bonds },
+        cash: { ...phase.returnAssumptions.cash },
+      },
+      selectedHistoricalEra: phase.selectedHistoricalEra,
+      customHistoricalRange: cloneHistoricalRange(phase.customHistoricalRange),
+      blockBootstrapEnabled: phase.blockBootstrapEnabled,
+      blockBootstrapLength: phase.blockBootstrapLength,
+    }));
+    return normalizeReturnPhaseCoverage(phases, fallback.portfolioStart, fallback.portfolioEnd);
+  }
+
+  return [
+    {
+      id: 'legacy-return-phase',
+      start: { ...fallback.portfolioStart },
+      end: { ...fallback.portfolioEnd },
+      source: fallback.returnsSource,
+      returnAssumptions: {
+        stocks: { ...fallback.returnAssumptions.stocks },
+        bonds: { ...fallback.returnAssumptions.bonds },
+        cash: { ...fallback.returnAssumptions.cash },
+      },
+      selectedHistoricalEra: fallback.selectedHistoricalEra,
+      customHistoricalRange: cloneHistoricalRange(fallback.customHistoricalRange),
+      blockBootstrapEnabled: fallback.blockBootstrapEnabled,
+      blockBootstrapLength: fallback.blockBootstrapLength,
+    },
+  ];
+};
 
 const mapLegacyThemeIdToSelection = (
   themeId: ThemeId,
@@ -721,30 +879,47 @@ const unpackWorkspace = (workspace: unknown): WorkspaceSnapshot | null => {
       : simulationRuns > 1
         ? SimulationMode.MonteCarlo
         : SimulationMode.Manual;
+  const returnAssumptions = normalizeReturnAssumptions(
+    (record as { returnAssumptions?: unknown }).returnAssumptions,
+  );
+  const selectedHistoricalEra =
+    Object.values(HistoricalEra).includes(record.selectedHistoricalEra as HistoricalEra)
+      ? (record.selectedHistoricalEra as HistoricalEra)
+      : HistoricalEra.FullHistory;
+  const customHistoricalRange = normalizeHistoricalRange(record.customHistoricalRange);
+  const blockBootstrapEnabled =
+    typeof record.blockBootstrapEnabled === 'boolean'
+      ? record.blockBootstrapEnabled
+      : DEFAULT_BLOCK_BOOTSTRAP_ENABLED;
+  const blockBootstrapLength =
+    typeof record.blockBootstrapLength === 'number' &&
+    Number.isInteger(record.blockBootstrapLength) &&
+    record.blockBootstrapLength >= 3 &&
+    record.blockBootstrapLength <= 36
+      ? record.blockBootstrapLength
+      : DEFAULT_BLOCK_BOOTSTRAP_LENGTH;
+  const returnPhases = normalizeReturnPhases((record as { returnPhases?: unknown }).returnPhases, {
+    portfolioStart: record.coreParams.portfolioStart,
+    portfolioEnd: record.coreParams.portfolioEnd,
+    returnsSource,
+    returnAssumptions,
+    selectedHistoricalEra,
+    customHistoricalRange,
+    blockBootstrapEnabled,
+    blockBootstrapLength,
+  });
 
   return {
     ...record,
     simulationMode,
     returnsSource,
     simulationRuns,
-    customHistoricalRange:
-      record.customHistoricalRange &&
-      typeof record.customHistoricalRange === 'object' &&
-      'start' in record.customHistoricalRange &&
-      'end' in record.customHistoricalRange
-        ? ((record.customHistoricalRange as WorkspaceSnapshot['customHistoricalRange']) ?? null)
-        : DEFAULT_CUSTOM_HISTORICAL_RANGE,
-    blockBootstrapEnabled:
-      typeof record.blockBootstrapEnabled === 'boolean'
-        ? record.blockBootstrapEnabled
-        : DEFAULT_BLOCK_BOOTSTRAP_ENABLED,
-    blockBootstrapLength:
-      typeof record.blockBootstrapLength === 'number' &&
-      Number.isInteger(record.blockBootstrapLength) &&
-      record.blockBootstrapLength >= 3 &&
-      record.blockBootstrapLength <= 36
-        ? record.blockBootstrapLength
-        : DEFAULT_BLOCK_BOOTSTRAP_LENGTH,
+    returnAssumptions,
+    selectedHistoricalEra,
+    returnPhases,
+    customHistoricalRange,
+    blockBootstrapEnabled,
+    blockBootstrapLength,
     simulationResults: unpackSimulationResults(record.simulationResults),
     stress: unpackStressState(record.stress),
   };
@@ -758,6 +933,7 @@ const defaultCompareWorkspace = (): SnapshotState['compareWorkspace'] => ({
     familyLocks: {
       coreParams: false,
       startingPortfolio: false,
+      returnPhases: false,
       returnAssumptions: false,
       spendingPhases: false,
       withdrawalStrategy: false,
@@ -767,6 +943,7 @@ const defaultCompareWorkspace = (): SnapshotState['compareWorkspace'] => ({
       historicalEra: false,
     },
     instanceLocks: {
+      returnPhases: {},
       spendingPhases: {},
       incomeEvents: {},
       expenseEvents: {},
@@ -862,43 +1039,64 @@ const unpackCompareWorkspace = (compareWorkspace: unknown): SnapshotState['compa
       ? recordBaselineSlotId
       : (resolvedOrder[0] ?? 'A');
   const compareSyncFallback = defaultCompareWorkspace().compareSync;
+  const rawCompareSync = record.compareSync as
+    | {
+        familyLocks?: Partial<typeof compareSyncFallback.familyLocks>;
+        instanceLocks?: Partial<
+          Record<keyof typeof compareSyncFallback.instanceLocks, Record<string, boolean>>
+        >;
+        unsyncedBySlot?: SnapshotState['compareWorkspace']['compareSync']['unsyncedBySlot'];
+      }
+    | undefined;
+  const rawFamilyLocks = rawCompareSync?.familyLocks ?? {};
+  const normalizedReturnPhasesFamilyLock =
+    rawFamilyLocks.returnPhases ??
+    rawFamilyLocks.returnAssumptions ??
+    rawFamilyLocks.historicalEra ??
+    compareSyncFallback.familyLocks.returnPhases;
+  const rawUnsyncedBySlot = rawCompareSync?.unsyncedBySlot ?? {};
   const compareSync =
     record.compareSync && typeof record.compareSync === 'object'
       ? {
           familyLocks: {
             ...compareSyncFallback.familyLocks,
-            ...((record.compareSync as { familyLocks?: unknown }).familyLocks as Partial<
-              typeof compareSyncFallback.familyLocks
-            >),
+            ...rawFamilyLocks,
+            returnPhases: normalizedReturnPhasesFamilyLock,
           },
           instanceLocks: {
+            returnPhases: {
+              ...(rawCompareSync?.instanceLocks?.returnPhases ??
+                rawCompareSync?.instanceLocks?.spendingPhases ??
+                {}),
+            },
             spendingPhases: {
-              ...((
-                record.compareSync as {
-                  instanceLocks?: { spendingPhases?: Record<string, boolean> };
-                }
-              ).instanceLocks?.spendingPhases ?? {}),
+              ...(rawCompareSync?.instanceLocks?.spendingPhases ?? {}),
             },
             incomeEvents: {
-              ...((
-                record.compareSync as { instanceLocks?: { incomeEvents?: Record<string, boolean> } }
-              ).instanceLocks?.incomeEvents ?? {}),
+              ...(rawCompareSync?.instanceLocks?.incomeEvents ?? {}),
             },
             expenseEvents: {
-              ...((
-                record.compareSync as {
-                  instanceLocks?: { expenseEvents?: Record<string, boolean> };
-                }
-              ).instanceLocks?.expenseEvents ?? {}),
+              ...(rawCompareSync?.instanceLocks?.expenseEvents ?? {}),
             },
           },
-          unsyncedBySlot: {
-            ...((
-              record.compareSync as {
-                unsyncedBySlot?: SnapshotState['compareWorkspace']['compareSync']['unsyncedBySlot'];
-              }
-            ).unsyncedBySlot ?? {}),
-          },
+          unsyncedBySlot: Object.fromEntries(
+            Object.entries(rawUnsyncedBySlot).map(([slotId, overrides]) => [
+              slotId,
+              {
+                families: { ...(overrides?.families ?? {}) },
+                instances: {
+                  returnPhases: {
+                    ...(overrides?.instances?.returnPhases ??
+                      overrides?.instances?.spendingPhases ??
+                      {}),
+                  },
+                  spendingPhases: { ...(overrides?.instances?.spendingPhases ?? {}) },
+                  incomeEvents: { ...(overrides?.instances?.incomeEvents ?? {}) },
+                  expenseEvents: { ...(overrides?.instances?.expenseEvents ?? {}) },
+                },
+              },
+            ]),
+          ) as SnapshotState['compareWorkspace']['compareSync']['unsyncedBySlot'],
         }
       : compareSyncFallback;
 
@@ -1030,6 +1228,16 @@ const unpackSnapshotState = (packed: unknown): SnapshotState => {
     customHistoricalRange: data.customHistoricalRange ?? DEFAULT_CUSTOM_HISTORICAL_RANGE,
     blockBootstrapEnabled: data.blockBootstrapEnabled ?? DEFAULT_BLOCK_BOOTSTRAP_ENABLED,
     blockBootstrapLength: data.blockBootstrapLength ?? DEFAULT_BLOCK_BOOTSTRAP_LENGTH,
+    returnPhases: normalizeReturnPhases((data as { returnPhases?: unknown }).returnPhases, {
+      portfolioStart: data.coreParams.portfolioStart,
+      portfolioEnd: data.coreParams.portfolioEnd,
+      returnsSource: data.returnsSource ?? DEFAULT_RETURNS_SOURCE,
+      returnAssumptions: normalizeReturnAssumptions(data.returnAssumptions),
+      selectedHistoricalEra: data.selectedHistoricalEra,
+      customHistoricalRange: data.customHistoricalRange ?? DEFAULT_CUSTOM_HISTORICAL_RANGE,
+      blockBootstrapEnabled: data.blockBootstrapEnabled ?? DEFAULT_BLOCK_BOOTSTRAP_ENABLED,
+      blockBootstrapLength: data.blockBootstrapLength ?? DEFAULT_BLOCK_BOOTSTRAP_LENGTH,
+    }),
     theme: {
       selectedThemeFamilyId,
       selectedAppearanceByFamily,

@@ -64,6 +64,22 @@ export type SpendingPhaseForm = {
   maxMonthlySpend?: number;
 };
 
+export type ReturnPhaseForm = {
+  id: string;
+  start: { month: number; year: number };
+  end: { month: number; year: number };
+  source: ReturnSource;
+  returnAssumptions: {
+    stocks: { expectedReturn: number; stdDev: number };
+    bonds: { expectedReturn: number; stdDev: number };
+    cash: { expectedReturn: number; stdDev: number };
+  };
+  selectedHistoricalEra: HistoricalEra;
+  customHistoricalRange: HistoricalRange | null;
+  blockBootstrapEnabled: boolean;
+  blockBootstrapLength: number;
+};
+
 type ChartDisplayMode = 'nominal' | 'real';
 type TableGranularity = 'monthly' | 'annual';
 type RunStatus = 'idle' | 'running' | 'complete' | 'error';
@@ -78,6 +94,7 @@ export type CompareSlotId = (typeof COMPARE_SLOT_IDS)[number];
 export const COMPARE_SYNC_FAMILIES = [
   'coreParams',
   'startingPortfolio',
+  'returnPhases',
   'returnAssumptions',
   'spendingPhases',
   'withdrawalStrategy',
@@ -88,6 +105,7 @@ export const COMPARE_SYNC_FAMILIES = [
 ] as const;
 export type CompareSyncFamilyKey = (typeof COMPARE_SYNC_FAMILIES)[number];
 export const COMPARE_SYNC_LIST_FAMILIES = [
+  'returnPhases',
   'spendingPhases',
   'incomeEvents',
   'expenseEvents',
@@ -179,6 +197,7 @@ export type WorkspaceSnapshot = {
     bonds: number;
     cash: number;
   };
+  returnPhases: ReturnPhaseForm[];
   returnAssumptions: {
     stocks: { expectedReturn: number; stdDev: number };
     bonds: { expectedReturn: number; stdDev: number };
@@ -257,6 +276,7 @@ export type SnapshotState = {
     bonds: number;
     cash: number;
   };
+  returnPhases: ReturnPhaseForm[];
   returnAssumptions: {
     stocks: { expectedReturn: number; stdDev: number };
     bonds: { expectedReturn: number; stdDev: number };
@@ -380,6 +400,9 @@ export type AppStore = SnapshotState & {
   ) => void;
   setPortfolioValue: (asset: AssetClass, value: number) => void;
   setReturnAssumption: (asset: AssetClass, key: 'expectedReturn' | 'stdDev', value: number) => void;
+  addReturnPhase: () => void;
+  removeReturnPhase: (id: string) => void;
+  updateReturnPhase: (id: string, patch: Partial<ReturnPhaseForm>) => void;
   addSpendingPhase: () => void;
   removeSpendingPhase: (id: string) => void;
   updateSpendingPhase: (id: string, patch: Partial<SpendingPhaseForm>) => void;
@@ -470,6 +493,67 @@ const defaultPhase = (): SpendingPhaseForm => {
     minMonthlySpend: undefined,
     maxMonthlySpend: undefined,
   };
+};
+
+const cloneReturnAssumptionsForm = (
+  assumptions: ReturnPhaseForm['returnAssumptions'],
+): ReturnPhaseForm['returnAssumptions'] => ({
+  stocks: { ...assumptions.stocks },
+  bonds: { ...assumptions.bonds },
+  cash: { ...assumptions.cash },
+});
+
+const cloneReturnPhaseForm = (phase: ReturnPhaseForm): ReturnPhaseForm => ({
+  ...phase,
+  start: { ...phase.start },
+  end: { ...phase.end },
+  returnAssumptions: cloneReturnAssumptionsForm(phase.returnAssumptions),
+  customHistoricalRange: cloneHistoricalRange(phase.customHistoricalRange),
+});
+
+const defaultReturnPhase = (
+  portfolioStart: MonthYear,
+  portfolioEnd: MonthYear,
+  source: ReturnSource,
+  assumptions: ReturnPhaseForm['returnAssumptions'],
+  selectedHistoricalEra: HistoricalEra,
+  customHistoricalRange: HistoricalRange | null,
+  blockBootstrapEnabled: boolean,
+  blockBootstrapLength: number,
+): ReturnPhaseForm => ({
+  id: createId('return-phase'),
+  start: { ...portfolioStart },
+  end: { ...portfolioEnd },
+  source,
+  returnAssumptions: cloneReturnAssumptionsForm(assumptions),
+  selectedHistoricalEra,
+  customHistoricalRange: cloneHistoricalRange(customHistoricalRange),
+  blockBootstrapEnabled,
+  blockBootstrapLength,
+});
+
+const recalculateReturnPhaseBoundaries = (
+  phases: ReturnPhaseForm[],
+  portfolioStart: MonthYear,
+  portfolioEnd: MonthYear,
+): ReturnPhaseForm[] => {
+  const sorted = [...phases].sort((a, b) => compareMonthYear(a.start, b.start));
+  const recalculated: ReturnPhaseForm[] = [];
+  sorted.forEach((phase, index) => {
+    const start =
+      index === 0
+        ? minMonthYear(maxMonthYear(phase.start, portfolioStart), portfolioEnd)
+        : recalculated[index - 1]!.end;
+    const end = minMonthYear(maxMonthYear(phase.end, start), portfolioEnd);
+    recalculated.push({
+      ...phase,
+      start,
+      end,
+      returnAssumptions: cloneReturnAssumptionsForm(phase.returnAssumptions),
+      customHistoricalRange: cloneHistoricalRange(phase.customHistoricalRange),
+    });
+  });
+  return recalculated;
 };
 
 const defaultIncomeEvent = (portfolioStart: MonthYear): IncomeEventForm => ({
@@ -792,6 +876,7 @@ const cloneWorkspace = (workspace: WorkspaceSnapshot): WorkspaceSnapshot => ({
     portfolioEnd: { ...workspace.coreParams.portfolioEnd },
   },
   portfolio: { ...workspace.portfolio },
+  returnPhases: workspace.returnPhases.map((phase) => cloneReturnPhaseForm(phase)),
   returnAssumptions: {
     stocks: { ...workspace.returnAssumptions.stocks },
     bonds: { ...workspace.returnAssumptions.bonds },
@@ -871,6 +956,7 @@ const cloneWorkspace = (workspace: WorkspaceSnapshot): WorkspaceSnapshot => ({
 const createCompareSyncSlotOverrides = (): CompareSyncSlotOverrides => ({
   families: {},
   instances: {
+    returnPhases: {},
     spendingPhases: {},
     incomeEvents: {},
     expenseEvents: {},
@@ -926,9 +1012,74 @@ const normalizeSpendingPhaseInstanceLocks = (
   });
 };
 
+const getReturnPhaseLockPrefixIds = (
+  phases: ReturnPhaseForm[],
+  locks: Record<string, boolean>,
+): string[] => {
+  const prefix: string[] = [];
+  for (let index = 0; index < phases.length; index += 1) {
+    const phase = phases[index];
+    if (!phase) {
+      break;
+    }
+    if (locks[phase.id] === true) {
+      prefix.push(phase.id);
+      continue;
+    }
+    break;
+  }
+  return prefix;
+};
+
+const normalizeReturnPhaseInstanceLocks = (
+  compareSync: CompareSyncState,
+  masterPhases: ReturnPhaseForm[],
+  slotOrder: CompareSlotId[],
+): void => {
+  const prefixIds = new Set(
+    getReturnPhaseLockPrefixIds(masterPhases, compareSync.instanceLocks.returnPhases),
+  );
+  Object.keys(compareSync.instanceLocks.returnPhases).forEach((instanceId) => {
+    if (!prefixIds.has(instanceId)) {
+      delete compareSync.instanceLocks.returnPhases[instanceId];
+    }
+  });
+
+  slotOrder.forEach((slotId) => {
+    if (slotId === 'A') {
+      return;
+    }
+    const overrides = compareSync.unsyncedBySlot[slotId];
+    if (!overrides) {
+      return;
+    }
+    Object.keys(overrides.instances.returnPhases).forEach((instanceId) => {
+      if (!prefixIds.has(instanceId)) {
+        delete overrides.instances.returnPhases[instanceId];
+      }
+    });
+  });
+};
+
 const isSpendingPhaseLockEligible = (
   instanceId: string,
   masterPhases: SpendingPhaseForm[],
+  locks: Record<string, boolean>,
+): boolean => {
+  const index = masterPhases.findIndex((phase) => phase.id === instanceId);
+  if (index < 0) {
+    return false;
+  }
+  if (index === 0) {
+    return true;
+  }
+  const previous = masterPhases[index - 1];
+  return previous ? locks[previous.id] === true : false;
+};
+
+const isReturnPhaseLockEligible = (
+  instanceId: string,
+  masterPhases: ReturnPhaseForm[],
   locks: Record<string, boolean>,
 ): boolean => {
   const index = masterPhases.findIndex((phase) => phase.id === instanceId);
@@ -946,6 +1097,7 @@ const defaultCompareSyncState = (): CompareSyncState => ({
   familyLocks: {
     coreParams: false,
     startingPortfolio: false,
+    returnPhases: false,
     returnAssumptions: false,
     spendingPhases: false,
     withdrawalStrategy: false,
@@ -955,6 +1107,7 @@ const defaultCompareSyncState = (): CompareSyncState => ({
     historicalEra: false,
   },
   instanceLocks: {
+    returnPhases: {},
     spendingPhases: {},
     incomeEvents: {},
     expenseEvents: {},
@@ -965,6 +1118,7 @@ const defaultCompareSyncState = (): CompareSyncState => ({
 const cloneCompareSyncState = (compareSync: CompareSyncState): CompareSyncState => ({
   familyLocks: { ...compareSync.familyLocks },
   instanceLocks: {
+    returnPhases: { ...compareSync.instanceLocks.returnPhases },
     spendingPhases: { ...compareSync.instanceLocks.spendingPhases },
     incomeEvents: { ...compareSync.instanceLocks.incomeEvents },
     expenseEvents: { ...compareSync.instanceLocks.expenseEvents },
@@ -975,6 +1129,7 @@ const cloneCompareSyncState = (compareSync: CompareSyncState): CompareSyncState 
       {
         families: { ...(overrides?.families ?? {}) },
         instances: {
+          returnPhases: { ...(overrides?.instances.returnPhases ?? {}) },
           spendingPhases: { ...(overrides?.instances.spendingPhases ?? {}) },
           incomeEvents: { ...(overrides?.instances.incomeEvents ?? {}) },
           expenseEvents: { ...(overrides?.instances.expenseEvents ?? {}) },
@@ -1017,6 +1172,19 @@ const upsertSpendingPhaseById = (
   }
   const next = [...list];
   next[index] = { ...phase };
+  return next;
+};
+
+const upsertReturnPhaseById = (
+  list: ReturnPhaseForm[],
+  phase: ReturnPhaseForm,
+): ReturnPhaseForm[] => {
+  const index = list.findIndex((entry) => entry.id === phase.id);
+  if (index < 0) {
+    return [...list, cloneReturnPhaseForm(phase)];
+  }
+  const next = [...list];
+  next[index] = cloneReturnPhaseForm(phase);
   return next;
 };
 
@@ -1078,9 +1246,11 @@ const applyCompareSyncFromMaster = (
 
   const next = cloneCompareWorkspace(compareWorkspace);
   const compareSync = next.compareSync;
+  normalizeReturnPhaseInstanceLocks(compareSync, master.returnPhases, next.slotOrder);
   normalizeSpendingPhaseInstanceLocks(compareSync, master.spendingPhases, next.slotOrder);
 
   const masterIdsByFamily: Record<CompareSyncListFamilyKey, Set<string>> = {
+    returnPhases: new Set(master.returnPhases.map((phase) => phase.id)),
     spendingPhases: new Set(master.spendingPhases.map((phase) => phase.id)),
     incomeEvents: new Set(master.incomeEvents.map((event) => event.id)),
     expenseEvents: new Set(master.expenseEvents.map((event) => event.id)),
@@ -1111,6 +1281,21 @@ const applyCompareSyncFromMaster = (
           break;
         case 'startingPortfolio':
           workspace.portfolio = { ...master.portfolio };
+          break;
+        case 'returnPhases':
+          workspace.returnPhases = master.returnPhases.map((phase) => cloneReturnPhaseForm(phase));
+          workspace.returnsSource = master.returnsSource;
+          workspace.simulationRuns = master.simulationRuns;
+          workspace.simulationMode = master.simulationMode;
+          workspace.returnAssumptions = {
+            stocks: { ...master.returnAssumptions.stocks },
+            bonds: { ...master.returnAssumptions.bonds },
+            cash: { ...master.returnAssumptions.cash },
+          };
+          workspace.selectedHistoricalEra = master.selectedHistoricalEra;
+          workspace.customHistoricalRange = cloneHistoricalRange(master.customHistoricalRange);
+          workspace.blockBootstrapEnabled = master.blockBootstrapEnabled;
+          workspace.blockBootstrapLength = master.blockBootstrapLength;
           break;
         case 'returnAssumptions':
           workspace.returnAssumptions = {
@@ -1172,6 +1357,41 @@ const applyCompareSyncFromMaster = (
           break;
       }
     });
+
+    if (
+      !compareSync.familyLocks.returnPhases ||
+      !isSlotFamilySynced(compareSync, slotId, 'returnPhases')
+    ) {
+      Object.keys(compareSync.instanceLocks.returnPhases).forEach((instanceId) => {
+        if (!isSlotInstanceSynced(compareSync, slotId, 'returnPhases', instanceId)) {
+          return;
+        }
+        const masterPhase = master.returnPhases.find((entry) => entry.id === instanceId);
+        if (!masterPhase) {
+          workspace.returnPhases = workspace.returnPhases.filter((entry) => entry.id !== instanceId);
+          return;
+        }
+        workspace.returnPhases = upsertReturnPhaseById(workspace.returnPhases, masterPhase);
+      });
+      workspace.returnPhases = recalculateReturnPhaseBoundaries(
+        workspace.returnPhases,
+        workspace.coreParams.portfolioStart,
+        workspace.coreParams.portfolioEnd,
+      );
+      const legacy = deriveLegacyReturnsFromPhases(workspace.returnPhases, workspace);
+      workspace.returnsSource = legacy.returnsSource;
+      workspace.returnAssumptions = legacy.returnAssumptions;
+      workspace.selectedHistoricalEra = legacy.selectedHistoricalEra;
+      workspace.customHistoricalRange = legacy.customHistoricalRange;
+      workspace.blockBootstrapEnabled = legacy.blockBootstrapEnabled;
+      workspace.blockBootstrapLength = legacy.blockBootstrapLength;
+      workspace.simulationMode = resolveEffectiveSimulationMode(
+        legacy.returnsSource,
+        workspace.simulationRuns,
+        legacy.returnAssumptions,
+        workspace.returnPhases,
+      );
+    }
 
     if (
       !compareSync.familyLocks.spendingPhases ||
@@ -1238,6 +1458,7 @@ const applyCompareSyncFromMaster = (
       }
     });
   });
+  normalizeReturnPhaseInstanceLocks(compareSync, master.returnPhases, next.slotOrder);
   normalizeSpendingPhaseInstanceLocks(compareSync, master.spendingPhases, next.slotOrder);
 
   return next;
@@ -1387,6 +1608,7 @@ const workspaceFromState = (state: AppStore): WorkspaceSnapshot => ({
     portfolioEnd: { ...state.coreParams.portfolioEnd },
   },
   portfolio: { ...state.portfolio },
+  returnPhases: state.returnPhases.map((phase) => cloneReturnPhaseForm(phase)),
   returnAssumptions: {
     stocks: { ...state.returnAssumptions.stocks },
     bonds: { ...state.returnAssumptions.bonds },
@@ -1498,13 +1720,64 @@ const allStdDevZero = (returnAssumptions: AppStore['returnAssumptions']): boolea
   returnAssumptions.bonds.stdDev <= 0 &&
   returnAssumptions.cash.stdDev <= 0;
 
+const deriveLegacyReturnsFromPhases = (
+  phases: ReturnPhaseForm[],
+  fallback: Pick<
+    AppStore,
+    | 'returnsSource'
+    | 'returnAssumptions'
+    | 'selectedHistoricalEra'
+    | 'customHistoricalRange'
+    | 'blockBootstrapEnabled'
+    | 'blockBootstrapLength'
+  >,
+) => {
+  const firstPhase = phases[0];
+  if (!firstPhase) {
+    return {
+      returnsSource: fallback.returnsSource,
+      returnAssumptions: {
+        stocks: { ...fallback.returnAssumptions.stocks },
+        bonds: { ...fallback.returnAssumptions.bonds },
+        cash: { ...fallback.returnAssumptions.cash },
+      },
+      selectedHistoricalEra: fallback.selectedHistoricalEra,
+      customHistoricalRange: cloneHistoricalRange(fallback.customHistoricalRange),
+      blockBootstrapEnabled: fallback.blockBootstrapEnabled,
+      blockBootstrapLength: fallback.blockBootstrapLength,
+    };
+  }
+  return {
+    returnsSource: firstPhase.source,
+    returnAssumptions: cloneReturnAssumptionsForm(firstPhase.returnAssumptions),
+    selectedHistoricalEra: firstPhase.selectedHistoricalEra,
+    customHistoricalRange: cloneHistoricalRange(firstPhase.customHistoricalRange),
+    blockBootstrapEnabled: firstPhase.blockBootstrapEnabled,
+    blockBootstrapLength: firstPhase.blockBootstrapLength,
+  };
+};
+
 const resolveEffectiveSimulationMode = (
   returnsSource: ReturnSource,
   simulationRuns: number,
   returnAssumptions: AppStore['returnAssumptions'],
+  returnPhases: ReturnPhaseForm[] = [],
 ): SimulationMode => {
   const runs = normalizedSimulationRuns(simulationRuns);
-  if (returnsSource === ReturnSource.Manual && allStdDevZero(returnAssumptions)) {
+  const phases = returnPhases.length > 0 ? returnPhases : [];
+  const hasHistorical = phases.some((phase) => phase.source === ReturnSource.Historical);
+  const allManualZero =
+    phases.length > 0
+      ? phases.every(
+          (phase) =>
+            phase.source === ReturnSource.Manual &&
+            phase.returnAssumptions.stocks.stdDev <= 0 &&
+            phase.returnAssumptions.bonds.stdDev <= 0 &&
+            phase.returnAssumptions.cash.stdDev <= 0,
+        )
+      : returnsSource === ReturnSource.Manual && allStdDevZero(returnAssumptions);
+
+  if (!hasHistorical && allManualZero) {
     return SimulationMode.Manual;
   }
   return runs > 1 ? SimulationMode.MonteCarlo : SimulationMode.Manual;
@@ -1532,6 +1805,7 @@ const snapshotFieldsFromWorkspace = (workspace: WorkspaceSnapshot) => ({
   blockBootstrapLength: workspace.blockBootstrapLength,
   coreParams: workspace.coreParams,
   portfolio: workspace.portfolio,
+  returnPhases: workspace.returnPhases.map((phase) => cloneReturnPhaseForm(phase)),
   returnAssumptions: workspace.returnAssumptions,
   spendingPhases: workspace.spendingPhases,
   withdrawalStrategy: workspace.withdrawalStrategy,
@@ -1559,6 +1833,7 @@ const currentInputFieldsFromState = (state: AppStore) => ({
     portfolioEnd: { ...state.coreParams.portfolioEnd },
   },
   portfolio: { ...state.portfolio },
+  returnPhases: state.returnPhases.map((phase) => cloneReturnPhaseForm(phase)),
   returnAssumptions: {
     stocks: { ...state.returnAssumptions.stocks },
     bonds: { ...state.returnAssumptions.bonds },
@@ -1688,6 +1963,7 @@ const cloneSnapshotState = (snapshot: SnapshotState): SnapshotState => {
       portfolioEnd: { ...normalizedSnapshot.coreParams.portfolioEnd },
     },
     portfolio: { ...normalizedSnapshot.portfolio },
+    returnPhases: normalizedSnapshot.returnPhases.map((phase) => cloneReturnPhaseForm(phase)),
     returnAssumptions: {
       stocks: { ...normalizedSnapshot.returnAssumptions.stocks },
       bonds: { ...normalizedSnapshot.returnAssumptions.bonds },
@@ -1977,6 +2253,23 @@ export const useAppStore = create<AppStore>((set) => ({
     bonds: 250_000,
     cash: 50_000,
   },
+  returnPhases: [
+    {
+      id: createId('return-phase'),
+      start: { month: new Date().getMonth() + 1, year: new Date().getFullYear() },
+      end: { month: new Date().getMonth() + 1, year: new Date().getFullYear() + 40 },
+      source: ReturnSource.Historical,
+      returnAssumptions: {
+        stocks: { expectedReturn: 0.08, stdDev: 0.15 },
+        bonds: { expectedReturn: 0.04, stdDev: 0.07 },
+        cash: { expectedReturn: 0.02, stdDev: 0.01 },
+      },
+      selectedHistoricalEra: HistoricalEra.FullHistory,
+      customHistoricalRange: null,
+      blockBootstrapEnabled: false,
+      blockBootstrapLength: 12,
+    },
+  ],
   returnAssumptions: {
     stocks: { expectedReturn: 0.08, stdDev: 0.15 },
     bonds: { expectedReturn: 0.04, stdDev: 0.07 },
@@ -2353,6 +2646,15 @@ export const useAppStore = create<AppStore>((set) => ({
       const compareSync = cloneCompareSyncState(nextCompareWorkspace.compareSync);
       const nextLocked = !compareSync.familyLocks[family];
       compareSync.familyLocks[family] = nextLocked;
+      const aliasFamilies: CompareSyncFamilyKey[] =
+        family === 'returnPhases'
+          ? ['returnAssumptions', 'historicalEra']
+          : family === 'returnAssumptions' || family === 'historicalEra'
+            ? ['returnPhases']
+            : [];
+      aliasFamilies.forEach((aliasFamily) => {
+        compareSync.familyLocks[aliasFamily] = nextLocked;
+      });
 
       nextCompareWorkspace.slotOrder.forEach((slotId) => {
         if (slotId === 'A') {
@@ -2360,6 +2662,9 @@ export const useAppStore = create<AppStore>((set) => ({
         }
         const overrides = compareSync.unsyncedBySlot[slotId] ?? createCompareSyncSlotOverrides();
         delete overrides.families[family];
+        aliasFamilies.forEach((aliasFamily) => {
+          delete overrides.families[aliasFamily];
+        });
         compareSync.unsyncedBySlot[slotId] = overrides;
       });
 
@@ -2428,6 +2733,42 @@ export const useAppStore = create<AppStore>((set) => ({
             delete compareSync.instanceLocks.spendingPhases[instanceId];
           }
         }
+      } else if (family === 'returnPhases') {
+        const masterPhases = nextCompareWorkspace.slots.A?.returnPhases ?? [];
+        normalizeReturnPhaseInstanceLocks(compareSync, masterPhases, nextCompareWorkspace.slotOrder);
+        if (nextLocked) {
+          if (
+            !isReturnPhaseLockEligible(
+              instanceId,
+              masterPhases,
+              compareSync.instanceLocks.returnPhases,
+            )
+          ) {
+            return state;
+          }
+          compareSync.instanceLocks.returnPhases[instanceId] = true;
+        } else {
+          const index = masterPhases.findIndex((phase) => phase.id === instanceId);
+          if (index >= 0) {
+            const tailIds = masterPhases.slice(index).map((phase) => phase.id);
+            tailIds.forEach((id) => {
+              delete compareSync.instanceLocks.returnPhases[id];
+            });
+            nextCompareWorkspace.slotOrder.forEach((slotId) => {
+              if (slotId === 'A') {
+                return;
+              }
+              const overrides =
+                compareSync.unsyncedBySlot[slotId] ?? createCompareSyncSlotOverrides();
+              tailIds.forEach((id) => {
+                delete overrides.instances.returnPhases[id];
+              });
+              compareSync.unsyncedBySlot[slotId] = overrides;
+            });
+          } else {
+            delete compareSync.instanceLocks.returnPhases[instanceId];
+          }
+        }
       } else if (nextLocked) {
         compareSync.instanceLocks[family][instanceId] = true;
       } else {
@@ -2472,10 +2813,22 @@ export const useAppStore = create<AppStore>((set) => ({
       const nextCompareWorkspace = compareWorkspaceWithCurrentState(state);
       const compareSync = cloneCompareSyncState(nextCompareWorkspace.compareSync);
       const overrides = compareSync.unsyncedBySlot[slot] ?? createCompareSyncSlotOverrides();
+      const aliasFamilies: CompareSyncFamilyKey[] =
+        family === 'returnPhases'
+          ? ['returnAssumptions', 'historicalEra']
+          : family === 'returnAssumptions' || family === 'historicalEra'
+            ? ['returnPhases']
+            : [];
       if (synced) {
         delete overrides.families[family];
+        aliasFamilies.forEach((aliasFamily) => {
+          delete overrides.families[aliasFamily];
+        });
       } else {
         overrides.families[family] = true;
+        aliasFamilies.forEach((aliasFamily) => {
+          overrides.families[aliasFamily] = true;
+        });
       }
       compareSync.unsyncedBySlot[slot] = overrides;
       nextCompareWorkspace.compareSync = compareSync;
@@ -2665,20 +3018,27 @@ export const useAppStore = create<AppStore>((set) => ({
   setSimulationMode: (simulationMode) => set({ simulationMode }),
   setReturnsSource: (returnsSource) =>
     set((state) => {
-      const lockManual = isCompareFamilyLockedAndSyncedForActiveSlot(state, 'returnAssumptions');
-      const lockHistorical = isCompareFamilyLockedAndSyncedForActiveSlot(state, 'historicalEra');
-      if (lockManual || lockHistorical) {
+      const lockReturns =
+        isCompareFamilyLockedAndSyncedForActiveSlot(state, 'returnPhases') ||
+        isCompareFamilyLockedAndSyncedForActiveSlot(state, 'returnAssumptions') ||
+        isCompareFamilyLockedAndSyncedForActiveSlot(state, 'historicalEra');
+      if (lockReturns) {
         return state;
       }
       const staleState = markTrackingOutputStateStale(state);
+      const nextReturnPhases = state.returnPhases.map((phase) => ({
+        ...phase,
+        source: returnsSource,
+      }));
       const simulationMode = resolveEffectiveSimulationMode(
         returnsSource,
         state.simulationRuns,
         state.returnAssumptions,
+        nextReturnPhases,
       );
 
       if (!isCompareActiveFromWorkspace(state.compareWorkspace)) {
-        return { returnsSource, simulationMode, ...staleState };
+        return { returnsSource, returnPhases: nextReturnPhases, simulationMode, ...staleState };
       }
 
       const nextCompare = cloneCompareWorkspace(staleState.compareWorkspace);
@@ -2686,6 +3046,7 @@ export const useAppStore = create<AppStore>((set) => ({
       const workspace = nextCompare.slots[activeSlotId];
       if (workspace) {
         workspace.returnsSource = returnsSource;
+        workspace.returnPhases = nextReturnPhases.map((phase) => cloneReturnPhaseForm(phase));
         workspace.simulationMode = simulationMode;
       }
       if (activeSlotId === 'A') {
@@ -2694,12 +3055,14 @@ export const useAppStore = create<AppStore>((set) => ({
             return;
           }
           if (
+            isSlotFamilySynced(nextCompare.compareSync, slotId, 'returnPhases') ||
             isSlotFamilySynced(nextCompare.compareSync, slotId, 'returnAssumptions') ||
             isSlotFamilySynced(nextCompare.compareSync, slotId, 'historicalEra')
           ) {
             const slotWorkspace = nextCompare.slots[slotId];
             if (slotWorkspace) {
               slotWorkspace.returnsSource = returnsSource;
+              slotWorkspace.returnPhases = nextReturnPhases.map((phase) => cloneReturnPhaseForm(phase));
               slotWorkspace.simulationMode = simulationMode;
             }
           }
@@ -2708,6 +3071,7 @@ export const useAppStore = create<AppStore>((set) => ({
 
       return {
         returnsSource,
+        returnPhases: nextReturnPhases,
         simulationMode,
         compareWorkspace: nextCompare,
         simulationResults: staleState.simulationResults,
@@ -2715,9 +3079,11 @@ export const useAppStore = create<AppStore>((set) => ({
     }),
   setSimulationRuns: (runs) =>
     set((state) => {
-      const lockManual = isCompareFamilyLockedAndSyncedForActiveSlot(state, 'returnAssumptions');
-      const lockHistorical = isCompareFamilyLockedAndSyncedForActiveSlot(state, 'historicalEra');
-      if (lockManual || lockHistorical) {
+      const lockReturns =
+        isCompareFamilyLockedAndSyncedForActiveSlot(state, 'returnPhases') ||
+        isCompareFamilyLockedAndSyncedForActiveSlot(state, 'returnAssumptions') ||
+        isCompareFamilyLockedAndSyncedForActiveSlot(state, 'historicalEra');
+      if (lockReturns) {
         return state;
       }
       const simulationRuns = normalizedSimulationRuns(runs);
@@ -2726,6 +3092,7 @@ export const useAppStore = create<AppStore>((set) => ({
         state.returnsSource,
         simulationRuns,
         state.returnAssumptions,
+        state.returnPhases,
       );
 
       if (!isCompareActiveFromWorkspace(state.compareWorkspace)) {
@@ -2745,6 +3112,7 @@ export const useAppStore = create<AppStore>((set) => ({
             return;
           }
           if (
+            isSlotFamilySynced(nextCompare.compareSync, slotId, 'returnPhases') ||
             isSlotFamilySynced(nextCompare.compareSync, slotId, 'returnAssumptions') ||
             isSlotFamilySynced(nextCompare.compareSync, slotId, 'historicalEra')
           ) {
@@ -2766,22 +3134,60 @@ export const useAppStore = create<AppStore>((set) => ({
     }),
   setSelectedHistoricalEra: (selectedHistoricalEra) =>
     set((state) => {
-      if (isCompareFamilyLockedAndSyncedForActiveSlot(state, 'historicalEra')) {
+      if (
+        isCompareFamilyLockedAndSyncedForActiveSlot(state, 'returnPhases') ||
+        isCompareFamilyLockedAndSyncedForActiveSlot(state, 'historicalEra')
+      ) {
         return state;
       }
 
       const staleState = markTrackingOutputStateStale(state);
+      const nextReturnPhases = state.returnPhases.map((phase) =>
+        phase.source === ReturnSource.Historical
+          ? {
+              ...phase,
+              selectedHistoricalEra,
+              customHistoricalRange:
+                selectedHistoricalEra === HistoricalEra.Custom
+                  ? cloneHistoricalRange(state.customHistoricalRange)
+                  : null,
+            }
+          : phase,
+      );
+      const legacy = deriveLegacyReturnsFromPhases(nextReturnPhases, state);
+      const simulationMode = resolveEffectiveSimulationMode(
+        legacy.returnsSource,
+        state.simulationRuns,
+        legacy.returnAssumptions,
+        nextReturnPhases,
+      );
 
       if (!isCompareActiveFromWorkspace(state.compareWorkspace)) {
-        return { selectedHistoricalEra, ...staleState };
+        return {
+          returnPhases: nextReturnPhases,
+          simulationMode,
+          ...legacy,
+          ...staleState,
+        };
       }
 
       const nextCompare = cloneCompareWorkspace(staleState.compareWorkspace);
       const activeSlotId = nextCompare.activeSlotId;
       const workspace = nextCompare.slots[activeSlotId];
       if (workspace) {
+        workspace.returnPhases = nextReturnPhases.map((phase) => cloneReturnPhaseForm(phase));
         workspace.selectedHistoricalEra = selectedHistoricalEra;
         workspace.customHistoricalRange = cloneHistoricalRange(state.customHistoricalRange);
+        workspace.returnsSource = legacy.returnsSource;
+        workspace.returnAssumptions = cloneReturnAssumptionsForm(legacy.returnAssumptions);
+        workspace.blockBootstrapEnabled = legacy.blockBootstrapEnabled;
+        workspace.blockBootstrapLength = legacy.blockBootstrapLength;
+        workspace.simulationMode = resolveEffectiveSimulationMode(
+          legacy.returnsSource,
+          workspace.simulationRuns,
+          legacy.returnAssumptions,
+          workspace.returnPhases,
+        );
       }
 
       if (activeSlotId === 'A') {
@@ -2789,40 +3195,93 @@ export const useAppStore = create<AppStore>((set) => ({
           if (slotId === 'A') {
             return;
           }
-          if (isSlotFamilySynced(nextCompare.compareSync, slotId, 'historicalEra')) {
+          if (
+            isSlotFamilySynced(nextCompare.compareSync, slotId, 'returnPhases') ||
+            isSlotFamilySynced(nextCompare.compareSync, slotId, 'historicalEra')
+          ) {
             const slotWorkspace = nextCompare.slots[slotId];
             if (slotWorkspace) {
+              slotWorkspace.returnPhases = nextReturnPhases.map((phase) =>
+                cloneReturnPhaseForm(phase),
+              );
               slotWorkspace.selectedHistoricalEra = selectedHistoricalEra;
               slotWorkspace.customHistoricalRange = cloneHistoricalRange(state.customHistoricalRange);
+              slotWorkspace.returnsSource = legacy.returnsSource;
+              slotWorkspace.returnAssumptions = cloneReturnAssumptionsForm(legacy.returnAssumptions);
+              slotWorkspace.blockBootstrapEnabled = legacy.blockBootstrapEnabled;
+              slotWorkspace.blockBootstrapLength = legacy.blockBootstrapLength;
+              slotWorkspace.simulationMode = resolveEffectiveSimulationMode(
+                legacy.returnsSource,
+                slotWorkspace.simulationRuns,
+                legacy.returnAssumptions,
+                slotWorkspace.returnPhases,
+              );
             }
           }
         });
       }
 
       return {
-        selectedHistoricalEra,
-        customHistoricalRange: cloneHistoricalRange(state.customHistoricalRange),
+        returnPhases: nextReturnPhases,
+        simulationMode,
+        ...legacy,
         compareWorkspace: nextCompare,
         simulationResults: staleState.simulationResults,
       };
     }),
   setCustomHistoricalRange: (customHistoricalRange) =>
     set((state) => {
-      if (isCompareFamilyLockedAndSyncedForActiveSlot(state, 'historicalEra')) {
+      if (
+        isCompareFamilyLockedAndSyncedForActiveSlot(state, 'returnPhases') ||
+        isCompareFamilyLockedAndSyncedForActiveSlot(state, 'historicalEra')
+      ) {
         return state;
       }
 
       const staleState = markTrackingOutputStateStale(state);
+      const nextCustomRange = cloneHistoricalRange(customHistoricalRange);
+      const nextReturnPhases = state.returnPhases.map((phase) =>
+        phase.source === ReturnSource.Historical
+          ? {
+              ...phase,
+              customHistoricalRange: cloneHistoricalRange(nextCustomRange),
+            }
+          : phase,
+      );
+      const legacy = deriveLegacyReturnsFromPhases(nextReturnPhases, state);
+      const simulationMode = resolveEffectiveSimulationMode(
+        legacy.returnsSource,
+        state.simulationRuns,
+        legacy.returnAssumptions,
+        nextReturnPhases,
+      );
 
       if (!isCompareActiveFromWorkspace(state.compareWorkspace)) {
-        return { customHistoricalRange: cloneHistoricalRange(customHistoricalRange), ...staleState };
+        return {
+          returnPhases: nextReturnPhases,
+          simulationMode,
+          ...legacy,
+          ...staleState,
+        };
       }
 
       const nextCompare = cloneCompareWorkspace(staleState.compareWorkspace);
       const activeSlotId = nextCompare.activeSlotId;
       const workspace = nextCompare.slots[activeSlotId];
       if (workspace) {
-        workspace.customHistoricalRange = cloneHistoricalRange(customHistoricalRange);
+        workspace.returnPhases = nextReturnPhases.map((phase) => cloneReturnPhaseForm(phase));
+        workspace.customHistoricalRange = nextCustomRange;
+        workspace.returnsSource = legacy.returnsSource;
+        workspace.returnAssumptions = cloneReturnAssumptionsForm(legacy.returnAssumptions);
+        workspace.selectedHistoricalEra = legacy.selectedHistoricalEra;
+        workspace.blockBootstrapEnabled = legacy.blockBootstrapEnabled;
+        workspace.blockBootstrapLength = legacy.blockBootstrapLength;
+        workspace.simulationMode = resolveEffectiveSimulationMode(
+          legacy.returnsSource,
+          workspace.simulationRuns,
+          legacy.returnAssumptions,
+          workspace.returnPhases,
+        );
       }
 
       if (activeSlotId === 'A') {
@@ -2830,38 +3289,92 @@ export const useAppStore = create<AppStore>((set) => ({
           if (slotId === 'A') {
             return;
           }
-          if (isSlotFamilySynced(nextCompare.compareSync, slotId, 'historicalEra')) {
+          if (
+            isSlotFamilySynced(nextCompare.compareSync, slotId, 'returnPhases') ||
+            isSlotFamilySynced(nextCompare.compareSync, slotId, 'historicalEra')
+          ) {
             const slotWorkspace = nextCompare.slots[slotId];
             if (slotWorkspace) {
-              slotWorkspace.customHistoricalRange = cloneHistoricalRange(customHistoricalRange);
+              slotWorkspace.returnPhases = nextReturnPhases.map((phase) =>
+                cloneReturnPhaseForm(phase),
+              );
+              slotWorkspace.customHistoricalRange = nextCustomRange;
+              slotWorkspace.returnsSource = legacy.returnsSource;
+              slotWorkspace.returnAssumptions = cloneReturnAssumptionsForm(legacy.returnAssumptions);
+              slotWorkspace.selectedHistoricalEra = legacy.selectedHistoricalEra;
+              slotWorkspace.blockBootstrapEnabled = legacy.blockBootstrapEnabled;
+              slotWorkspace.blockBootstrapLength = legacy.blockBootstrapLength;
+              slotWorkspace.simulationMode = resolveEffectiveSimulationMode(
+                legacy.returnsSource,
+                slotWorkspace.simulationRuns,
+                legacy.returnAssumptions,
+                slotWorkspace.returnPhases,
+              );
             }
           }
         });
       }
 
       return {
-        customHistoricalRange: cloneHistoricalRange(customHistoricalRange),
+        returnPhases: nextReturnPhases,
+        simulationMode,
+        ...legacy,
         compareWorkspace: nextCompare,
         simulationResults: staleState.simulationResults,
       };
     }),
   setBlockBootstrapEnabled: (blockBootstrapEnabled) =>
     set((state) => {
-      if (isCompareFamilyLockedAndSyncedForActiveSlot(state, 'historicalEra')) {
+      if (
+        isCompareFamilyLockedAndSyncedForActiveSlot(state, 'returnPhases') ||
+        isCompareFamilyLockedAndSyncedForActiveSlot(state, 'historicalEra')
+      ) {
         return state;
       }
 
       const staleState = markTrackingOutputStateStale(state);
+      const nextReturnPhases = state.returnPhases.map((phase) =>
+        phase.source === ReturnSource.Historical
+          ? {
+              ...phase,
+              blockBootstrapEnabled,
+            }
+          : phase,
+      );
+      const legacy = deriveLegacyReturnsFromPhases(nextReturnPhases, state);
+      const simulationMode = resolveEffectiveSimulationMode(
+        legacy.returnsSource,
+        state.simulationRuns,
+        legacy.returnAssumptions,
+        nextReturnPhases,
+      );
 
       if (!isCompareActiveFromWorkspace(state.compareWorkspace)) {
-        return { blockBootstrapEnabled, ...staleState };
+        return {
+          returnPhases: nextReturnPhases,
+          simulationMode,
+          ...legacy,
+          ...staleState,
+        };
       }
 
       const nextCompare = cloneCompareWorkspace(staleState.compareWorkspace);
       const activeSlotId = nextCompare.activeSlotId;
       const workspace = nextCompare.slots[activeSlotId];
       if (workspace) {
+        workspace.returnPhases = nextReturnPhases.map((phase) => cloneReturnPhaseForm(phase));
         workspace.blockBootstrapEnabled = blockBootstrapEnabled;
+        workspace.returnsSource = legacy.returnsSource;
+        workspace.returnAssumptions = cloneReturnAssumptionsForm(legacy.returnAssumptions);
+        workspace.selectedHistoricalEra = legacy.selectedHistoricalEra;
+        workspace.customHistoricalRange = cloneHistoricalRange(legacy.customHistoricalRange);
+        workspace.blockBootstrapLength = legacy.blockBootstrapLength;
+        workspace.simulationMode = resolveEffectiveSimulationMode(
+          legacy.returnsSource,
+          workspace.simulationRuns,
+          legacy.returnAssumptions,
+          workspace.returnPhases,
+        );
       }
 
       if (activeSlotId === 'A') {
@@ -2869,38 +3382,92 @@ export const useAppStore = create<AppStore>((set) => ({
           if (slotId === 'A') {
             return;
           }
-          if (isSlotFamilySynced(nextCompare.compareSync, slotId, 'historicalEra')) {
+          if (
+            isSlotFamilySynced(nextCompare.compareSync, slotId, 'returnPhases') ||
+            isSlotFamilySynced(nextCompare.compareSync, slotId, 'historicalEra')
+          ) {
             const slotWorkspace = nextCompare.slots[slotId];
             if (slotWorkspace) {
+              slotWorkspace.returnPhases = nextReturnPhases.map((phase) =>
+                cloneReturnPhaseForm(phase),
+              );
               slotWorkspace.blockBootstrapEnabled = blockBootstrapEnabled;
+              slotWorkspace.returnsSource = legacy.returnsSource;
+              slotWorkspace.returnAssumptions = cloneReturnAssumptionsForm(legacy.returnAssumptions);
+              slotWorkspace.selectedHistoricalEra = legacy.selectedHistoricalEra;
+              slotWorkspace.customHistoricalRange = cloneHistoricalRange(legacy.customHistoricalRange);
+              slotWorkspace.blockBootstrapLength = legacy.blockBootstrapLength;
+              slotWorkspace.simulationMode = resolveEffectiveSimulationMode(
+                legacy.returnsSource,
+                slotWorkspace.simulationRuns,
+                legacy.returnAssumptions,
+                slotWorkspace.returnPhases,
+              );
             }
           }
         });
       }
 
       return {
-        blockBootstrapEnabled,
+        returnPhases: nextReturnPhases,
+        simulationMode,
+        ...legacy,
         compareWorkspace: nextCompare,
         simulationResults: staleState.simulationResults,
       };
     }),
   setBlockBootstrapLength: (blockBootstrapLength) =>
     set((state) => {
-      if (isCompareFamilyLockedAndSyncedForActiveSlot(state, 'historicalEra')) {
+      if (
+        isCompareFamilyLockedAndSyncedForActiveSlot(state, 'returnPhases') ||
+        isCompareFamilyLockedAndSyncedForActiveSlot(state, 'historicalEra')
+      ) {
         return state;
       }
 
       const staleState = markTrackingOutputStateStale(state);
+      const nextReturnPhases = state.returnPhases.map((phase) =>
+        phase.source === ReturnSource.Historical
+          ? {
+              ...phase,
+              blockBootstrapLength,
+            }
+          : phase,
+      );
+      const legacy = deriveLegacyReturnsFromPhases(nextReturnPhases, state);
+      const simulationMode = resolveEffectiveSimulationMode(
+        legacy.returnsSource,
+        state.simulationRuns,
+        legacy.returnAssumptions,
+        nextReturnPhases,
+      );
 
       if (!isCompareActiveFromWorkspace(state.compareWorkspace)) {
-        return { blockBootstrapLength, ...staleState };
+        return {
+          returnPhases: nextReturnPhases,
+          simulationMode,
+          ...legacy,
+          ...staleState,
+        };
       }
 
       const nextCompare = cloneCompareWorkspace(staleState.compareWorkspace);
       const activeSlotId = nextCompare.activeSlotId;
       const workspace = nextCompare.slots[activeSlotId];
       if (workspace) {
+        workspace.returnPhases = nextReturnPhases.map((phase) => cloneReturnPhaseForm(phase));
         workspace.blockBootstrapLength = blockBootstrapLength;
+        workspace.returnsSource = legacy.returnsSource;
+        workspace.returnAssumptions = cloneReturnAssumptionsForm(legacy.returnAssumptions);
+        workspace.selectedHistoricalEra = legacy.selectedHistoricalEra;
+        workspace.customHistoricalRange = cloneHistoricalRange(legacy.customHistoricalRange);
+        workspace.blockBootstrapEnabled = legacy.blockBootstrapEnabled;
+        workspace.simulationMode = resolveEffectiveSimulationMode(
+          legacy.returnsSource,
+          workspace.simulationRuns,
+          legacy.returnAssumptions,
+          workspace.returnPhases,
+        );
       }
 
       if (activeSlotId === 'A') {
@@ -2908,17 +3475,36 @@ export const useAppStore = create<AppStore>((set) => ({
           if (slotId === 'A') {
             return;
           }
-          if (isSlotFamilySynced(nextCompare.compareSync, slotId, 'historicalEra')) {
+          if (
+            isSlotFamilySynced(nextCompare.compareSync, slotId, 'returnPhases') ||
+            isSlotFamilySynced(nextCompare.compareSync, slotId, 'historicalEra')
+          ) {
             const slotWorkspace = nextCompare.slots[slotId];
             if (slotWorkspace) {
+              slotWorkspace.returnPhases = nextReturnPhases.map((phase) =>
+                cloneReturnPhaseForm(phase),
+              );
               slotWorkspace.blockBootstrapLength = blockBootstrapLength;
+              slotWorkspace.returnsSource = legacy.returnsSource;
+              slotWorkspace.returnAssumptions = cloneReturnAssumptionsForm(legacy.returnAssumptions);
+              slotWorkspace.selectedHistoricalEra = legacy.selectedHistoricalEra;
+              slotWorkspace.customHistoricalRange = cloneHistoricalRange(legacy.customHistoricalRange);
+              slotWorkspace.blockBootstrapEnabled = legacy.blockBootstrapEnabled;
+              slotWorkspace.simulationMode = resolveEffectiveSimulationMode(
+                legacy.returnsSource,
+                slotWorkspace.simulationRuns,
+                legacy.returnAssumptions,
+                slotWorkspace.returnPhases,
+              );
             }
           }
         });
       }
 
       return {
-        blockBootstrapLength,
+        returnPhases: nextReturnPhases,
+        simulationMode,
+        ...legacy,
         compareWorkspace: nextCompare,
         simulationResults: staleState.simulationResults,
       };
@@ -2958,6 +3544,11 @@ export const useAppStore = create<AppStore>((set) => ({
         );
         return {
           coreParams: nextCore,
+          returnPhases: recalculateReturnPhaseBoundaries(
+            state.returnPhases,
+            nextCore.portfolioStart,
+            nextCore.portfolioEnd,
+          ),
           spendingPhases: recalculatePhaseBoundaries(
             state.spendingPhases,
             nextCore.portfolioStart,
@@ -3003,23 +3594,358 @@ export const useAppStore = create<AppStore>((set) => ({
     }),
   setReturnAssumption: (asset, key, value) =>
     set((state) => {
-      if (isCompareFamilyLockedAndSyncedForActiveSlot(state, 'returnAssumptions')) {
+      if (
+        isCompareFamilyLockedAndSyncedForActiveSlot(state, 'returnPhases') ||
+        isCompareFamilyLockedAndSyncedForActiveSlot(state, 'returnAssumptions')
+      ) {
         return state;
       }
       const nextAssumptions = {
         ...state.returnAssumptions,
         [asset]: { ...state.returnAssumptions[asset], [key]: value },
       };
+      const nextReturnPhases = state.returnPhases.map((phase) =>
+        phase.source === ReturnSource.Manual
+          ? {
+              ...phase,
+              returnAssumptions: {
+                ...phase.returnAssumptions,
+                [asset]: { ...phase.returnAssumptions[asset], [key]: value },
+              },
+            }
+          : phase,
+      );
       const simulationMode = resolveEffectiveSimulationMode(
         state.returnsSource,
         state.simulationRuns,
         nextAssumptions,
+        nextReturnPhases,
       );
       const staleState = markTrackingOutputStateStale(state);
+      if (!isCompareActiveFromWorkspace(state.compareWorkspace)) {
+        return {
+          returnPhases: nextReturnPhases,
+          returnAssumptions: nextAssumptions,
+          simulationMode,
+          ...staleState,
+        };
+      }
+
+      const nextCompare = cloneCompareWorkspace(staleState.compareWorkspace);
+      const activeSlotId = nextCompare.activeSlotId;
+      const applyToWorkspace = (workspace: WorkspaceSnapshot) => {
+        workspace.returnPhases = nextReturnPhases.map((phase) => cloneReturnPhaseForm(phase));
+        workspace.returnAssumptions = {
+          stocks: { ...nextAssumptions.stocks },
+          bonds: { ...nextAssumptions.bonds },
+          cash: { ...nextAssumptions.cash },
+        };
+        workspace.simulationMode = resolveEffectiveSimulationMode(
+          workspace.returnsSource,
+          workspace.simulationRuns,
+          workspace.returnAssumptions,
+          workspace.returnPhases,
+        );
+      };
+      const activeWorkspace = nextCompare.slots[activeSlotId];
+      if (activeWorkspace) {
+        applyToWorkspace(activeWorkspace);
+      }
+      if (activeSlotId === 'A') {
+        nextCompare.slotOrder.forEach((slotId) => {
+          if (slotId === 'A') {
+            return;
+          }
+          if (
+            isSlotFamilySynced(nextCompare.compareSync, slotId, 'returnPhases') ||
+            isSlotFamilySynced(nextCompare.compareSync, slotId, 'returnAssumptions') ||
+            isSlotFamilySynced(nextCompare.compareSync, slotId, 'historicalEra')
+          ) {
+            const slotWorkspace = nextCompare.slots[slotId];
+            if (slotWorkspace) {
+              applyToWorkspace(slotWorkspace);
+            }
+          }
+        });
+      }
+
       return {
+        returnPhases: nextReturnPhases,
         returnAssumptions: nextAssumptions,
         simulationMode,
-        ...staleState,
+        compareWorkspace: nextCompare,
+        simulationResults: staleState.simulationResults,
+      };
+    }),
+  addReturnPhase: () =>
+    set((state) => {
+      if (isCompareFamilyLockedAndSyncedForActiveSlot(state, 'returnPhases')) {
+        return state;
+      }
+      if (state.returnPhases.length >= 4) {
+        return state;
+      }
+      const lastPhase = state.returnPhases[state.returnPhases.length - 1];
+      const nextPhase = defaultReturnPhase(
+        state.coreParams.portfolioStart,
+        state.coreParams.portfolioEnd,
+        state.returnsSource,
+        state.returnAssumptions,
+        state.selectedHistoricalEra,
+        state.customHistoricalRange,
+        state.blockBootstrapEnabled,
+        state.blockBootstrapLength,
+      );
+      nextPhase.start = lastPhase ? { ...lastPhase.end } : { ...state.coreParams.portfolioStart };
+      nextPhase.end =
+        state.returnPhases.length === 0
+          ? { ...state.coreParams.portfolioEnd }
+          : { ...nextPhase.start };
+      const normalized = recalculateReturnPhaseBoundaries(
+        [...state.returnPhases, nextPhase],
+        state.coreParams.portfolioStart,
+        state.coreParams.portfolioEnd,
+      );
+      const legacy = deriveLegacyReturnsFromPhases(normalized, state);
+      const simulationMode = resolveEffectiveSimulationMode(
+        legacy.returnsSource,
+        state.simulationRuns,
+        legacy.returnAssumptions,
+        normalized,
+      );
+      const staleState = markTrackingOutputStateStale(state);
+      if (!isCompareActiveFromWorkspace(state.compareWorkspace)) {
+        return {
+          returnPhases: normalized,
+          simulationMode,
+          ...legacy,
+          ...staleState,
+        };
+      }
+
+      const nextCompare = cloneCompareWorkspace(staleState.compareWorkspace);
+      const activeSlotId = nextCompare.activeSlotId;
+      const applyToWorkspace = (workspace: WorkspaceSnapshot) => {
+        workspace.returnPhases = normalized.map((phase) => cloneReturnPhaseForm(phase));
+        workspace.returnsSource = legacy.returnsSource;
+        workspace.returnAssumptions = cloneReturnAssumptionsForm(legacy.returnAssumptions);
+        workspace.selectedHistoricalEra = legacy.selectedHistoricalEra;
+        workspace.customHistoricalRange = cloneHistoricalRange(legacy.customHistoricalRange);
+        workspace.blockBootstrapEnabled = legacy.blockBootstrapEnabled;
+        workspace.blockBootstrapLength = legacy.blockBootstrapLength;
+        workspace.simulationMode = resolveEffectiveSimulationMode(
+          legacy.returnsSource,
+          workspace.simulationRuns,
+          legacy.returnAssumptions,
+          workspace.returnPhases,
+        );
+      };
+      const activeWorkspace = nextCompare.slots[activeSlotId];
+      if (activeWorkspace) {
+        applyToWorkspace(activeWorkspace);
+      }
+      if (activeSlotId === 'A') {
+        nextCompare.slotOrder.forEach((slotId) => {
+          if (slotId === 'A') {
+            return;
+          }
+          if (
+            isSlotFamilySynced(nextCompare.compareSync, slotId, 'returnPhases') ||
+            isSlotFamilySynced(nextCompare.compareSync, slotId, 'returnAssumptions') ||
+            isSlotFamilySynced(nextCompare.compareSync, slotId, 'historicalEra')
+          ) {
+            const slotWorkspace = nextCompare.slots[slotId];
+            if (slotWorkspace) {
+              applyToWorkspace(slotWorkspace);
+            }
+          }
+        });
+      }
+
+      return {
+        returnPhases: normalized,
+        simulationMode,
+        ...legacy,
+        compareWorkspace: nextCompare,
+        simulationResults: staleState.simulationResults,
+      };
+    }),
+  removeReturnPhase: (id) =>
+    set((state) => {
+      if (isCompareFamilyLockedAndSyncedForActiveSlot(state, 'returnPhases')) {
+        return state;
+      }
+      if (isCompareInstanceLockedAndSyncedForActiveSlot(state, 'returnPhases', id)) {
+        return state;
+      }
+      if (state.returnPhases.length <= 1) {
+        return state;
+      }
+      const next = state.returnPhases.filter((phase) => phase.id !== id);
+      if (next.length === state.returnPhases.length) {
+        return state;
+      }
+      const normalized = recalculateReturnPhaseBoundaries(
+        next,
+        state.coreParams.portfolioStart,
+        state.coreParams.portfolioEnd,
+      );
+      const legacy = deriveLegacyReturnsFromPhases(normalized, state);
+      const simulationMode = resolveEffectiveSimulationMode(
+        legacy.returnsSource,
+        state.simulationRuns,
+        legacy.returnAssumptions,
+        normalized,
+      );
+      const staleState = markTrackingOutputStateStale(state);
+      if (!isCompareActiveFromWorkspace(state.compareWorkspace)) {
+        return {
+          returnPhases: normalized,
+          simulationMode,
+          ...legacy,
+          ...staleState,
+        };
+      }
+
+      const nextCompare = cloneCompareWorkspace(staleState.compareWorkspace);
+      const activeSlotId = nextCompare.activeSlotId;
+      const applyToWorkspace = (workspace: WorkspaceSnapshot) => {
+        workspace.returnPhases = normalized.map((phase) => cloneReturnPhaseForm(phase));
+        workspace.returnsSource = legacy.returnsSource;
+        workspace.returnAssumptions = cloneReturnAssumptionsForm(legacy.returnAssumptions);
+        workspace.selectedHistoricalEra = legacy.selectedHistoricalEra;
+        workspace.customHistoricalRange = cloneHistoricalRange(legacy.customHistoricalRange);
+        workspace.blockBootstrapEnabled = legacy.blockBootstrapEnabled;
+        workspace.blockBootstrapLength = legacy.blockBootstrapLength;
+        workspace.simulationMode = resolveEffectiveSimulationMode(
+          legacy.returnsSource,
+          workspace.simulationRuns,
+          legacy.returnAssumptions,
+          workspace.returnPhases,
+        );
+      };
+      const activeWorkspace = nextCompare.slots[activeSlotId];
+      if (activeWorkspace) {
+        applyToWorkspace(activeWorkspace);
+      }
+      if (activeSlotId === 'A') {
+        nextCompare.slotOrder.forEach((slotId) => {
+          if (slotId === 'A') {
+            return;
+          }
+          if (
+            isSlotFamilySynced(nextCompare.compareSync, slotId, 'returnPhases') ||
+            isSlotFamilySynced(nextCompare.compareSync, slotId, 'returnAssumptions') ||
+            isSlotFamilySynced(nextCompare.compareSync, slotId, 'historicalEra')
+          ) {
+            const slotWorkspace = nextCompare.slots[slotId];
+            if (slotWorkspace) {
+              applyToWorkspace(slotWorkspace);
+            }
+          }
+        });
+      }
+
+      return {
+        returnPhases: normalized,
+        simulationMode,
+        ...legacy,
+        compareWorkspace: nextCompare,
+        simulationResults: staleState.simulationResults,
+      };
+    }),
+  updateReturnPhase: (id, patch) =>
+    set((state) => {
+      if (isCompareFamilyLockedAndSyncedForActiveSlot(state, 'returnPhases')) {
+        return state;
+      }
+      if (isCompareInstanceLockedAndSyncedForActiveSlot(state, 'returnPhases', id)) {
+        return state;
+      }
+      const next = state.returnPhases.map((phase) =>
+        phase.id === id
+          ? {
+              ...phase,
+              ...patch,
+              start: patch.start ? { ...patch.start } : phase.start,
+              end: patch.end ? { ...patch.end } : phase.end,
+              returnAssumptions: patch.returnAssumptions
+                ? cloneReturnAssumptionsForm(patch.returnAssumptions)
+                : cloneReturnAssumptionsForm(phase.returnAssumptions),
+              customHistoricalRange:
+                patch.customHistoricalRange !== undefined
+                  ? cloneHistoricalRange(patch.customHistoricalRange)
+                  : cloneHistoricalRange(phase.customHistoricalRange),
+            }
+          : phase,
+      );
+      const normalized = recalculateReturnPhaseBoundaries(
+        next,
+        state.coreParams.portfolioStart,
+        state.coreParams.portfolioEnd,
+      );
+      const legacy = deriveLegacyReturnsFromPhases(normalized, state);
+      const simulationMode = resolveEffectiveSimulationMode(
+        legacy.returnsSource,
+        state.simulationRuns,
+        legacy.returnAssumptions,
+        normalized,
+      );
+      const staleState = markTrackingOutputStateStale(state);
+      if (!isCompareActiveFromWorkspace(state.compareWorkspace)) {
+        return {
+          returnPhases: normalized,
+          simulationMode,
+          ...legacy,
+          ...staleState,
+        };
+      }
+
+      const nextCompare = cloneCompareWorkspace(staleState.compareWorkspace);
+      const activeSlotId = nextCompare.activeSlotId;
+      const applyToWorkspace = (workspace: WorkspaceSnapshot) => {
+        workspace.returnPhases = normalized.map((phase) => cloneReturnPhaseForm(phase));
+        workspace.returnsSource = legacy.returnsSource;
+        workspace.returnAssumptions = cloneReturnAssumptionsForm(legacy.returnAssumptions);
+        workspace.selectedHistoricalEra = legacy.selectedHistoricalEra;
+        workspace.customHistoricalRange = cloneHistoricalRange(legacy.customHistoricalRange);
+        workspace.blockBootstrapEnabled = legacy.blockBootstrapEnabled;
+        workspace.blockBootstrapLength = legacy.blockBootstrapLength;
+        workspace.simulationMode = resolveEffectiveSimulationMode(
+          legacy.returnsSource,
+          workspace.simulationRuns,
+          legacy.returnAssumptions,
+          workspace.returnPhases,
+        );
+      };
+      const activeWorkspace = nextCompare.slots[activeSlotId];
+      if (activeWorkspace) {
+        applyToWorkspace(activeWorkspace);
+      }
+      if (activeSlotId === 'A') {
+        nextCompare.slotOrder.forEach((slotId) => {
+          if (slotId === 'A') {
+            return;
+          }
+          if (
+            isSlotFamilySynced(nextCompare.compareSync, slotId, 'returnPhases') ||
+            isSlotFamilySynced(nextCompare.compareSync, slotId, 'returnAssumptions') ||
+            isSlotFamilySynced(nextCompare.compareSync, slotId, 'historicalEra')
+          ) {
+            const slotWorkspace = nextCompare.slots[slotId];
+            if (slotWorkspace) {
+              applyToWorkspace(slotWorkspace);
+            }
+          }
+        });
+      }
+
+      return {
+        returnPhases: normalized,
+        simulationMode,
+        ...legacy,
+        compareWorkspace: nextCompare,
+        simulationResults: staleState.simulationResults,
       };
     }),
   addSpendingPhase: () =>
@@ -3855,21 +4781,29 @@ export const useCompareInstanceLockUiState = (
   const instanceLocked = useAppStore(
     (state) => state.compareWorkspace.compareSync.instanceLocks[family][instanceId] === true,
   );
-  const spendingLockEligible = useAppStore((state) => {
-    if (family !== 'spendingPhases') {
+  const prefixLockEligible = useAppStore((state) => {
+    if (family !== 'spendingPhases' && family !== 'returnPhases') {
       return true;
     }
     if (state.compareWorkspace.activeSlotId !== 'A') {
       return true;
     }
-    if (state.compareWorkspace.compareSync.instanceLocks.spendingPhases[instanceId] === true) {
+    if (state.compareWorkspace.compareSync.instanceLocks[family][instanceId] === true) {
       return true;
     }
-    const masterPhases = state.spendingPhases;
-    return isSpendingPhaseLockEligible(
+    if (family === 'spendingPhases') {
+      const masterPhases = state.spendingPhases;
+      return isSpendingPhaseLockEligible(
+        instanceId,
+        masterPhases,
+        state.compareWorkspace.compareSync.instanceLocks.spendingPhases,
+      );
+    }
+    const masterReturnPhases = state.returnPhases;
+    return isReturnPhaseLockEligible(
       instanceId,
-      masterPhases,
-      state.compareWorkspace.compareSync.instanceLocks.spendingPhases,
+      masterReturnPhases,
+      state.compareWorkspace.compareSync.instanceLocks.returnPhases,
     );
   });
   const instanceSynced = useAppStore((state) =>
@@ -3887,9 +4821,11 @@ export const useCompareInstanceLockUiState = (
     familyLocked,
     familySynced,
     instanceLocked,
-    canToggleLock: spendingLockEligible,
+    canToggleLock: prefixLockEligible,
     lockDisabledReason:
-      family === 'spendingPhases' && slotId === 'A' && !spendingLockEligible
+      (family === 'spendingPhases' || family === 'returnPhases') &&
+      slotId === 'A' &&
+      !prefixLockEligible
         ? 'Lock prior phase first'
         : null,
     instanceSynced,
@@ -3944,6 +4880,7 @@ const snapshotStateFromStore = (state: AppStore): SnapshotState => {
       portfolioEnd: { ...state.coreParams.portfolioEnd },
     },
     portfolio: { ...state.portfolio },
+    returnPhases: state.returnPhases.map((phase) => cloneReturnPhaseForm(phase)),
     returnAssumptions: {
       stocks: { ...state.returnAssumptions.stocks },
       bonds: { ...state.returnAssumptions.bonds },
@@ -4075,6 +5012,26 @@ const configFromWorkspace = (workspace: WorkspaceSnapshot, mode: AppMode): Simul
     blockBootstrapLength: workspace.blockBootstrapLength,
     coreParams: workspace.coreParams,
     portfolio: workspace.portfolio,
+    returnPhases: workspace.returnPhases.map((phase) =>
+      phase.source === ReturnSource.Manual
+        ? {
+            id: phase.id,
+            start: { ...phase.start },
+            end: { ...phase.end },
+            source: ReturnSource.Manual,
+            returnAssumptions: cloneReturnAssumptionsForm(phase.returnAssumptions),
+          }
+        : {
+            id: phase.id,
+            start: { ...phase.start },
+            end: { ...phase.end },
+            source: ReturnSource.Historical,
+            selectedHistoricalEra: phase.selectedHistoricalEra,
+            customHistoricalRange: cloneHistoricalRange(phase.customHistoricalRange),
+            blockBootstrapEnabled: phase.blockBootstrapEnabled,
+            blockBootstrapLength: phase.blockBootstrapLength,
+          },
+    ),
     returnAssumptions: workspace.returnAssumptions,
     spendingPhases: workspace.spendingPhases.map((phase) => ({
       ...phase,

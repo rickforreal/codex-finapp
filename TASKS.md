@@ -2250,3 +2250,62 @@ Acceptance Criteria:
       [AC2] `npm run typecheck`, `npm run lint`, `npm test`, and `npm run build` pass.
       [AC3] `npm run build -w @finapp/native-mc` and `npm run test -w @finapp/native-mc` pass.
       [AC4] `PROGRESS.txt` append-only completion entry includes canonical-doc impact statement.
+
+## Feature Plan — Return Phases
+
+- [x] RPHASE-T1: Create docs-first return-phases artifacts and root tracker kickoff
+      Phase: Feature/ReturnPhases
+      Dependencies: none
+      Acceptance Criteria:
+      [AC1] `docs/features/return-phases/{FEATURE,PLAN,ACCEPTANCE}.md` exist.
+      [AC2] Root `TASKS.md` includes `RPHASE-T1..RPHASE-T7`.
+      [AC3] `PROGRESS.txt` includes append-only kickoff entry.
+
+- [x] RPHASE-T2: Add shared domain/contracts support for `returnPhases` with legacy normalization
+      Phase: Feature/ReturnPhases
+      Dependencies: RPHASE-T1
+      Acceptance Criteria:
+      [AC1] `SimulationConfig` includes `returnPhases` and `ReturnPhase` model.
+      [AC2] Schema validates contiguous coverage, max 4, and source-specific fields.
+      [AC3] Legacy single-source return fields normalize to one full-horizon phase.
+
+- [x] RPHASE-T3: Implement phase-aware TS return resolution across simulate/reforecast/stress/MC
+      Phase: Feature/ReturnPhases
+      Dependencies: RPHASE-T2
+      Acceptance Criteria:
+      [AC1] TS manual/MC/reforecast/stress flows use phase-aware resolver.
+      [AC2] Historical block bootstrap enforces phase boundaries.
+      [AC3] Deterministic compare shared-stochastic behavior is preserved.
+
+- [x] RPHASE-T4: Implement Rust native parity for phase-aware return generation
+      Phase: Feature/ReturnPhases
+      Dependencies: RPHASE-T2
+      Acceptance Criteria:
+      [AC1] Native DTOs support `returnPhases` and compatibility normalization.
+      [AC2] Native manual/MC/reforecast/stress flows honor phase boundaries and per-phase params.
+      [AC3] TS/Rust parity fixtures pass for mixed-phase timelines.
+
+- [x] RPHASE-T5: Replace client Returns UI/store semantics with phase list editor and migration
+      Phase: Feature/ReturnPhases
+      Dependencies: RPHASE-T2
+      Acceptance Criteria:
+      [AC1] Returns UI supports up to 4 contiguous phases with per-phase source controls.
+      [AC2] Global simulation-runs control remains section-level.
+      [AC3] Workspace/snapshot/bookmark legacy states migrate to single return phase.
+
+- [x] RPHASE-T6: Update compare sync + compare insight for `returnPhases`
+      Phase: Feature/ReturnPhases
+      Dependencies: RPHASE-T5
+      Acceptance Criteria:
+      [AC1] Compare family sync replaces legacy return/historical families with `returnPhases`.
+      [AC2] Compare Insight includes phase count + per-phase parameter rows.
+      [AC3] Only-differences behavior is preserved.
+
+- [x] RPHASE-T7: Canonical docs + regression/native gate pass
+      Phase: Feature/ReturnPhases
+      Dependencies: RPHASE-T3, RPHASE-T4, RPHASE-T5, RPHASE-T6
+      Acceptance Criteria:
+      [AC1] Canonical docs updated: `docs/SPECS.md`, `docs/SCENARIOS.md`, `docs/DATA_MODEL.md`, `docs/API.md` (and `docs/ARCHITECTURE.md` if required).
+      [AC2] `npm run typecheck`, `npm run lint`, `npm test`, and `npm run build` pass.
+      [AC3] `npm run build -w @finapp/native-mc` and `npm run test -w @finapp/native-mc` pass.
+      [AC4] `PROGRESS.txt` completion entry includes canonical-doc impact statement.

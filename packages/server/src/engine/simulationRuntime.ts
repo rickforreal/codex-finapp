@@ -1,7 +1,7 @@
 import type { ActualOverridesByMonth, MonthlyReturns, SimulationConfig, SinglePathResult } from '@finapp/shared';
 
-import { reforecastDeterministic } from './deterministic';
 import { runReforecastRust, runSinglePathRust } from './monteCarloNative';
+import { prepareReturnPhaseSampler, sampleMonthlyReturnsForPreparedPhases } from './returnPhases';
 import { simulateRetirement } from './simulator';
 
 const resolveSimulationEnginePreference = (): 'ts' | 'rust' => {
@@ -19,6 +19,8 @@ const logEngineEvent = (event: string, details: Record<string, unknown>): void =
     }),
   );
 };
+
+const REFORECAST_SEED = 13_370_001;
 
 export const runSinglePath = async (
   config: SimulationConfig,
@@ -55,5 +57,9 @@ export const runReforecast = async (
     }
   }
 
-  return reforecastDeterministic(config, actualOverridesByMonth);
+  const returns = sampleMonthlyReturnsForPreparedPhases(
+    await prepareReturnPhaseSampler(config),
+    REFORECAST_SEED,
+  );
+  return simulateRetirement(config, returns, actualOverridesByMonth, {});
 };

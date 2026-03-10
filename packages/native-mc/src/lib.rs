@@ -11,12 +11,14 @@ const RUN_SEED_STRIDE: i64 = 9_973;
 const MAX_SIMULATION_RUNS: usize = 10_000;
 const DEFAULT_SIMULATION_RUNS: usize = 1_000;
 const MAX_SEED: i64 = 2_147_483_000;
+const REFORECAST_SEED: i64 = 13_370_001;
 
 #[napi(object)]
 pub struct NativeMonteCarloRequest {
   pub config_json: String,
   pub options_json: Option<String>,
   pub historical_months_json: Option<String>,
+  pub historical_months_by_phase_json: Option<String>,
   pub historical_summary_json: Option<String>,
 }
 
@@ -42,6 +44,8 @@ pub struct NativeSinglePathResponse {
 pub struct NativeReforecastRequest {
   pub config_json: String,
   pub actual_overrides_by_month_json: Option<String>,
+  pub historical_months_json: Option<String>,
+  pub historical_months_by_phase_json: Option<String>,
 }
 
 #[napi(object)]
@@ -170,6 +174,33 @@ struct MonthlyReturns {
   stocks: f64,
   bonds: f64,
   cash: f64,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct HistoricalRange {
+  start: EventDate,
+  end: EventDate,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(tag = "source", rename_all = "camelCase")]
+enum ReturnPhase {
+  Manual {
+    id: String,
+    start: EventDate,
+    end: EventDate,
+    return_assumptions: ReturnAssumptions,
+  },
+  Historical {
+    id: String,
+    start: EventDate,
+    end: EventDate,
+    selected_historical_era: String,
+    custom_historical_range: Option<HistoricalRange>,
+    block_bootstrap_enabled: bool,
+    block_bootstrap_length: usize,
+  },
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -346,12 +377,14 @@ struct SimulationConfig {
   returns_source: Option<String>,
   simulation_runs: Option<u32>,
   selected_historical_era: String,
-  custom_historical_range: Option<Value>,
+  custom_historical_range: Option<HistoricalRange>,
   block_bootstrap_enabled: bool,
   block_bootstrap_length: usize,
   core_params: CoreParams,
   portfolio: AssetBalances,
   return_assumptions: ReturnAssumptions,
+  #[serde(default)]
+  return_phases: Vec<ReturnPhase>,
   spending_phases: Vec<SpendingPhase>,
   withdrawal_strategy: WithdrawalStrategy,
   drawdown_strategy: DrawdownStrategy,
@@ -1293,6 +1326,217 @@ fn resolve_return_source(config: &SimulationConfig) -> ReturnSource {
   } else {
     ReturnSource::Historical
   }
+}
+
+#[derive(Debug, Clone)]
+enum ResolvedReturnPhase {
+  Manual {
+    id: String,
+    start_month_index: usize,
+    end_month_index_exclusive: usize,
+    return_assumptions: ReturnAssumptions,
+  },
+  Historical {
+    id: String,
+    start_month_index: usize,
+    end_month_index_exclusive: usize,
+    block_bootstrap_enabled: bool,
+    block_bootstrap_length: usize,
+  },
+}
+
+fn legacy_return_phase(config: &SimulationConfig) -> ReturnPhase {
+  match resolve_return_source(config) {
+    ReturnSource::Manual => ReturnPhase::Manual {
+      id: "return-phase-1".to_string(),
+      start: config.core_params.portfolio_start.clone(),
+      end: config.core_params.portfolio_end.clone(),
+      return_assumptions: config.return_assumptions.clone(),
+    },
+    ReturnSource::Historical => ReturnPhase::Historical {
+      id: "return-phase-1".to_string(),
+      start: config.core_params.portfolio_start.clone(),
+      end: config.core_params.portfolio_end.clone(),
+      selected_historical_era: config.selected_historical_era.clone(),
+      custom_historical_range: config.custom_historical_range.clone(),
+      block_bootstrap_enabled: config.block_bootstrap_enabled,
+      block_bootstrap_length: config.block_bootstrap_length,
+    },
+  }
+}
+
+fn resolve_return_phases(config: &SimulationConfig) -> Vec<ReturnPhase> {
+  if !config.return_phases.is_empty() {
+    return config.return_phases.clone();
+  }
+  vec![legacy_return_phase(config)]
+}
+
+fn resolve_return_phase_schedule(config: &SimulationConfig) -> Vec<ResolvedReturnPhase> {
+  let duration_months =
+    months_between(&config.core_params.portfolio_start, &config.core_params.portfolio_end).max(0) as usize;
+  let portfolio_start = &config.core_params.portfolio_start;
+
+  let mut resolved = Vec::new();
+  for phase in resolve_return_phases(config) {
+    let (id, start, end, phase_kind) = match phase {
+      ReturnPhase::Manual {
+        id,
+        start,
+        end,
+        return_assumptions,
+      } => (
+        id,
+        start,
+        end,
+        ResolvedReturnPhase::Manual {
+          id: String::new(),
+          start_month_index: 0,
+          end_month_index_exclusive: 0,
+          return_assumptions,
+        },
+      ),
+      ReturnPhase::Historical {
+        id,
+        start,
+        end,
+        block_bootstrap_enabled,
+        block_bootstrap_length,
+        ..
+      } => (
+        id,
+        start,
+        end,
+        ResolvedReturnPhase::Historical {
+          id: String::new(),
+          start_month_index: 0,
+          end_month_index_exclusive: 0,
+          block_bootstrap_enabled,
+          block_bootstrap_length: block_bootstrap_length.max(1),
+        },
+      ),
+    };
+
+    let start_month_index = months_between(portfolio_start, &start).max(0) as usize;
+    let end_month_index_exclusive = months_between(portfolio_start, &end).max(0) as usize;
+    let clamped_start = start_month_index.min(duration_months);
+    let clamped_end = end_month_index_exclusive.min(duration_months);
+    if clamped_end <= clamped_start {
+      continue;
+    }
+
+    let phase_entry = match phase_kind {
+      ResolvedReturnPhase::Manual {
+        return_assumptions, ..
+      } => ResolvedReturnPhase::Manual {
+        id,
+        start_month_index: clamped_start,
+        end_month_index_exclusive: clamped_end,
+        return_assumptions,
+      },
+      ResolvedReturnPhase::Historical {
+        block_bootstrap_enabled,
+        block_bootstrap_length,
+        ..
+      } => ResolvedReturnPhase::Historical {
+        id,
+        start_month_index: clamped_start,
+        end_month_index_exclusive: clamped_end,
+        block_bootstrap_enabled,
+        block_bootstrap_length,
+      },
+    };
+    resolved.push(phase_entry);
+  }
+
+  resolved.sort_by_key(|phase| match phase {
+    ResolvedReturnPhase::Manual {
+      start_month_index, ..
+    } => *start_month_index,
+    ResolvedReturnPhase::Historical {
+      start_month_index, ..
+    } => *start_month_index,
+  });
+  resolved
+}
+
+fn generate_monthly_returns_from_return_phases(
+  config: &SimulationConfig,
+  seed: i64,
+  historical_months: &[HistoricalMonth],
+  historical_months_by_phase: &HashMap<String, Vec<HistoricalMonth>>,
+) -> Result<Vec<MonthlyReturns>> {
+  let duration_months =
+    months_between(&config.core_params.portfolio_start, &config.core_params.portfolio_end).max(0) as usize;
+  let mut random = Mulberry32::new(seed);
+  let phases = resolve_return_phase_schedule(config);
+  let mut series = vec![
+    MonthlyReturns {
+      stocks: 0.0,
+      bonds: 0.0,
+      cash: 0.0,
+    };
+    duration_months
+  ];
+
+  for phase in phases {
+    match phase {
+      ResolvedReturnPhase::Manual {
+        start_month_index,
+        end_month_index_exclusive,
+        return_assumptions,
+        ..
+      } => {
+        for month_index in start_month_index..end_month_index_exclusive {
+          series[month_index] = MonthlyReturns {
+            stocks: generate_random_monthly_return(
+              return_assumptions.stocks.expected_return,
+              return_assumptions.stocks.std_dev,
+              &mut random,
+            ),
+            bonds: generate_random_monthly_return(
+              return_assumptions.bonds.expected_return,
+              return_assumptions.bonds.std_dev,
+              &mut random,
+            ),
+            cash: generate_random_monthly_return(
+              return_assumptions.cash.expected_return,
+              return_assumptions.cash.std_dev,
+              &mut random,
+            ),
+          };
+        }
+      }
+      ResolvedReturnPhase::Historical {
+        id,
+        start_month_index,
+        end_month_index_exclusive,
+        block_bootstrap_enabled,
+        block_bootstrap_length,
+      } => {
+        let phase_pool = historical_months_by_phase
+          .get(&id)
+          .map(Vec::as_slice)
+          .unwrap_or(historical_months);
+        if phase_pool.is_empty() {
+          return Err(Error::from_reason(format!(
+            "No historical data rows available for return phase {id}",
+          )));
+        }
+        let duration = end_month_index_exclusive - start_month_index;
+        let sampled = if block_bootstrap_enabled {
+          sample_historical_returns_block(phase_pool, duration, block_bootstrap_length, &mut random)
+        } else {
+          sample_historical_returns_iid(phase_pool, duration, &mut random)
+        };
+        for (offset, month) in sampled.into_iter().enumerate() {
+          series[start_month_index + offset] = month;
+        }
+      }
+    }
+  }
+
+  Ok(series)
 }
 
 fn clamp_simulation_runs(runs: usize) -> usize {
@@ -2344,40 +2588,29 @@ fn build_returns_for_run(
   options: &MonteCarloOptions,
   run_index: usize,
   seed_used: i64,
-  returns_source: ReturnSource,
   historical_months: &[HistoricalMonth],
-  duration_months: usize,
-) -> Vec<MonthlyReturns> {
+  historical_months_by_phase: &HashMap<String, Vec<HistoricalMonth>>,
+) -> Result<Vec<MonthlyReturns>> {
   let run_seed = run_seed_for_index(seed_used, run_index);
-  let mut random = Mulberry32::new(run_seed);
-
-  let returns = match returns_source {
-    ReturnSource::Manual => generate_monthly_returns_from_assumptions(config, run_seed),
-    ReturnSource::Historical => {
-      if config.block_bootstrap_enabled {
-        sample_historical_returns_block(
-          historical_months,
-          duration_months,
-          config.block_bootstrap_length,
-          &mut random,
-        )
-      } else {
-        sample_historical_returns_iid(historical_months, duration_months, &mut random)
-      }
-    }
-  };
+  let returns = generate_monthly_returns_from_return_phases(
+    config,
+    run_seed,
+    historical_months,
+    historical_months_by_phase,
+  )?;
 
   if let Some(descriptor) = &options.stress_transform {
-    return apply_stress_transform(descriptor, &returns);
+    return Ok(apply_stress_transform(descriptor, &returns));
   }
 
-  returns
+  Ok(returns)
 }
 
 fn run_monte_carlo_internal(
   config: SimulationConfig,
   options: MonteCarloOptions,
   historical_months: Vec<HistoricalMonth>,
+  historical_months_by_phase: HashMap<String, Vec<HistoricalMonth>>,
   historical_summary: Value,
 ) -> Result<MonteCarloExecutionResult> {
   let simulation_count = clamp_simulation_runs(
@@ -2391,20 +2624,13 @@ fn run_monte_carlo_internal(
   let duration_months =
     months_between(&config.core_params.portfolio_start, &config.core_params.portfolio_end).max(0) as usize;
 
-  let returns_source = resolve_return_source(&config);
-  if matches!(returns_source, ReturnSource::Historical) && historical_months.is_empty() {
-    return Err(Error::from_reason(
-      "No historical data rows available for selected era".to_string(),
-    ));
-  }
-
   let normalized_actual_overrides = normalize_overrides(options.actual_overrides_by_month.clone());
   let normalized_inflation_overrides =
     normalize_inflation_overrides(options.inflation_overrides_by_year.clone());
 
   let run_computations: Vec<RunComputation> = (0..simulation_count)
     .into_par_iter()
-    .map(|run_index| {
+    .map(|run_index| -> Result<RunComputation> {
       let mut requested_withdrawal_by_month = vec![false; duration_months];
       let mut actual_withdrawal_real_by_month = vec![0.0; duration_months];
       let mut month_end_totals = vec![0.0; duration_months];
@@ -2417,10 +2643,9 @@ fn run_monte_carlo_internal(
         &options,
         run_index,
         seed_used,
-        returns_source,
         &historical_months,
-        duration_months,
-      );
+        &historical_months_by_phase,
+      )?;
 
       let mut callback = |summary: MonthCompleteSummary| {
         let month = summary.month_index - 1;
@@ -2444,7 +2669,7 @@ fn run_monte_carlo_internal(
         Some(&mut callback),
       );
 
-      RunComputation {
+      Ok(RunComputation {
         run_index,
         month_end_totals,
         month_end_stocks,
@@ -2453,9 +2678,9 @@ fn run_monte_carlo_internal(
         requested_withdrawal_by_month,
         actual_withdrawal_real_by_month,
         summary: path.summary,
-      }
+      })
     })
-    .collect();
+    .collect::<Result<Vec<RunComputation>>>()?;
 
   let mut monthly_withdrawals_real_by_run = vec![Vec::<f64>::new(); duration_months];
   let mut monthly_withdrawals_real_matrix =
@@ -2510,10 +2735,9 @@ fn run_monte_carlo_internal(
     &options,
     representative_run.run_index,
     seed_used,
-    returns_source,
     &historical_months,
-    duration_months,
-  );
+    &historical_months_by_phase,
+  )?;
   let representative_path = simulate_retirement(
     &config,
     &representative_returns,
@@ -2672,6 +2896,13 @@ pub fn run_monte_carlo_json(request: NativeMonteCarloRequest) -> Result<NativeMo
       .map_err(|error| Error::from_reason(format!("Invalid historicalMonthsJson: {error}")))?,
     None => Vec::new(),
   };
+  let historical_months_by_phase: HashMap<String, Vec<HistoricalMonth>> =
+    match request.historical_months_by_phase_json {
+      Some(historical_months_by_phase_json) => serde_json::from_str(&historical_months_by_phase_json).map_err(
+        |error| Error::from_reason(format!("Invalid historicalMonthsByPhaseJson: {error}")),
+      )?,
+      None => HashMap::new(),
+    };
 
   let historical_summary: Value = match request.historical_summary_json {
     Some(historical_summary_json) => serde_json::from_str(&historical_summary_json)
@@ -2679,7 +2910,13 @@ pub fn run_monte_carlo_json(request: NativeMonteCarloRequest) -> Result<NativeMo
     None => Value::Null,
   };
 
-  let result = run_monte_carlo_internal(config, options, historical_months, historical_summary)?;
+  let result = run_monte_carlo_internal(
+    config,
+    options,
+    historical_months,
+    historical_months_by_phase,
+    historical_summary,
+  )?;
   let result_json = serde_json::to_string(&result)
     .map_err(|error| Error::from_reason(format!("Failed to serialize result JSON: {error}")))?;
 
@@ -2746,8 +2983,25 @@ pub fn run_reforecast_json(request: NativeReforecastRequest) -> Result<NativeRef
     .map_err(|error| Error::from_reason(format!("Invalid configJson: {error}")))?;
   let actual_overrides =
     parse_actual_overrides_json(request.actual_overrides_by_month_json, "actualOverridesByMonthJson")?;
+  let historical_months: Vec<HistoricalMonth> = match request.historical_months_json {
+    Some(historical_months_json) => serde_json::from_str(&historical_months_json)
+      .map_err(|error| Error::from_reason(format!("Invalid historicalMonthsJson: {error}")))?,
+    None => Vec::new(),
+  };
+  let historical_months_by_phase: HashMap<String, Vec<HistoricalMonth>> =
+    match request.historical_months_by_phase_json {
+      Some(historical_months_by_phase_json) => serde_json::from_str(&historical_months_by_phase_json).map_err(
+        |error| Error::from_reason(format!("Invalid historicalMonthsByPhaseJson: {error}")),
+      )?,
+      None => HashMap::new(),
+    };
 
-  let deterministic_returns = generate_deterministic_monthly_returns(&config);
+  let deterministic_returns = generate_monthly_returns_from_return_phases(
+    &config,
+    REFORECAST_SEED,
+    &historical_months,
+    &historical_months_by_phase,
+  )?;
   let normalized_actual_overrides = normalize_overrides(actual_overrides);
   let normalized_inflation_overrides: HashMap<i32, f64> = HashMap::new();
 
@@ -2837,6 +3091,7 @@ mod tests {
           std_dev: 0.01,
         },
       },
+      return_phases: vec![],
       spending_phases: vec![SpendingPhase {
         id: "phase-1".to_string(),
         name: "Base".to_string(),

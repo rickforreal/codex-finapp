@@ -14,8 +14,8 @@ import {
 } from '@finapp/shared';
 
 import { runMonteCarlo } from './monteCarlo';
+import { prepareReturnPhaseSampler, sampleMonthlyReturnsForPreparedPhases } from './returnPhases';
 import { runSinglePath } from './simulationRuntime';
-import { generateMonthlyReturnsFromAssumptions } from './simulator';
 import {
   type StressTransformDescriptor,
   inflationOverridesForScenario,
@@ -165,9 +165,10 @@ export const runStressTest = async (
   let baselineReturns: MonthlyReturns[] | null = null;
 
   if (config.simulationMode === SimulationMode.Manual) {
+    const preparedReturns = await prepareReturnPhaseSampler(config);
     baselineReturns =
       options.monthlyReturns?.slice(0, durationMonths) ??
-      generateMonthlyReturnsFromAssumptions(config, options.seed).slice(0, durationMonths);
+      sampleMonthlyReturnsForPreparedPhases(preparedReturns, options.seed).slice(0, durationMonths);
     if (!baseResult) {
       baseResult = await runSinglePath(config, baselineReturns, actualOverridesByMonth, {}, 'stress_manual');
     }
@@ -191,7 +192,7 @@ export const runStressTest = async (
     if (config.simulationMode === SimulationMode.Manual) {
       const manual = await runScenarioManual(
         config,
-        baselineReturns ?? generateMonthlyReturnsFromAssumptions(config, options.seed),
+        baselineReturns!,
         scenario,
         actualOverridesByMonth,
       );

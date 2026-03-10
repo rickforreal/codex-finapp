@@ -18,12 +18,34 @@ export interface ReturnAssumption {
 }
 
 export type ReturnAssumptions = Record<AssetClass, ReturnAssumption>;
+export type ReturnPhaseSource = ReturnSource;
 
 export type EventFrequency = 'monthly' | 'quarterly' | 'annual' | 'oneTime';
 export type MonthYear = { month: number; year: number };
 export type EventDate = MonthYear;
 export type EventEndDate = EventDate | 'endOfRetirement';
 export type HistoricalRange = { start: MonthYear; end: MonthYear };
+
+interface ReturnPhaseBase {
+  id: string;
+  start: MonthYear;
+  end: MonthYear;
+}
+
+export interface ManualReturnPhase extends ReturnPhaseBase {
+  source: ReturnSource.Manual;
+  returnAssumptions: ReturnAssumptions;
+}
+
+export interface HistoricalReturnPhase extends ReturnPhaseBase {
+  source: ReturnSource.Historical;
+  selectedHistoricalEra: HistoricalEra;
+  customHistoricalRange: HistoricalRange | null;
+  blockBootstrapEnabled: boolean;
+  blockBootstrapLength: number;
+}
+
+export type ReturnPhase = ManualReturnPhase | HistoricalReturnPhase;
 
 export interface SpendingPhase {
   id: string;
@@ -167,6 +189,7 @@ export interface SimulationConfig {
   simulationMode: SimulationMode;
   returnsSource?: ReturnSource;
   simulationRuns?: number;
+  // Compatibility fields retained during Return Phases rollout.
   selectedHistoricalEra: HistoricalEra;
   customHistoricalRange: HistoricalRange | null;
   blockBootstrapEnabled: boolean;
@@ -178,6 +201,8 @@ export interface SimulationConfig {
     inflationRate: number;
   };
   portfolio: AssetBalances;
+  returnPhases?: ReturnPhase[];
+  // Compatibility field retained during Return Phases rollout.
   returnAssumptions: ReturnAssumptions;
   spendingPhases: SpendingPhase[];
   withdrawalStrategy: WithdrawalStrategyConfig;

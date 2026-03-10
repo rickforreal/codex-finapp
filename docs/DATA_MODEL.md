@@ -70,6 +70,8 @@ CompareSlotId = 'A' | 'B' | 'C' | 'D' | 'E' | 'F' | 'G' | 'H';
 SimulationConfig {
   mode: AppMode;
   simulationMode: SimulationMode;
+  returnsSource: ReturnSource;
+  simulationRuns: number;                      // global run count, clamped 1..10000
   selectedHistoricalEra: HistoricalEra;
   customHistoricalRange: {
     start: { month: number; year: number };
@@ -89,6 +91,7 @@ SimulationConfig {
     bonds: { expectedReturn: number; stdDev: number };
     cash: { expectedReturn: number; stdDev: number };
   };
+  returnPhases: ReturnPhase[];                // normalized canonical source of per-month return regime
   spendingPhases: SpendingPhase[];
   withdrawalStrategy: WithdrawalStrategyConfig;
   drawdownStrategy: DrawdownStrategy;
@@ -97,7 +100,46 @@ SimulationConfig {
 }
 ```
 
-### 3.1 Spending Phases
+### 3.1 Return Phases
+
+```ts
+ReturnPhase =
+  | {
+      id: string;
+      start: { month: number; year: number };
+      end: { month: number; year: number };
+      source: "manual";
+      returnAssumptions: {
+        stocks: { expectedReturn: number; stdDev: number };
+        bonds: { expectedReturn: number; stdDev: number };
+        cash: { expectedReturn: number; stdDev: number };
+      };
+    }
+  | {
+      id: string;
+      start: { month: number; year: number };
+      end: { month: number; year: number };
+      source: "historical";
+      selectedHistoricalEra: HistoricalEra;
+      customHistoricalRange: {
+        start: { month: number; year: number };
+        end: { month: number; year: number };
+      } | null;
+      blockBootstrapEnabled: boolean;
+      blockBootstrapLength: number;
+    };
+```
+
+Cardinality and semantics:
+
+- `returnPhases` supports `1..4` entries.
+- Phases must be contiguous (no gaps/overlaps): `phase[i].start === phase[i-1].end` for `i > 0`.
+- Coverage is full-horizon: first phase starts at `coreParams.portfolioStart`; last phase ends at `coreParams.portfolioEnd`.
+- Block bootstrap sampling is phase-local: contiguous block draws never cross return-phase boundaries.
+- Legacy single-source fields (`returnsSource`, `selectedHistoricalEra`, `customHistoricalRange`, `blockBootstrap*`, `returnAssumptions`) are compatibility inputs and normalize to one full-horizon phase.
+- `simulationRuns` remains global and applies to the full portfolio run regardless of phase count.
+
+### 3.2 Spending Phases
 
 ```ts
 SpendingPhase {
@@ -112,11 +154,11 @@ SpendingPhase {
 
 Cardinality and semantics:
 
-- `spendingPhases` supports `1..4` entries (must have at least one).
+- `spendingPhases` supports `0..4` entries.
 - Missing `minMonthlySpend`/`maxMonthlySpend` bounds mean withdrawals are dictated purely by the strategy.
 - They must form a contiguous timeline coverage segment via UI/store normalization.
 
-### 3.2 Withdrawal Strategy Union
+### 3.3 Withdrawal Strategy Union
 
 ```ts
 WithdrawalStrategyConfig =
