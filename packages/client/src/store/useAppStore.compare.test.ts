@@ -102,6 +102,30 @@ describe('useAppStore compare slot behavior', () => {
     expect(clampedSecond?.start).toEqual(firstEnd);
   });
 
+  it('keeps return phase boundaries contiguous when editing adjacent boundaries', () => {
+    resetStore();
+    const store = useAppStore.getState();
+    const portfolioStart = useAppStore.getState().coreParams.portfolioStart;
+
+    store.addReturnPhase();
+    const [first, second] = useAppStore.getState().returnPhases;
+    if (!first || !second) {
+      throw new Error('Expected two return phases');
+    }
+
+    const secondStart = addMonths(portfolioStart, 24);
+    store.updateReturnPhase(second.id, { start: secondStart });
+    const afterSecondStart = useAppStore.getState().returnPhases;
+    expect(afterSecondStart[0]?.end).toEqual(secondStart);
+    expect(afterSecondStart[1]?.start).toEqual(secondStart);
+
+    const firstEnd = addMonths(portfolioStart, 30);
+    store.updateReturnPhase(first.id, { end: firstEnd });
+    const afterFirstEnd = useAppStore.getState().returnPhases;
+    expect(afterFirstEnd[0]?.end).toEqual(firstEnd);
+    expect(afterFirstEnd[1]?.start).toEqual(firstEnd);
+  });
+
   it('defaults new income and expense event start dates to portfolio start', () => {
     resetStore();
     const store = useAppStore.getState();

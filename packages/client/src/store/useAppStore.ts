@@ -537,9 +537,8 @@ const recalculateReturnPhaseBoundaries = (
   portfolioStart: MonthYear,
   portfolioEnd: MonthYear,
 ): ReturnPhaseForm[] => {
-  const sorted = [...phases].sort((a, b) => compareMonthYear(a.start, b.start));
   const recalculated: ReturnPhaseForm[] = [];
-  sorted.forEach((phase, index) => {
+  phases.forEach((phase, index) => {
     const start =
       index === 0
         ? minMonthYear(maxMonthYear(phase.start, portfolioStart), portfolioEnd)
@@ -553,6 +552,12 @@ const recalculateReturnPhaseBoundaries = (
       customHistoricalRange: cloneHistoricalRange(phase.customHistoricalRange),
     });
   });
+  if (recalculated.length > 0) {
+    recalculated[recalculated.length - 1] = {
+      ...recalculated[recalculated.length - 1]!,
+      end: { ...portfolioEnd },
+    };
+  }
   return recalculated;
 };
 
@@ -3879,6 +3884,27 @@ export const useAppStore = create<AppStore>((set) => ({
             }
           : phase,
       );
+      const targetIndex = next.findIndex((phase) => phase.id === id);
+      if (targetIndex >= 0) {
+        if (patch.start && targetIndex > 0) {
+          const prev = next[targetIndex - 1];
+          if (prev) {
+            next[targetIndex - 1] = {
+              ...prev,
+              end: { ...patch.start },
+            };
+          }
+        }
+        if (patch.end && targetIndex < next.length - 1) {
+          const nextPhase = next[targetIndex + 1];
+          if (nextPhase) {
+            next[targetIndex + 1] = {
+              ...nextPhase,
+              start: { ...patch.end },
+            };
+          }
+        }
+      }
       const normalized = recalculateReturnPhaseBoundaries(
         next,
         state.coreParams.portfolioStart,

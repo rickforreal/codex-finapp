@@ -2762,3 +2762,70 @@ Canonical docs impact:
 - Updated `/Users/ricknayar/Development/codex/finapp/docs/DATA_MODEL.md` (`SimulationConfig.returnPhases` model + semantics).
 - Updated `/Users/ricknayar/Development/codex/finapp/docs/API.md` (request semantics + compatibility normalization + phase-boundary bootstrap note).
 - Updated `/Users/ricknayar/Development/codex/finapp/docs/ARCHITECTURE.md` (phase-aware Monte Carlo return-resolution pipeline).
+
+## 2026-03-09 23:02 — Return Phases UI Regression Fixes | COMPLETE
+
+Addressed post-RPHASE UI/behavior regressions in Return Phases to restore prior Historical UX parity and sync semantics.
+
+Implementation summary:
+- Updated `/Users/ricknayar/Development/codex/finapp/packages/client/src/components/inputs/ReturnPhases.tsx`:
+  - Restored historical-era detail surface inside each return phase:
+    - era dropdown labels now include year ranges,
+    - historical returns/volatility/months table restored,
+    - era commentary panel restored,
+    - custom era uses a two-thumb range slider.
+  - Restored bootstrap copy/style behavior:
+    - label set to `Block Bootstrap Sampling`,
+    - helper note shown with contiguous-block explanation.
+  - Added per-phase compare instance lock/sync controls (same model as Spending Phases).
+  - Removed hardcoded high-contrast subpanel border treatment and aligned card/subpanel styling to theme tokens.
+- Updated `/Users/ricknayar/Development/codex/finapp/packages/client/src/store/useAppStore.ts`:
+  - `recalculateReturnPhaseBoundaries` now forces the final phase end date to portfolio end, fixing stale end-boundary after deleting later phases.
+
+Validation:
+- `npm run typecheck` ✅
+- `npm run lint` ✅
+- `npm run test -w @finapp/client` ✅
+- `npm run build` ✅
+
+Canonical docs impact:
+- No canonical doc impact (defect-level UI/state behavior corrections aligned to existing Return Phases spec intent).
+
+## 2026-03-09 23:16 — Return Phases UI Follow-up Polish | COMPLETE
+
+Applied targeted UI parity adjustments after QA feedback:
+- Moved block-bootstrap helper copy inside the bootstrap slider box and gated it to show only when toggle is ON.
+- Fixed duplicated year ranges in Historical Era dropdown labels by range-aware label normalization.
+- Reduced Historical-era commentary visual weight (smaller, muted helper styling).
+- Updated Return Phases add button to match Spending Phases add-button styling and removed the leading `+` prefix.
+
+Files updated:
+- `/Users/ricknayar/Development/codex/finapp/packages/client/src/components/inputs/ReturnPhases.tsx`
+
+Validation:
+- `npm run typecheck -w @finapp/client` ✅
+- `npm run lint -w @finapp/client` ✅
+
+Canonical docs impact:
+- No canonical doc impact (visual parity/polish only).
+
+## 2026-03-09 23:14 — Return Phase Boundary Sync Fix | COMPLETE
+
+Fixed flaky return-phase boundary synchronization in store normalization.
+
+Changes:
+- `/Users/ricknayar/Development/codex/finapp/packages/client/src/store/useAppStore.ts`
+  - `recalculateReturnPhaseBoundaries` now preserves phase order (no start-based re-sort).
+  - `updateReturnPhase` now propagates boundary edits across neighbors:
+    - editing phase N start updates phase N-1 end,
+    - editing phase N end updates phase N+1 start.
+- `/Users/ricknayar/Development/codex/finapp/packages/client/src/store/useAppStore.compare.test.ts`
+  - Added regression test for return-phase contiguous boundary sync in both directions.
+
+Validation:
+- `npm run test -w @finapp/client` ✅
+- `npm run typecheck -w @finapp/client` ✅
+- `npm run lint -w @finapp/client` ✅
+
+Canonical docs impact:
+- No canonical doc impact (defect-level state sync correction).
