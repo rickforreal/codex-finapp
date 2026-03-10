@@ -184,7 +184,7 @@ struct HistoricalRange {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(tag = "source", rename_all = "camelCase")]
+#[serde(tag = "source", rename_all = "camelCase", rename_all_fields = "camelCase")]
 enum ReturnPhase {
   Manual {
     id: String,
@@ -3258,5 +3258,137 @@ mod tests {
 
     assert_eq!(month_before_start, 0.0);
     assert!(phase_start_month > 0.0);
+  }
+
+  #[test]
+  fn run_monte_carlo_json_accepts_return_phases_payload() {
+    let request = NativeMonteCarloRequest {
+      config_json: r#"{
+        "mode":"planning",
+        "simulationMode":"monteCarlo",
+        "returnsSource":"historical",
+        "simulationRuns":50,
+        "selectedHistoricalEra":"fullHistory",
+        "customHistoricalRange":null,
+        "blockBootstrapEnabled":false,
+        "blockBootstrapLength":12,
+        "coreParams":{
+          "birthDate":{"month":1,"year":1970},
+          "portfolioStart":{"month":1,"year":2030},
+          "portfolioEnd":{"month":1,"year":2040},
+          "inflationRate":0.03
+        },
+        "portfolio":{"stocks":60000000,"bonds":30000000,"cash":10000000},
+        "returnAssumptions":{
+          "stocks":{"expectedReturn":0.08,"stdDev":0.15},
+          "bonds":{"expectedReturn":0.04,"stdDev":0.07},
+          "cash":{"expectedReturn":0.02,"stdDev":0.01}
+        },
+        "returnPhases":[
+          {
+            "id":"rp-1",
+            "source":"historical",
+            "start":{"month":1,"year":2030},
+            "end":{"month":1,"year":2035},
+            "selectedHistoricalEra":"fullHistory",
+            "customHistoricalRange":null,
+            "blockBootstrapEnabled":false,
+            "blockBootstrapLength":12
+          },
+          {
+            "id":"rp-2",
+            "source":"historical",
+            "start":{"month":1,"year":2035},
+            "end":{"month":1,"year":2040},
+            "selectedHistoricalEra":"stagflationEra",
+            "customHistoricalRange":null,
+            "blockBootstrapEnabled":false,
+            "blockBootstrapLength":12
+          }
+        ],
+        "spendingPhases":[
+          {
+            "id":"phase-1",
+            "name":"Base",
+            "start":{"month":1,"year":2030},
+            "end":{"month":1,"year":2040},
+            "minMonthlySpend":200000,
+            "maxMonthlySpend":1500000
+          }
+        ],
+        "withdrawalStrategy":{"type":"constantDollar","params":{"initialWithdrawalRate":0.04}},
+        "drawdownStrategy":{"type":"bucket","bucketOrder":["cash","bonds","stocks"]},
+        "incomeEvents":[],
+        "expenseEvents":[]
+      }"#
+      .to_string(),
+      options_json: Some(r#"{"runs":50,"seed":123}"#.to_string()),
+      historical_months_json: Some(
+        serde_json::to_string(&vec![
+          HistoricalMonth {
+            year: 1930,
+            month: 1,
+            returns: MonthlyReturns {
+              stocks: 0.01,
+              bonds: 0.002,
+              cash: 0.001,
+            },
+          };
+          24
+        ])
+        .expect("serialize historical months"),
+      ),
+      historical_months_by_phase_json: Some(
+        serde_json::json!({
+          "rp-1": vec![
+            HistoricalMonth {
+              year: 1930,
+              month: 1,
+              returns: MonthlyReturns {
+                stocks: 0.01,
+                bonds: 0.002,
+                cash: 0.001,
+              },
+            };
+            24
+          ],
+          "rp-2": vec![
+            HistoricalMonth {
+              year: 1970,
+              month: 1,
+              returns: MonthlyReturns {
+                stocks: -0.01,
+                bonds: 0.001,
+                cash: 0.001,
+              },
+            };
+            24
+          ]
+        })
+        .to_string(),
+      ),
+      historical_summary_json: Some(
+        serde_json::json!({
+          "selectedEra": {
+            "key": "fullHistory",
+            "label": "Full History (1926-2025)",
+            "startYear": 1926,
+            "endYear": 2025,
+            "startMonth": 1,
+            "endMonth": 12
+          },
+          "eras": [],
+          "byAsset": {
+            "stocks": {"meanReturn": 0.0, "stdDev": 0.0, "sampleSizeMonths": 24},
+            "bonds": {"meanReturn": 0.0, "stdDev": 0.0, "sampleSizeMonths": 24},
+            "cash": {"meanReturn": 0.0, "stdDev": 0.0, "sampleSizeMonths": 24}
+          }
+        })
+        .to_string(),
+      ),
+    };
+
+    let response = run_monte_carlo_json(request).expect("run monte carlo");
+    assert!(!response.result_json.is_empty());
   }
 }

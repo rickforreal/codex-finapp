@@ -2829,3 +2829,35 @@ Validation:
 
 Canonical docs impact:
 - No canonical doc impact (defect-level state sync correction).
+
+## 2026-03-09 23:24 — MC Latency Regression Diagnosis + Fix | COMPLETE
+
+Diagnosed Monte Carlo slowdown after Return Phases rollout.
+
+Root cause:
+- Rust engine was not parsing `returnPhases` historical variant payload fields in camelCase at the native boundary.
+- `ReturnPhase` serde config in `packages/native-mc/src/lib.rs` expected snake_case variant fields, causing parse error:
+  - `Invalid configJson: missing field \`selected_historical_era\``
+- Server then auto-fell back to TS (`mc_rust_fallback_to_ts`), which drove multi-second 10k-path latencies.
+
+Fix:
+- Updated native `ReturnPhase` serde to accept camelCase variant fields:
+  - `#[serde(tag = "source", rename_all = "camelCase", rename_all_fields = "camelCase")]`
+- Added native regression test:
+  - `run_monte_carlo_json_accepts_return_phases_payload`
+  - verifies native MC accepts payloads with multiple historical return phases.
+
+Performance verification (local):
+- Before fix (same benchmark): rust path fell back to TS and took ~2.5-2.7s for 10k single-run requests.
+- After fix (native path active, no fallback logs):
+  - `rust-one-phase: 366.834ms`
+  - `rust-two-phase: 228.385ms`
+
+Validation:
+- `npm run build -w @finapp/native-mc` ✅
+- `npm run test -w @finapp/native-mc` ✅
+- `npm run test -w @finapp/server` ✅
+- `npm run typecheck -w @finapp/server` ✅
+
+Canonical docs impact:
+- No canonical doc impact (runtime defect fix + native compatibility correction).
