@@ -29,7 +29,8 @@ export const MonthYearPicker = ({ value, onChange, disabled = false }: Props) =>
     if (month !== value.month) {
       onChange({ ...value, month });
     }
-    setDraftMonth(month);
+    // Always reset to the current committed value; parent may clamp/reject.
+    setDraftMonth(value.month);
   };
 
   const commitYear = () => {
@@ -41,7 +42,8 @@ export const MonthYearPicker = ({ value, onChange, disabled = false }: Props) =>
     if (year !== value.year) {
       onChange({ ...value, year });
     }
-    setDraftYear(year);
+    // Always reset to the current committed value; parent may clamp/reject.
+    setDraftYear(value.year);
   };
 
   return (

@@ -98,8 +98,19 @@ describe('useAppStore compare slot behavior', () => {
 
     const attemptedEarlier = addMonths(firstEnd, -6);
     store.updateSpendingPhase(second.id, { start: attemptedEarlier });
-    const clampedSecond = useAppStore.getState().spendingPhases.find((phase) => phase.id === second.id);
-    expect(clampedSecond?.start).toEqual(firstEnd);
+    const afterEarlierShift = useAppStore.getState().spendingPhases;
+    const earlierFirst = afterEarlierShift.find((phase) => phase.id === first.id);
+    const earlierSecond = afterEarlierShift.find((phase) => phase.id === second.id);
+    expect(earlierFirst?.end).toEqual(attemptedEarlier);
+    expect(earlierSecond?.start).toEqual(attemptedEarlier);
+
+    const shiftedSecondStart = addMonths(firstEnd, 6);
+    store.updateSpendingPhase(second.id, { start: shiftedSecondStart });
+    const afterShift = useAppStore.getState().spendingPhases;
+    const shiftedFirst = afterShift.find((phase) => phase.id === first.id);
+    const shiftedSecond = afterShift.find((phase) => phase.id === second.id);
+    expect(shiftedFirst?.end).toEqual(shiftedSecondStart);
+    expect(shiftedSecond?.start).toEqual(shiftedSecondStart);
   });
 
   it('keeps return phase boundaries contiguous when editing adjacent boundaries', () => {
@@ -124,6 +135,46 @@ describe('useAppStore compare slot behavior', () => {
     const afterFirstEnd = useAppStore.getState().returnPhases;
     expect(afterFirstEnd[0]?.end).toEqual(firstEnd);
     expect(afterFirstEnd[1]?.start).toEqual(firstEnd);
+  });
+
+  it('clamps spending phase dates to portfolio start/end bounds', () => {
+    resetStore();
+    const store = useAppStore.getState();
+    const { portfolioStart, portfolioEnd } = useAppStore.getState().coreParams;
+
+    store.addSpendingPhase();
+    const phase = useAppStore.getState().spendingPhases[0];
+    if (!phase) {
+      throw new Error('Expected spending phase');
+    }
+
+    store.updateSpendingPhase(phase.id, { start: { month: 1, year: 1900 } });
+    let updated = useAppStore.getState().spendingPhases.find((entry) => entry.id === phase.id);
+    expect(updated?.start).toEqual(portfolioStart);
+
+    store.updateSpendingPhase(phase.id, { end: { month: 12, year: 3000 } });
+    updated = useAppStore.getState().spendingPhases.find((entry) => entry.id === phase.id);
+    expect(updated?.end).toEqual(portfolioEnd);
+  });
+
+  it('clamps return phase dates to portfolio start/end bounds', () => {
+    resetStore();
+    const store = useAppStore.getState();
+    const { portfolioStart, portfolioEnd } = useAppStore.getState().coreParams;
+
+    store.addReturnPhase();
+    const [first] = useAppStore.getState().returnPhases;
+    if (!first) {
+      throw new Error('Expected return phase');
+    }
+
+    store.updateReturnPhase(first.id, { start: { month: 1, year: 1900 } });
+    let updated = useAppStore.getState().returnPhases.find((entry) => entry.id === first.id);
+    expect(updated?.start).toEqual(portfolioStart);
+
+    store.updateReturnPhase(first.id, { end: { month: 12, year: 3000 } });
+    updated = useAppStore.getState().returnPhases.find((entry) => entry.id === first.id);
+    expect(updated?.end).toEqual(portfolioEnd);
   });
 
   it('caps spending and return phases at 8 entries', () => {

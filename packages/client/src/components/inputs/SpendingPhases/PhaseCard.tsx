@@ -3,9 +3,13 @@ import { MonthYearPicker } from '../../shared/MonthYearPicker';
 import { CompareSyncControl } from '../../shared/CompareSyncControl';
 import { useAppStore, useCompareInstanceLockUiState } from '../../../store/useAppStore';
 import type { SpendingPhaseForm } from '../../../store/useAppStore';
+import { maxMonthYear, minMonthYear } from '../../../lib/dates';
+import type { MonthYear } from '@finapp/shared';
 
 type Props = {
   phase: SpendingPhaseForm;
+  portfolioStart: MonthYear;
+  portfolioEnd: MonthYear;
   canRemove: boolean;
   familyReadOnly: boolean;
   onUpdate: (patch: Partial<SpendingPhaseForm>) => void;
@@ -14,6 +18,8 @@ type Props = {
 
 export const PhaseCard = ({
   phase,
+  portfolioStart,
+  portfolioEnd,
   canRemove,
   familyReadOnly,
   onUpdate,
@@ -23,6 +29,8 @@ export const PhaseCard = ({
   const toggleLock = useAppStore((state) => state.toggleCompareInstanceLock);
   const setSlotInstanceSync = useAppStore((state) => state.setCompareSlotInstanceSync);
   const readOnly = familyReadOnly || instanceUi.readOnly;
+  const clampToPortfolioBounds = (value: MonthYear): MonthYear =>
+    minMonthYear(maxMonthYear(value, portfolioStart), portfolioEnd);
 
   return (
     <div className="space-y-2 rounded-md border border-brand-border bg-brand-surface p-2">
@@ -58,7 +66,11 @@ export const PhaseCard = ({
           <p className="mb-1 text-xs text-slate-600">Start Date</p>
           <MonthYearPicker
             value={phase.start}
-            onChange={(value) => onUpdate({ start: value })}
+            onChange={(value) => {
+              const bounded = clampToPortfolioBounds(value);
+              const clampedStart = minMonthYear(bounded, phase.end);
+              onUpdate({ start: clampedStart });
+            }}
             disabled={readOnly}
           />
         </div>
@@ -66,7 +78,11 @@ export const PhaseCard = ({
           <p className="mb-1 text-xs text-slate-600">End Date</p>
           <MonthYearPicker
             value={phase.end}
-            onChange={(value) => onUpdate({ end: value })}
+            onChange={(value) => {
+              const bounded = clampToPortfolioBounds(value);
+              const clampedEnd = maxMonthYear(bounded, phase.start);
+              onUpdate({ end: clampedEnd });
+            }}
             disabled={readOnly}
           />
         </div>

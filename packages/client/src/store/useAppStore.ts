@@ -31,7 +31,7 @@ import {
 
 import { createId } from '../lib/id';
 import { sanitizeTrackingActualOverrides } from '../lib/trackingActuals';
-import { compareMonthYear, maxMonthYear, minMonthYear, monthsBetween } from '../lib/dates';
+import { maxMonthYear, minMonthYear, monthsBetween } from '../lib/dates';
 
 export type IncomeEventForm = {
   id: string;
@@ -532,6 +532,9 @@ const defaultReturnPhase = (
   blockBootstrapLength,
 });
 
+const clampMonthYearToRange = (value: MonthYear, minValue: MonthYear, maxValue: MonthYear): MonthYear =>
+  minMonthYear(maxMonthYear(value, minValue), maxValue);
+
 const recalculateReturnPhaseBoundaries = (
   phases: ReturnPhaseForm[],
   portfolioStart: MonthYear,
@@ -854,10 +857,9 @@ const recalculatePhaseBoundaries = (
   portfolioStart: MonthYear,
   portfolioEnd: MonthYear,
 ): SpendingPhaseForm[] => {
-  const sorted = [...phases].sort((a, b) => compareMonthYear(a.start, b.start));
   const recalculated: SpendingPhaseForm[] = [];
 
-  sorted.forEach((phase, index) => {
+  phases.forEach((phase, index) => {
     const start =
       index === 0
         ? minMonthYear(maxMonthYear(phase.start, portfolioStart), portfolioEnd)
@@ -3867,13 +3869,19 @@ export const useAppStore = create<AppStore>((set) => ({
       if (isCompareInstanceLockedAndSyncedForActiveSlot(state, 'returnPhases', id)) {
         return state;
       }
+      const sanitizedStart = patch.start
+        ? clampMonthYearToRange(patch.start, state.coreParams.portfolioStart, state.coreParams.portfolioEnd)
+        : undefined;
+      const sanitizedEnd = patch.end
+        ? clampMonthYearToRange(patch.end, state.coreParams.portfolioStart, state.coreParams.portfolioEnd)
+        : undefined;
       const next = state.returnPhases.map((phase) =>
         phase.id === id
           ? {
               ...phase,
               ...patch,
-              start: patch.start ? { ...patch.start } : phase.start,
-              end: patch.end ? { ...patch.end } : phase.end,
+              start: sanitizedStart ? { ...sanitizedStart } : phase.start,
+              end: sanitizedEnd ? { ...sanitizedEnd } : phase.end,
               returnAssumptions: patch.returnAssumptions
                 ? cloneReturnAssumptionsForm(patch.returnAssumptions)
                 : cloneReturnAssumptionsForm(phase.returnAssumptions),
@@ -3886,21 +3894,21 @@ export const useAppStore = create<AppStore>((set) => ({
       );
       const targetIndex = next.findIndex((phase) => phase.id === id);
       if (targetIndex >= 0) {
-        if (patch.start && targetIndex > 0) {
+        if (sanitizedStart && targetIndex > 0) {
           const prev = next[targetIndex - 1];
           if (prev) {
             next[targetIndex - 1] = {
               ...prev,
-              end: { ...patch.start },
+              end: { ...sanitizedStart },
             };
           }
         }
-        if (patch.end && targetIndex < next.length - 1) {
+        if (sanitizedEnd && targetIndex < next.length - 1) {
           const nextPhase = next[targetIndex + 1];
           if (nextPhase) {
             next[targetIndex + 1] = {
               ...nextPhase,
-              start: { ...patch.end },
+              start: { ...sanitizedEnd },
             };
           }
         }
@@ -4036,9 +4044,43 @@ export const useAppStore = create<AppStore>((set) => ({
       ) {
         return state;
       }
+      const sanitizedStart = patch.start
+        ? clampMonthYearToRange(patch.start, state.coreParams.portfolioStart, state.coreParams.portfolioEnd)
+        : undefined;
+      const sanitizedEnd = patch.end
+        ? clampMonthYearToRange(patch.end, state.coreParams.portfolioStart, state.coreParams.portfolioEnd)
+        : undefined;
       const next = state.spendingPhases.map((phase) =>
-        phase.id === id ? { ...phase, ...patch } : phase,
+        phase.id === id
+          ? {
+              ...phase,
+              ...patch,
+              start: sanitizedStart ? { ...sanitizedStart } : phase.start,
+              end: sanitizedEnd ? { ...sanitizedEnd } : phase.end,
+            }
+          : phase,
       );
+      const targetIndex = next.findIndex((phase) => phase.id === id);
+      if (targetIndex >= 0) {
+        if (sanitizedStart && targetIndex > 0) {
+          const prev = next[targetIndex - 1];
+          if (prev) {
+            next[targetIndex - 1] = {
+              ...prev,
+              end: { ...sanitizedStart },
+            };
+          }
+        }
+        if (sanitizedEnd && targetIndex < next.length - 1) {
+          const nextPhase = next[targetIndex + 1];
+          if (nextPhase) {
+            next[targetIndex + 1] = {
+              ...nextPhase,
+              start: { ...sanitizedEnd },
+            };
+          }
+        }
+      }
       const staleState = markTrackingOutputStateStale(state);
       return {
         spendingPhases: recalculatePhaseBoundaries(

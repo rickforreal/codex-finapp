@@ -3,6 +3,8 @@ import { PhaseCard } from './PhaseCard';
 
 export const SpendingPhases = () => {
   const phases = useAppStore((state) => state.spendingPhases);
+  const portfolioStart = useAppStore((state) => state.coreParams.portfolioStart);
+  const portfolioEnd = useAppStore((state) => state.coreParams.portfolioEnd);
   const addSpendingPhase = useAppStore((state) => state.addSpendingPhase);
   const removeSpendingPhase = useAppStore((state) => state.removeSpendingPhase);
   const updateSpendingPhase = useAppStore((state) => state.updateSpendingPhase);
@@ -31,6 +33,8 @@ export const SpendingPhases = () => {
             <PhaseCard
               key={phase.id}
               phase={phase}
+              portfolioStart={portfolioStart}
+              portfolioEnd={portfolioEnd}
               canRemove={!familyLockState.readOnly}
               familyReadOnly={familyLockState.readOnly}
               onUpdate={(patch) => updateSpendingPhase(phase.id, patch)}

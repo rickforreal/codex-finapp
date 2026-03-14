@@ -4,6 +4,7 @@ import {
   HistoricalEra,
   type HistoricalDataSummary,
   type HistoricalRange,
+  type MonthYear,
   ReturnSource,
   HISTORICAL_ERA_DEFINITIONS,
 } from '@finapp/shared';
@@ -11,6 +12,7 @@ import {
 import { fetchHistoricalSummary } from '../../api/historicalApi';
 import { formatPercent } from '../../lib/format';
 import { getHistoricalEventLabel, snapToHistoricalEventOrdinal } from '../../lib/historicalEvents';
+import { maxMonthYear, minMonthYear } from '../../lib/dates';
 import {
   useAppStore,
   useCompareFamilyLockUiState,
@@ -171,6 +173,8 @@ type ReturnPhaseCardProps = {
   phase: ReturnPhaseForm;
   index: number;
   totalPhases: number;
+  portfolioStart: MonthYear;
+  portfolioEnd: MonthYear;
   familyReadOnly: boolean;
   onRemove: () => void;
   onUpdate: (patch: Partial<ReturnPhaseForm>) => void;
@@ -180,6 +184,8 @@ const ReturnPhaseCard = ({
   phase,
   index,
   totalPhases,
+  portfolioStart,
+  portfolioEnd,
   familyReadOnly,
   onRemove,
   onUpdate,
@@ -188,6 +194,8 @@ const ReturnPhaseCard = ({
   const toggleInstanceLock = useAppStore((state) => state.toggleCompareInstanceLock);
   const setCompareSlotInstanceSync = useAppStore((state) => state.setCompareSlotInstanceSync);
   const readOnly = familyReadOnly || instanceUi.readOnly;
+  const clampToPortfolioBounds = (value: MonthYear): MonthYear =>
+    minMonthYear(maxMonthYear(value, portfolioStart), portfolioEnd);
 
   const [summary, setSummary] = useState<HistoricalDataSummary | null>(null);
   const [summaryStatus, setSummaryStatus] = useState<'idle' | 'loading' | 'loaded' | 'error'>('idle');
@@ -342,13 +350,25 @@ const ReturnPhaseCard = ({
           <p className="text-[11px] text-[var(--theme-color-text-secondary)]">Start</p>
           <MonthYearPicker
             value={phase.start}
-            onChange={(value) => onUpdate({ start: value })}
+            onChange={(value) => {
+              const bounded = clampToPortfolioBounds(value);
+              const clampedStart = minMonthYear(bounded, phase.end);
+              onUpdate({ start: clampedStart });
+            }}
             disabled={readOnly}
           />
         </div>
         <div className="space-y-1">
           <p className="text-[11px] text-[var(--theme-color-text-secondary)]">End</p>
-          <MonthYearPicker value={phase.end} onChange={(value) => onUpdate({ end: value })} disabled={readOnly} />
+          <MonthYearPicker
+            value={phase.end}
+            onChange={(value) => {
+              const bounded = clampToPortfolioBounds(value);
+              const clampedEnd = maxMonthYear(bounded, phase.start);
+              onUpdate({ end: clampedEnd });
+            }}
+            disabled={readOnly}
+          />
         </div>
       </div>
 
@@ -602,6 +622,8 @@ const ReturnPhaseCard = ({
 
 export const ReturnPhases = () => {
   const phases = useAppStore((state) => state.returnPhases);
+  const portfolioStart = useAppStore((state) => state.coreParams.portfolioStart);
+  const portfolioEnd = useAppStore((state) => state.coreParams.portfolioEnd);
   const simulationRuns = useAppStore((state) => state.simulationRuns);
   const simulationMode = useAppStore((state) => state.simulationMode);
   const setSimulationRuns = useAppStore((state) => state.setSimulationRuns);
@@ -638,6 +660,8 @@ export const ReturnPhases = () => {
           phase={phase}
           index={index}
           totalPhases={phases.length}
+          portfolioStart={portfolioStart}
+          portfolioEnd={portfolioEnd}
           familyReadOnly={familyLockState.readOnly}
           onRemove={() => removeReturnPhase(phase.id)}
           onUpdate={(patch) => updateReturnPhase(phase.id, patch)}
