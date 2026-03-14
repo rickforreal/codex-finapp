@@ -2861,3 +2861,43 @@ Validation:
 
 Canonical docs impact:
 - No canonical doc impact (runtime defect fix + native compatibility correction).
+
+## 2026-03-13 00:06 — CHG-0013 | STARTED
+
+Kickoff for minor change `CHG-0013` (raise Return + Spending phase limits from 4 to 8).
+
+Docs-first artifacts created:
+- `/Users/ricknayar/Development/codex/finapp/docs/changes/CHG-0013-phase-limit-8/CHANGE.md`
+- `/Users/ricknayar/Development/codex/finapp/docs/changes/CHG-0013-phase-limit-8/ACCEPTANCE.md`
+- `/Users/ricknayar/Development/codex/finapp/docs/changes/INDEX.md` updated with `CHG-0013`
+- `/Users/ricknayar/Development/codex/finapp/TASKS.md` updated with `CHG-0013-T1`
+
+Next:
+- Apply schema/store/UI/snapshot limit updates, add boundary tests (8 accepted, 9 rejected), then run regression/native gates.
+
+## 2026-03-13 17:13 — CHG-0013 | COMPLETED
+
+Implemented `CHG-0013` (raise Return + Spending phase limits from 4 to 8).
+
+Completed work:
+- Shared schema limits raised to 8 for `returnPhases` and `spendingPhases`.
+- Client store add-guards and UI max-state copy/disable rules updated to 8.
+- Snapshot parsing cap updated to 8 and snapshot tests added for `8 accepted / 9 rejected`.
+- Route validation tests added for `8 accepted / 9 rejected` payloads.
+- Canonical docs updated to reflect new limits (`docs/API.md`, `docs/DATA_MODEL.md`, `docs/SPECS.md`).
+
+Validation:
+- `npm run typecheck` ✅
+- `npm run lint` ✅
+- `npm test` ✅
+- `npm run build` ✅
+- `npm run build -w @finapp/native-mc` ✅
+- `npm run test -w @finapp/native-mc` ✅
+
+Targeted perf check (Rust path, local, HTTP inject benchmark):
+- `mc-10k-rust-1phase`: `405.1ms`
+- `mc-10k-rust-8phase`: `243.6ms`
+- Result: no material latency regression signal from raising phase limits.
+
+Canonical docs impact:
+- Updated `docs/API.md`, `docs/DATA_MODEL.md`, `docs/SPECS.md`.

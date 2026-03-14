@@ -647,7 +647,7 @@ export const ReturnPhases = () => {
       <button
         type="button"
         onClick={() => addReturnPhase()}
-        disabled={phases.length >= 4 || familyLockState.readOnly}
+        disabled={phases.length >= 8 || familyLockState.readOnly}
         className="w-full rounded border border-dashed border-brand-navy py-2 text-sm font-medium text-brand-navy disabled:opacity-40"
       >
         Add Return Phase

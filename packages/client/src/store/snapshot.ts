@@ -232,7 +232,7 @@ const snapshotStateSchema = z
       })
       .strict(),
     portfolio: assetBalancesSchema,
-    returnPhases: z.array(returnPhaseSchema).optional().default([]),
+    returnPhases: z.array(returnPhaseSchema).max(8).optional().default([]),
     returnAssumptions: returnAssumptionsSchema,
     spendingPhases: z.array(z.unknown()),
     withdrawalStrategy: z.unknown(),
@@ -402,7 +402,7 @@ const normalizeReturnPhases = (
     blockBootstrapLength: number;
   },
 ): WorkspaceSnapshot['returnPhases'] => {
-  const parsed = z.array(returnPhaseSchema).max(4).safeParse(raw);
+  const parsed = z.array(returnPhaseSchema).max(8).safeParse(raw);
   if (parsed.success && parsed.data.length > 0) {
     const phases = parsed.data.map((phase) => ({
       id: phase.id,

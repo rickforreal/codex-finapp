@@ -79,10 +79,10 @@ Internal runtime toggles (no request contract change):
 - `FINAPP_MC_SHADOW_COMPARE=1` enables sampled dual-engine parity execution for diagnostics.
 - `FINAPP_MC_SHADOW_SAMPLE_RATE` sets sampling rate for shadow compare (default `0.1`).
 
-`config.spendingPhases` accepts `0..4` phase entries. When empty, spending-phase min/max clamping is disabled and withdrawals follow strategy output.
+`config.spendingPhases` accepts `0..8` phase entries. When empty, spending-phase min/max clamping is disabled and withdrawals follow strategy output.
 
 `config.returnPhases` is the canonical return-regime model:
-- accepts `1..4` entries
+- accepts `1..8` entries
 - each phase is `manual` or `historical` with source-specific fields
 - phases must be contiguous and cover the full portfolio horizon (`portfolioStart` -> `portfolioEnd`)
 - `simulationRuns` remains global for the portfolio and is not phase-specific

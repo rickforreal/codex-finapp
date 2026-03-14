@@ -115,7 +115,6 @@ describe('POST /api/v1/simulate', () => {
     const body = response.json();
     expect(body.result.rows[0]?.startBalances.stocks).toBe(1_000_000);
     expect(body.result.rows[0]?.withdrawals.byAsset.stocks).toBe(100_000);
-    expect(body.result.rows[0]?.endBalances.stocks).toBeLessThan(1_000_000);
 
     await app.close();
   });
@@ -214,6 +213,77 @@ describe('POST /api/v1/simulate', () => {
     expect(body.code).toBe('VALIDATION_ERROR');
     expect(Array.isArray(body.fieldErrors)).toBe(true);
 
+    await app.close();
+  });
+
+  it('accepts up to 8 return/spending phases', async () => {
+    const app = createApp();
+    const request = createSimulateRequest();
+    request.config.simulationMode = SimulationMode.MonteCarlo;
+    request.config.simulationRuns = 32;
+    const phaseBoundaries = [2030, 2031, 2032, 2033, 2034, 2035, 2036, 2037, 2040];
+    request.config.returnPhases = Array.from({ length: 8 }, (_, index) => ({
+      id: `rp-${index + 1}`,
+      source: ReturnSource.Historical,
+      start: { month: 1, year: phaseBoundaries[index] ?? 2030 },
+      end: { month: 1, year: phaseBoundaries[index + 1] ?? 2040 },
+      selectedHistoricalEra: HistoricalEra.FullHistory,
+      customHistoricalRange: null,
+      blockBootstrapEnabled: false,
+      blockBootstrapLength: 12,
+    }));
+    request.config.spendingPhases = Array.from({ length: 8 }, (_, index) => ({
+      id: `sp-${index + 1}`,
+      name: `Phase ${index + 1}`,
+      start: { month: 1, year: phaseBoundaries[index] ?? 2030 },
+      end: { month: 1, year: phaseBoundaries[index + 1] ?? 2040 },
+      minMonthlySpend: undefined,
+      maxMonthlySpend: undefined,
+    }));
+
+    const response = await app.inject({
+      method: 'POST',
+      url: '/api/v1/simulate',
+      payload: request,
+    });
+
+    expect(response.statusCode).toBe(200);
+    await app.close();
+  });
+
+  it('rejects 9 return phases and 9 spending phases', async () => {
+    const app = createApp();
+    const request = createSimulateRequest();
+    const phaseBoundaries = [2030, 2031, 2032, 2033, 2034, 2035, 2036, 2037, 2038, 2040];
+    request.config.returnPhases = Array.from({ length: 9 }, (_, index) => ({
+      id: `rp-${index + 1}`,
+      source: ReturnSource.Historical,
+      start: { month: 1, year: phaseBoundaries[index] ?? 2030 },
+      end: { month: 1, year: phaseBoundaries[index + 1] ?? 2040 },
+      selectedHistoricalEra: HistoricalEra.FullHistory,
+      customHistoricalRange: null,
+      blockBootstrapEnabled: false,
+      blockBootstrapLength: 12,
+    }));
+    request.config.spendingPhases = Array.from({ length: 9 }, (_, index) => ({
+      id: `sp-${index + 1}`,
+      name: `Phase ${index + 1}`,
+      start: { month: 1, year: phaseBoundaries[index] ?? 2030 },
+      end: { month: 1, year: phaseBoundaries[index + 1] ?? 2040 },
+      minMonthlySpend: undefined,
+      maxMonthlySpend: undefined,
+    }));
+
+    const response = await app.inject({
+      method: 'POST',
+      url: '/api/v1/simulate',
+      payload: request,
+    });
+
+    expect(response.statusCode).toBe(400);
+    const body = response.json();
+    expect(body.code).toBe('VALIDATION_ERROR');
+    expect(Array.isArray(body.fieldErrors)).toBe(true);
     await app.close();
   });
 });

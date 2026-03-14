@@ -687,7 +687,7 @@ These three colors must be used consistently in every chart, table sub-column, d
 This section is now implemented as a **Return Phases** editor (feature wave: `return-phases`).
 
 Current behavior:
-- Users configure `1..4` contiguous return phases that fully cover the portfolio horizon.
+- Users configure `1..8` contiguous return phases that fully cover the portfolio horizon.
 - Each phase chooses one source:
   - `Manual`: per-phase return assumptions (expected return + std. dev per asset class).
   - `Historical`: per-phase historical era/custom range and block-bootstrap settings.

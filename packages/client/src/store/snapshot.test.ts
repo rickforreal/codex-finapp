@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it } from 'vitest';
 
-import { AppMode, AssetClass, HistoricalEra, SimulationMode } from '@finapp/shared';
+import { AppMode, AssetClass, HistoricalEra, ReturnSource, SimulationMode } from '@finapp/shared';
 
 import {
   applySnapshot,
@@ -154,6 +154,69 @@ describe('snapshot', () => {
     expect(after.simulationMode).toBe(SimulationMode.MonteCarlo);
     expect(after.selectedHistoricalEra).toBe(HistoricalEra.Custom);
     expect(after.customHistoricalRange).toEqual(before.customHistoricalRange);
+  });
+
+  it('parses snapshots with up to 8 return phases', () => {
+    resetStore();
+    const { json } = serializeSnapshot('Eight Return Phases');
+    const parsed = JSON.parse(json) as {
+      data: {
+        coreParams: {
+          portfolioStart: { month: number; year: number };
+          portfolioEnd: { month: number; year: number };
+        };
+        returnPhases: unknown[];
+      };
+    };
+
+    parsed.data.returnPhases = Array.from({ length: 8 }, (_, index) => {
+      const startYear = 2030 + index;
+      const endYear = index === 7 ? 2040 : 2030 + index;
+      return {
+        id: `phase-${index + 1}`,
+        start: { month: 1, year: startYear },
+        end: { month: 12, year: endYear },
+        source: ReturnSource.Historical,
+        returnAssumptions: {
+          stocks: { expectedReturn: 0.08, stdDev: 0.15 },
+          bonds: { expectedReturn: 0.04, stdDev: 0.07 },
+          cash: { expectedReturn: 0.02, stdDev: 0.01 },
+        },
+        selectedHistoricalEra: HistoricalEra.FullHistory,
+        customHistoricalRange: null,
+        blockBootstrapEnabled: false,
+        blockBootstrapLength: 12,
+      };
+    });
+
+    const loaded = parseSnapshot(JSON.stringify(parsed));
+    expect(loaded.data.returnPhases).toHaveLength(8);
+  });
+
+  it('rejects snapshots with more than 8 return phases', () => {
+    resetStore();
+    const { json } = serializeSnapshot('Nine Return Phases');
+    const parsed = JSON.parse(json) as {
+      data: { returnPhases: unknown[] };
+    };
+
+    parsed.data.returnPhases = Array.from({ length: 9 }, (_, index) => ({
+      id: `phase-${index + 1}`,
+      start: { month: 1, year: 2030 + index },
+      end: { month: 12, year: index === 8 ? 2040 : 2030 + index },
+      source: ReturnSource.Historical,
+      returnAssumptions: {
+        stocks: { expectedReturn: 0.08, stdDev: 0.15 },
+        bonds: { expectedReturn: 0.04, stdDev: 0.07 },
+        cash: { expectedReturn: 0.02, stdDev: 0.01 },
+      },
+      selectedHistoricalEra: HistoricalEra.FullHistory,
+      customHistoricalRange: null,
+      blockBootstrapEnabled: false,
+      blockBootstrapLength: 12,
+    }));
+
+    expect(() => parseSnapshot(JSON.stringify(parsed))).toThrowError(SnapshotLoadError);
   });
 
   it('rejects unsupported future snapshot versions', () => {

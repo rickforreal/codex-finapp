@@ -23,7 +23,7 @@ export const SpendingPhases = () => {
           >
             Add Phase
           </button>
-          <p className="text-xs text-slate-500">Optional, up to 4 phases.</p>
+          <p className="text-xs text-slate-500">Optional, up to 8 phases.</p>
         </div>
       ) : (
         <>
@@ -40,12 +40,12 @@ export const SpendingPhases = () => {
           <button
             type="button"
             onClick={addSpendingPhase}
-            disabled={phases.length >= 4 || familyLockState.readOnly}
+            disabled={phases.length >= 8 || familyLockState.readOnly}
             className="w-full rounded border border-dashed border-brand-navy py-2 text-sm font-medium text-brand-navy disabled:opacity-40"
           >
             Add Phase
           </button>
-          <p className="text-xs text-slate-500">Maximum 4 phases.</p>
+          <p className="text-xs text-slate-500">Maximum 8 phases.</p>
         </>
       )}
     </div>

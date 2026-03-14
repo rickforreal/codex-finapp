@@ -126,6 +126,19 @@ describe('useAppStore compare slot behavior', () => {
     expect(afterFirstEnd[1]?.start).toEqual(firstEnd);
   });
 
+  it('caps spending and return phases at 8 entries', () => {
+    resetStore();
+    const store = useAppStore.getState();
+
+    for (let index = 0; index < 12; index += 1) {
+      store.addSpendingPhase();
+      store.addReturnPhase();
+    }
+
+    expect(useAppStore.getState().spendingPhases).toHaveLength(8);
+    expect(useAppStore.getState().returnPhases).toHaveLength(8);
+  });
+
   it('defaults new income and expense event start dates to portfolio start', () => {
     resetStore();
     const store = useAppStore.getState();

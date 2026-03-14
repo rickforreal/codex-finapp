@@ -2115,6 +2115,15 @@ Acceptance Criteria:
       [AC2] Hopium light backgrounds/surfaces are brown-paper dominant.
       [AC3] Blue tones are primarily used for accents and interaction signals.
 
+- [x] CHG-0013-T1: Raise return/spending phase limits from 4 to 8
+      Phase: Change/CHG-0013
+      Dependencies: none
+      Acceptance Criteria:
+      [AC1] Shared schema accepts up to 8 `returnPhases`/`spendingPhases` and rejects 9.
+      [AC2] Client store/UI add-guards and copy reflect max 8 for Return and Spending phases.
+      [AC3] Snapshot return-phase parsing supports up to 8.
+      [AC4] Regression + native gates pass.
+
 ## Phase: Absolute Date Core Parameters
 
 - [x] ABSDATE-T1: Shared Domain & Server Engine Overhaul

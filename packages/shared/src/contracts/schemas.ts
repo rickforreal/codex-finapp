@@ -431,8 +431,8 @@ const simulationConfigSchema = z
       }),
     portfolio: assetBalancesSchema,
     returnAssumptions: returnAssumptionsSchema.optional(),
-    returnPhases: z.array(returnPhaseSchema).min(1).max(4).optional(),
-    spendingPhases: z.array(spendingPhaseSchema).max(4),
+    returnPhases: z.array(returnPhaseSchema).min(1).max(8).optional(),
+    spendingPhases: z.array(spendingPhaseSchema).max(8),
     withdrawalStrategy: z.discriminatedUnion('type', [
       z
         .object({

@@ -41,3 +41,4 @@ A request belongs in:
 | CHG-0010  | MC summary stats cross-run aggregation             | Done   | 2026-03-05 | 2026-03-05 | `docs/changes/CHG-0010-mc-summary-stats-cross-run-aggregation/`    |
 | CHG-0011  | Bookmark duplicate action                          | Open   | 2026-03-07 | 2026-03-07 | `docs/changes/CHG-0011-bookmark-duplicate-action/`                 |
 | CHG-0012  | Hopium theme swatch refresh                        | Done   | 2026-03-08 | 2026-03-08 | `docs/changes/CHG-0012-hopium-theme-swatch-refresh/`               |
+| CHG-0013  | Raise return/spending phase limits to 8            | Done   | 2026-03-13 | 2026-03-13 | `docs/changes/CHG-0013-phase-limit-8/`                             |

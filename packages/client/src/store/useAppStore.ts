@@ -3687,7 +3687,7 @@ export const useAppStore = create<AppStore>((set) => ({
       if (isCompareFamilyLockedAndSyncedForActiveSlot(state, 'returnPhases')) {
         return state;
       }
-      if (state.returnPhases.length >= 4) {
+      if (state.returnPhases.length >= 8) {
         return state;
       }
       const lastPhase = state.returnPhases[state.returnPhases.length - 1];
@@ -3979,7 +3979,7 @@ export const useAppStore = create<AppStore>((set) => ({
       if (isCompareFamilyLockedAndSyncedForActiveSlot(state, 'spendingPhases')) {
         return state;
       }
-      if (state.spendingPhases.length >= 4) {
+      if (state.spendingPhases.length >= 8) {
         return state;
       }
       const portfolioStart = state.coreParams.portfolioStart;

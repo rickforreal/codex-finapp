@@ -132,7 +132,7 @@ ReturnPhase =
 
 Cardinality and semantics:
 
-- `returnPhases` supports `1..4` entries.
+- `returnPhases` supports `1..8` entries.
 - Phases must be contiguous (no gaps/overlaps): `phase[i].start === phase[i-1].end` for `i > 0`.
 - Coverage is full-horizon: first phase starts at `coreParams.portfolioStart`; last phase ends at `coreParams.portfolioEnd`.
 - Block bootstrap sampling is phase-local: contiguous block draws never cross return-phase boundaries.
@@ -154,7 +154,7 @@ SpendingPhase {
 
 Cardinality and semantics:
 
-- `spendingPhases` supports `0..4` entries.
+- `spendingPhases` supports `0..8` entries.
 - Missing `minMonthlySpend`/`maxMonthlySpend` bounds mean withdrawals are dictated purely by the strategy.
 - They must form a contiguous timeline coverage segment via UI/store normalization.
 
