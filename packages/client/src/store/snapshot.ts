@@ -183,6 +183,7 @@ const returnAssumptionsSchema = z
 const returnPhaseSchema = z
   .object({
     id: z.string().min(1),
+    name: z.string().min(1).optional().default('Return Phase'),
     start: monthYearSchema,
     end: monthYearSchema,
     source: z.nativeEnum(ReturnSource),
@@ -404,8 +405,9 @@ const normalizeReturnPhases = (
 ): WorkspaceSnapshot['returnPhases'] => {
   const parsed = z.array(returnPhaseSchema).max(8).safeParse(raw);
   if (parsed.success && parsed.data.length > 0) {
-    const phases = parsed.data.map((phase) => ({
+    const phases = parsed.data.map((phase, index) => ({
       id: phase.id,
+      name: phase.name || `Return Phase ${index + 1}`,
       start: { ...phase.start },
       end: { ...phase.end },
       source: phase.source,
@@ -425,6 +427,7 @@ const normalizeReturnPhases = (
   return [
     {
       id: 'legacy-return-phase',
+      name: 'Return Phase 1',
       start: { ...fallback.portfolioStart },
       end: { ...fallback.portfolioEnd },
       source: fallback.returnsSource,

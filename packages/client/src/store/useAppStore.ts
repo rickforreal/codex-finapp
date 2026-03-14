@@ -66,6 +66,7 @@ export type SpendingPhaseForm = {
 
 export type ReturnPhaseForm = {
   id: string;
+  name: string;
   start: { month: number; year: number };
   end: { month: number; year: number };
   source: ReturnSource;
@@ -522,6 +523,7 @@ const defaultReturnPhase = (
   blockBootstrapLength: number,
 ): ReturnPhaseForm => ({
   id: createId('return-phase'),
+  name: 'Return Phase',
   start: { ...portfolioStart },
   end: { ...portfolioEnd },
   source,
@@ -556,6 +558,10 @@ const recalculateReturnPhaseBoundaries = (
     });
   });
   if (recalculated.length > 0) {
+    recalculated[0] = {
+      ...recalculated[0]!,
+      start: { ...portfolioStart },
+    };
     recalculated[recalculated.length - 1] = {
       ...recalculated[recalculated.length - 1]!,
       end: { ...portfolioEnd },
@@ -2263,6 +2269,7 @@ export const useAppStore = create<AppStore>((set) => ({
   returnPhases: [
     {
       id: createId('return-phase'),
+      name: 'Return Phase 1',
       start: { month: new Date().getMonth() + 1, year: new Date().getFullYear() },
       end: { month: new Date().getMonth() + 1, year: new Date().getFullYear() + 40 },
       source: ReturnSource.Historical,
@@ -3703,6 +3710,7 @@ export const useAppStore = create<AppStore>((set) => ({
         state.blockBootstrapEnabled,
         state.blockBootstrapLength,
       );
+      nextPhase.name = `Return Phase ${state.returnPhases.length + 1}`;
       nextPhase.start = lastPhase ? { ...lastPhase.end } : { ...state.coreParams.portfolioStart };
       nextPhase.end =
         state.returnPhases.length === 0

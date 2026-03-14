@@ -194,6 +194,7 @@ const ReturnPhaseCard = ({
   const toggleInstanceLock = useAppStore((state) => state.toggleCompareInstanceLock);
   const setCompareSlotInstanceSync = useAppStore((state) => state.setCompareSlotInstanceSync);
   const readOnly = familyReadOnly || instanceUi.readOnly;
+  const [isCollapsed, setIsCollapsed] = useState(false);
   const clampToPortfolioBounds = (value: MonthYear): MonthYear =>
     minMonthYear(maxMonthYear(value, portfolioStart), portfolioEnd);
 
@@ -320,9 +321,12 @@ const ReturnPhaseCard = ({
   return (
     <div className="space-y-3 rounded-md border border-brand-border bg-brand-surface p-3">
       <div className="flex items-center gap-2">
-        <p className="flex-1 text-xs font-semibold text-[var(--theme-color-text-secondary)] uppercase tracking-[0.08em]">
-          Return Phase {index + 1}
-        </p>
+        <input
+          value={phase.name || `Return Phase ${index + 1}`}
+          onChange={(event) => onUpdate({ name: event.target.value })}
+          disabled={readOnly}
+          className="h-8 flex-1 rounded border border-brand-border px-2 text-sm"
+        />
         <CompareSyncControl
           slotId={instanceUi.slotId}
           locked={instanceUi.instanceLocked}
@@ -339,12 +343,37 @@ const ReturnPhaseCard = ({
           type="button"
           onClick={onRemove}
           disabled={readOnly || totalPhases <= 1}
-          className="rounded border border-brand-border px-2 py-1 text-xs disabled:opacity-50"
+          aria-label="Delete return phase"
+          title="Delete phase"
+          className="grid h-8 w-8 place-items-center rounded border border-brand-border text-[var(--theme-color-text-secondary)] disabled:opacity-50"
         >
-          Remove
+          <svg viewBox="0 0 24 24" className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth="1.8">
+            <path d="M4 7h16" />
+            <path d="M9 7V5h6v2" />
+            <path d="M8 7l1 12h6l1-12" />
+          </svg>
+        </button>
+        <button
+          type="button"
+          onClick={() => setIsCollapsed((current) => !current)}
+          aria-label={isCollapsed ? 'Expand return phase' : 'Collapse return phase'}
+          title={isCollapsed ? 'Expand phase' : 'Collapse phase'}
+          className="grid h-8 w-8 place-items-center rounded border border-brand-border text-[var(--theme-color-text-secondary)]"
+        >
+          <svg
+            viewBox="0 0 24 24"
+            className={`h-4 w-4 transition-transform ${isCollapsed ? '' : 'rotate-180'}`}
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="2"
+          >
+            <path d="m6 9 6 6 6-6" />
+          </svg>
         </button>
       </div>
 
+      {!isCollapsed ? (
+        <>
       <div className="grid grid-cols-2 gap-2">
         <div className="space-y-1">
           <p className="text-[11px] text-[var(--theme-color-text-secondary)]">Start</p>
@@ -616,6 +645,8 @@ const ReturnPhaseCard = ({
           ) : null}
         </div>
       )}
+        </>
+      ) : null}
     </div>
   );
 };

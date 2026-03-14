@@ -55,9 +55,15 @@ export const PhaseCard = ({
           type="button"
           disabled={!canRemove || readOnly}
           onClick={onRemove}
-          className="h-8 rounded border border-brand-border px-2 text-xs disabled:opacity-40"
+          aria-label="Delete spending phase"
+          title="Delete phase"
+          className="grid h-8 w-8 place-items-center rounded border border-brand-border text-[var(--theme-color-text-secondary)] disabled:opacity-40"
         >
-          Remove
+          <svg viewBox="0 0 24 24" className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth="1.8">
+            <path d="M4 7h16" />
+            <path d="M9 7V5h6v2" />
+            <path d="M8 7l1 12h6l1-12" />
+          </svg>
         </button>
       </div>
 

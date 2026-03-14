@@ -177,6 +177,25 @@ describe('useAppStore compare slot behavior', () => {
     expect(updated?.end).toEqual(portfolioEnd);
   });
 
+  it('snaps remaining return phase start to portfolio start when deleting leading phase', () => {
+    resetStore();
+    const store = useAppStore.getState();
+    const { portfolioStart } = useAppStore.getState().coreParams;
+
+    store.addReturnPhase();
+    const [first, second] = useAppStore.getState().returnPhases;
+    if (!first || !second) {
+      throw new Error('Expected two return phases');
+    }
+
+    const secondStart = addMonths(portfolioStart, 24);
+    store.updateReturnPhase(second.id, { start: secondStart });
+    store.removeReturnPhase(first.id);
+
+    const remaining = useAppStore.getState().returnPhases[0];
+    expect(remaining?.start).toEqual(portfolioStart);
+  });
+
   it('caps spending and return phases at 8 entries', () => {
     resetStore();
     const store = useAppStore.getState();
