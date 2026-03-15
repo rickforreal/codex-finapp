@@ -314,7 +314,8 @@ export const PortfolioChart = ({ hoverIndex, onHoverChange, chartWidth }: Portfo
           };
 
     return (
-      <div className="relative overflow-visible">
+      <div className="space-y-2">
+        <div className="relative overflow-visible">
         <svg
           viewBox={`0 0 ${width} ${height}`}
           className="h-[360px] w-full bg-white"
@@ -396,43 +397,6 @@ export const PortfolioChart = ({ hoverIndex, onHoverChange, chartWidth }: Portfo
             <line x1={hoverX} y1={margin.top} x2={hoverX} y2={margin.top + plotHeight} stroke="var(--theme-color-chart-text)" strokeDasharray="4 4" />
           ) : null}
         </svg>
-        <div className="pointer-events-none absolute right-3 top-3 max-w-[220px] rounded-md border border-brand-border bg-white/95 px-3 py-2 text-xs text-slate-700">
-          {slotSeries.map((entry) => (
-            <div key={`legend-${entry.slotId}`} className="mt-1 flex items-center gap-2 first:mt-0">
-              <span className="h-[2px] w-4" style={{ backgroundColor: entry.color }} />
-              Portfolio {entry.slotId}
-            </div>
-          ))}
-          {compareStressEntries.length > 0 ? (
-            <div className="mt-2 border-t border-brand-border pt-1.5">
-              {compareStressEntries.map((entry) => (
-                <div key={`legend-stress-${entry.key}`} className="mt-1 flex items-center gap-2">
-                  <span
-                    className="inline-block w-4 border-t-2"
-                    style={{
-                      borderTopColor: entry.color,
-                      borderTopStyle: entry.slotIndex > 0 ? 'dashed' : 'solid',
-                    }}
-                  />
-                  <span className="max-w-[170px] truncate">{entry.label}</span>
-                </div>
-              ))}
-            </div>
-          ) : null}
-          {baselineSeries && baselineBands ? (
-            <div className="mt-2 border-t border-brand-border pt-1.5">
-              <div className="text-[10px] font-semibold text-slate-500">Baseline Bands ({baselineSeries.slotId})</div>
-              <div className="mt-1 flex items-center gap-2">
-                <span className="inline-block h-2 w-4 rounded" style={{ backgroundColor: baselineSeries.color, opacity: 0.2 }} />
-                25-75
-              </div>
-              <div className="mt-1 flex items-center gap-2">
-                <span className="inline-block h-2 w-4 rounded" style={{ backgroundColor: baselineSeries.color, opacity: 0.12 }} />
-                10-90
-              </div>
-            </div>
-          ) : null}
-        </div>
         {hoverX !== null && (tooltipPoints.length > 0 || stressTooltipPoints.length > 0) ? (
           <div
             className="pointer-events-none absolute z-30 w-[300px] rounded-md border border-slate-200 bg-white p-3 text-xs shadow-lg"
@@ -478,6 +442,44 @@ export const PortfolioChart = ({ hoverIndex, onHoverChange, chartWidth }: Portfo
             </div>
           </div>
         ) : null}
+        </div>
+        <div className="rounded-md border border-brand-border bg-white/95 px-3 py-2 text-xs text-slate-700">
+          <div className="flex flex-wrap items-center gap-x-4 gap-y-1.5">
+            {slotSeries.map((entry) => (
+              <div key={`legend-${entry.slotId}`} className="flex items-center gap-2">
+                <span className="h-[2px] w-4" style={{ backgroundColor: entry.color }} />
+                <span>Portfolio {entry.slotId}</span>
+              </div>
+            ))}
+            {!chartBreakdownEnabled
+              ? compareStressEntries.map((entry) => (
+                  <div key={`legend-stress-${entry.key}`} className="flex items-center gap-2">
+                    <span
+                      className="inline-block w-4 border-t-2"
+                      style={{
+                        borderTopColor: entry.color,
+                        borderTopStyle: entry.slotIndex > 0 ? 'dashed' : 'solid',
+                      }}
+                    />
+                    <span className="max-w-[220px] truncate">{entry.label}</span>
+                  </div>
+                ))
+              : null}
+            {baselineSeries && baselineBands ? (
+              <>
+                <span className="text-[10px] font-semibold text-slate-500">Baseline Bands ({baselineSeries.slotId})</span>
+                <div className="flex items-center gap-2">
+                  <span className="inline-block h-2 w-4 rounded" style={{ backgroundColor: baselineSeries.color, opacity: 0.2 }} />
+                  <span>25-75</span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <span className="inline-block h-2 w-4 rounded" style={{ backgroundColor: baselineSeries.color, opacity: 0.12 }} />
+                  <span>10-90</span>
+                </div>
+              </>
+            ) : null}
+          </div>
+        </div>
       </div>
     );
   }
@@ -638,7 +640,8 @@ export const PortfolioChart = ({ hoverIndex, onHoverChange, chartWidth }: Portfo
         : null;
 
   return (
-    <div className="relative overflow-visible">
+    <div className="space-y-2">
+      <div className="relative overflow-visible">
       <div className="overflow-hidden rounded-lg">
         <svg
           viewBox={`0 0 ${width} ${height}`}
@@ -724,15 +727,6 @@ export const PortfolioChart = ({ hoverIndex, onHoverChange, chartWidth }: Portfo
                 <path d={mcMedianLine} fill="none" stroke="var(--theme-chart-mc-median-line)" strokeWidth="2.5" />
               </>
             )}
-            <g transform={`translate(${margin.left + plotWidth - 120}, ${margin.top + 8})`}>
-              <rect x={0} y={0} width={116} height={52} rx={6} fill="var(--theme-color-overlay)" stroke="var(--theme-color-border-primary)" />
-              <text x={10} y={16} fontSize="10" fill="var(--theme-color-text-secondary)">10-90%</text>
-              <rect x={70} y={9} width={30} height={8} fill="var(--theme-chart-mc-band-outer)" />
-              <text x={10} y={31} fontSize="10" fill="var(--theme-color-text-secondary)">25-75%</text>
-              <rect x={70} y={24} width={30} height={8} fill="var(--theme-chart-mc-band-inner)" />
-              <text x={10} y={46} fontSize="10" fill="var(--theme-color-text-secondary)">Median</text>
-              <line x1={70} y1={42} x2={100} y2={42} stroke="var(--theme-chart-mc-median-line)" strokeWidth="2" />
-            </g>
           </g>
         ) : (
           <>
@@ -779,26 +773,6 @@ export const PortfolioChart = ({ hoverIndex, onHoverChange, chartWidth }: Portfo
           {hoverX !== null && hoverY !== null ? <circle cx={hoverX} cy={hoverY} r={5} fill="var(--theme-chart-manual-line)" /> : null}
         </svg>
       </div>
-
-      {!chartBreakdownEnabled && stressPaths.length > 0 ? (
-        <div className="absolute right-3 top-3 rounded-md border border-slate-200 bg-white/90 px-3 py-2 text-[11px] text-slate-700 shadow-sm">
-          <div className="mb-1 flex items-center gap-2">
-            <span className="inline-block h-[2px] w-5 bg-brand-navy" />
-            <span>Base</span>
-          </div>
-          {stressResult?.scenarios.map((scenario, index) => (
-            <div key={scenario.scenarioId} className="flex items-center gap-2">
-              <span
-                className="inline-block w-5 border-t-2 border-dotted"
-                style={{
-                  borderTopColor: stressScenarioColors[index] ?? 'var(--theme-color-text-muted)',
-                }}
-              />
-              <span className="max-w-[160px] truncate">{scenario.scenarioLabel}</span>
-            </div>
-          ))}
-        </div>
-      ) : null}
 
       {hoverPoint && hoverSeries && hoverX !== null ? (
         <div
@@ -869,6 +843,48 @@ export const PortfolioChart = ({ hoverIndex, onHoverChange, chartWidth }: Portfo
                   <span>P90</span>
                   <span className="font-mono text-slate-800">{formatCurrency(Math.round(hoverBands.p90))}</span>
                 </p>
+              </>
+            ) : null}
+          </div>
+        </div>
+      ) : null}
+      </div>
+      {(!chartBreakdownEnabled && visibleBands) || (!chartBreakdownEnabled && stressPaths.length > 0) ? (
+        <div className="rounded-md border border-brand-border bg-white/95 px-3 py-2 text-xs text-slate-700">
+          <div className="flex flex-wrap items-center gap-x-4 gap-y-1.5">
+            {!chartBreakdownEnabled && visibleBands ? (
+              <>
+                <div className="flex items-center gap-2">
+                  <span className="inline-block h-2 w-4 rounded bg-[var(--theme-chart-mc-band-inner)]" />
+                  <span>25-75</span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <span className="inline-block h-2 w-4 rounded bg-[var(--theme-chart-mc-band-outer)]" />
+                  <span>10-90</span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <span className="inline-block w-4 border-t-2 border-[var(--theme-chart-mc-median-line)]" />
+                  <span>Median</span>
+                </div>
+              </>
+            ) : null}
+            {!chartBreakdownEnabled && stressPaths.length > 0 ? (
+              <>
+                <div className="flex items-center gap-2">
+                  <span className="inline-block h-[2px] w-5 bg-brand-navy" />
+                  <span>Base</span>
+                </div>
+                {stressResult?.scenarios.map((scenario, index) => (
+                  <div key={scenario.scenarioId} className="flex items-center gap-2">
+                    <span
+                      className="inline-block w-5 border-t-2 border-dotted"
+                      style={{
+                        borderTopColor: stressScenarioColors[index] ?? 'var(--theme-color-text-muted)',
+                      }}
+                    />
+                    <span className="max-w-[220px] truncate">{scenario.scenarioLabel}</span>
+                  </div>
+                ))}
               </>
             ) : null}
           </div>

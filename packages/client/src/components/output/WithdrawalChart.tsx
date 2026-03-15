@@ -306,7 +306,8 @@ export const WithdrawalChart = ({ hoverIndex, onHoverChange, chartWidth }: Withd
           };
 
     return (
-      <div className="relative overflow-visible">
+      <div className="space-y-2">
+        <div className="relative overflow-visible">
         <svg
           viewBox={`0 0 ${width} ${height}`}
           className="h-[360px] w-full bg-white"
@@ -388,27 +389,6 @@ export const WithdrawalChart = ({ hoverIndex, onHoverChange, chartWidth }: Withd
             <line x1={hoverX} y1={margin.top} x2={hoverX} y2={margin.top + plotHeight} stroke="var(--theme-color-chart-text)" strokeDasharray="4 4" />
           ) : null}
         </svg>
-        <div className="pointer-events-none absolute right-3 top-3 max-w-[220px] rounded-md border border-brand-border bg-white/95 px-3 py-2 text-xs text-slate-700">
-          {slotSeries.map((entry) => (
-            <div key={`wl-${entry.slotId}`} className="mt-1 flex items-center gap-2 first:mt-0">
-              <span className="h-[2px] w-4" style={{ backgroundColor: entry.color }} />
-              Portfolio {entry.slotId}
-            </div>
-          ))}
-          {baselineSeries && baselineBands ? (
-            <div className="mt-2 border-t border-brand-border pt-1.5">
-              <div className="text-[10px] font-semibold text-slate-500">Baseline Bands ({baselineSeries.slotId})</div>
-              <div className="mt-1 flex items-center gap-2">
-                <span className="inline-block h-2 w-4 rounded" style={{ backgroundColor: baselineSeries.color, opacity: 0.2 }} />
-                25-75
-              </div>
-              <div className="mt-1 flex items-center gap-2">
-                <span className="inline-block h-2 w-4 rounded" style={{ backgroundColor: baselineSeries.color, opacity: 0.12 }} />
-                10-90
-              </div>
-            </div>
-          ) : null}
-        </div>
         {hoverX !== null && (tooltipEntries.length > 0 || stressTooltipEntries.length > 0) ? (
           <div
             className="pointer-events-none absolute z-30 w-[300px] rounded-md border border-slate-200 bg-white p-3 text-xs shadow-lg"
@@ -450,6 +430,44 @@ export const WithdrawalChart = ({ hoverIndex, onHoverChange, chartWidth }: Withd
             </div>
           </div>
         ) : null}
+        </div>
+        <div className="rounded-md border border-brand-border bg-white/95 px-3 py-2 text-xs text-slate-700">
+          <div className="flex flex-wrap items-center gap-x-4 gap-y-1.5">
+            {slotSeries.map((entry) => (
+              <div key={`wl-${entry.slotId}`} className="flex items-center gap-2">
+                <span className="h-[2px] w-4" style={{ backgroundColor: entry.color }} />
+                <span>Portfolio {entry.slotId}</span>
+              </div>
+            ))}
+            {!chartBreakdownEnabled
+              ? compareStressEntries.map((entry) => (
+                  <div key={`legend-stress-${entry.key}`} className="flex items-center gap-2">
+                    <span
+                      className="inline-block w-4 border-t-2"
+                      style={{
+                        borderTopColor: entry.color,
+                        borderTopStyle: entry.slotIndex > 0 ? 'dashed' : 'solid',
+                      }}
+                    />
+                    <span className="max-w-[220px] truncate">{entry.label}</span>
+                  </div>
+                ))
+              : null}
+            {baselineSeries && baselineBands ? (
+              <>
+                <span className="text-[10px] font-semibold text-slate-500">Baseline Bands ({baselineSeries.slotId})</span>
+                <div className="flex items-center gap-2">
+                  <span className="inline-block h-2 w-4 rounded" style={{ backgroundColor: baselineSeries.color, opacity: 0.2 }} />
+                  <span>25-75</span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <span className="inline-block h-2 w-4 rounded" style={{ backgroundColor: baselineSeries.color, opacity: 0.12 }} />
+                  <span>10-90</span>
+                </div>
+              </>
+            ) : null}
+          </div>
+        </div>
       </div>
     );
   }
